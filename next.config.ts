@@ -1,8 +1,18 @@
-import type { NextConfig } from "next";
+// FILE: next.config.ts
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
   reactCompiler: true,
-};
 
-export default nextConfig;
+  async rewrites() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: '(?<subdomain>[^.]+)\\.shivshakticloud\\.in' }],
+        destination: '/website/:subdomain/:path*',
+      },
+    ]
+  },
+}
+
+export default nextConfig
