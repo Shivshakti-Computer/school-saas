@@ -1,8 +1,3 @@
-/* ============================================================
-   FILE: src/app/(dashboard)/admin/page.tsx
-   Admin Dashboard — stats + quick actions
-   ============================================================ */
-
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
@@ -12,113 +7,150 @@ import { User } from '@/models/User'
 import { Fee } from '@/models/Fee'
 import { Attendance } from '@/models/Attendance'
 import { Notice } from '@/models/Notice'
-import { StatCard } from '@/components/ui'
-import {
-    Users, CheckSquare, CreditCard,
-    Bell, TrendingUp,
-} from 'lucide-react'
+import { School } from '@/models/School'
+import { Subscription } from '@/models/Subscription'
+import { PLANS } from '@/lib/plans'
+import type { PlanId } from '@/lib/plans'
+import { AdminDashboardClient } from './DashboardClient'
 
-async function getStats(tenantId: string) {
+async function getDashboardData(tenantId: string) {
     await connectDB()
+
     const today = new Date().toISOString().split('T')[0]
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const yearStart = new Date(now.getFullYear(), 0, 1)
 
-    const [students, teachers, todayPresent, pendingFees, unreadNotices] =
-        await Promise.all([
-            Student.countDocuments({ tenantId, status: 'active' }),
-            User.countDocuments({ tenantId, role: 'teacher', isActive: true }),
-            Attendance.countDocuments({ tenantId, date: today, status: 'present' }),
-            Fee.countDocuments({ tenantId, status: 'pending' }),
-            Notice.countDocuments({ tenantId, isActive: true }),
-        ])
+    // ── Parallel queries ──
+    const [
+        totalStudents,
+        totalTeachers,
+        todayPresent,
+        todayAbsent,
+        totalStudentsForAttendance,
+        pendingFees,
+        paidFeesThisMonth,
+        totalFeeCollected,
+        activeNotices,
+        recentStudents,
+        recentFees,
+        recentNotices,
+        school,
+        activeSub,
+        last7DaysAttendance,
+        classWiseStudents,
+    ] = await Promise.all([
+        Student.countDocuments({ tenantId, status: 'active' }),
+        User.countDocuments({ tenantId, role: 'teacher', isActive: true }),
+        Attendance.countDocuments({ tenantId, date: today, status: 'present' }),
+        Attendance.countDocuments({ tenantId, date: today, status: 'absent' }),
+        Attendance.countDocuments({ tenantId, date: today }),
+        Fee.countDocuments({ tenantId, status: 'pending' }),
+        Fee.aggregate([
+            { $match: { tenantId: { $exists: true }, status: 'paid', paidAt: { $gte: monthStart } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+        Fee.aggregate([
+            { $match: { tenantId: { $exists: true }, status: 'paid' } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+        ]),
+        Notice.countDocuments({ tenantId, isActive: true }),
+        Student.find({ tenantId, status: 'active' })
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate('userId', 'name')
+            .select('admissionNo class section createdAt userId')
+            .lean(),
+        Fee.find({ tenantId, status: 'paid' })
+            .sort({ paidAt: -1 })
+            .limit(5)
+            .populate({ path: 'studentId', select: 'admissionNo', populate: { path: 'userId', select: 'name' } })
+            .select('amount paidAt studentId')
+            .lean(),
+        Notice.find({ tenantId, isActive: true })
+            .sort({ createdAt: -1 })
+            .limit(3)
+            .select('title createdAt')
+            .lean(),
+        School.findById(tenantId).select('name plan trialEndsAt subscriptionId modules createdAt').lean(),
+        Subscription.findOne({ tenantId, status: 'active' }).sort({ createdAt: -1 }).lean(),
+        // Last 7 days attendance data
+        (async () => {
+            const days: Array<{ date: string; present: number; absent: number; total: number }> = []
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date()
+                d.setDate(d.getDate() - i)
+                const dateStr = d.toISOString().split('T')[0]
+                const [present, absent] = await Promise.all([
+                    Attendance.countDocuments({ tenantId, date: dateStr, status: 'present' }),
+                    Attendance.countDocuments({ tenantId, date: dateStr, status: 'absent' }),
+                ])
+                days.push({ date: dateStr, present, absent, total: present + absent })
+            }
+            return days
+        })(),
+        // Class-wise student count
+        Student.aggregate([
+            { $match: { tenantId: { $exists: true }, status: 'active' } },
+            { $group: { _id: '$class', count: { $sum: 1 } } },
+            { $sort: { _id: 1 } },
+        ]),
+    ])
 
-    return { students, teachers, todayPresent, pendingFees, unreadNotices }
+    const attendancePct = totalStudentsForAttendance > 0
+        ? Math.round((todayPresent / totalStudentsForAttendance) * 100)
+        : 0
+
+    const feeThisMonth = paidFeesThisMonth[0]?.total || 0
+    const feeTotal = totalFeeCollected[0]?.total || 0
+
+    // Subscription info
+    const schoolData = school as any
+    const subData = activeSub as any
+    const trialEnd = schoolData?.trialEndsAt ? new Date(schoolData.trialEndsAt) : null
+    const isPaid = Boolean(subData)
+    const isInTrial = !isPaid && trialEnd && trialEnd > now
+    const isExpired = !isInTrial && !isPaid
+    const daysLeft = trialEnd ? Math.ceil((trialEnd.getTime() - now.getTime()) / 86400000) : 0
+
+    return {
+        stats: {
+            totalStudents,
+            totalTeachers,
+            todayPresent,
+            todayAbsent,
+            attendancePct,
+            pendingFees,
+            feeThisMonth,
+            feeTotal,
+            activeNotices,
+        },
+        recentStudents: JSON.parse(JSON.stringify(recentStudents)),
+        recentFees: JSON.parse(JSON.stringify(recentFees)),
+        recentNotices: JSON.parse(JSON.stringify(recentNotices)),
+        attendanceChart: JSON.parse(JSON.stringify(last7DaysAttendance)),
+        classWise: JSON.parse(JSON.stringify(classWiseStudents)),
+        subscription: {
+            plan: schoolData?.plan || 'starter',
+            isPaid: Boolean(isPaid),
+            isInTrial: Boolean(isInTrial),
+            isExpired: Boolean(isExpired),
+            daysLeft: isInTrial ? daysLeft : null,
+            validTill: isPaid && subData?.currentPeriodEnd
+                ? new Date(subData.currentPeriodEnd).toLocaleDateString('en-IN')
+                : trialEnd?.toLocaleDateString('en-IN') || '',
+        },
+        schoolName: schoolData?.name || '',
+        schoolCreatedAt: schoolData?.createdAt ? new Date(schoolData.createdAt).toLocaleDateString('en-IN') : '',
+    }
 }
 
 export default async function AdminDashboard() {
     const session = await getServerSession(authOptions)
     if (!session || session.user.role !== 'admin') redirect('/login')
 
-    const stats = await getStats(session.user.tenantId)
-    const attendancePct = stats.students
-        ? Math.round((stats.todayPresent / stats.students) * 100)
-        : 0
-    const today = new Date().toLocaleDateString('en-IN', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    })
+    const data = await getDashboardData(session.user.tenantId)
+    const userName = session.user.name?.split(' ')[0] || 'Admin'
 
-    return (
-        <div>
-            <div className="mb-6">
-                <h1 className="text-xl font-semibold text-slate-800">
-                    Namaste, {session.user.name?.split(' ')[0]} 👋
-                </h1>
-                <p className="text-sm text-slate-400 mt-0.5">{today}</p>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <StatCard
-                    label="Total Students"
-                    value={stats.students}
-                    icon={<Users size={20} />}
-                    color="indigo"
-                />
-                <StatCard
-                    label="Teachers"
-                    value={stats.teachers}
-                    icon={<Users size={20} />}
-                    color="blue"
-                />
-                <StatCard
-                    label={`Today Present (${attendancePct}%)`}
-                    value={stats.todayPresent}
-                    icon={<CheckSquare size={20} />}
-                    color="emerald"
-                />
-                <StatCard
-                    label="Pending Fees"
-                    value={stats.pendingFees}
-                    icon={<CreditCard size={20} />}
-                    color="amber"
-                />
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
-                    Quick Actions
-                </p>
-                <div className="flex flex-wrap gap-2">
-                    {[
-                        { label: '+ Add Student', href: '/admin/students?action=add' },
-                        { label: 'Mark Attendance', href: '/admin/attendance' },
-                        { label: 'Post Notice', href: '/admin/notices?action=add' },
-                        { label: 'Record Fee', href: '/admin/fees' },
-                        { label: 'Schedule Exam', href: '/admin/exams?action=add' },
-                    ].map(a => (
-                        <a
-                            key={a.label}
-                            href={a.href}
-                            className="px-3 py-1.5 text-sm bg-slate-50 hover:bg-indigo-50 hover:text-indigo-700 text-slate-600 rounded-lg border border-slate-200 hover:border-indigo-200 transition-colors"
-                        >
-                            {a.label}
-                        </a>
-                    ))}
-                </div>
-            </div>
-
-            {/* Notice count */}
-            {stats.unreadNotices > 0 && (
-                <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
-                    <Bell size={18} className="text-blue-500 flex-shrink-0" />
-                    <p className="text-sm text-blue-700">
-                        <strong>{stats.unreadNotices}</strong> active notice(s) published
-                    </p>
-                    <a href="/admin/notices" className="ml-auto text-xs text-blue-600 underline">
-                        View
-                    </a>
-                </div>
-            )}
-        </div>
-    )
+    return <AdminDashboardClient data={data} userName={userName} />
 }

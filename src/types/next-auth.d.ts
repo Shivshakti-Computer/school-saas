@@ -19,39 +19,36 @@ declare module 'next-auth' {
             plan: string
             schoolName: string
             modules: string[]
-
-            // ✅ ADD THESE
             trialEndsAt: string
             subscriptionId: string | null
-
-        } & DefaultSession['user']
-    }
-
-    interface User extends DefaultUser {
-        role: string
-        tenantId: string
-        subdomain: string
-        plan: string
-        schoolName: string
-        modules: string[]
-
-        // ✅ ADD THESE
-        trialEndsAt: string
-        subscriptionId: string | null
+            subscriptionEnd: string | null
+            subscriptionStatus: string  // 'trial' | 'active' | 'expired'
+        }
     }
 }
 
+interface User extends DefaultUser {
+    role: string
+    tenantId: string
+    subdomain: string
+    plan: string
+    schoolName: string
+    modules: string[]
+}
+
 declare module 'next-auth/jwt' {
-    interface JWT extends DefaultJWT {
+    interface JWT {
+        id: string
         role: string
         tenantId: string
         subdomain: string
         plan: string
         schoolName: string
         modules: string[]
-
-        // ✅ ALREADY CORRECT
         trialEndsAt: string
         subscriptionId: string | null
+        subscriptionEnd: string | null
+        subscriptionStatus: string
+        lastDbCheck: number
     }
 }

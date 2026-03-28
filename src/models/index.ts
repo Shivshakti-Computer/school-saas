@@ -1,6 +1,3 @@
-// src/models/index.ts
-// Saare models yahan se import karo — ek jagah se sab milega
-
 export { School } from './School'
 export { User } from './User'
 export { Student } from './Student'
@@ -12,3 +9,19 @@ export { Notice } from './Notice'
 export { Subscription } from './Subscription'
 export { LibraryBook, LibraryIssue } from './Library'
 export { Staff } from './Staff'
+
+// New Models
+export { GalleryAlbum } from './Gallery'
+export { Timetable } from './Timetable'
+export { Homework } from './Homework'
+export { DocumentTemplate } from './Document'
+export { Communication } from './Communication'
+export { Certificate } from './Certificate'
+export { InventoryItem } from './Inventory'
+export { Visitor } from './Visitor'
+export { HealthRecord } from './Health'
+export { Alumni } from './Alumni'
+
+export { Route } from './Transport'
+export { HostelRoom, MessMenu } from './Hostel'
+export { Course } from './LMS'

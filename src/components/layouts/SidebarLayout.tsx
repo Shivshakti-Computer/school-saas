@@ -9,7 +9,6 @@ import {
   Globe, Library, Briefcase, LayoutDashboard,
   LogOut, Settings, Menu, ChevronRight,
   UserCheck, User, Zap, BarChart2,
-  // ← NEW
   Image, Clock, FileText, FileCheck, MessageSquare,
   Award, PlayCircle, Bus, Building, Package,
   UserPlus, Heart, GraduationCap,
@@ -23,14 +22,13 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Users, CheckSquare, CreditCard, BookOpen, Bell,
   Globe, Library, Briefcase, LayoutDashboard,
   UserCheck, User, Zap, BarChart2,
-  // ← NEW
   Image, Clock, FileText, FileCheck, MessageSquare,
   Award, PlayCircle, Bus, Building, Package,
   UserPlus, Heart, GraduationCap,
 }
 
 function NavItem({
-  href, label, icon, active
+  href, label, icon, active,
 }: {
   href: string; label: string; icon: React.ReactNode; active: boolean
 }) {
@@ -64,6 +62,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const plan = (session.user.plan as Plan) ?? 'starter'
   const modules = (session.user.modules ?? []) as ModuleKey[]
 
+  // ── Subscription status from JWT (refreshed every 30s from DB) ──
+  const subscriptionStatus = (session.user as any).subscriptionStatus as string || 'trial'
+  const isExpired = subscriptionStatus === 'expired'
+  const isTrial = subscriptionStatus === 'trial'
+  const isActive = subscriptionStatus === 'active'
+
   const dashHref =
     role === 'superadmin' ? '/superadmin'
       : role === 'admin' ? '/admin'
@@ -71,9 +75,15 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           : role === 'student' ? '/student'
             : '/parent'
 
-  const navItems = getSidebarNav(modules, plan, role)
+  // ── Nav items based on subscription status ──
+  // Expired → empty (only subscription link visible)
+  // Trial → only starter modules
+  // Active → plan ke modules
+  const navItems = isExpired
+    ? []
+    : getSidebarNav(modules, plan, role)
 
-  const isActive = (href: string) =>
+  const checkActive = (href: string) =>
     pathname === href || (href !== dashHref && pathname.startsWith(href + '/'))
 
   const roleColors: Record<string, string> = {
@@ -83,11 +93,19 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     parent: 'bg-amber-600',
   }
 
+  // ── Plan badge in header ──
   const planBadgeClass =
-    plan === 'enterprise' ? 'bg-amber-100 text-amber-700'
-      : plan === 'pro' ? 'bg-purple-100 text-purple-700'
-        : plan === 'growth' ? 'bg-indigo-100 text-indigo-700'
-          : 'bg-slate-100 text-slate-600'
+    isExpired ? 'bg-red-100 text-red-700'
+      : isTrial ? 'bg-amber-100 text-amber-700'
+        : plan === 'enterprise' ? 'bg-amber-100 text-amber-700'
+          : plan === 'pro' ? 'bg-purple-100 text-purple-700'
+            : plan === 'growth' ? 'bg-indigo-100 text-indigo-700'
+              : 'bg-slate-100 text-slate-600'
+
+  const planBadgeText =
+    isExpired ? 'Expired'
+      : isTrial ? 'Trial'
+        : `${plan} plan`
 
   /* ── Sidebar Content ── */
   const SidebarContent = () => (
@@ -112,13 +130,18 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-        <NavItem
-          href={dashHref}
-          label="Dashboard"
-          icon={<LayoutDashboard size={16} />}
-          active={pathname === dashHref}
-        />
 
+        {/* Dashboard — always visible (even when expired, it redirects via middleware) */}
+        {!isExpired && (
+          <NavItem
+            href={dashHref}
+            label="Dashboard"
+            icon={<LayoutDashboard size={16} />}
+            active={pathname === dashHref}
+          />
+        )}
+
+        {/* Module nav items — empty when expired */}
         {navItems.map(item => {
           const Icon = ICON_MAP[item.icon ?? ''] ?? LayoutDashboard
           return (
@@ -127,11 +150,36 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               href={item.href ?? '#'}
               label={item.label}
               icon={<Icon size={16} />}
-              active={isActive(item.href ?? '')}
+              active={checkActive(item.href ?? '')}
             />
           )
         })}
 
+        {/* Expired message */}
+        {isExpired && role === 'admin' && (
+          <div className="mx-1 my-3 p-3 bg-red-50 border border-red-200 rounded-xl text-center">
+            <p className="text-xs text-red-800 font-semibold mb-1">
+              ⚠️ Access Blocked
+            </p>
+            <p className="text-[11px] text-red-600 leading-relaxed">
+              Subscription expired. Subscribe to continue using all features.
+            </p>
+          </div>
+        )}
+
+        {/* Trial info */}
+        {isTrial && role === 'admin' && (
+          <div className="mx-1 my-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+            <p className="text-xs text-amber-800 font-semibold mb-1">
+              ⏱️ Free Trial
+            </p>
+            <p className="text-[11px] text-amber-600 leading-relaxed">
+              Basic features only. Subscribe for full access.
+            </p>
+          </div>
+        )}
+
+        {/* Subscription link — admin only */}
         {role === 'admin' && (
           <Link
             href="/admin/subscription"
@@ -139,7 +187,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors',
               pathname.startsWith('/admin/subscription')
                 ? 'bg-amber-50 text-amber-700 font-medium'
-                : 'text-slate-600 hover:bg-slate-50'
+                : isExpired
+                  ? 'bg-red-50 text-red-700 font-medium'
+                  : 'text-slate-600 hover:bg-slate-50'
             )}
           >
             <Zap
@@ -147,19 +197,32 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               className={
                 pathname.startsWith('/admin/subscription')
                   ? 'text-amber-600'
-                  : 'text-slate-400'
+                  : isExpired
+                    ? 'text-red-600'
+                    : 'text-slate-400'
               }
             />
             <span className="flex-1">Subscription</span>
-            {!session.user.subscriptionId && (
+            {isTrial && (
               <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-md">
                 Trial
+              </span>
+            )}
+            {isExpired && (
+              <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-md animate-pulse">
+                Expired
+              </span>
+            )}
+            {isActive && (
+              <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-md">
+                Active
               </span>
             )}
           </Link>
         )}
 
-        {role === 'admin' && (
+        {/* Settings — only when not expired */}
+        {role === 'admin' && !isExpired && (
           <NavItem
             href="/admin/settings"
             label="Settings"
@@ -215,7 +278,24 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {role === 'admin' && <TrialBanner />}
+        {/* Trial banner — only show during active trial, not expired */}
+        {role === 'admin' && isTrial && <TrialBanner />}
+
+        {/* Expired banner — full width red */}
+        {role === 'admin' && isExpired && (
+          <div className="bg-red-600 px-4 py-2.5 flex items-center justify-between text-sm text-white">
+            <div className="flex items-center gap-2">
+              <span>❌</span>
+              <span>Subscription expired. All features are blocked.</span>
+            </div>
+            <Link
+              href="/admin/subscription"
+              className="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-xs font-medium transition-colors"
+            >
+              Subscribe Now
+            </Link>
+          </div>
+        )}
 
         {/* Top bar */}
         <header className="bg-white border-b border-slate-100 px-4 md:px-6 py-3 flex items-center gap-4 flex-shrink-0">
@@ -232,7 +312,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 'hidden sm:inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium capitalize cursor-pointer hover:opacity-80 transition-opacity',
                 planBadgeClass
               )}>
-                {plan} plan
+                {planBadgeText}
               </span>
             </Link>
           )}

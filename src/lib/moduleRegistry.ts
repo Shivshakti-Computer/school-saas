@@ -10,7 +10,7 @@ export type ModuleKey =
   | 'studentAttendance'
 
 export type Plan = 'starter' | 'growth' | 'pro' | 'enterprise'
-export type Role = 'admin' | 'teacher' | 'student' | 'parent'
+export type Role = 'admin' | 'teacher' | 'student' | 'parent' | 'superadmin'
 
 export interface ModuleConfig {
   label: string
@@ -97,7 +97,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/gallery',
     color: '#E11D48',
     isCore: false,
-    comingSoon: true,
   },
 
   // ─── GROWTH+ ───
@@ -134,7 +133,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/timetable',
     color: '#0891B2',
     isCore: false,
-    comingSoon: true,
   },
   homework: {
     label: 'Homework & Assignments',
@@ -147,7 +145,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/homework',
     color: '#6366F1',
     isCore: false,
-    comingSoon: true,
   },
   documents: {
     label: 'Documents',
@@ -159,7 +156,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/documents',
     color: '#475569',
     isCore: false,
-    comingSoon: true,
   },
   reports: {
     label: 'Reports',
@@ -182,7 +178,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/communication',
     color: '#10B981',
     isCore: false,
-    comingSoon: true,
   },
 
   // ─── PRO+ ───
@@ -207,7 +202,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/certificates',
     color: '#F59E0B',
     isCore: false,
-    comingSoon: true,
   },
   lms: {
     label: 'Online Learning',
@@ -220,7 +214,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/lms',
     color: '#993556',
     isCore: false,
-    comingSoon: true,
   },
 
   // ─── ENTERPRISE ONLY ───
@@ -245,7 +238,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/transport',
     color: '#185FA5',
     isCore: false,
-    comingSoon: true,
   },
   hostel: {
     label: 'Hostel',
@@ -257,7 +249,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/hostel',
     color: '#5F5E5A',
     isCore: false,
-    comingSoon: true,
   },
   inventory: {
     label: 'Inventory',
@@ -269,7 +260,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/inventory',
     color: '#78716C',
     isCore: false,
-    comingSoon: true,
   },
   visitor: {
     label: 'Visitor Management',
@@ -281,7 +271,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/visitor',
     color: '#0EA5E9',
     isCore: false,
-    comingSoon: true,
   },
   health: {
     label: 'Health Records',
@@ -293,7 +282,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/health',
     color: '#EF4444',
     isCore: false,
-    comingSoon: true,
   },
   alumni: {
     label: 'Alumni Network',
@@ -305,7 +293,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     apiBase: '/api/alumni',
     color: '#8B5CF6',
     isCore: false,
-    comingSoon: true,
   },
 
   // ─── Student-specific (internal) ───
