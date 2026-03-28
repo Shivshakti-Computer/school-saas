@@ -1,3 +1,5 @@
+// src/app/(admin)/admin/subscription/page.tsx
+
 'use client'
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
@@ -9,6 +11,8 @@ import {
     getPlan, getPlanPriceBreakdown, getSavings,
     type PlanId, type BillingCycle,
 } from '@/lib/plans'
+import { WEBSITE_PLAN_LIMITS } from '@/lib/websitePlans'
+import { MODULE_REGISTRY, type ModuleKey } from '@/lib/moduleRegistry'
 import { clsx } from 'clsx'
 import { Portal } from '@/components/ui/Portal'
 
@@ -46,6 +50,12 @@ function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
     })
+}
+
+/* ─── Get Module Label from Registry ─── */
+function getModuleLabel(moduleKey: string): string {
+    const mod = MODULE_REGISTRY[moduleKey as ModuleKey]
+    return mod?.label ?? moduleKey.charAt(0).toUpperCase() + moduleKey.slice(1)
 }
 
 /* ─── Price Display ─── */
@@ -93,6 +103,47 @@ function PriceDisplay({ planId, cycle }: { planId: PlanId; cycle: BillingCycle }
                     <strong>₹{saved.toLocaleString('en-IN')} bachao</strong>
                 </p>
             )}
+        </div>
+    )
+}
+
+/* ─── Plan Limits Quick Stats ─── */
+function PlanQuickStats({ planId }: { planId: PlanId }) {
+    const plan = getPlan(planId)
+    const websiteLimits = WEBSITE_PLAN_LIMITS[planId]
+
+    return (
+        <div className="bg-slate-50 rounded-lg px-3.5 py-3 mb-4 text-xs text-slate-600 space-y-2">
+            {/* Row 1: Students & Teachers */}
+            <div className="flex gap-3 flex-wrap">
+                <span className="flex items-center gap-1">
+                    👤 {plan.maxStudents === -1 ? 'Unlimited' : `${plan.maxStudents}`} students
+                </span>
+                <span className="flex items-center gap-1">
+                    👨‍🏫 {plan.maxTeachers === -1 ? 'Unlimited' : `${plan.maxTeachers}`} teachers
+                </span>
+            </div>
+            {/* Row 2: SMS & Modules */}
+            <div className="flex gap-3 flex-wrap">
+                <span className="flex items-center gap-1">
+                    💬 {plan.maxSmsPerMonth === -1 ? 'Unlimited' : `${plan.maxSmsPerMonth.toLocaleString('en-IN')}`} SMS/mo
+                </span>
+                <span className="flex items-center gap-1">
+                    📦 {plan.modules.length} modules
+                </span>
+            </div>
+            {/* Row 3: Website limits */}
+            <div className="flex gap-3 flex-wrap">
+                <span className="flex items-center gap-1">
+                    🎨 {websiteLimits.allowedTemplates.length} template{websiteLimits.allowedTemplates.length > 1 ? 's' : ''}
+                </span>
+                <span className="flex items-center gap-1">
+                    📄 {websiteLimits.maxSystemPages >= 999 ? '∞' : websiteLimits.maxSystemPages} pages
+                </span>
+                <span className="flex items-center gap-1">
+                    📸 {websiteLimits.maxGalleryPhotos >= 9999 ? '∞' : websiteLimits.maxGalleryPhotos} photos
+                </span>
+            </div>
         </div>
     )
 }
@@ -149,6 +200,24 @@ function UpgradeModal({
         return () => window.removeEventListener('keydown', handler)
     }, [busy, onCancel])
 
+    /* ── Handle free upgrade with API call ── */
+    const handleFreeUpgradeClick = async () => {
+        setApplyingFree(true)
+        try {
+            const res = await fetch('/api/subscription/upgrade/free', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newPlanId: planId, billingCycle: cycle }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Free upgrade failed')
+            onFreeUpgrade()
+        } catch (err: any) {
+            setError(err.message)
+            setApplyingFree(false)
+        }
+    }
+
     return (
         <div
             onClick={e => { if (e.target === e.currentTarget && !busy) onCancel() }}
@@ -157,7 +226,7 @@ function UpgradeModal({
                 background: 'rgba(0,0,0,0.6)',
                 backdropFilter: 'blur(6px)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16,
+                padding: 16, zIndex: 9999,
             }}
         >
             <div
@@ -183,7 +252,6 @@ function UpgradeModal({
                     }}
                 >✕</button>
 
-                {/* ← FIX: Dynamic title for cycle change vs plan upgrade */}
                 <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, paddingRight: 40 }}>
                     {isCycleChange
                         ? `Switch to ${cycle === 'yearly' ? 'Yearly' : 'Monthly'} Billing`
@@ -268,6 +336,30 @@ function UpgradeModal({
                             </div>
                         )}
 
+                        {/* What you'll get with upgrade */}
+                        {!breakdown.noPayment && planId !== currentPlan && (
+                            <div style={{ background: '#F0FDF4', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 12 }}>
+                                <p style={{ fontWeight: 600, color: '#166534', marginBottom: 6 }}>
+                                    🎁 {plan.name} mein extra milega:
+                                </p>
+                                <div style={{ color: '#15803D', lineHeight: 1.8 }}>
+                                    {plan.modules
+                                        .filter(m => !getPlan(currentPlan).modules.includes(m))
+                                        .slice(0, 5)
+                                        .map(m => (
+                                            <span key={m} style={{ display: 'block' }}>
+                                                ✓ {getModuleLabel(m)}
+                                            </span>
+                                        ))}
+                                    {plan.modules.filter(m => !getPlan(currentPlan).modules.includes(m)).length > 5 && (
+                                        <span style={{ opacity: 0.7 }}>
+                                            +{plan.modules.filter(m => !getPlan(currentPlan).modules.includes(m)).length - 5} more modules
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: 12 }}>
                             <button
                                 onClick={() => { if (!busy) onCancel() }}
@@ -283,7 +375,7 @@ function UpgradeModal({
 
                             {breakdown.noPayment ? (
                                 <button
-                                    onClick={() => { setApplyingFree(true); onFreeUpgrade() }}
+                                    onClick={handleFreeUpgradeClick}
                                     disabled={applyingFree}
                                     style={{
                                         flex: 2, padding: 14, borderRadius: 12,
@@ -339,12 +431,18 @@ function SubscriptionInner() {
     const [cancelConfirm, setCancelConfirm] = useState(false)
     const [cancelling, setCancelling] = useState(false)
 
-    useEffect(() => {
+    /* ── Fetch status ── */
+    const fetchStatus = useCallback(() => {
         fetch('/api/subscription/status')
             .then(r => r.json())
             .then(d => { setStatus(d); setLoading(false) })
-        loadRazorpaySDK()
+            .catch(() => setLoading(false))
     }, [])
+
+    useEffect(() => {
+        fetchStatus()
+        loadRazorpaySDK()
+    }, [fetchStatus])
 
     /* ── Razorpay checkout ── */
     const openRazorpay = useCallback(async (
@@ -380,6 +478,8 @@ function SubscriptionInner() {
                     if (!vRes.ok) throw new Error(vData.error)
                     setUpgradeModal(null)
                     setSuccess({ planName: vData.planName ?? plan.name })
+                    // Re-fetch status in background
+                    fetchStatus()
                 } catch (err: any) {
                     setAlert({ type: 'error', msg: err.message ?? 'Verification failed' })
                 }
@@ -390,7 +490,7 @@ function SubscriptionInner() {
             modal: { ondismiss: () => setPaying(null) },
         })
         rzp.open()
-    }, [cycle])
+    }, [cycle, fetchStatus])
 
     /* ── Fresh subscribe ── */
     const handleFreshSubscribe = async (planId: PlanId) => {
@@ -411,7 +511,7 @@ function SubscriptionInner() {
         }
     }
 
-    /* ── Subscribe handler — handles plan upgrade AND cycle change ── */
+    /* ── Subscribe handler ── */
     const handleSubscribe = (planId: PlanId) => {
         const cur = status?.plan as PlanId | undefined
         if (status?.isPaid && cur) {
@@ -419,25 +519,18 @@ function SubscriptionInner() {
             const curCycle = status?.billingCycle as BillingCycle | null
 
             if (diff > 0) {
-                // Higher plan → upgrade modal
                 setUpgradeModal(planId)
             } else if (diff === 0) {
-                // Same plan → check cycle
-                if (curCycle === cycle) {
-                    return // same plan same cycle, do nothing
-                }
+                if (curCycle === cycle) return
                 if (cycle === 'yearly' && curCycle === 'monthly') {
-                    // Monthly → Yearly: allowed
                     setUpgradeModal(planId)
                 } else {
-                    // Yearly → Monthly: not allowed
                     setAlert({
                         type: 'error',
                         msg: 'Yearly se monthly switch nahi ho sakta. Current period end hone ke baad monthly select karein.',
                     })
                 }
             } else {
-                // Lower plan
                 setAlert({
                     type: 'error',
                     msg: 'Downgrade ke liye support se contact karein. Current plan period end hone ke baad change hoga.',
@@ -448,10 +541,11 @@ function SubscriptionInner() {
         }
     }
 
-    /* ── Free upgrade ── */
+    /* ── Free upgrade — now properly triggers re-fetch ── */
     const handleFreeUpgrade = (planId: PlanId) => {
         setUpgradeModal(null)
         setSuccess({ planName: getPlan(planId).name })
+        fetchStatus()
     }
 
     /* ── Cancel subscription ── */
@@ -468,7 +562,6 @@ function SubscriptionInner() {
                 const data = await res.json()
                 throw new Error(data.error || 'Cancel failed')
             }
-            // Force re-login to reflect changes
             signOut({ callbackUrl: '/login' })
         } catch (err: any) {
             setAlert({ type: 'error', msg: err.message })
@@ -537,7 +630,7 @@ function SubscriptionInner() {
                     <span className="text-xl">🔒</span>
                     <div>
                         <p className="font-semibold text-sm text-amber-900 mb-0.5">
-                            {blockedModule.charAt(0).toUpperCase() + blockedModule.slice(1)} module locked hai
+                            {getModuleLabel(blockedModule)} module locked hai
                         </p>
                         <p className="text-[13px] text-amber-700 leading-relaxed">
                             Yeh feature aapke current plan mein nahi hai. Neeche se upgrade plan chunein.
@@ -568,7 +661,6 @@ function SubscriptionInner() {
                             <>
                                 <p className="font-semibold text-sm text-emerald-800 mb-0.5">
                                     {PLANS[status.plan as PlanId]?.name} Plan — Active
-                                    {/* ← NEW: Show billing cycle */}
                                     {currentCycle && (
                                         <span className="font-normal text-emerald-600">
                                             {' '}({currentCycle === 'monthly' ? 'Monthly' : 'Yearly'})
@@ -577,6 +669,7 @@ function SubscriptionInner() {
                                 </p>
                                 <p className="text-[13px] text-emerald-700">
                                     Valid till: {formatDate(status.validTill)}
+                                    {' · '}{PLANS[status.plan as PlanId]?.modules.length} modules active
                                 </p>
                             </>
                         )}
@@ -642,7 +735,6 @@ function SubscriptionInner() {
                     const isHL = highlightPlan === plan.id
                     const isPop = plan.highlighted && !isHL
 
-                    // ← FIX: Proper current/upgrade/cycle checks
                     const isExactlyCurrent =
                         currentPlanId === plan.id && status?.isPaid && currentCycle === cycle
                     const isCycleUpgrade =
@@ -702,27 +794,24 @@ function SubscriptionInner() {
                                 {plan.description}
                             </p>
 
-                            <div className="bg-slate-50 rounded-lg px-3.5 py-2.5 mb-5 text-xs text-slate-600 flex gap-4">
-                                <span>👤 {plan.maxStudents === -1 ? 'Unlimited' : `Max ${plan.maxStudents}`} students</span>
-                                <span>👨‍🏫 {plan.maxTeachers === -1 ? 'Unlimited' : `Max ${plan.maxTeachers}`} teachers</span>
-                            </div>
+                            {/* ← NEW: Enhanced quick stats with website limits */}
+                            <PlanQuickStats planId={plan.id} />
 
                             <ul className="space-y-2 mb-6 flex-1">
                                 {plan.features.map(f => (
                                     <li key={f} className="flex items-start gap-2 text-[13px] leading-snug">
                                         <span className="text-emerald-500 font-bold flex-shrink-0 mt-0.5">✓</span>
-                                        <span className="text-slate-700">{f.replace('✓ ', '')}</span>
+                                        <span className="text-slate-700">{f}</span>
                                     </li>
                                 ))}
                                 {plan.notIncluded?.map(f => (
                                     <li key={f} className="flex items-start gap-2 text-[13px] leading-snug opacity-40">
                                         <span className="flex-shrink-0 mt-0.5">✕</span>
-                                        <span>{f.replace('✗ ', '')}</span>
+                                        <span>{f}</span>
                                     </li>
                                 ))}
                             </ul>
 
-                            {/* ← FIX: Smart button text */}
                             <button
                                 onClick={() => !isDisabled && handleSubscribe(plan.id)}
                                 disabled={isDisabled || paying === plan.id}
@@ -794,12 +883,13 @@ function SubscriptionInner() {
                         <p className="text-sm text-red-700 mb-4 leading-relaxed">
                             Aap in features ka access kho denge:
                         </p>
+                        {/* ← FIX: Use MODULE_REGISTRY labels instead of raw keys */}
                         <ul className="text-sm text-red-600 mb-5 space-y-1 pl-4">
                             {currentPlanId && PLANS[currentPlanId]?.modules
                                 .filter(m => !PLANS.starter.modules.includes(m))
                                 .map(m => (
                                     <li key={m} className="list-disc">
-                                        {m.charAt(0).toUpperCase() + m.slice(1)}
+                                        {getModuleLabel(m)}
                                     </li>
                                 ))}
                         </ul>

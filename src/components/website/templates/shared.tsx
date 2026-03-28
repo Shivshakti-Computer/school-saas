@@ -41,7 +41,7 @@ export function WebsiteNav({ school, website, currentPage, subdomain, style }: T
       )}
 
       {/* Top info bar */}
-      {(website.phone || website.email) && (
+      {(website?.phone || website?.email) && (
         <div className={`${isDark ? 'bg-slate-800' : 'bg-slate-50'} py-1.5 px-4 hidden md:block`}>
           <div className="max-w-6xl mx-auto flex items-center justify-between text-xs">
             <div className="flex items-center gap-4">
