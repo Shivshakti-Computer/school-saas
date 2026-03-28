@@ -40,22 +40,39 @@ export async function POST(req: NextRequest) {
             .digest('hex')
 
         if (expectedSig !== razorpay_signature) {
-            return NextResponse.json({ error: 'Invalid payment signature' }, { status: 400 })
+            return NextResponse.json(
+                { error: 'Invalid payment signature' },
+                { status: 400 }
+            )
         }
 
         const plan = getPlan(planId as PlanId)
         const school = await School.findById(session.user.tenantId)
-        if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
+        if (!school) {
+            return NextResponse.json(
+                { error: 'School not found' },
+                { status: 404 }
+            )
+        }
 
         const now = new Date()
         const end = new Date(now)
+
+        // ← FIX: Exactly 30 or 365 days — no month arithmetic ambiguity
         if ((billingCycle as BillingCycle) === 'monthly') {
-            end.setMonth(end.getMonth() + 1)
+            end.setDate(end.getDate() + 30)
         } else {
-            end.setFullYear(end.getFullYear() + 1)
+            end.setDate(end.getDate() + 365)
         }
 
-        const amount = billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice
+        const amount =
+            billingCycle === 'monthly' ? plan.monthlyPrice : plan.yearlyPrice
+
+        // Cancel any existing active subscription first
+        await Subscription.updateMany(
+            { tenantId: school._id, status: 'active' },
+            { status: 'cancelled', cancelledAt: now, cancelReason: 'New subscription' }
+        )
 
         const subscription = await Subscription.create({
             tenantId: school._id,
@@ -69,7 +86,6 @@ export async function POST(req: NextRequest) {
             currentPeriodEnd: end,
         })
 
-        // School update karo
         await School.findByIdAndUpdate(school._id, {
             plan: planId,
             subscriptionId: subscription._id.toString(),
@@ -79,21 +95,21 @@ export async function POST(req: NextRequest) {
 
         if (school.email) {
             const { subject, html } = EMAIL_TEMPLATES.paymentConfirm(
-                school.name, amount, plan.name
+                school.name,
+                amount,
+                plan.name
             )
             await sendEmail(school.email, subject, html).catch(console.error)
         }
 
-        // *** KEY FIX: Tell client to force sign out and back in to refresh JWT ***
         return NextResponse.json({
             success: true,
             plan: planId,
             planName: plan.name,
             modules: plan.modules,
             validTill: end.toLocaleDateString('en-IN'),
-            requiresRelogin: true,   // ← frontend will handle this
+            requiresRelogin: true,
         })
-
     } catch (err: any) {
         console.error('Subscription verify error:', err)
         return NextResponse.json({ error: err.message }, { status: 500 })

@@ -9,7 +9,7 @@ import Razorpay from 'razorpay'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { School } from '@/models/School'
-import { Subscription } from '@/models/Subscription'
+import  '@/models/Subscription'
 import { getPlan } from '@/lib/plans'
 import type { PlanId, BillingCycle } from '@/lib/plans'
 

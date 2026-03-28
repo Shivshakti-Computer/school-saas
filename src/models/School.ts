@@ -40,7 +40,7 @@ const SchoolSchema = new Schema<ISchool>({
     phone: { type: String, required: true },
     email: { type: String, required: true },
     logo: { type: String },
-    plan: { type: String, enum: ['starter', 'pro', 'enterprise'], default: 'starter' },
+    plan: { type: String, enum: ['starter', 'growth', 'pro', 'enterprise'], default: 'starter' },
     trialEndsAt: { type: Date, required: true },
     subscriptionId: { type: String },
     modules: { type: [String], default: ['students', 'attendance', 'notices'] },

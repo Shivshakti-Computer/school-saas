@@ -1,36 +1,29 @@
 'use client'
-// =============================================================
-// FILE: src/app/(dashboard)/admin/subscription/page.tsx
-// FIX: UpgradeModal visibility — z-index 9999, body scroll lock,
-//      maxHeight + overflowY on card, backdrop click to close
-// =============================================================
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Alert, PageHeader, Spinner } from '@/components/ui'
 import {
     PLANS, GST_CONFIG,
-    getPlan, getPrice, getPlanPriceBreakdown,
-    getRazorpayBreakdown, getSavings,
+    getPlan, getPlanPriceBreakdown, getSavings,
     type PlanId, type BillingCycle,
 } from '@/lib/plans'
-import Link from 'next/link'
+import { clsx } from 'clsx'
 import { Portal } from '@/components/ui/Portal'
 
-declare global { interface Window { Razorpay: any } }
+declare global {
+    interface Window { Razorpay: any }
+}
 
-const PLAN_ORDER: PlanId[] = ['starter', 'pro', 'enterprise']
-function getPlanRank(planId: PlanId) { return PLAN_ORDER.indexOf(planId) }
+const PLAN_ORDER: PlanId[] = ['starter', 'growth', 'pro', 'enterprise']
+function getPlanRank(id: PlanId) { return PLAN_ORDER.indexOf(id) }
 
-// ─────────────────────────────────────────────────────────────
-// Razorpay SDK — promise-based loader, safe to call multiple times
-// ─────────────────────────────────────────────────────────────
+/* ─── Razorpay SDK Loader ─── */
 function loadRazorpaySDK(): Promise<boolean> {
-    return new Promise((resolve) => {
-        if (typeof window === 'undefined') { resolve(false); return }
-        if (window.Razorpay) { resolve(true); return }
-
+    return new Promise(resolve => {
+        if (typeof window === 'undefined') return resolve(false)
+        if (window.Razorpay) return resolve(true)
         const existing = document.querySelector(
             'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
         )
@@ -39,85 +32,74 @@ function loadRazorpaySDK(): Promise<boolean> {
             existing.addEventListener('error', () => resolve(false))
             return
         }
-
-        const script = document.createElement('script')
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-        script.async = true
-        script.onload = () => resolve(true)
-        script.onerror = () => resolve(false)
-        document.body.appendChild(script)
+        const s = document.createElement('script')
+        s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+        s.async = true
+        s.onload = () => resolve(true)
+        s.onerror = () => resolve(false)
+        document.body.appendChild(s)
     })
 }
 
-// ─────────────────────────────────────────────────────────────
-// PriceDisplay
-// ─────────────────────────────────────────────────────────────
+/* ─── Date Formatter ─── */
+function formatDate(iso: string) {
+    return new Date(iso).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+    })
+}
+
+/* ─── Price Display ─── */
 function PriceDisplay({ planId, cycle }: { planId: PlanId; cycle: BillingCycle }) {
-    const [showBreakdown, setShowBreakdown] = useState(false)
-    const breakdown = getPlanPriceBreakdown(planId, cycle)
+    const [open, setOpen] = useState(false)
+    const bd = getPlanPriceBreakdown(planId, cycle)
     const plan = getPlan(planId)
-    const savings = getSavings(planId)
+    const saved = getSavings(planId)
 
     return (
         <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
-                <span style={{ fontSize: 36, fontWeight: 800, letterSpacing: '-1px', color: 'var(--color-text-primary)' }}>
-                    ₹{breakdown.totalAmount.toLocaleString('en-IN')}
+            <div className="flex items-baseline gap-1 mb-1">
+                <span className="text-4xl font-extrabold tracking-tight text-slate-900">
+                    ₹{bd.totalAmount.toLocaleString('en-IN')}
                 </span>
-                <span style={{ fontSize: 14, color: 'var(--color-text-secondary)' }}>
+                <span className="text-sm text-slate-500">
                     /{cycle === 'monthly' ? 'mo' : 'yr'}
                 </span>
             </div>
 
             {GST_CONFIG.enabled && (
-                <div style={{ marginBottom: 6 }}>
+                <div className="mb-1.5">
                     <button
-                        onClick={() => setShowBreakdown(!showBreakdown)}
-                        style={{ fontSize: 12, color: '#4F46E5', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: 4 }}
+                        onClick={() => setOpen(!open)}
+                        className="text-xs text-indigo-600 hover:underline flex items-center gap-1"
                     >
-                        Base ₹{breakdown.baseAmount.toLocaleString('en-IN')} + ₹{breakdown.gstAmount.toLocaleString('en-IN')} GST
-                        <span style={{ fontSize: 10 }}>{showBreakdown ? '▲' : '▼'}</span>
+                        Base ₹{bd.baseAmount.toLocaleString('en-IN')} + ₹{bd.gstAmount.toLocaleString('en-IN')} GST
+                        <span className="text-[10px]">{open ? '▲' : '▼'}</span>
                     </button>
-                    {showBreakdown && (
-                        <div style={{ background: 'var(--color-background-secondary)', border: '1px solid var(--color-border-tertiary)', borderRadius: 8, padding: '10px 14px', fontSize: 12, marginTop: 6, color: 'var(--color-text-secondary)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}><span>Base price</span><span>₹{breakdown.baseAmount.toLocaleString('en-IN')}</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}><span>GST (18%)</span><span>₹{breakdown.gstAmount.toLocaleString('en-IN')}</span></div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 13, borderTop: '1px solid var(--color-border-tertiary)', paddingTop: 6, color: 'var(--color-text-primary)' }}>
-                                <span>Total payable</span><span>₹{breakdown.totalAmount.toLocaleString('en-IN')}</span>
+                    {open && (
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 mt-1.5 space-y-1">
+                            <div className="flex justify-between"><span>Base price</span><span>₹{bd.baseAmount.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between"><span>GST (18%)</span><span>₹{bd.gstAmount.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between font-semibold text-slate-800 border-t border-slate-200 pt-1.5 mt-1.5">
+                                <span>Total payable</span><span>₹{bd.totalAmount.toLocaleString('en-IN')}</span>
                             </div>
                         </div>
                     )}
                 </div>
             )}
 
-            {cycle === 'yearly' && savings > 0 && (
-                <p style={{ fontSize: 12, color: '#059669', marginTop: 4 }}>
+            {cycle === 'yearly' && saved > 0 && (
+                <p className="text-xs text-emerald-600 mt-1">
                     ₹{(plan.monthlyPrice * 12).toLocaleString('en-IN')} ki jagah —{' '}
-                    <strong>₹{savings.toLocaleString('en-IN')} bachao</strong>
+                    <strong>₹{saved.toLocaleString('en-IN')} bachao</strong>
                 </p>
             )}
         </div>
     )
 }
 
-// ─────────────────────────────────────────────────────────────
-// UpgradeModal
-// KEY FIXES:
-//   1. z-index: 9999 (was 50 — dashboard layout was on top)
-//   2. Body scroll locked while open
-//   3. maxHeight: '90vh' + overflowY: 'auto' on card
-//   4. Backdrop click closes modal
-//   5. ✕ close button added
-//   6. Separate handlers for free vs paid upgrade
-// ─────────────────────────────────────────────────────────────
+/* ─── Upgrade Modal ─── */
 function UpgradeModal({
-    planId,
-    currentPlan,
-    cycle,
-    onPay,
-    onFreeUpgrade,
-    onCancel,
-    paying,
+    planId, currentPlan, cycle, onPay, onFreeUpgrade, onCancel, paying,
 }: {
     planId: PlanId
     currentPlan: PlanId
@@ -131,8 +113,10 @@ function UpgradeModal({
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
     const [applyingFree, setApplyingFree] = useState(false)
+    const busy = paying || applyingFree
+    const plan = getPlan(planId)
+    const isCycleChange = planId === currentPlan
 
-    // Lock body scroll
     useEffect(() => {
         const prev = document.body.style.overflow
         document.body.style.overflow = 'hidden'
@@ -151,129 +135,124 @@ function UpgradeModal({
                 setBreakdown(data)
                 setLoading(false)
             })
-            .catch(() => { setError('Server error. Please refresh and try again.'); setLoading(false) })
+            .catch(() => {
+                setError('Server error. Please refresh and try again.')
+                setLoading(false)
+            })
     }, [planId, cycle])
 
-    const plan = getPlan(planId)
-    const isbusy = paying || applyingFree
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === 'Escape' && !busy) onCancel()
+        }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [busy, onCancel])
 
     return (
-        // Backdrop — click outside to close
         <div
-            onMouseDown={(e) => { if (e.target === e.currentTarget && !isbusy) onCancel() }}
+            onClick={e => { if (e.target === e.currentTarget && !busy) onCancel() }}
             style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 9999,                   // ← KEY FIX: was z-index:50
-                background: 'rgba(0,0,0,0.55)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '16px',
-                overflowY: 'auto',
+                position: 'fixed', inset: 0,
+                background: 'rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(6px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: 16,
             }}
         >
-            {/* Modal card */}
             <div
-                onMouseDown={(e) => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
                 style={{
-                    background: 'var(--color-background-primary)',
-                    borderRadius: 16,
-                    padding: '28px',
-                    width: '100%',
-                    maxWidth: 460,
-                    border: '1px solid var(--color-border-primary)',
-                    boxShadow: '0 25px 60px rgba(0,0,0,0.35)',
+                    background: '#fff', borderRadius: 20, padding: 28,
+                    width: '100%', maxWidth: 480, maxHeight: '90vh',
+                    overflowY: 'auto',
+                    boxShadow: '0 32px 80px rgba(0,0,0,0.4)',
                     position: 'relative',
-                    maxHeight: '90vh',          // ← KEY FIX: cap height
-                    overflowY: 'auto',          // ← KEY FIX: scroll inside if needed
-                    margin: 'auto',             // ← ensures centering even when overflowing
                 }}
             >
-                {/* Close button */}
                 <button
-                    onClick={() => { if (!isbusy) onCancel() }}
+                    onClick={() => { if (!busy) onCancel() }}
+                    disabled={busy}
                     style={{
-                        position: 'absolute', top: 14, right: 14,
-                        width: 30, height: 30, borderRadius: '50%',
-                        border: '1px solid var(--color-border-tertiary)',
-                        background: 'var(--color-background-secondary)',
-                        cursor: isbusy ? 'not-allowed' : 'pointer',
-                        fontSize: 13, color: 'var(--color-text-secondary)',
+                        position: 'absolute', top: 16, right: 16,
+                        width: 32, height: 32, borderRadius: '50%',
+                        border: '1px solid #E2E8F0', background: '#F8FAFC',
+                        cursor: busy ? 'not-allowed' : 'pointer',
+                        fontSize: 14, color: '#64748B',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        opacity: isbusy ? 0.4 : 1,
                     }}
                 >✕</button>
 
-                <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, paddingRight: 36 }}>
-                    Upgrade to {plan.name}
+                {/* ← FIX: Dynamic title for cycle change vs plan upgrade */}
+                <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, paddingRight: 40 }}>
+                    {isCycleChange
+                        ? `Switch to ${cycle === 'yearly' ? 'Yearly' : 'Monthly'} Billing`
+                        : `Upgrade to ${plan.name}`}
                 </h3>
-                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 20 }}>
-                    Aapke current plan ke remaining days ka credit automatically milega
+                <p style={{ fontSize: 13, color: '#64748B', marginBottom: 24 }}>
+                    {isCycleChange
+                        ? cycle === 'yearly'
+                            ? 'Monthly se yearly switch karein — 2 months free!'
+                            : 'Billing cycle change ho raha hai'
+                        : 'Aapke current plan ke remaining days ka credit automatically milega'}
                 </p>
 
-                {/* Loading state */}
                 {loading && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0', gap: 12 }}>
-                        <Spinner />
-                        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>Amount calculate ho raha hai...</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 0', gap: 12 }}>
+                        <Spinner size="lg" />
+                        <p style={{ fontSize: 13, color: '#94A3B8' }}>Calculating amount...</p>
                     </div>
                 )}
 
-                {/* Error state */}
                 {error && !loading && (
-                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 16px', marginBottom: 16 }}>
+                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 18px', marginBottom: 20 }}>
                         <p style={{ color: '#DC2626', fontSize: 14 }}>⚠️ {error}</p>
                     </div>
                 )}
 
-                {/* Breakdown content */}
                 {breakdown && !loading && (
                     <>
                         {breakdown.noPayment ? (
-                            /* Free upgrade */
-                            <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '14px 16px', marginBottom: 20 }}>
-                                <p style={{ fontWeight: 600, color: '#065F46', fontSize: 14, marginBottom: 4 }}>✅ Credit enough hai!</p>
+                            <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 12, padding: '16px 18px', marginBottom: 24 }}>
+                                <p style={{ fontWeight: 600, color: '#065F46', fontSize: 15, marginBottom: 4 }}>✅ Credit enough hai!</p>
                                 <p style={{ fontSize: 13, color: '#047857' }}>{breakdown.explanation}</p>
                             </div>
                         ) : (
-                            /* Paid breakdown table */
-                            <div style={{ background: 'var(--color-background-secondary)', borderRadius: 10, padding: '16px', marginBottom: 16, fontSize: 13 }}>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, color: 'var(--color-text-secondary)' }}>
+                            <div style={{ background: '#F8FAFC', borderRadius: 12, padding: 18, marginBottom: 20, fontSize: 13 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, color: '#64748B' }}>
                                     <span>{plan.name} plan ({cycle})</span>
-                                    <span style={{ fontWeight: 500 }}>₹{breakdown.breakdown?.newPlanPrice?.toLocaleString('en-IN')}</span>
+                                    <span style={{ fontWeight: 500, color: '#334155' }}>
+                                        ₹{breakdown.breakdown?.newPlanPrice?.toLocaleString('en-IN')}
+                                    </span>
                                 </div>
 
                                 {breakdown.breakdown?.creditAmount > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, color: '#059669' }}>
-                                        <span style={{ lineHeight: 1.5 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12, color: '#059669' }}>
+                                        <span style={{ lineHeight: 1.6 }}>
                                             Credit — {breakdown.breakdown?.daysRemaining} din bache
                                             <br />
-                                            <span style={{ fontSize: 11, opacity: 0.8 }}>
+                                            <span style={{ fontSize: 11, opacity: 0.75 }}>
                                                 ₹{breakdown.breakdown?.dailyRate}/day × {breakdown.breakdown?.daysRemaining} days
                                             </span>
                                         </span>
-                                        <span style={{ fontWeight: 500, marginLeft: 12, whiteSpace: 'nowrap' }}>
+                                        <span style={{ fontWeight: 600, whiteSpace: 'nowrap', marginLeft: 12 }}>
                                             − ₹{breakdown.breakdown?.creditAmount?.toLocaleString('en-IN')}
                                         </span>
                                     </div>
                                 )}
 
-                                <div style={{ borderTop: '1px solid var(--color-border-tertiary)', paddingTop: 10, marginTop: 4 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: 'var(--color-text-secondary)' }}>
+                                <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 12, marginTop: 4 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#64748B' }}>
                                         <span>Subtotal</span>
                                         <span>₹{breakdown.breakdown?.subtotal?.toLocaleString('en-IN')}</span>
                                     </div>
-
                                     {GST_CONFIG.enabled && breakdown.breakdown?.gstAmount > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: 'var(--color-text-secondary)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, color: '#64748B' }}>
                                             <span>GST (18%)</span>
                                             <span>₹{breakdown.breakdown?.gstAmount?.toLocaleString('en-IN')}</span>
                                         </div>
                                     )}
-
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 16, color: 'var(--color-text-primary)', paddingTop: 4 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 18, color: '#0F172A', paddingTop: 6 }}>
                                         <span>Total payable</span>
                                         <span style={{ color: plan.color }}>
                                             ₹{breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')}
@@ -283,68 +262,37 @@ function UpgradeModal({
                             </div>
                         )}
 
-                        {/* Explanation pill */}
                         {breakdown.breakdown?.explanation && (
-                            <div style={{ background: '#EFF6FF', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#1E40AF', lineHeight: 1.6 }}>
+                            <div style={{ background: '#EFF6FF', borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 12, color: '#1E40AF', lineHeight: 1.7, overflowWrap: 'anywhere' }}>
                                 💡 {breakdown.breakdown.explanation}
                             </div>
                         )}
 
-                        {/* Razorpay net income */}
-                        {!breakdown.noPayment && breakdown.breakdown?.totalPayable > 0 && (
-                            <div style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 11, color: 'var(--color-text-secondary)', lineHeight: 1.7, border: '1px solid var(--color-border-tertiary)' }}>
-                                <p style={{ fontWeight: 600, marginBottom: 4, color: 'var(--color-text-primary)', fontSize: 12 }}>
-                                    Net income (after Razorpay deduction):
-                                </p>
-                                {(() => {
-                                    const rzp = getRazorpayBreakdown(breakdown.breakdown?.totalPayable ?? 0)
-                                    return (
-                                        <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <span>School pays</span><span>₹{rzp.schoolPays.toLocaleString('en-IN')}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#DC2626' }}>
-                                                <span>Razorpay (2% + GST)</span><span>− ₹{rzp.totalDeduction.toLocaleString('en-IN')}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: '#059669', borderTop: '1px solid var(--color-border-tertiary)', paddingTop: 4, marginTop: 4 }}>
-                                                <span>Net to account</span><span>₹{rzp.netToAccount.toLocaleString('en-IN')}</span>
-                                            </div>
-                                        </>
-                                    )
-                                })()}
-                            </div>
-                        )}
-
-                        {/* Buttons */}
-                        <div style={{ display: 'flex', gap: 10 }}>
+                        <div style={{ display: 'flex', gap: 12 }}>
                             <button
-                                onClick={() => { if (!isbusy) onCancel() }}
-                                disabled={isbusy}
+                                onClick={() => { if (!busy) onCancel() }}
+                                disabled={busy}
                                 style={{
-                                    flex: 1, padding: '12px', borderRadius: 8,
-                                    border: '1.5px solid var(--color-border-primary)',
-                                    background: 'transparent', cursor: isbusy ? 'not-allowed' : 'pointer',
-                                    fontSize: 14, color: 'var(--color-text-secondary)',
-                                    opacity: isbusy ? 0.5 : 1,
+                                    flex: 1, padding: 14, borderRadius: 12,
+                                    border: '1.5px solid #E2E8F0', background: '#fff',
+                                    cursor: busy ? 'not-allowed' : 'pointer',
+                                    fontSize: 14, fontWeight: 500, color: '#64748B',
+                                    opacity: busy ? 0.5 : 1,
                                 }}
-                            >
-                                Cancel
-                            </button>
+                            >Cancel</button>
 
                             {breakdown.noPayment ? (
                                 <button
                                     onClick={() => { setApplyingFree(true); onFreeUpgrade() }}
                                     disabled={applyingFree}
                                     style={{
-                                        flex: 2, padding: '12px', borderRadius: 8,
+                                        flex: 2, padding: 14, borderRadius: 12,
                                         background: '#059669', color: '#fff', border: 'none',
                                         cursor: applyingFree ? 'not-allowed' : 'pointer',
-                                        fontSize: 14, fontWeight: 600,
+                                        fontSize: 15, fontWeight: 600,
                                         opacity: applyingFree ? 0.7 : 1,
                                     }}
-                                >
-                                    {applyingFree ? 'Upgrading...' : 'Upgrade for free →'}
-                                </button>
+                                >{applyingFree ? 'Upgrading…' : isCycleChange ? 'Switch for free →' : 'Upgrade for free →'}</button>
                             ) : (
                                 <button
                                     onClick={() => {
@@ -353,17 +301,16 @@ function UpgradeModal({
                                     }}
                                     disabled={paying || !breakdown.orderId}
                                     style={{
-                                        flex: 2, padding: '12px', borderRadius: 8,
+                                        flex: 2, padding: 14, borderRadius: 12,
                                         background: plan.color, color: '#fff', border: 'none',
-                                        cursor: (paying || !breakdown.orderId) ? 'not-allowed' : 'pointer',
-                                        fontSize: 14, fontWeight: 600,
+                                        cursor: paying || !breakdown.orderId ? 'not-allowed' : 'pointer',
+                                        fontSize: 15, fontWeight: 600,
                                         opacity: paying ? 0.7 : 1,
                                     }}
                                 >
                                     {paying
-                                        ? 'Opening payment...'
-                                        : `Pay ₹${breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')} →`
-                                    }
+                                        ? 'Opening payment…'
+                                        : `Pay ₹${breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')} →`}
                                 </button>
                             )}
                         </div>
@@ -374,10 +321,10 @@ function UpgradeModal({
     )
 }
 
-// ─────────────────────────────────────────────────────────────
-// Main Page
-// ─────────────────────────────────────────────────────────────
-function SubscriptionPageInner() {
+/* ═══════════════════════════════════════════════════════════════
+   MAIN PAGE
+   ═══════════════════════════════════════════════════════════════ */
+function SubscriptionInner() {
     const searchParams = useSearchParams()
     const highlightPlan = searchParams.get('highlight') as PlanId | null
     const blockedModule = searchParams.get('blocked')
@@ -389,54 +336,44 @@ function SubscriptionPageInner() {
     const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
     const [success, setSuccess] = useState<{ planName: string } | null>(null)
     const [upgradeModal, setUpgradeModal] = useState<PlanId | null>(null)
+    const [cancelConfirm, setCancelConfirm] = useState(false)
+    const [cancelling, setCancelling] = useState(false)
 
     useEffect(() => {
         fetch('/api/subscription/status')
             .then(r => r.json())
             .then(d => { setStatus(d); setLoading(false) })
-
-        // Pre-load SDK on mount so it's ready when needed
         loadRazorpaySDK()
     }, [])
 
-    const openRazorpay = async (
-        planId: PlanId,
-        orderId: string,
-        amount: number,   // paise
-        isUpgrade = false,
+    /* ── Razorpay checkout ── */
+    const openRazorpay = useCallback(async (
+        planId: PlanId, orderId: string, amount: number, isUpgrade = false,
     ) => {
         const loaded = await loadRazorpaySDK()
         if (!loaded) {
-            setAlert({ type: 'error', msg: 'Payment system load nahi hua. Please page refresh karein.' })
+            setAlert({ type: 'error', msg: 'Payment system load nahi hua. Please refresh karein.' })
             setPaying(null)
             return
         }
-
         const plan = getPlan(planId)
-
-        const rzpInstance = new window.Razorpay({
+        const rzp = new window.Razorpay({
             key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            amount,
-            currency: 'INR',
+            amount, currency: 'INR',
             name: 'Shivshakti School Suite',
             description: isUpgrade ? `Upgrade to ${plan.name}` : `${plan.name} Plan — ${cycle}`,
             order_id: orderId,
-
-            handler: async (response: any) => {
+            handler: async (res: any) => {
                 try {
-                    const endpoint = isUpgrade
-                        ? '/api/subscription/upgrade/verify'
-                        : '/api/subscription/verify'
-
+                    const endpoint = isUpgrade ? '/api/subscription/upgrade/verify' : '/api/subscription/verify'
                     const vRes = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature,
-                            planId,
-                            billingCycle: cycle,
+                            razorpay_order_id: res.razorpay_order_id,
+                            razorpay_payment_id: res.razorpay_payment_id,
+                            razorpay_signature: res.razorpay_signature,
+                            planId, billingCycle: cycle,
                         }),
                     })
                     const vData = await vRes.json()
@@ -448,17 +385,14 @@ function SubscriptionPageInner() {
                 }
                 setPaying(null)
             },
-
             prefill: {},
             theme: { color: plan.color },
-            modal: {
-                ondismiss: () => { setPaying(null) },
-            },
+            modal: { ondismiss: () => setPaying(null) },
         })
+        rzp.open()
+    }, [cycle])
 
-        rzpInstance.open()
-    }
-
+    /* ── Fresh subscribe ── */
     const handleFreshSubscribe = async (planId: PlanId) => {
         setPaying(planId)
         setAlert(null)
@@ -477,59 +411,109 @@ function SubscriptionPageInner() {
         }
     }
 
+    /* ── Subscribe handler — handles plan upgrade AND cycle change ── */
     const handleSubscribe = (planId: PlanId) => {
-        const currentPlanId = status?.plan as PlanId | undefined
-        if (status?.isPaid && currentPlanId) {
-            const diff = getPlanRank(planId) - getPlanRank(currentPlanId)
+        const cur = status?.plan as PlanId | undefined
+        if (status?.isPaid && cur) {
+            const diff = getPlanRank(planId) - getPlanRank(cur)
+            const curCycle = status?.billingCycle as BillingCycle | null
+
             if (diff > 0) {
+                // Higher plan → upgrade modal
                 setUpgradeModal(planId)
-            } else if (diff < 0) {
-                setAlert({ type: 'error', msg: 'Downgrade ke liye support se contact karein. Current plan period end hone ke baad change hoga.' })
+            } else if (diff === 0) {
+                // Same plan → check cycle
+                if (curCycle === cycle) {
+                    return // same plan same cycle, do nothing
+                }
+                if (cycle === 'yearly' && curCycle === 'monthly') {
+                    // Monthly → Yearly: allowed
+                    setUpgradeModal(planId)
+                } else {
+                    // Yearly → Monthly: not allowed
+                    setAlert({
+                        type: 'error',
+                        msg: 'Yearly se monthly switch nahi ho sakta. Current period end hone ke baad monthly select karein.',
+                    })
+                }
+            } else {
+                // Lower plan
+                setAlert({
+                    type: 'error',
+                    msg: 'Downgrade ke liye support se contact karein. Current plan period end hone ke baad change hoga.',
+                })
             }
         } else {
             handleFreshSubscribe(planId)
         }
     }
 
+    /* ── Free upgrade ── */
     const handleFreeUpgrade = (planId: PlanId) => {
         setUpgradeModal(null)
         setSuccess({ planName: getPlan(planId).name })
     }
 
-    // Success screen
+    /* ── Cancel subscription ── */
+    const handleCancel = async () => {
+        setCancelling(true)
+        setAlert(null)
+        try {
+            const res = await fetch('/api/subscription/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reason: 'User cancelled from dashboard' }),
+            })
+            if (!res.ok) {
+                const data = await res.json()
+                throw new Error(data.error || 'Cancel failed')
+            }
+            // Force re-login to reflect changes
+            signOut({ callbackUrl: '/login' })
+        } catch (err: any) {
+            setAlert({ type: 'error', msg: err.message })
+            setCancelling(false)
+        }
+    }
+
+    /* ═══ SUCCESS SCREEN ═══ */
     if (success) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '64px 20px', textAlign: 'center', maxWidth: 440, margin: '0 auto' }}>
-                <div style={{ width: 80, height: 80, borderRadius: '50%', background: '#ECFDF5', fontSize: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>🎉</div>
-                <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Payment Successful!</h2>
-                <p style={{ color: 'var(--color-text-secondary)', fontSize: 15, marginBottom: 24 }}>
+            <div className="flex flex-col items-center justify-center py-16 px-5 text-center max-w-md mx-auto">
+                <div className="w-20 h-20 rounded-full bg-emerald-50 text-4xl flex items-center justify-center mb-5">🎉</div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Payment Successful!</h2>
+                <p className="text-slate-500 text-[15px] mb-6">
                     <strong>{success.planName} Plan</strong> active ho gaya hai.
                 </p>
-                <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '14px 18px', marginBottom: 24, textAlign: 'left', width: '100%' }}>
-                    <p style={{ fontWeight: 600, fontSize: 14, color: '#92400E', marginBottom: 4 }}>⚠️ Re-login Required</p>
-                    <p style={{ fontSize: 13, color: '#B45309', lineHeight: 1.5 }}>Naye plan ki services activate hone ke liye ek baar logout karein aur login karein.</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-left w-full">
+                    <p className="font-semibold text-sm text-amber-900 mb-1">⚠️ Re-login Required</p>
+                    <p className="text-[13px] text-amber-700 leading-relaxed">
+                        Naye plan ki services activate hone ke liye ek baar logout karein aur login karein.
+                    </p>
                 </div>
                 <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
-                    style={{ width: '100%', padding: '13px', borderRadius: 10, background: '#4F46E5', color: '#fff', fontWeight: 600, fontSize: 15, border: 'none', cursor: 'pointer' }}
+                    className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-semibold text-[15px] hover:bg-indigo-700 transition-colors"
                 >
-                    Logout & Login Again →
+                    Logout &amp; Login Again →
                 </button>
             </div>
         )
     }
 
     if (loading) {
-        return <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}><Spinner size="lg" /></div>
+        return <div className="flex justify-center py-16"><Spinner size="lg" /></div>
     }
 
     const plans = Object.values(PLANS)
     const currentPlanId = status?.plan as PlanId | undefined
+    const currentCycle = status?.billingCycle as BillingCycle | null
 
     return (
         <div>
             <PageHeader title="Subscription Plans" subtitle="Apne school ke liye sahi plan chunein" />
 
+            {/* Upgrade modal */}
             {upgradeModal && (
                 <Portal>
                     <UpgradeModal
@@ -547,14 +531,15 @@ function SubscriptionPageInner() {
                 </Portal>
             )}
 
+            {/* Blocked module warning */}
             {blockedModule && (
-                <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                    <span style={{ fontSize: 22 }}>🔒</span>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex items-start gap-3">
+                    <span className="text-xl">🔒</span>
                     <div>
-                        <p style={{ fontWeight: 600, fontSize: 14, color: '#92400E', marginBottom: 2 }}>
+                        <p className="font-semibold text-sm text-amber-900 mb-0.5">
                             {blockedModule.charAt(0).toUpperCase() + blockedModule.slice(1)} module locked hai
                         </p>
-                        <p style={{ fontSize: 13, color: '#B45309', lineHeight: 1.5 }}>
+                        <p className="text-[13px] text-amber-700 leading-relaxed">
                             Yeh feature aapke current plan mein nahi hai. Neeche se upgrade plan chunein.
                         </p>
                     </div>
@@ -562,166 +547,214 @@ function SubscriptionPageInner() {
             )}
 
             {alert && (
-                <div style={{ marginBottom: 20 }}>
+                <div className="mb-5">
                     <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />
                 </div>
             )}
 
+            {/* Status banner */}
             {status && (
-                <div style={{
-                    borderRadius: 12, padding: '14px 18px', marginBottom: 28,
-                    display: 'flex', alignItems: 'center', gap: 14, border: '1px solid',
-                    ...(status.isPaid
-                        ? { background: '#ECFDF5', borderColor: '#A7F3D0' }
-                        : status.isInTrial
-                            ? { background: '#EFF6FF', borderColor: '#BFDBFE' }
-                            : { background: '#FEF2F2', borderColor: '#FECACA' }),
-                }}>
-                    <span style={{ fontSize: 24 }}>{status.isPaid ? '✅' : status.isInTrial ? '⏱️' : '❌'}</span>
-                    <div style={{ flex: 1 }}>
+                <div className={clsx(
+                    'rounded-xl p-4 mb-7 flex items-center gap-3.5 border',
+                    status.isPaid ? 'bg-emerald-50 border-emerald-200'
+                        : status.isInTrial ? 'bg-blue-50 border-blue-200'
+                            : 'bg-red-50 border-red-200'
+                )}>
+                    <span className="text-2xl">
+                        {status.isPaid ? '✅' : status.isInTrial ? '⏱️' : '❌'}
+                    </span>
+                    <div className="flex-1">
                         {status.isPaid && (
                             <>
-                                <p style={{ fontWeight: 600, fontSize: 14, color: '#065F46', marginBottom: 2 }}>
+                                <p className="font-semibold text-sm text-emerald-800 mb-0.5">
                                     {PLANS[status.plan as PlanId]?.name} Plan — Active
+                                    {/* ← NEW: Show billing cycle */}
+                                    {currentCycle && (
+                                        <span className="font-normal text-emerald-600">
+                                            {' '}({currentCycle === 'monthly' ? 'Monthly' : 'Yearly'})
+                                        </span>
+                                    )}
                                 </p>
-                                <p style={{ fontSize: 13, color: '#047857' }}>Valid till: {status.validTill}</p>
+                                <p className="text-[13px] text-emerald-700">
+                                    Valid till: {formatDate(status.validTill)}
+                                </p>
                             </>
                         )}
                         {status.isInTrial && (
                             <>
-                                <p style={{ fontWeight: 600, fontSize: 14, color: '#1E40AF', marginBottom: 2 }}>
+                                <p className="font-semibold text-sm text-blue-800 mb-0.5">
                                     Free Trial — {status.daysLeft} days remaining
                                 </p>
-                                <p style={{ fontSize: 13, color: '#2563EB' }}>Subscribe karein to continue after trial</p>
+                                <p className="text-[13px] text-blue-700">
+                                    Subscribe karein to continue after trial
+                                </p>
                             </>
                         )}
                         {status.isExpired && (
                             <>
-                                <p style={{ fontWeight: 600, fontSize: 14, color: '#991B1B', marginBottom: 2 }}>Access Blocked</p>
-                                <p style={{ fontSize: 13, color: '#DC2626' }}>Trial expired — neeche plan choose karein</p>
+                                <p className="font-semibold text-sm text-red-800 mb-0.5">Access Blocked</p>
+                                <p className="text-[13px] text-red-700">Trial expired — neeche plan choose karein</p>
                             </>
                         )}
                     </div>
                     {status.isPaid && currentPlanId && (
-                        <span style={{ padding: '4px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600, background: `${PLANS[currentPlanId]?.color}20`, color: PLANS[currentPlanId]?.color, border: `1px solid ${PLANS[currentPlanId]?.color}30` }}>
+                        <span
+                            className="px-3 py-1 rounded-full text-xs font-semibold"
+                            style={{
+                                background: `${PLANS[currentPlanId]?.color}18`,
+                                color: PLANS[currentPlanId]?.color,
+                                border: `1px solid ${PLANS[currentPlanId]?.color}30`,
+                            }}
+                        >
                             {PLANS[currentPlanId]?.name}
                         </span>
                     )}
                 </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 36 }}>
-                <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 10, padding: 4, gap: 4 }}>
+            {/* Billing cycle toggle */}
+            <div className="flex justify-center mb-9">
+                <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
                     {(['monthly', 'yearly'] as BillingCycle[]).map(c => (
                         <button
                             key={c}
                             onClick={() => setCycle(c)}
-                            style={{
-                                padding: '8px 20px', borderRadius: 8, border: 'none',
-                                cursor: 'pointer', fontSize: 14, fontWeight: 500, transition: 'all 0.15s',
-                                ...(cycle === c
-                                    ? { background: '#fff', color: '#1E293B', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }
-                                    : { background: 'transparent', color: '#64748B' }),
-                            }}
+                            className={clsx(
+                                'px-5 py-2 rounded-lg text-sm font-medium transition-all',
+                                cycle === c
+                                    ? 'bg-white text-slate-800 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
+                            )}
                         >
                             {c === 'monthly' ? 'Monthly' : (
-                                <span>Yearly <span style={{ fontSize: 11, color: '#059669', fontWeight: 600 }}>2 months free</span></span>
+                                <span>Yearly <span className="text-[11px] text-emerald-600 font-semibold">2 months free</span></span>
                             )}
                         </button>
                     ))}
                 </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+            {/* Plan cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
                 {plans.map(plan => {
-                    const isCurrent = currentPlanId === plan.id && status?.isPaid
-                    const isHighlighted = highlightPlan === plan.id
-                    const isPopular = plan.highlighted && !isHighlighted
-                    const currentRank = currentPlanId ? getPlanRank(currentPlanId) : -1
+                    const curRank = currentPlanId ? getPlanRank(currentPlanId) : -1
                     const thisRank = getPlanRank(plan.id)
-                    const isUpgrade = status?.isPaid && thisRank > currentRank
-                    const isDowngrade = status?.isPaid && thisRank < currentRank
+                    const isHL = highlightPlan === plan.id
+                    const isPop = plan.highlighted && !isHL
+
+                    // ← FIX: Proper current/upgrade/cycle checks
+                    const isExactlyCurrent =
+                        currentPlanId === plan.id && status?.isPaid && currentCycle === cycle
+                    const isCycleUpgrade =
+                        currentPlanId === plan.id && status?.isPaid &&
+                        currentCycle === 'monthly' && cycle === 'yearly'
+                    const isCycleDowngrade =
+                        currentPlanId === plan.id && status?.isPaid &&
+                        currentCycle === 'yearly' && cycle === 'monthly'
+                    const isUpgrade = status?.isPaid && thisRank > curRank
+                    const isDown = status?.isPaid && thisRank < curRank
+                    const isDisabled = isExactlyCurrent || isDown || isCycleDowngrade
 
                     return (
                         <div
                             key={plan.id}
+                            className={clsx(
+                                'bg-white rounded-2xl flex flex-col transition-all relative',
+                                isDisabled && 'opacity-60'
+                            )}
                             style={{
-                                background: 'var(--color-background-primary)',
-                                borderRadius: 18,
-                                border: isHighlighted ? `2px solid ${plan.color}` : isPopular ? '1.5px solid #818CF8' : '1px solid var(--color-border-tertiary)',
-                                boxShadow: isHighlighted ? `0 0 0 5px ${plan.color}18, 0 8px 32px ${plan.color}18` : isPopular ? '0 8px 24px rgba(99,102,241,0.1)' : 'none',
+                                border: isHL ? `2px solid ${plan.color}`
+                                    : isPop ? '1.5px solid #818CF8'
+                                        : '1px solid #E2E8F0',
+                                boxShadow: isHL ? `0 0 0 5px ${plan.color}15, 0 8px 32px ${plan.color}18`
+                                    : isPop ? '0 8px 24px rgba(99,102,241,0.1)'
+                                        : 'none',
                                 padding: '28px 24px',
-                                display: 'flex', flexDirection: 'column',
-                                position: 'relative', transition: 'all 0.2s',
-                                opacity: isDowngrade ? 0.65 : 1,
                             }}
                         >
-                            {(isHighlighted || isPopular) && (
-                                <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', background: isHighlighted ? plan.color : '#4F46E5', color: '#fff', fontSize: 12, fontWeight: 600, padding: '4px 16px', borderRadius: 99, whiteSpace: 'nowrap' }}>
-                                    {isHighlighted ? '⭐ Aapke liye recommended' : '🔥 Most Popular'}
+                            {(isHL || isPop) && (
+                                <div
+                                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap"
+                                    style={{ background: isHL ? plan.color : '#4F46E5' }}
+                                >
+                                    {isHL ? '⭐ Recommended' : '🔥 Most Popular'}
                                 </div>
                             )}
 
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                                <h3 style={{ fontSize: 18, fontWeight: 700 }}>{plan.name}</h3>
-                                {isCurrent && (
-                                    <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600, background: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>Current</span>
+                            <div className="flex items-center justify-between mb-1">
+                                <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
+                                {isExactlyCurrent && (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        Current
+                                    </span>
                                 )}
                             </div>
 
-                            <p style={{ fontSize: 12, color: plan.color, fontWeight: 500, marginBottom: 16 }}>{plan.tagline}</p>
+                            <p className="text-xs font-medium mb-4" style={{ color: plan.color }}>
+                                {plan.tagline}
+                            </p>
 
-                            <div style={{ marginBottom: 8 }}>
+                            <div className="mb-2">
                                 <PriceDisplay planId={plan.id} cycle={cycle} />
                             </div>
 
-                            <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.5, marginBottom: 16 }}>{plan.description}</p>
+                            <p className="text-[13px] text-slate-500 leading-relaxed mb-4">
+                                {plan.description}
+                            </p>
 
-                            <div style={{ background: 'var(--color-background-secondary)', borderRadius: 8, padding: '10px 14px', marginBottom: 20, fontSize: 12, color: 'var(--color-text-secondary)', display: 'flex', gap: 16 }}>
+                            <div className="bg-slate-50 rounded-lg px-3.5 py-2.5 mb-5 text-xs text-slate-600 flex gap-4">
                                 <span>👤 {plan.maxStudents === -1 ? 'Unlimited' : `Max ${plan.maxStudents}`} students</span>
                                 <span>👨‍🏫 {plan.maxTeachers === -1 ? 'Unlimited' : `Max ${plan.maxTeachers}`} teachers</span>
                             </div>
 
-                            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', flex: 1 }}>
+                            <ul className="space-y-2 mb-6 flex-1">
                                 {plan.features.map(f => (
-                                    <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8, fontSize: 13, lineHeight: 1.4 }}>
-                                        <span style={{ color: '#10B981', fontWeight: 700, flexShrink: 0, marginTop: 1 }}>✓</span>
-                                        {f.replace('✓ ', '')}
+                                    <li key={f} className="flex items-start gap-2 text-[13px] leading-snug">
+                                        <span className="text-emerald-500 font-bold flex-shrink-0 mt-0.5">✓</span>
+                                        <span className="text-slate-700">{f.replace('✓ ', '')}</span>
                                     </li>
                                 ))}
                                 {plan.notIncluded?.map(f => (
-                                    <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8, fontSize: 13, lineHeight: 1.4, opacity: 0.45 }}>
-                                        <span style={{ flexShrink: 0, marginTop: 1 }}>✕</span>
-                                        {f.replace('✗ ', '')}
+                                    <li key={f} className="flex items-start gap-2 text-[13px] leading-snug opacity-40">
+                                        <span className="flex-shrink-0 mt-0.5">✕</span>
+                                        <span>{f.replace('✗ ', '')}</span>
                                     </li>
                                 ))}
                             </ul>
 
+                            {/* ← FIX: Smart button text */}
                             <button
-                                onClick={() => !isCurrent && !isDowngrade && handleSubscribe(plan.id)}
-                                disabled={isCurrent || paying === plan.id || isDowngrade}
-                                style={{
-                                    width: '100%', padding: '12px', borderRadius: 10,
-                                    border: 'none', fontSize: 15, fontWeight: 600,
-                                    cursor: (isCurrent || isDowngrade) ? 'default' : 'pointer',
-                                    transition: 'all 0.15s',
-                                    ...(isCurrent || isDowngrade
-                                        ? { background: 'var(--color-background-secondary)', color: 'var(--color-text-secondary)' }
-                                        : isHighlighted || isPopular
-                                            ? { background: plan.color, color: '#fff' }
-                                            : { background: 'transparent', color: plan.color, border: `1.5px solid ${plan.color}` }),
-                                }}
+                                onClick={() => !isDisabled && handleSubscribe(plan.id)}
+                                disabled={isDisabled || paying === plan.id}
+                                className="w-full py-3 rounded-xl text-[15px] font-semibold transition-all"
+                                style={
+                                    isDisabled
+                                        ? { background: '#F1F5F9', color: '#94A3B8', cursor: 'default', border: 'none' }
+                                        : isHL || isPop
+                                            ? { background: plan.color, color: '#fff', border: 'none', cursor: 'pointer' }
+                                            : { background: 'transparent', color: plan.color, border: `1.5px solid ${plan.color}`, cursor: 'pointer' }
+                                }
                             >
-                                {paying === plan.id ? 'Processing...'
-                                    : isCurrent ? '✓ Current Plan'
-                                        : isDowngrade ? 'Contact Support'
-                                            : isUpgrade ? `Upgrade to ${plan.name} →`
-                                                : `Get ${plan.name} →`}
+                                {paying === plan.id
+                                    ? 'Processing…'
+                                    : isExactlyCurrent
+                                        ? '✓ Current Plan'
+                                        : isCycleDowngrade
+                                            ? 'Not Available'
+                                            : isCycleUpgrade
+                                                ? 'Switch to Yearly →'
+                                                : isDown
+                                                    ? 'Contact Support'
+                                                    : isUpgrade
+                                                        ? `Upgrade to ${plan.name} →`
+                                                        : `Get ${plan.name} →`}
                             </button>
 
-                            {isUpgrade && !isCurrent && (
-                                <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textAlign: 'center', marginTop: 8 }}>
-                                    Proration credit milega · Double charge nahi hoga
+                            {(isUpgrade || isCycleUpgrade) && !isExactlyCurrent && (
+                                <p className="text-[11px] text-slate-400 text-center mt-2">
+                                    {isCycleUpgrade
+                                        ? 'Remaining days ka credit milega'
+                                        : 'Proration credit milega · Double charge nahi hoga'}
                                 </p>
                             )}
                         </div>
@@ -729,20 +762,73 @@ function SubscriptionPageInner() {
                 })}
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: 28, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            {/* Footer */}
+            <div className="text-center mt-7 text-[13px] text-slate-400 space-y-1">
                 <p>Secure payment by Razorpay · Cancel anytime</p>
                 {GST_CONFIG.enabled && (
-                    <p style={{ marginTop: 4 }}>GST invoice aapke email pe milegi · GSTIN: {GST_CONFIG.gstin}</p>
+                    <p>GST invoice aapke email pe milegi · GSTIN: {GST_CONFIG.gstin}</p>
                 )}
             </div>
+
+            {/* ─── CANCEL SECTION ─── */}
+            {status?.isPaid && !cancelConfirm && (
+                <div className="mt-10 pt-6 border-t border-slate-200 text-center">
+                    <button
+                        onClick={() => setCancelConfirm(true)}
+                        className="text-sm text-slate-400 hover:text-red-500 transition-colors underline underline-offset-2"
+                    >
+                        Cancel Subscription
+                    </button>
+                </div>
+            )}
+
+            {status?.isPaid && cancelConfirm && (
+                <div className="mt-10 pt-6 border-t border-slate-200">
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-lg mx-auto">
+                        <h3 className="font-bold text-red-900 text-base mb-2">
+                            ⚠️ Cancel Subscription?
+                        </h3>
+                        <p className="text-sm text-red-700 mb-2 leading-relaxed">
+                            Aapka plan <strong>immediately Starter</strong> pe downgrade ho jayega.
+                        </p>
+                        <p className="text-sm text-red-700 mb-4 leading-relaxed">
+                            Aap in features ka access kho denge:
+                        </p>
+                        <ul className="text-sm text-red-600 mb-5 space-y-1 pl-4">
+                            {currentPlanId && PLANS[currentPlanId]?.modules
+                                .filter(m => !PLANS.starter.modules.includes(m))
+                                .map(m => (
+                                    <li key={m} className="list-disc">
+                                        {m.charAt(0).toUpperCase() + m.slice(1)}
+                                    </li>
+                                ))}
+                        </ul>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setCancelConfirm(false)}
+                                className="flex-1 py-3 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                            >
+                                Keep My Plan
+                            </button>
+                            <button
+                                onClick={handleCancel}
+                                disabled={cancelling}
+                                className="flex-1 py-3 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
+                            >
+                                {cancelling ? 'Cancelling…' : 'Yes, Cancel'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
 
 export default function SubscriptionPage() {
     return (
-        <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}><Spinner size="lg" /></div>}>
-            <SubscriptionPageInner />
+        <Suspense fallback={<div className="flex justify-center py-16"><Spinner size="lg" /></div>}>
+            <SubscriptionInner />
         </Suspense>
     )
 }
