@@ -1,12 +1,10 @@
-// src/models/Subscription.ts
-
 import mongoose, { Schema, Document } from 'mongoose'
 
 export interface ISubscription extends Document {
     tenantId: mongoose.Types.ObjectId
     razorpaySubId: string
     razorpayCustomerId: string
-    plan: 'starter' | 'pro' | 'enterprise'
+    plan: 'starter' | 'growth' | 'pro' | 'enterprise'
     billingCycle: 'monthly' | 'yearly'
     amount: number
     status: 'created' | 'active' | 'paused' | 'cancelled' | 'expired'
@@ -27,7 +25,7 @@ const SubscriptionSchema = new Schema<ISubscription>({
     razorpayCustomerId: { type: String, required: true },
     plan: {
         type: String,
-        enum: ['starter', 'pro', 'enterprise'],
+        enum: ['starter', 'growth', 'pro', 'enterprise'],
         required: true,
     },
     billingCycle: {
