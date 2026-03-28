@@ -1,80 +1,99 @@
-import Link from 'next/link'
-import { clsx } from 'clsx'
+// FILE: src/components/marketing/MiniUI.tsx
+// Shared UI primitives for marketing pages
+// Uses globals.css design system classes
 
+import Link from 'next/link'
+
+/* ─── Primary Button ─── */
 export function PrimaryButton({
   href,
   children,
-  className,
-}: { href: string; children: React.ReactNode; className?: string }) {
+  className = '',
+}: {
+  href: string
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <Link
-      href={href}
-      className={clsx(
-        "inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors",
-        className
-      )}
-    >
+    <Link href={href} className={`btn-primary ${className}`}>
       {children}
     </Link>
   )
 }
 
+/* ─── Secondary Button ─── */
 export function SecondaryButton({
   href,
   children,
-  className,
-}: { href: string; children: React.ReactNode; className?: string }) {
+  className = '',
+}: {
+  href: string
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <Link
-      href={href}
-      className={clsx(
-        "inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors",
-        className
-      )}
-    >
+    <Link href={href} className={`btn-secondary ${className}`}>
       {children}
     </Link>
   )
 }
 
-export function Pill({ children, tone = "indigo" }: { children: React.ReactNode; tone?: "indigo"|"emerald"|"amber"|"slate" }) {
-  const toneClass =
-    tone === "emerald" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-    : tone === "amber" ? "bg-amber-50 text-amber-700 border-amber-200"
-    : tone === "slate" ? "bg-slate-50 text-slate-700 border-slate-200"
-    : "bg-indigo-50 text-indigo-700 border-indigo-200"
+/* ─── Pill / Badge ─── */
+export function Pill({
+  children,
+  tone = 'brand',
+}: {
+  children: React.ReactNode
+  tone?: 'brand' | 'emerald' | 'amber' | 'slate'
+}) {
+  const toneStyles: Record<string, string> = {
+    brand:
+      'text-[#818CF8] bg-[rgba(79,70,229,0.1)] border-[rgba(79,70,229,0.15)]',
+    emerald:
+      'text-emerald-400 bg-emerald-500/10 border-emerald-500/15',
+    amber:
+      'text-amber-400 bg-amber-500/10 border-amber-500/15',
+    slate:
+      'text-slate-400 bg-white/5 border-white/10',
+  }
 
   return (
-    <span className={clsx(
-      "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold",
-      toneClass
-    )}>
+    <span
+      className={`
+        inline-flex items-center gap-1.5 rounded-full border
+        px-3 py-1 text-xs font-semibold
+        ${toneStyles[tone] || toneStyles.brand}
+      `}
+    >
       {children}
     </span>
   )
 }
 
+/* ─── Section Title ─── */
 export function SectionTitle({
   eyebrow,
   title,
   subtitle,
+  center = true,
 }: {
   eyebrow?: string
   title: string
   subtitle?: string
+  center?: boolean
 }) {
   return (
-    <div className="max-w-2xl">
+    <div className={`max-w-2xl ${center ? 'mx-auto text-center' : ''}`}>
       {eyebrow && (
-        <p className="text-xs font-semibold tracking-wider uppercase text-indigo-600">
+        <div className={`badge-brand mb-4 ${center ? 'mx-auto' : ''}`}>
           {eyebrow}
-        </p>
+        </div>
       )}
-      <h2 className="mt-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
         {title}
       </h2>
       {subtitle && (
-        <p className="mt-2 text-sm sm:text-base text-slate-600 leading-relaxed">
+        <p className="mt-4 text-base text-slate-400 leading-relaxed">
           {subtitle}
         </p>
       )}
