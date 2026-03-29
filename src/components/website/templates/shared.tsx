@@ -137,12 +137,6 @@ export function WebsiteNav({ school, website, currentPage, subdomain, style }: T
           </div>
         </div>
       )}
-
-      {/* Marquee CSS */}
-      <style jsx>{`
-        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .animate-marquee { display: inline-block; animation: marquee 20s linear infinite; }
-      `}</style>
     </header>
   )
 }
