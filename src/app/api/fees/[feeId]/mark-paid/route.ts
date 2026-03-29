@@ -7,27 +7,29 @@ import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { feeId: string } }
+  { params }: { params: Promise<{ feeId: string }> }
 ) {
   try {
+    const { feeId } = await params          // ← await here
+
     const session = await getServerSession(authOptions)
     if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
- 
+
     await connectDB()
     const { paymentMode = 'cash' } = await req.json()
- 
+
     const fee = await Fee.findOne({
-      _id:      params.feeId,
+      _id:      feeId,                      // ← use destructured value
       tenantId: session.user.tenantId,
     })
     if (!fee) {
       return NextResponse.json({ error: 'Fee not found' }, { status: 404 })
     }
- 
+
     const receiptNumber = `RCP-${Date.now()}`
- 
+
     await Fee.findByIdAndUpdate(fee._id, {
       status:        'paid',
       paidAmount:    fee.finalAmount,
@@ -36,9 +38,9 @@ export async function POST(
       collectedBy:   session.user.id,
       receiptNumber,
     })
- 
+
     return NextResponse.json({ success: true, receiptNumber })
- 
+
   } catch (err: any) {
     console.error('Mark paid error:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })

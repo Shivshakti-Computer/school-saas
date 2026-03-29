@@ -1,5 +1,3 @@
-// FILE: src/app/(dashboard)/teacher/attendance/page.tsx
-// Same as admin attendance page — teacher sees only their class
 'use client'
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
@@ -17,8 +15,11 @@ interface AttRow {
 
 export default function TeacherAttendancePage() {
     const { data: session } = useSession()
-    const [cls, setCls] = useState(session?.user?.class ?? '')
-    const [section, setSection] = useState(session?.user?.section ?? 'A')
+    
+    // FIX 1 & 2: Casting session.user as 'any' to allow 'class' and 'section' properties
+    const [cls, setCls] = useState((session?.user as any)?.class ?? '')
+    const [section, setSection] = useState((session?.user as any)?.section ?? 'A')
+    
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
     const [list, setList] = useState<AttRow[]>([])
     const [loading, setLoading] = useState(false)
@@ -29,7 +30,12 @@ export default function TeacherAttendancePage() {
     const fetchAttendance = async () => {
         if (!cls) return
         setLoading(true)
-        const res = await fetch(`/api/attendance?class=${cls}&section=${section}&date=${date}`)
+        const params = new URLSearchParams()
+        if (cls) params.set('class', cls)
+        if (section) params.set('section', section)
+        if (date) params.set('date', date)
+
+        const res = await fetch(`/api/attendance?${params}`)
         const data = await res.json()
         setList(data.list ?? [])
         setLoading(false)
@@ -66,7 +72,13 @@ export default function TeacherAttendancePage() {
     return (
         <div>
             <PageHeader title="Mark Attendance" subtitle="Your class attendance" />
-            {alert && <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} className="mb-4" />}
+            
+            {/* FIX 3: Wrapped Alert in a div because Alert doesn't support className */}
+            {alert && (
+                <div className="mb-4">
+                    <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />
+                </div>
+            )}
 
             <Card className="mb-4">
                 <div className="flex flex-wrap gap-3 items-end">

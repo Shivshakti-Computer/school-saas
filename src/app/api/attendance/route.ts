@@ -14,6 +14,12 @@ import { sendSMS, SMS_TEMPLATES } from '@/lib/sms'
 import { User } from '@/models'
 import { PUSH_TEMPLATES, sendPushToUser } from '@/lib/push'
 
+// FIX 1: Interface banaya taaki TypeScript ko pata chale records ka structure kya hai
+interface AttendanceRecordInput {
+    studentId: string
+    status: 'present' | 'absent' | 'late' | 'pending'
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user || !['admin', 'teacher'].includes(session.user.role)) {
@@ -62,15 +68,20 @@ export async function POST(req: NextRequest) {
   }
 
   await connectDB()
-  const { date, records, subject } = await req.json()
-  // records: [{ studentId: string, status: 'present'|'absent'|'late' }]
+  
+  // FIX 2: req.json() ko type cast kiya taaki 'records' ka type 'AttendanceRecordInput[]' ho jaye
+  const { date, records, subject } = (await req.json()) as { 
+    date: string; 
+    records: AttendanceRecordInput[]; 
+    subject?: string 
+  }
 
   if (!date || !records?.length) {
     return NextResponse.json({ error: 'date and records required' }, { status: 400 })
   }
 
   // Bulk upsert
-  const ops = records.map((r: any) => ({
+  const ops = records.map((r) => ({ // 'r' ab implicitly 'any' nahi hai, ye AttendanceRecordInput hai
     updateOne: {
       filter: {
         tenantId: session.user.tenantId,
@@ -94,8 +105,8 @@ export async function POST(req: NextRequest) {
 
   // SMS to absent students' parents (only once per day)
   const absentIds = records
-    .filter((r: any) => r.status === 'absent')
-    .map((r: any) => r.studentId)
+    .filter((r) => r.status === 'absent')
+    .map((r) => r.studentId)
 
   if (absentIds.length > 0) {
     const absentStudents = await Student.find({
@@ -104,7 +115,6 @@ export async function POST(req: NextRequest) {
     }).lean()
 
     for (const s of absentStudents) {
-      // Check if SMS already sent today
       const alreadySent = await Attendance.findOne({
         studentId: s._id,
         date,
@@ -126,6 +136,7 @@ export async function POST(req: NextRequest) {
 
 
   // Push Notification for absent
+  // FIX 3: Ab yahan 'r' ko type pata hai, toh error nahi aayega
   const absentRecords = records.filter(r => r.status === 'absent')
   for (const r of absentRecords) {
     const student = await Student.findById(r.studentId)

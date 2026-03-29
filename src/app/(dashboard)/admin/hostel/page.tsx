@@ -62,7 +62,7 @@ export default function HostelPage() {
             if (!res.ok) throw new Error('Failed')
             setAlert({ type: 'success', msg: 'Room added!' })
             setAddRoomModal(false)
-            fetchData()
+            await fetchData()
         } catch (e: any) { setAlert({ type: 'error', msg: e.message }) }
         setSaving(false)
     }
@@ -82,7 +82,7 @@ export default function HostelPage() {
             if (!res.ok) throw new Error('Failed')
             setAlert({ type: 'success', msg: `${messModal} menu saved!` })
             setMessModal(null)
-            fetchData()
+            await fetchData()
         } catch (e: any) { setAlert({ type: 'error', msg: e.message }) }
         setSaving(false)
     }
@@ -165,26 +165,32 @@ export default function HostelPage() {
                     {DAYS.map(day => {
                         const menu = messMenu.find(m => m.day === day)
                         return (
-                            <Card key={day} className="cursor-pointer hover:border-indigo-200 transition-colors" onClick={() => openMessEdit(day)}>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h3 className="font-semibold text-sm">{day}</h3>
-                                    <Utensils size={14} className="text-slate-400" />
-                                </div>
-                                {menu?.meals?.length > 0 ? (
-                                    <div className="space-y-1.5">
-                                        {menu.meals.map((m: any, i: number) => (
-                                            <div key={i} className="flex items-start gap-2 text-xs">
-                                                <Badge variant={m.type === 'breakfast' ? 'warning' : m.type === 'lunch' ? 'success' : m.type === 'snacks' ? 'info' : 'purple'}>
-                                                    {m.type}
-                                                </Badge>
-                                                <span className="text-slate-600">{m.items?.join(', ') || 'Not set'}</span>
-                                            </div>
-                                        ))}
+                            <div
+                                key={day}
+                                className="cursor-pointer hover:border-indigo-200 transition-colors"
+                                onClick={() => openMessEdit(day)}
+                            >
+                                <Card>
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="font-semibold text-sm">{day}</h3>
+                                        <Utensils size={14} className="text-slate-400" />
                                     </div>
-                                ) : (
-                                    <p className="text-xs text-slate-400">Click to set menu</p>
-                                )}
-                            </Card>
+                                    {menu?.meals?.length > 0 ? (
+                                        <div className="space-y-1.5">
+                                            {menu.meals.map((m: any, i: number) => (
+                                                <div key={i} className="flex items-start gap-2 text-xs">
+                                                    <Badge variant={m.type === 'breakfast' ? 'warning' : m.type === 'lunch' ? 'success' : m.type === 'snacks' ? 'info' : 'purple'}>
+                                                        {m.type}
+                                                    </Badge>
+                                                    <span className="text-slate-600">{m.items?.join(', ') || 'Not set'}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-400">Click to set menu</p>
+                                    )}
+                                </Card>
+                            </div>
                         )
                     })}
                 </div>

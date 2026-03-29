@@ -1,4 +1,3 @@
-// FILE: src/app/(dashboard)/admin/reports/page.tsx
 'use client'
 
 import { useState } from 'react'
@@ -129,12 +128,13 @@ export default function ReportsPage() {
             />
 
             {alert && (
-                <Alert
-                    type={alert.type}
-                    message={alert.msg}
-                    onClose={() => setAlert(null)}
-                    className="mb-4"
-                />
+                <div className="mb-4">
+                    <Alert
+                        type={alert.type}
+                        message={alert.msg}
+                        onClose={() => setAlert(null)}
+                    />
+                </div>
             )}
 
             {/* Filters */}

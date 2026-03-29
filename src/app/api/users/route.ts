@@ -60,30 +60,3 @@ export async function POST(req: NextRequest) {
     const { password: _, ...safeUser } = user.toObject()
     return NextResponse.json({ user: safeUser }, { status: 201 })
 }
-
-
-export async function PUT(
-    req: NextRequest,
-    { params }: { params: { id: string } }
-) {
-    const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    await connectDB()
-    const body = await req.json()
-
-    // Password change allowed only via separate endpoint — block here
-    delete body.password
-    delete body.tenantId
-
-    const user = await User.findOneAndUpdate(
-        { _id: params.id, tenantId: session.user.tenantId },
-        { $set: body },
-        { new: true }
-    ).select('-password')
-
-    if (!user) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    return NextResponse.json({ user })
-}

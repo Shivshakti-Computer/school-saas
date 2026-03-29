@@ -12,7 +12,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { School } from '@/models/School'
 
-export async function GET_STATS(req: NextRequest) {
+export async function GET(req: NextRequest) {
     try {
         const session = await getServerSession(authOptions)
         if (!session?.user || session.user.role !== 'superadmin') {

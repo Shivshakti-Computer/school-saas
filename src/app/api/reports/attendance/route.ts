@@ -173,9 +173,10 @@ export async function GET(req: NextRequest) {
             to: { row: 5, column: 9 },
         }
 
-        // ✅ writeBuffer returns ArrayBuffer — must wrap in Buffer
-        const buffer = Buffer.from(await wb.xlsx.writeBuffer())
-        return new Response(buffer, {
+        const buffer = Buffer.from(await wb.xlsx.writeBuffer() as ArrayBuffer)
+        
+        // FIX: Cast buffer to any to bypass TypeScript mismatch with BodyInit
+        return new Response(buffer as any, {
             headers: {
                 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'Content-Disposition': `attachment; filename="attendance-${month}.xlsx"`,
@@ -231,7 +232,8 @@ export async function GET(req: NextRequest) {
             rows: tableRows,
         })
 
-        return new Response(buffer, {
+        // FIX: Cast buffer to any to bypass TypeScript mismatch with BodyInit
+        return new Response(buffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `attachment; filename="attendance-${month}.pdf"`,

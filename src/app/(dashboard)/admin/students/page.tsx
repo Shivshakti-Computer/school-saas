@@ -269,7 +269,12 @@ function AddStudentModal({
                     <Input label="Address *" placeholder="Village/City, District" value={form.address} onChange={e => set('address', e.target.value)} required />
                 </div>
 
-                {error && <Alert type="error" message={error} className="mt-3" />}
+                {/* FIXED: Wrapped Alert in a div because Alert doesn't support className */}
+                {error && (
+                    <div className="mt-3">
+                        <Alert type="error" message={error} />
+                    </div>
+                )}
 
                 <div className="flex justify-end gap-2 mt-5 pt-4 border-t border-slate-100">
                     <Button variant="secondary" type="button" onClick={onClose}>Cancel</Button>

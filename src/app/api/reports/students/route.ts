@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
             rows: tableRows,
         })
 
-        return new Response(buffer, {
+        return new Response(buffer as any, {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `attachment; filename="students.pdf"`,

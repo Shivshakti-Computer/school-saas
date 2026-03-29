@@ -10,7 +10,7 @@ import { sendEmail, EMAIL_TEMPLATES } from '@/lib/email'
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 
-export async function GET_CRON(req: NextRequest) {
+export async function GET(req: NextRequest) {
     // Secure with cron secret
     const authHeader = req.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
