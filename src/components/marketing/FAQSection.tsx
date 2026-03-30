@@ -1,5 +1,4 @@
 // FILE: src/components/marketing/FAQSection.tsx
-// Home page FAQ accordion — dark theme, smooth open/close
 
 'use client'
 
@@ -42,61 +41,71 @@ const faqs = [
 /* ─── Chevron Icon ─── */
 function ChevronIcon({ open }: { open: boolean }) {
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      className={`
-        text-slate-500 transition-transform duration-300 flex-shrink-0
-        ${open ? 'rotate-180' : ''}
-      `}
-    >
-      <path
-        d="M6 9l6 6 6-6"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${open ? 'bg-blue-100 rotate-180' : 'bg-slate-100'}`}>
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        className={`transition-colors ${open ? 'text-blue-600' : 'text-slate-500'}`}
+      >
+        <path
+          d="M6 9l6 6 6-6"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  )
+}
+
+/* ─── Number Badge ─── */
+function NumberBadge({ number, isOpen }: { number: number; isOpen: boolean }) {
+  return (
+    <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300 ${isOpen ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+      {number}
+    </span>
   )
 }
 
 /* ─── Single FAQ Item ─── */
 function FAQItem({
   faq,
+  index,
   isOpen,
   onToggle,
 }: {
   faq: { q: string; a: string }
+  index: number
   isOpen: boolean
   onToggle: () => void
 }) {
   return (
     <div
       className={`
-        card-dark overflow-hidden transition-colors duration-300
-        ${isOpen ? 'ring-1 ring-brand/20' : ''}
+        bg-white rounded-2xl border overflow-hidden transition-all duration-300
+        ${isOpen
+          ? 'border-blue-200 shadow-medium ring-1 ring-blue-100'
+          : 'border-slate-200 shadow-soft hover:shadow-medium hover:border-slate-300'
+        }
       `}
     >
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between gap-4 p-5 text-left hover:bg-white/[0.02] transition-colors"
+        className="w-full flex items-center justify-between gap-4 p-5 text-left transition-colors"
         aria-expanded={isOpen}
       >
-        <span className="text-sm font-semibold text-white pr-4">
-          {faq.q}
-        </span>
+        <div className="flex items-center gap-3 flex-1">
+          <NumberBadge number={index + 1} isOpen={isOpen} />
+          <span className={`text-sm font-semibold transition-colors ${isOpen ? 'text-blue-700' : 'text-slate-900'}`}>
+            {faq.q}
+          </span>
+        </div>
         <ChevronIcon open={isOpen} />
       </button>
 
-      {/* 
-        FIX: Use max-height transition instead of grid-rows
-        - Element always stays in DOM flow
-        - max-height: 0 → collapses without removing from flow
-        - max-height: 300px → enough for any answer length
-      */}
       <div
         className={`
           transition-all duration-300 ease-out
@@ -107,8 +116,8 @@ function FAQItem({
         `}
       >
         <div className="px-5 pb-5">
-          <div className="h-px bg-white/[0.06] mb-4" />
-          <p className="text-[13px] text-slate-400 leading-relaxed">
+          <div className="h-px bg-slate-100 mb-4" />
+          <p className="text-[13px] text-slate-600 leading-relaxed pl-10">
             {faq.a}
           </p>
         </div>
@@ -123,16 +132,17 @@ export function FAQSection() {
   const listRef = useRevealGroup()
 
   return (
-    <section id="faq" className="section-padding relative">
+    <section id="faq" className="section-padding relative bg-white">
       {/* Background */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-0 right-1/4 w-[400px] h-[300px] bg-brand/[0.03] blur-[120px] rounded-full" />
+        <div className="absolute top-0 right-1/4 w-[400px] h-[300px] bg-blue-500/[0.04] blur-[120px] rounded-full" />
+        <div className="absolute bottom-0 left-1/4 w-[400px] h-[200px] bg-purple-500/[0.03] blur-[100px] rounded-full" />
       </div>
 
       <Container>
         <div ref={headerRef} className="reveal">
           <SectionTitle
-            eyebrow="✦ FAQ"
+            eyebrow="❓ FAQ"
             title="Questions schools ask before getting started"
             subtitle="Can't find your answer? Contact us directly — we respond within hours."
           />
@@ -143,6 +153,7 @@ export function FAQSection() {
             <div key={faq.q} className="reveal">
               <FAQItem
                 faq={faq}
+                index={i}
                 isOpen={openIndex === i}
                 onToggle={() => setOpenIndex(openIndex === i ? null : i)}
               />
@@ -151,19 +162,20 @@ export function FAQSection() {
         </div>
 
         {/* Contact CTA */}
-        <div className="mt-10 max-w-3xl mx-auto">
-          <div className="card-dark p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="mt-12 max-w-3xl mx-auto">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
             <div>
-              <h3 className="text-sm font-bold text-white mb-1">
+              <h3 className="text-base font-bold text-slate-900 mb-1.5 flex items-center gap-2">
+                <span className="text-xl">💬</span>
                 Still have questions?
               </h3>
-              <p className="text-[13px] text-slate-500">
+              <p className="text-sm text-slate-600">
                 WhatsApp or email — we typically respond within a few hours.
               </p>
             </div>
             <a
               href="/contact"
-              className="btn-primary !text-[13px] !px-5 !py-2.5 flex-shrink-0"
+              className="btn-primary !text-[13px] !px-6 !py-3 flex-shrink-0"
             >
               Contact Us
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">

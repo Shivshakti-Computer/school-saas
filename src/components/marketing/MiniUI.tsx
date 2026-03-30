@@ -1,6 +1,4 @@
 // FILE: src/components/marketing/MiniUI.tsx
-// Shared UI primitives for marketing pages
-// Uses globals.css design system classes
 
 import Link from 'next/link'
 
@@ -47,14 +45,10 @@ export function Pill({
   tone?: 'brand' | 'emerald' | 'amber' | 'slate'
 }) {
   const toneStyles: Record<string, string> = {
-    brand:
-      'text-[#818CF8] bg-[rgba(79,70,229,0.1)] border-[rgba(79,70,229,0.15)]',
-    emerald:
-      'text-emerald-400 bg-emerald-500/10 border-emerald-500/15',
-    amber:
-      'text-amber-400 bg-amber-500/10 border-amber-500/15',
-    slate:
-      'text-slate-400 bg-white/5 border-white/10',
+    brand: 'text-brand-700 bg-brand-50 border-brand-200',
+    emerald: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+    amber: 'text-amber-700 bg-amber-50 border-amber-200',
+    slate: 'text-slate-600 bg-slate-100 border-slate-200',
   }
 
   return (
@@ -85,15 +79,15 @@ export function SectionTitle({
   return (
     <div className={`max-w-2xl ${center ? 'mx-auto text-center' : ''}`}>
       {eyebrow && (
-        <div className={`badge-brand mb-4 ${center ? 'mx-auto' : ''}`}>
+        <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-brand-50 border border-brand-100 text-sm font-semibold text-brand-700 mb-4 ${center ? 'mx-auto' : ''}`}>
           {eyebrow}
         </div>
       )}
-      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white tracking-tight leading-tight">
+      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
         {title}
       </h2>
       {subtitle && (
-        <p className="mt-4 text-base text-slate-400 leading-relaxed">
+        <p className="mt-4 text-base text-slate-600 leading-relaxed">
           {subtitle}
         </p>
       )}

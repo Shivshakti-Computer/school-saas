@@ -3,12 +3,17 @@
 interface ContainerProps {
   children: React.ReactNode
   className?: string
+  as?: React.ElementType
 }
 
-export function Container({ children, className = '' }: ContainerProps) {
+export function Container({
+  children,
+  className = '',
+  as: Component = 'div',
+}: ContainerProps) {
   return (
-    <div className={`container-custom ${className}`}>
+    <Component className={`container-custom ${className}`}>
       {children}
-    </div>
+    </Component>
   )
 }

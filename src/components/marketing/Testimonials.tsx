@@ -3,114 +3,142 @@
 import { Container } from './Container'
 import { SectionTitle } from './MiniUI'
 
-const testimonials = [
+/* 
+  PRE-LAUNCH: Instead of fake testimonials, 
+  show REAL value propositions as "What to Expect" cards
+*/
+
+const valueProps = [
   {
-    name: 'Rajesh Kumar',
-    role: 'Principal, Delhi Public School',
-    quote:
-      'VidyaFlow made our attendance and fee tracking completely paperless. Parents love the transparency and our staff saves hours every week.',
-    rating: 5,
-    tag: 'Admin Experience',
+    persona: 'For Principals & Admins',
+    icon: '👨‍💼',
+    benefits: [
+      'Complete school overview in one dashboard',
+      'Fee collection tracking with auto reminders',
+      'Staff & student management made paperless',
+      'Generate reports in PDF & Excel instantly',
+    ],
+    gradient: 'from-blue-500 to-indigo-600',
+    tagBg: 'bg-blue-50 text-blue-700 border-blue-200',
+    bgColor: 'bg-blue-50',
   },
   {
-    name: 'Sunita Sharma',
-    role: 'Class Teacher',
-    quote:
-      'Marking attendance and managing exam marks is simple. It works perfectly on my phone — no training needed for teachers.',
-    rating: 5,
-    tag: 'Teacher Friendly',
+    persona: 'For Teachers',
+    icon: '👩‍🏫',
+    benefits: [
+      'Mark attendance in 30 seconds flat',
+      'Enter exam marks — grade cards auto-generated',
+      'Assign homework from your phone',
+      'Zero training needed — simple UI',
+    ],
+    gradient: 'from-emerald-500 to-teal-600',
+    tagBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    bgColor: 'bg-emerald-50',
   },
   {
-    name: 'Amit Patel',
-    role: 'Parent',
-    quote:
-      'I can check my child’s attendance, fee status, and exam results without visiting the school. Very convenient and fast.',
-    rating: 5,
-    tag: 'Parent Trust',
+    persona: 'For Parents',
+    icon: '👨‍👩‍👧',
+    benefits: [
+      'Check attendance & results anytime',
+      'Pay fees online via UPI/Card',
+      'Get instant SMS & WhatsApp updates',
+      'No school visits needed for basic info',
+    ],
+    gradient: 'from-amber-500 to-orange-600',
+    tagBg: 'bg-amber-50 text-amber-700 border-amber-200',
+    bgColor: 'bg-amber-50',
   },
 ]
 
-function StarRating({ count = 5 }: { count?: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: count }).map((_, i) => (
-        <svg
-          key={i}
-          className="w-4 h-4 text-amber-400"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-          aria-hidden="true"
-        >
-          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-        </svg>
-      ))}
-    </div>
-  )
-}
+/* ─── What Makes Us Different ─── */
+const differentiators = [
+  { icon: '🇮🇳', title: 'Built for India', desc: 'Hindi/English SMS, Razorpay, Indian school structure' },
+  { icon: '📱', title: 'Mobile First', desc: 'Works perfectly on ₹5,000 Android phones' },
+  { icon: '⚡', title: 'Blazing Fast', desc: 'Loads in under 2 seconds, even on 2G' },
+  { icon: '💰', title: 'Affordable', desc: 'Plans starting at just ₹499/month' },
+]
 
 export function Testimonials() {
   return (
-    <section id="testimonials" className="section-padding relative">
+    <section id="testimonials" className="section-padding relative bg-gradient-to-b from-blue-50/80 via-white to-white">
+      {/* Background */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-0 left-1/3 w-[500px] h-[300px] bg-blue-500/[0.05] blur-[120px] rounded-full" />
+        <div className="absolute bottom-0 right-1/4 w-[400px] h-[200px] bg-purple-500/[0.04] blur-[100px] rounded-full" />
+      </div>
+
       <Container>
         <SectionTitle
-          eyebrow="✦ Trusted by Schools"
-          title="Loved by schools that want speed and simplicity"
-          subtitle="Designed for real school workflows. Built to run smoothly even on low-end devices and busy school environments."
+          eyebrow="🎯 Why VidyaFlow"
+          title="Built for every person in your school"
+          subtitle="One platform, three different experiences — each designed for real daily workflows."
         />
 
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { value: '4.8/5', label: 'Average Rating' },
-            { value: '95%', label: 'Parent Satisfaction' },
-            { value: '60%', label: 'Less Manual Work' },
-            { value: '2 hrs/day', label: 'Time Saved' },
-          ].map((stat) => (
-            <div key={stat.label} className="card-dark p-4 text-center">
-              <div className="text-xl sm:text-2xl font-extrabold text-white">{stat.value}</div>
-              <div className="text-[11px] sm:text-xs text-slate-500 mt-1">{stat.label}</div>
+        {/* Value Proposition Cards */}
+        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
+          {valueProps.map((vp) => (
+            <div
+              key={vp.persona}
+              className="group bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-soft hover:shadow-medium hover:-translate-y-1 transition-all duration-300"
+            >
+              {/* Top gradient line */}
+              <div className={`h-1.5 bg-gradient-to-r ${vp.gradient}`} />
+
+              <div className="p-6">
+                {/* Icon + Persona */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div className={`w-12 h-12 rounded-xl ${vp.bgColor} flex items-center justify-center`}>
+                    <span className="text-2xl">{vp.icon}</span>
+                  </div>
+                  <div>
+                    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[10px] font-bold uppercase tracking-wide ${vp.tagBg}`}>
+                      {vp.persona}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Benefits */}
+                <div className="space-y-3">
+                  {vp.benefits.map((benefit) => (
+                    <div key={benefit} className="flex items-start gap-2.5">
+                      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="flex-shrink-0 mt-0.5">
+                        <circle cx="9" cy="9" r="9" className="fill-emerald-100" />
+                        <path d="M5.5 9l2.5 2.5 4.5-5" stroke="#10B981" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className="text-sm text-slate-600">{benefit}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-          {testimonials.map((t, index) => (
-            <div key={t.quote} className="card-dark p-5 flex flex-col relative overflow-hidden">
-              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-brand/40 to-transparent" />
-
-              <div className="mb-4">
-                <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  {t.tag}
-                </span>
+        {/* What Makes Us Different */}
+        <div className="mt-16">
+          <h3 className="text-center text-lg font-bold text-slate-900 mb-8">
+            What makes VidyaFlow different?
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {differentiators.map((d) => (
+              <div key={d.title} className="text-center p-5 rounded-2xl bg-white border border-slate-200 shadow-soft hover:shadow-medium transition-all duration-300">
+                <div className="text-3xl mb-3">{d.icon}</div>
+                <h4 className="text-sm font-bold text-slate-900 mb-1">{d.title}</h4>
+                <p className="text-xs text-slate-500">{d.desc}</p>
               </div>
+            ))}
+          </div>
+        </div>
 
-              <div className="mb-3 text-3xl leading-none text-brand/40">“</div>
-
-              <StarRating count={t.rating} />
-
-              <p className="mt-4 text-sm text-slate-300 leading-relaxed flex-1">
-                {t.quote}
-              </p>
-
-              <div className="mt-6 flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white ${
-                    index === 0
-                      ? 'bg-gradient-to-br from-brand to-purple-500'
-                      : index === 1
-                      ? 'bg-gradient-to-br from-emerald-500 to-teal-500'
-                      : 'bg-gradient-to-br from-amber-500 to-orange-500'
-                  }`}
-                >
-                  {t.name.charAt(0)}
-                </div>
-
-                <div>
-                  <div className="text-sm font-bold text-white">{t.name}</div>
-                  <div className="text-xs text-slate-500">{t.role}</div>
-                </div>
-              </div>
-            </div>
-          ))}
+        {/* Honest Bottom Message */}
+        <div className="mt-12 text-center">
+          <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+            <span className="text-xl">🚀</span>
+            <p className="text-sm text-slate-700">
+              <span className="font-bold">We&apos;re launching soon!</span>{' '}
+              Join our early access program and get special founding school benefits.
+            </p>
+          </div>
         </div>
       </Container>
     </section>

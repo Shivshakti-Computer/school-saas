@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/:path*',
-        has: [{ type: 'host', value: '(?<subdomain>[^.]+)\\.shivshakticloud\\.in' }],
+        has: [{ type: 'host', value: '(?<subdomain>[^.]+)\\.vidyaflow\\.in' }],
         destination: '/website/:subdomain/:path*',
       },
     ]
