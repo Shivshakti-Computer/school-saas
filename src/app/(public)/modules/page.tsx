@@ -8,7 +8,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'All Modules — 22+ School Management Tools',
   description:
-    'See all VidyaFlow modules — student management, attendance, fees, exams, website builder, library, HR & more. Plan-based access with multi-tenant isolation.',
+    'See all Skolify modules — student management, attendance, fees, exams, website builder, library, HR & more. Plan-based access with multi-tenant isolation.',
   alternates: {
     canonical: '/modules',
   },

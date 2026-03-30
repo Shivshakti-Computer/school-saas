@@ -11,7 +11,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Privacy Policy — How We Protect Your Data',
   description:
-    'Privacy Policy for VidyaFlow by Shivshakti Computer Academy — how we collect, use, store, and protect your school data.',
+    'Privacy Policy for Skolify by Shivshakti Computer Academy — how we collect, use, store, and protect your school data.',
   alternates: { canonical: '/privacy' },
 }
 
@@ -24,12 +24,12 @@ export default function PrivacyPage() {
     >
       <LegalSection number="01" title="Introduction">
         <p>
-          VidyaFlow (&quot;we&quot;, &quot;our&quot;, &quot;us&quot;) is a product of Shivshakti Computer Academy,
+          Skolify (&quot;we&quot;, &quot;our&quot;, &quot;us&quot;) is a product of Shivshakti Computer Academy,
           Ambikapur, Chhattisgarh, India. This Privacy Policy explains how we collect, use, store, and
           protect information when you use our school management platform.
         </p>
         <p>
-          By using VidyaFlow, you agree to the collection and use of information in accordance with this policy.
+          By using Skolify, you agree to the collection and use of information in accordance with this policy.
           We are committed to protecting your school&apos;s data with the highest standards.
         </p>
       </LegalSection>
@@ -115,7 +115,7 @@ export default function PrivacyPage() {
       </LegalSection>
 
       <LegalSection number="08" title="Your Rights">
-        <p>As a user of VidyaFlow, you have the following rights regarding your data:</p>
+        <p>As a user of Skolify, you have the following rights regarding your data:</p>
         <LegalList
           items={[
             'Request access to all data we hold about you',
@@ -127,8 +127,8 @@ export default function PrivacyPage() {
         />
         <p>
           To exercise any of these rights, contact us at{' '}
-          <a href="mailto:support@vidyaflow.in" className="text-blue-600 hover:underline font-medium">
-            support@vidyaflow.in
+          <a href="mailto:support@Skolify.in" className="text-blue-600 hover:underline font-medium">
+            support@Skolify.in
           </a>
           . We will respond within 72 hours.
         </p>
@@ -136,7 +136,7 @@ export default function PrivacyPage() {
 
       <LegalSection number="09" title="Children's Data">
         <p>
-          VidyaFlow is designed for schools and handles student data including minors. Student data is
+          Skolify is designed for schools and handles student data including minors. Student data is
           entered by school administrators and is governed by the school&apos;s own data policies. We do not
           directly collect data from children. Schools are responsible for obtaining necessary parental
           consents as per applicable law.

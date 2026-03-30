@@ -102,7 +102,7 @@ export function CTA() {
                           <span className="text-white font-extrabold text-sm">VF</span>
                         </div>
                         <div>
-                          <p className="text-sm font-bold text-slate-900">VidyaFlow</p>
+                          <p className="text-sm font-bold text-slate-900">Skolify</p>
                           <p className="text-[10px] text-slate-500">by Shivshakti Computer Academy</p>
                         </div>
                       </div>

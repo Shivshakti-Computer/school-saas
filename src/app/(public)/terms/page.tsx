@@ -11,7 +11,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Terms of Service — Usage Rules & Guidelines',
   description:
-    'Terms and conditions for using VidyaFlow school management platform by Shivshakti Computer Academy.',
+    'Terms and conditions for using Skolify school management platform by Shivshakti Computer Academy.',
   alternates: { canonical: '/terms' },
 }
 
@@ -19,12 +19,12 @@ export default function TermsPage() {
   return (
     <LegalPageLayout
       eyebrow="📄 Terms of Service"
-      title="Terms & conditions for using VidyaFlow"
+      title="Terms & conditions for using Skolify"
       lastUpdated="January 2025"
     >
       <LegalSection number="01" title="Acceptance of Terms">
         <p>
-          By registering for, accessing, or using VidyaFlow (&quot;the Platform&quot;), you agree to be
+          By registering for, accessing, or using Skolify (&quot;the Platform&quot;), you agree to be
           bound by these Terms of Service. If you do not agree with any part of these terms, do not use
           the Platform.
         </p>
@@ -37,7 +37,7 @@ export default function TermsPage() {
 
       <LegalSection number="02" title="Description of Service">
         <p>
-          VidyaFlow is a cloud-based, multi-tenant School Management SaaS platform. It provides the following
+          Skolify is a cloud-based, multi-tenant School Management SaaS platform. It provides the following
           tools based on the subscribed plan:
         </p>
         <LegalList
@@ -92,7 +92,7 @@ export default function TermsPage() {
       </LegalSection>
 
       <LegalSection number="06" title="Acceptable Use Policy">
-        <p>You agree to use VidyaFlow only for lawful school management purposes. You must NOT:</p>
+        <p>You agree to use Skolify only for lawful school management purposes. You must NOT:</p>
         <LegalList
           items={[
             'Use the platform for any unlawful or unauthorized purpose',
@@ -112,7 +112,7 @@ export default function TermsPage() {
 
       <LegalSection number="07" title="Data Ownership">
         <p>
-          You retain full ownership of all data you enter into VidyaFlow — including student records,
+          You retain full ownership of all data you enter into Skolify — including student records,
           fee data, attendance, and exam data. We do not claim ownership of your data.
         </p>
         <p>
@@ -142,7 +142,7 @@ export default function TermsPage() {
 
       <LegalSection number="09" title="Intellectual Property">
         <p>
-          VidyaFlow, its design, code, features, and brand identity are the intellectual property of
+          Skolify, its design, code, features, and brand identity are the intellectual property of
           Shivshakti Computer Academy. You may not copy, reproduce, or distribute any part of the
           platform without explicit written permission.
         </p>
@@ -187,7 +187,7 @@ export default function TermsPage() {
       <LegalSection number="12" title="Governing Law & Disputes">
         <p>
           These Terms of Service are governed by the laws of India. Any disputes arising from the use
-          of VidyaFlow shall be subject to the exclusive jurisdiction of courts in{' '}
+          of Skolify shall be subject to the exclusive jurisdiction of courts in{' '}
           <strong className="text-slate-800">Ambikapur, Chhattisgarh, India</strong>.
         </p>
         <p>

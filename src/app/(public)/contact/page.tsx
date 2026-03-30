@@ -32,9 +32,9 @@ const contactMethods = [
   {
     icon: '📧',
     title: 'Email',
-    value: 'support@vidyaflow.in',
+    value: 'support@skolify.in',
     desc: 'For detailed queries, send us an email.',
-    action: 'mailto:support@vidyaflow.in',
+    action: 'mailto:support@skolify.in',
     gradient: 'from-sky-500 to-blue-600',
     bgColor: 'bg-sky-50',
     borderColor: 'border-sky-200',

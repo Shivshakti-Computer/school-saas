@@ -244,13 +244,13 @@ function LoginInner() {
 
       {/* ─── Top Bar ─── */}
       <div className="relative z-10 flex items-center justify-between px-6 py-4">
-        {/* VidyaFlow Logo */}
+        {/* Skolify Logo */}
         <Link href="/" className="flex items-center gap-2 group">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
             <span className="text-white font-extrabold text-xs">VF</span>
           </div>
           <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-            VidyaFlow
+            Skolify
           </span>
         </Link>
 
@@ -496,7 +496,7 @@ function LoginInner() {
           <div className="mt-6 text-center">
             <p className="text-[11px] text-slate-400">
               Powered by{' '}
-              <span className="font-semibold text-slate-500">VidyaFlow</span>
+              <span className="font-semibold text-slate-500">Skolify</span>
               {' '}·{' '}
               <a
                 href="https://shivshakticomputer.in"

@@ -46,7 +46,7 @@ const socials = [
   },
   {
     label: 'Email',
-    href: 'mailto:contact@vidyaflow.in',
+    href: 'mailto:contact@skolify.in',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="4" width="20" height="16" rx="2" />
@@ -120,12 +120,12 @@ export function Footer() {
           {/* Brand Column */}
           <div className="sm:col-span-2">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2.5 group mb-4" aria-label="VidyaFlow Home">
+            <Link href="/" className="flex items-center gap-2.5 group mb-4" aria-label="Skolify Home">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
                 <span className="text-white font-extrabold text-sm">VF</span>
               </div>
               <div className="leading-tight">
-                <div className="text-sm font-extrabold text-slate-900 tracking-tight">VidyaFlow</div>
+                <div className="text-sm font-extrabold text-slate-900 tracking-tight">Skolify</div>
                 <div className="text-[10px] text-slate-400">School Operations, Streamlined</div>
               </div>
             </Link>
@@ -168,7 +168,7 @@ export function Footer() {
         {/* ─── Bottom Bar ─── */}
         <div className="py-6 border-t border-slate-200 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
           <p className="text-xs text-slate-400">
-            © {new Date().getFullYear()} VidyaFlow — A unit of{' '}
+            © {new Date().getFullYear()} Skolify — A unit of{' '}
             <a
               href="https://shivshakticomputer.in"
               target="_blank"

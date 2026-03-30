@@ -5,7 +5,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Pricing — Affordable School Management Plans',
   description:
-    'Simple, transparent pricing for VidyaFlow school management platform. 4 plans starting ₹499/month. 14-day free trial, no credit card required.',
+    'Simple, transparent pricing for Skolify school management platform. 4 plans starting ₹499/month. 14-day free trial, no credit card required.',
   alternates: {
     canonical: '/pricing',
   },

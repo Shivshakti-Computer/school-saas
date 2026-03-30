@@ -3,9 +3,9 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'About VidyaFlow — Modern School Management Platform',
+  title: 'About Skolify — Modern School Management Platform',
   description:
-    'Learn about VidyaFlow — built by Shivshakti Computer Academy for Indian schools. Multi-tenant SaaS, PWA, lightweight, and designed for real school workflows.',
+    'Learn about Skolify — built by Shivshakti Computer Academy for Indian schools. Multi-tenant SaaS, PWA, lightweight, and designed for real school workflows.',
   alternates: { canonical: '/about' },
 }
 

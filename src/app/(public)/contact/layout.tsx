@@ -3,9 +3,9 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Contact VidyaFlow — Get Demo & Onboarding Support',
+  title: 'Contact Skolify — Get Demo & Onboarding Support',
   description:
-    'Get in touch with VidyaFlow team for demo, onboarding, and support. WhatsApp, call, or email — we respond within hours.',
+    'Get in touch with Skolify team for demo, onboarding, and support. WhatsApp, call, or email — we respond within hours.',
   alternates: { canonical: '/contact' },
 }
 

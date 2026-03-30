@@ -10,7 +10,7 @@ import { useReveal, useRevealGroup } from '@/hooks/useReveal'
 const faqs = [
   {
     q: 'Is this an app or a website?',
-    a: 'VidyaFlow is a web platform that also works as an installable app (PWA). Teachers, parents & students can install it on their phones like a native app — no Play Store or App Store needed. It works offline for basic features too.',
+    a: 'Skolify is a web platform that also works as an installable app (PWA). Teachers, parents & students can install it on their phones like a native app — no Play Store or App Store needed. It works offline for basic features too.',
   },
   {
     q: 'Can we start with a free trial?',
@@ -22,7 +22,7 @@ const faqs = [
   },
   {
     q: 'Does it work on low-end phones?',
-    a: 'Absolutely. VidyaFlow is built mobile-first with lightweight UI. It works smoothly even on basic Android phones with slow internet connections.',
+    a: 'Absolutely. Skolify is built mobile-first with lightweight UI. It works smoothly even on basic Android phones with slow internet connections.',
   },
   {
     q: 'Can we export data?',

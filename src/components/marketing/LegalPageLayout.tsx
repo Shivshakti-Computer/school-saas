@@ -108,8 +108,8 @@ export function LegalContact() {
         <p>Ambikapur, Chhattisgarh, India</p>
         <p>
           Email:{' '}
-          <a href="mailto:support@vidyaflow.in" className="text-blue-600 hover:underline font-medium">
-            support@vidyaflow.in
+          <a href="mailto:support@skolify.in" className="text-blue-600 hover:underline font-medium">
+            support@skolify.in
           </a>
         </p>
         <p>Phone: +91-XXXXXXXXXX</p>

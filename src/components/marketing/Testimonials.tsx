@@ -69,7 +69,7 @@ export function Testimonials() {
 
       <Container>
         <SectionTitle
-          eyebrow="🎯 Why VidyaFlow"
+          eyebrow="🎯 Why Skolify"
           title="Built for every person in your school"
           subtitle="One platform, three different experiences — each designed for real daily workflows."
         />
@@ -117,7 +117,7 @@ export function Testimonials() {
         {/* What Makes Us Different */}
         <div className="mt-16">
           <h3 className="text-center text-lg font-bold text-slate-900 mb-8">
-            What makes VidyaFlow different?
+            What makes Skolify different?
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {differentiators.map((d) => (

@@ -501,7 +501,7 @@ export default function RegisterPage() {
                   <span className="text-white font-extrabold text-xs">VF</span>
                 </div>
                 <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                  VidyaFlow
+                  Skolify
                 </span>
               </Link>
               <BackToHome />
@@ -638,7 +638,7 @@ export default function RegisterPage() {
             {/* Footer */}
             <div className="mt-6 text-center">
               <p className="text-[11px] text-slate-400">
-                Powered by <span className="font-semibold text-slate-500">VidyaFlow</span>
+                Powered by <span className="font-semibold text-slate-500">Skolify</span>
                 {' · '}
                 <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
                   Shivshakti Computer Academy
@@ -670,7 +670,7 @@ export default function RegisterPage() {
               <span className="text-white font-extrabold text-xs">VF</span>
             </div>
             <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-              VidyaFlow
+              Skolify
             </span>
           </Link>
           <BackToHome />
@@ -1156,7 +1156,7 @@ export default function RegisterPage() {
             {/* Footer */}
             <div className="mt-6 text-center">
               <p className="text-[11px] text-slate-400">
-                Powered by <span className="font-semibold text-slate-500">VidyaFlow</span>
+                Powered by <span className="font-semibold text-slate-500">Skolify</span>
                 {' · '}
                 <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
                   Shivshakti Computer Academy

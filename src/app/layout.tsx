@@ -29,16 +29,16 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'VidyaFlow — Modern School Management Software',
-    template: '%s | VidyaFlow',
+    default: 'Skolify — Modern School Management Software',
+    template: '%s | Skolify',
   },
   description:
     'Complete school management platform by Shivshakti Computer Academy. Admissions, attendance, fees, exams & 20+ modules for Indian schools.',
-  applicationName: 'VidyaFlow',
+  applicationName: 'Skolify',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'VidyaFlow',
+    title: 'Skolify',
   },
   formatDetection: {
     telephone: true,

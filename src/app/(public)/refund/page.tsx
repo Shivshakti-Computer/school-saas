@@ -11,7 +11,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Refund & Cancellation Policy',
   description:
-    'Refund and cancellation policy for VidyaFlow subscriptions by Shivshakti Computer Academy.',
+    'Refund and cancellation policy for Skolify subscriptions by Shivshakti Computer Academy.',
   alternates: { canonical: '/refund' },
 }
 
@@ -90,8 +90,8 @@ export default function RefundPage() {
         />
         <p>
           Send your request to{' '}
-          <a href="mailto:support@vidyaflow.in" className="text-blue-600 hover:underline font-medium">
-            support@vidyaflow.in
+          <a href="mailto:support@Skolify.in" className="text-blue-600 hover:underline font-medium">
+            support@Skolify.in
           </a>
           {' '}or contact us via WhatsApp. We will respond within 24 hours on business days.
         </p>

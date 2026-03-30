@@ -6,8 +6,8 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: {
-    default: 'VidyaFlow — Modern School Management Software | Shivshakti Computer Academy',
-    template: '%s | VidyaFlow',
+    default: 'Skolify — Modern School Management Software | Shivshakti Computer Academy',
+    template: '%s | Skolify',
   },
   description:
     'Complete school management platform by Shivshakti Computer Academy. Admissions, attendance, fees, exams, website builder, parent portals & 20+ modules. Built for Indian schools.',
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     'school management software',
     'school management software India',
     'school ERP India',
-    'VidyaFlow',
+    'Skolify',
     'Shivshakti Computer Academy',
     'school management system',
     'school website builder',
@@ -43,28 +43,28 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://vidyaflow.in',
-    siteName: 'VidyaFlow',
-    title: 'VidyaFlow — Modern School Management Software for Indian Schools',
+    url: 'https://skolify.in',
+    siteName: 'Skolify',
+    title: 'Skolify — Modern School Management Software for Indian Schools',
     description:
       'Admissions, attendance, fees, exams, notices, website builder, parent & student portals. Affordable plans starting ₹499/month. Trusted by 150+ schools.',
     images: [
       {
-        url: 'https://vidyaflow.in/og-image.png',
+        url: 'https://skolify.in/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'VidyaFlow — School Management Platform by Shivshakti Computer Academy',
+        alt: 'Skolify — School Management Platform by Shivshakti Computer Academy',
       },
     ],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'VidyaFlow — Modern School Management Software',
+    title: 'Skolify — Modern School Management Software',
     description:
       'Complete school management platform built for Indian schools by Shivshakti Computer Academy. Start free trial today.',
-    images: ['https://vidyaflow.in/og-image.png'],
-    creator: '@vidyaflow',
+    images: ['https://skolify.in/og-image.png'],
+    creator: '@Skolify',
   },
 
   robots: {
@@ -80,7 +80,7 @@ export const metadata: Metadata = {
   },
 
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || 'https://vidyaflow.in'
+    process.env.NEXT_PUBLIC_APP_URL || 'https://skolify.in'
   ),
 
   alternates: {
@@ -95,21 +95,21 @@ function JsonLd() {
   const softwareData = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'VidyaFlow',
+    name: 'Skolify',
     applicationCategory: 'BusinessApplication',
     applicationSubCategory: 'School Management Software',
     operatingSystem: 'Web, Android, iOS',
     description:
       'Complete school management platform with admissions, attendance, fees, exams, website builder and parent portals. Built for Indian schools.',
-    url: 'https://vidyaflow.in',
-    screenshot: 'https://vidyaflow.in/og-image.png',
+    url: 'https://skolify.in',
+    screenshot: 'https://skolify.in/og-image.png',
     featureList:
       'Student Management, Fee Collection, Attendance Tracking, Exam Management, Website Builder, Parent Portal, Teacher Portal, SMS & WhatsApp Notifications, Report Cards, Timetable Management',
     author: {
       '@type': 'Organization',
       name: 'Shivshakti Computer Academy',
       url: 'https://shivshakticomputer.in',
-      logo: 'https://vidyaflow.in/icons/icon-192x192.png',
+      logo: 'https://skolify.in/icons/icon-192x192.png',
     },
     offers: {
       '@type': 'AggregateOffer',
@@ -131,9 +131,9 @@ function JsonLd() {
   const organizationData = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    name: 'VidyaFlow',
-    url: 'https://vidyaflow.in',
-    logo: 'https://vidyaflow.in/icons/icon-192x192.png',
+    name: 'Skolify',
+    url: 'https://skolify.in',
+    logo: 'https://skolify.in/icons/icon-192x192.png',
     description: 'Modern school management software for Indian schools.',
     founder: {
       '@type': 'Organization',
@@ -155,7 +155,7 @@ function JsonLd() {
         '@type': 'ListItem',
         position: 1,
         name: 'Home',
-        item: 'https://vidyaflow.in',
+        item: 'https://skolify.in',
       },
     ],
   }

@@ -97,7 +97,7 @@ function BrowserMockup({ children }: { children: React.ReactNode }) {
           <div className="w-3 h-3 rounded-full bg-emerald-400" />
         </div>
         <div className="flex-1 mx-2 bg-white rounded-lg px-3 py-1.5 text-[10px] text-slate-500 border border-slate-200">
-          🔒 yourschool.vidyaflow.in
+          🔒 yourschool.skolify
         </div>
       </div>
       {children}
@@ -323,7 +323,7 @@ export function PlatformFeatures() {
           <SectionTitle
             eyebrow="⚡ Platform"
             title="Built different — designed for real schools"
-            subtitle="Not just another ERP. VidyaFlow is built ground-up for Indian schools with mobile-first design, offline support & regional language SMS."
+            subtitle="Not just another ERP. Skolify is built ground-up for Indian schools with mobile-first design, offline support & regional language SMS."
             center
           />
         </div>
