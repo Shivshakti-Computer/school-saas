@@ -105,6 +105,7 @@ export function LegalContact() {
       </h3>
       <div className="text-sm text-slate-600 space-y-1.5">
         <p className="font-semibold text-slate-900">Shivshakti Computer Academy</p>
+        <p>1st floor above Usha Matching Center, Near Babra Petrol Pump, Banaras Rd</p>
         <p>Ambikapur, Chhattisgarh, India</p>
         <p>
           Email:{' '}
@@ -112,7 +113,7 @@ export function LegalContact() {
             support@skolify.in
           </a>
         </p>
-        <p>Phone: +91-XXXXXXXXXX</p>
+        <p>Phone: +91-7477036832</p>
       </div>
     </div>
   )

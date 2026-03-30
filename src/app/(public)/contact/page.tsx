@@ -10,9 +10,9 @@ const contactMethods = [
   {
     icon: '💬',
     title: 'WhatsApp',
-    value: '+91-XXXXXXXXXX',
+    value: '+91-9009087883',
     desc: 'Fastest response. Send us a message anytime.',
-    action: 'https://wa.me/91XXXXXXXXXX',
+    action: 'https://wa.me/919009087883',
     gradient: 'from-emerald-500 to-teal-600',
     bgColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
@@ -21,9 +21,9 @@ const contactMethods = [
   {
     icon: '📞',
     title: 'Phone Call',
-    value: '+91-XXXXXXXXXX',
+    value: '+91-7477036832',
     desc: 'Call us during business hours (10 AM - 6 PM IST).',
-    action: 'tel:+91XXXXXXXXXX',
+    action: 'tel:+917477036832',
     gradient: 'from-blue-500 to-indigo-600',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
@@ -44,7 +44,7 @@ const contactMethods = [
 
 const officeInfo = {
   address: 'Shivshakti Computer Academy, Main Road, Ambikapur, Chhattisgarh - 497001',
-  hours: 'Monday - Saturday: 10:00 AM - 6:00 PM IST',
+  hours: 'Monday - Saturday: 9:00 AM - 7:00 PM IST',
   response: 'We typically respond within 2-4 hours during business days.',
 }
 
