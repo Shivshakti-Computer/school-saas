@@ -12,6 +12,12 @@ const OTP_EXPIRY_MINUTES = 5
 const TRUSTED_DEVICE_DAYS = 30
 const MAX_OTP_ATTEMPTS = 5
 
+type BackupCode = {
+  code: string
+  used: boolean
+  usedAt?: Date
+}
+
 /* ══════════════════════════════════════════════════════════
    1. CHECK IF USER HAS 2FA ENABLED
 ══════════════════════════════════════════════════════════ */
@@ -165,7 +171,7 @@ export async function verifyBackupCode(
     return { verified: false, message: '2FA not found', remainingCodes: 0 }
   }
 
-  const codeIndex = tfa.backupCodes.findIndex(
+  const codeIndex = (tfa.backupCodes as BackupCode[]).findIndex(
     (c) => !c.used && c.code === inputCode.trim().toUpperCase()
   )
 
@@ -185,7 +191,9 @@ export async function verifyBackupCode(
     }
   )
 
-  const remaining = tfa.backupCodes.filter((c, i) => !c.used && i !== codeIndex).length
+  const remaining = (tfa.backupCodes as BackupCode[]).filter(
+    (c, i) => !c.used && i !== codeIndex
+  ).length
 
   return { verified: true, message: 'Backup code accepted', remainingCodes: remaining }
 }
