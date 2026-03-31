@@ -498,7 +498,7 @@ export default function RegisterPage() {
             <div className="flex items-center justify-between mb-6">
               <Link href="/" className="flex items-center gap-2 group">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
-                  <span className="text-white font-extrabold text-xs">VF</span>
+                  <span className="text-white font-extrabold text-xs">SF</span>
                 </div>
                 <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
                   Skolify
@@ -667,7 +667,7 @@ export default function RegisterPage() {
         <div className="relative z-10 flex items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
-              <span className="text-white font-extrabold text-xs">VF</span>
+              <span className="text-white font-extrabold text-xs">SF</span>
             </div>
             <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
               Skolify
@@ -683,7 +683,7 @@ export default function RegisterPage() {
             {/* Header */}
             <div className="text-center mb-8">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/25">
-                <span className="text-white font-extrabold text-xl">VF</span>
+                <span className="text-white font-extrabold text-xl">SF</span>
               </div>
               <h1 className="text-2xl font-bold text-slate-900">Register Your School</h1>
               <p className="text-sm text-slate-500 mt-1.5">

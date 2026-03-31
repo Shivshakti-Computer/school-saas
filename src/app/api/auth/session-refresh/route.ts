@@ -1,7 +1,5 @@
 // -------------------------------------------------------------
-// FIX 2: src/app/api/auth/session-refresh/route.ts — NEW FILE
-// POST → school ka fresh data session mein inject karo
-// Call this after subscription changes
+// src/app/api/auth/session-refresh/route.ts
 // -------------------------------------------------------------
 
 import { authOptions } from "@/lib/auth"

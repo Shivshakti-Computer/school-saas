@@ -23,7 +23,8 @@ declare module 'next-auth' {
             subscriptionId: string | null
             subscriptionEnd: string | null
             subscriptionStatus: string  // 'trial' | 'active' | 'expired'
-        }
+            twoFactorRequired: boolean
+        } & DefaultSession['user']
     }
 }
 
@@ -34,6 +35,11 @@ interface User extends DefaultUser {
     plan: string
     schoolName: string
     modules: string[]
+    trialEndsAt: string
+    subscriptionId: string | null
+    subscriptionEnd: string | null
+    subscriptionStatus: string
+    twoFactorRequired: boolean
 }
 
 declare module 'next-auth/jwt' {
@@ -49,6 +55,7 @@ declare module 'next-auth/jwt' {
         subscriptionId: string | null
         subscriptionEnd: string | null
         subscriptionStatus: string
+        twoFactorRequired: boolean
         lastDbCheck: number
     }
 }

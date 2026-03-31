@@ -1,24 +1,37 @@
-/* ─────────────────────────────────────────────────────────────
-   FILE: src/app/api/schools/register/route.ts
-   POST → New school signup (creates school + admin user)
-   Returns school code for login (no subdomain URL)
-   ─────────────────────────────────────────────────────────── */
+// FILE: src/app/api/schools/register/route.ts (UPDATED with security)
 
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/db'
 import { School } from '@/models/School'
 import { User } from '@/models/User'
+import {
+  sanitizeBody,
+  checkRateLimit,
+  RATE_LIMITS,
+  rateLimitResponse,
+  validatePasswordStrength,
+  getClientInfo,
+} from '@/lib/security'
+import { logAudit } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
+  // ── Rate Limit ──
+  const rl = checkRateLimit(req, RATE_LIMITS.register)
+  if (!rl.allowed) {
+    return rateLimitResponse(rl.resetIn)
+  }
+
   try {
     await connectDB()
 
-    const body = await req.json()
+    // ── Sanitize Input ──
+    const raw = await req.json()
+    const body = sanitizeBody(raw)
 
     const {
       schoolName,
-      subdomain,    // This is the "School Code"
+      subdomain,
       adminName,
       phone,
       email,
@@ -34,11 +47,32 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── Password Strength ──
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters.' },
         { status: 400 }
       )
+    }
+
+    // ── Phone Validation ──
+    const cleanPhone = phone.trim().replace(/[^0-9]/g, '')
+    if (cleanPhone.length !== 10) {
+      return NextResponse.json(
+        { error: 'Enter a valid 10-digit phone number.' },
+        { status: 400 }
+      )
+    }
+
+    // ── Email Validation (if provided) ──
+    if (email?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(email.trim())) {
+        return NextResponse.json(
+          { error: 'Enter a valid email address.' },
+          { status: 400 }
+        )
+      }
     }
 
     // ── Clean school code ──
@@ -51,15 +85,19 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    if (schoolCode !== subdomain.toLowerCase().trim()) {
+    if (schoolCode.length > 30) {
       return NextResponse.json(
-        { error: 'School code can only contain lowercase letters, numbers, underscore (_), and hyphen (-).' },
+        { error: 'School code must be 30 characters or less.' },
         { status: 400 }
       )
     }
 
     // ── Reserved codes ──
-    const reserved = ['admin', 'api', 'www', 'app', 'login', 'register', 'superadmin', 'test', 'demo']
+    const reserved = [
+      'admin', 'api', 'www', 'app', 'login', 'register',
+      'superadmin', 'test', 'demo', 'skolify', 'support',
+      'help', 'billing', 'null', 'undefined', 'dashboard',
+    ]
     if (reserved.includes(schoolCode)) {
       return NextResponse.json(
         { error: 'This school code is reserved. Please choose another.' },
@@ -67,17 +105,17 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Check duplicate ──
+    // ── Check duplicate school code ──
     const exists = await School.findOne({ subdomain: schoolCode })
     if (exists) {
       return NextResponse.json(
-        { error: 'This school code is already taken. Please try a different one.' },
+        { error: 'This school code is already taken.' },
         { status: 409 }
       )
     }
 
     // ── Check duplicate phone ──
-    const phoneExists = await User.findOne({ phone: phone.trim() })
+    const phoneExists = await User.findOne({ phone: cleanPhone })
     if (phoneExists) {
       return NextResponse.json(
         { error: 'This phone number is already registered with another school.' },
@@ -85,7 +123,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Trial: 15 days from now ──
+    // ── Trial: 15 days ──
     const trialEndsAt = new Date()
     trialEndsAt.setDate(trialEndsAt.getDate() + 15)
 
@@ -94,7 +132,7 @@ export async function POST(req: NextRequest) {
       name: schoolName.trim(),
       subdomain: schoolCode,
       address: address?.trim() || '',
-      phone: phone.trim(),
+      phone: cleanPhone,
       email: email?.trim() || '',
       plan: 'starter',
       trialEndsAt,
@@ -103,41 +141,54 @@ export async function POST(req: NextRequest) {
       onboardingComplete: false,
     })
 
-    // ── Create admin user ──
-    const hashedPwd = await bcrypt.hash(password, 10)
+    // ── Create admin user (with stronger hash) ──
+    const hashedPwd = await bcrypt.hash(password, 12) // Increased from 10 to 12
 
     await User.create({
       tenantId: school._id,
       name: adminName.trim(),
-      phone: phone.trim(),
+      phone: cleanPhone,
       email: email?.trim() || '',
       role: 'admin',
       password: hashedPwd,
       isActive: true,
     })
 
-    // ── Send welcome email (optional, non-blocking) ──
+    // ── Audit Log ──
+    const clientInfo = getClientInfo(req)
+    await logAudit({
+      tenantId: school._id.toString(),
+      userName: adminName.trim(),
+      userRole: 'admin',
+      action: 'SCHOOL_REGISTER',
+      resource: 'School',
+      resourceId: school._id.toString(),
+      description: `New school registered: ${schoolName.trim()} (${schoolCode})`,
+      metadata: {
+        schoolCode,
+        phone: cleanPhone,
+        trialEndsAt: trialEndsAt.toISOString(),
+      },
+      ipAddress: clientInfo.ip,
+      userAgent: clientInfo.userAgent,
+    })
+
+    // ── Send welcome email (optional) ──
     if (email?.trim()) {
       try {
-        // Dynamic import to avoid breaking if email module doesn't exist
         const { sendEmail, EMAIL_TEMPLATES } = await import('@/lib/email')
-
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://vidyaflow.in'
-
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://skolify.in'
         const { subject, html } = EMAIL_TEMPLATES.welcome(
           schoolName.trim(),
           adminName.trim(),
-          `${appUrl}/login`  // Single login URL, not subdomain-based
+          `${appUrl}/login`
         )
-
         await sendEmail(email.trim(), subject, html)
       } catch (mailError) {
-        // Email failure should NOT block registration
         console.error('Email send failed (non-critical):', mailError)
       }
     }
 
-    // ── Return success ──
     return NextResponse.json(
       {
         success: true,
@@ -145,7 +196,7 @@ export async function POST(req: NextRequest) {
         schoolName: schoolName.trim(),
         trialEndsAt: trialEndsAt.toISOString(),
         trialDays: 15,
-        message: `School registered successfully. Login with school code: ${schoolCode}`,
+        message: `School registered successfully.`,
       },
       { status: 201 }
     )
@@ -153,7 +204,6 @@ export async function POST(req: NextRequest) {
   } catch (error: any) {
     console.error('REGISTER ERROR:', error)
 
-    // Handle MongoDB duplicate key error
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern || {})[0]
       return NextResponse.json(

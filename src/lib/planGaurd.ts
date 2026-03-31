@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-// FILE: src/lib/planGuard.ts — DB-FRESH plan check
+// FILE: src/lib/planGuard.ts — DB-FRESH plan check for server pages
 // JWT se nahi, DB se verify karta hai
 // ─────────────────────────────────────────────────────────────
 

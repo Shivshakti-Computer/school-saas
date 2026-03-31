@@ -5,7 +5,7 @@
 import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
-const FROM = `School Suite <noreply@${process.env.NEXT_PUBLIC_APP_DOMAIN}>`
+const FROM = `Skolify <noreply@${process.env.NEXT_PUBLIC_APP_DOMAIN}>`
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
     try {
@@ -21,7 +21,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
 // Email templates
 export const EMAIL_TEMPLATES = {
     welcome: (schoolName: string, adminName: string, loginUrl: string) => ({
-        subject: `Welcome to School Suite — ${schoolName}`,
+        subject: `Welcome to Skolify — ${schoolName}`,
         html: `
       <h2>Welcome, ${adminName}!</h2>
       <p>Your school <strong>${schoolName}</strong> has been successfully registered on School Suite.</p>

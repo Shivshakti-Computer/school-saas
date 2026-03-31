@@ -12,6 +12,7 @@ import {
   Image, Clock, FileText, FileCheck, MessageSquare,
   Award, PlayCircle, Bus, Building, Package,
   UserPlus, Heart, GraduationCap,
+  Shield,
 } from 'lucide-react'
 import type { ModuleKey, Plan, Role } from '@/lib/moduleRegistry'
 import { clsx } from 'clsx'
@@ -228,6 +229,16 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             label="Settings"
             icon={<Settings size={16} />}
             active={pathname.startsWith('/admin/settings')}
+          />
+        )}
+
+        {/* Security — admin only, not expired */}
+        {role === 'admin' && !isExpired && (
+          <NavItem
+            href="/admin/security"
+            label="Security"
+            icon={<Shield size={16} />}
+            active={pathname.startsWith('/admin/security')}
           />
         )}
       </nav>

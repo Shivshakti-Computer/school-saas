@@ -1,6 +1,5 @@
-/* ─────────────────────────────────────────────────────────────
-   FILE: src/lib/auth.ts
-   ─────────────────────────────────────────────────────────── */
+// FILE: src/lib/auth.ts (UPDATED)
+// Changes: Added 2FA check, audit logging, rate limit awareness
 
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
@@ -9,8 +8,9 @@ import { connectDB } from './db'
 import { User } from '@/models/User'
 import { School } from '@/models/School'
 import { Subscription } from '@/models/Subscription'
+import { is2FAEnabled, isTrustedDevice } from './twoFactor'
+import { logLogin } from './audit'
 
-// Trial mein allowed modules — ONLY starter features
 const TRIAL_MODULES = ['students', 'teachers', 'attendance', 'notices', 'website', 'gallery']
 const TRIAL_PLAN = 'starter'
 
@@ -20,21 +20,26 @@ export const authOptions: NextAuthOptions = {
       name: 'credentials',
 
       credentials: {
-        phone:     { label: 'Phone/Email', type: 'text' },
-        email:     { label: 'Email', type: 'text' },
-        password:  { label: 'Password', type: 'password' },
+        phone: { label: 'Phone/Email', type: 'text' },
+        email: { label: 'Email', type: 'text' },
+        password: { label: 'Password', type: 'password' },
         subdomain: { label: 'School Code', type: 'text' },
-        type:      { label: 'Type', type: 'text' },
+        type: { label: 'Type', type: 'text' },
+        // 2FA fields
+        twoFactorVerified: { label: '2FA Verified', type: 'text' },
+        deviceId: { label: 'Device ID', type: 'text' },
       },
 
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         try {
           await connectDB()
 
+          const ip = (req as any)?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown'
+          const userAgent = (req as any)?.headers?.['user-agent'] || 'unknown'
+
           /* ══════════════════════════════════════════
              SUPERADMIN LOGIN
-             Triggered when type === 'superadmin'
-             ══════════════════════════════════════════ */
+          ══════════════════════════════════════════ */
           if (credentials?.type === 'superadmin') {
             if (!credentials.email || !credentials.password) return null
 
@@ -42,6 +47,8 @@ export const authOptions: NextAuthOptions = {
               credentials.email === process.env.SUPERADMIN_EMAIL &&
               credentials.password === process.env.SUPERADMIN_PASSWORD
             ) {
+              await logLogin('superadmin', 'Super Admin', 'superadmin', '', ip, userAgent, true)
+
               return {
                 id: 'superadmin',
                 name: 'Super Admin',
@@ -50,45 +57,34 @@ export const authOptions: NextAuthOptions = {
                 tenantId: '',
                 subdomain: '',
                 plan: 'enterprise',
-                schoolName: 'VidyaFlow Admin',
+                schoolName: 'Skolify Admin',
                 modules: [],
                 trialEndsAt: new Date(Date.now() + 365 * 86400000).toISOString(),
                 subscriptionId: null,
                 subscriptionEnd: null,
                 subscriptionStatus: 'active',
+                twoFactorRequired: false,
               } as any
             }
+
+            await logLogin('unknown', credentials.email, 'superadmin', '', ip, userAgent, false)
             return null
           }
 
           /* ══════════════════════════════════════════
-             SCHOOL LOGIN (Admin / Teacher / Student / Parent)
-             All roles use same flow:
-             - School Code (subdomain) + Phone/Email + Password
-             - Role is determined from User model
-             - Correct portal redirect happens in frontend
-             ══════════════════════════════════════════ */
-          
-          // Validate inputs
+             SCHOOL LOGIN
+          ══════════════════════════════════════════ */
+
           if (!credentials?.phone?.trim() || !credentials?.password) {
-            console.log('AUTH: Missing phone or password')
             return null
           }
 
           const subdomain = credentials.subdomain?.toLowerCase().trim()
-          if (!subdomain) {
-            console.log('AUTH: Missing school code')
-            return null
-          }
+          if (!subdomain) return null
 
-          // Find school by school code
           const school = await School.findOne({ subdomain, isActive: true })
-          if (!school) {
-            console.log('AUTH: School not found for code:', subdomain)
-            return null
-          }
+          if (!school) return null
 
-          // Find user in this school (match phone OR email)
           const loginId = credentials.phone.trim()
           const user = await User.findOne({
             tenantId: school._id,
@@ -100,21 +96,49 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user) {
-            console.log('AUTH: User not found in school:', subdomain, 'with:', loginId)
+            await logLogin('unknown', loginId, 'unknown', school._id.toString(), ip, userAgent, false)
             return null
           }
 
-          // Verify password
           const match = await bcrypt.compare(credentials.password, user.password)
           if (!match) {
-            console.log('AUTH: Password mismatch for user:', loginId)
+            await logLogin(user._id.toString(), user.name, user.role, school._id.toString(), ip, userAgent, false)
             return null
           }
 
-          // Update last login timestamp
+          /* ══════════════════════════════════════════
+             2FA CHECK (Admin only for now)
+          ══════════════════════════════════════════ */
+
+          let twoFactorRequired = false
+
+          if (user.role === 'admin') {
+            const has2FA = await is2FAEnabled(user._id.toString())
+
+            if (has2FA) {
+              const deviceId = credentials.deviceId || ''
+              const trusted = deviceId
+                ? await isTrustedDevice(user._id.toString(), deviceId)
+                : false
+
+              // If 2FA is enabled but not yet verified in this login flow
+              if (!trusted && credentials.twoFactorVerified !== 'true') {
+                // Return special response — frontend will show 2FA screen
+                twoFactorRequired = true
+              }
+            }
+          }
+
+          // Update last login
           await User.findByIdAndUpdate(user._id, { lastLogin: new Date() })
 
-          // ── Determine subscription state ──
+          // Log successful login
+          await logLogin(
+            user._id.toString(), user.name, user.role,
+            school._id.toString(), ip, userAgent, true
+          )
+
+          // ── Subscription state ──
           const activeSub = await Subscription.findOne({
             tenantId: school._id,
             status: 'active',
@@ -132,40 +156,28 @@ export const authOptions: NextAuthOptions = {
           let subscriptionStatus: string
 
           if (hasPaidSub && subEnd && subEnd > now) {
-            // ✅ Active paid subscription
             effectivePlan = activeSub.plan
             effectiveModules = school.modules || []
             subscriptionStatus = 'active'
           } else if (!hasPaidSub && trialEnd > now) {
-            // ⏱️ Active trial — ONLY starter modules
             effectivePlan = TRIAL_PLAN
             effectiveModules = TRIAL_MODULES
             subscriptionStatus = 'trial'
           } else if (hasPaidSub && subEnd && subEnd <= now) {
-            // ❌ Paid subscription expired
             effectivePlan = 'starter'
             effectiveModules = []
             subscriptionStatus = 'expired'
           } else {
-            // ❌ Trial expired, no subscription
             effectivePlan = 'starter'
             effectiveModules = []
             subscriptionStatus = 'expired'
           }
 
-          console.log('AUTH SUCCESS:', {
-            user: user.name,
-            role: user.role,
-            school: school.name,
-            plan: effectivePlan,
-            status: subscriptionStatus,
-          })
-
           return {
             id: user._id.toString(),
             name: user.name,
             email: user.email || user.phone,
-            role: user.role,           // admin | teacher | student | parent
+            role: user.role,
             tenantId: school._id.toString(),
             subdomain: school.subdomain,
             plan: effectivePlan,
@@ -175,6 +187,7 @@ export const authOptions: NextAuthOptions = {
             subscriptionId: school.subscriptionId ?? null,
             subscriptionEnd: subEnd ? subEnd.toISOString() : null,
             subscriptionStatus,
+            twoFactorRequired, // 🔑 NEW: tells frontend to show 2FA
           } as any
 
         } catch (error) {
@@ -187,7 +200,6 @@ export const authOptions: NextAuthOptions = {
 
   callbacks: {
     async jwt({ token, user }) {
-      // ── First login — copy all fields from authorize() ──
       if (user) {
         token.id = user.id
         token.role = (user as any).role
@@ -200,14 +212,14 @@ export const authOptions: NextAuthOptions = {
         token.subscriptionId = (user as any).subscriptionId
         token.subscriptionEnd = (user as any).subscriptionEnd
         token.subscriptionStatus = (user as any).subscriptionStatus
+        token.twoFactorRequired = (user as any).twoFactorRequired || false
         token.lastDbCheck = Date.now()
         return token
       }
 
-      // ── Superadmin — no DB refresh needed ──
       if (token.role === 'superadmin') return token
 
-      // ── Refresh from DB every 30 seconds ──
+      // Refresh from DB every 30 seconds
       const lastCheck = (token.lastDbCheck as number) || 0
       const THIRTY_SECONDS = 30 * 1000
 
@@ -228,7 +240,6 @@ export const authOptions: NextAuthOptions = {
             return token
           }
 
-          // Check active subscription
           const activeSub = await Subscription.findOne({
             tenantId: token.tenantId,
             status: 'active',
@@ -288,6 +299,7 @@ export const authOptions: NextAuthOptions = {
         session.user.subscriptionId = token.subscriptionId as string | null
         session.user.subscriptionEnd = token.subscriptionEnd as string | null
         session.user.subscriptionStatus = token.subscriptionStatus as string
+        session.user.twoFactorRequired = token.twoFactorRequired as boolean
       }
       return session
     },
@@ -300,7 +312,7 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 
   secret: process.env.NEXTAUTH_SECRET,
