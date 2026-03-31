@@ -122,7 +122,7 @@ export function Footer() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2.5 group mb-4" aria-label="Skolify Home">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-                <span className="text-white font-extrabold text-sm">VF</span>
+                <span className="text-white font-extrabold text-sm">SF</span>
               </div>
               <div className="leading-tight">
                 <div className="text-sm font-extrabold text-slate-900 tracking-tight">Skolify</div>

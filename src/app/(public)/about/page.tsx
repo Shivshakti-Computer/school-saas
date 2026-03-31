@@ -62,7 +62,7 @@ const values = [
   {
     icon: '💡',
     title: 'Simple by Design',
-    desc: 'No training needed. If you can use WhatsApp, you can use VidyaFlow. Clean, intuitive interface for everyone.',
+    desc: 'No training needed. If you can use WhatsApp, you can use Skolify. Clean, intuitive interface for everyone.',
     gradient: 'from-purple-500 to-violet-600',
     bgColor: 'bg-purple-50',
     borderColor: 'border-purple-100',
@@ -150,7 +150,7 @@ export default function AboutPage() {
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 shadow-soft mb-6">
               <span className="text-lg">💡</span>
-              <span className="text-sm font-semibold text-slate-700">About VidyaFlow</span>
+              <span className="text-sm font-semibold text-slate-700">About Skolify</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-[1.12]">
@@ -161,7 +161,7 @@ export default function AboutPage() {
             </h1>
 
             <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl mx-auto">
-              VidyaFlow is a product of{' '}
+              Skolify is a product of{' '}
               <a
                 href="https://shivshakticomputer.in"
                 target="_blank"
@@ -238,7 +238,7 @@ export default function AboutPage() {
                       (no Hindi, no ₹ billing, no CBSE patterns).
                     </p>
                     <p>
-                      So in 2024, we decided to build <strong className="text-blue-600">VidyaFlow</strong> — a modern,
+                      So in 2024, we decided to build <strong className="text-blue-600">Skolify</strong> — a modern,
                       lightweight, cloud-based school management platform that any school can start using in minutes.
                       No installation, no hardware, no long contracts. Just register, log in, and start managing your school.
                     </p>
@@ -365,9 +365,9 @@ export default function AboutPage() {
       <section className="py-20 bg-slate-50">
         <Container>
           <SectionTitle
-            eyebrow="🏆 Why VidyaFlow"
+            eyebrow="🏆 Why Skolify"
             title="What makes us different from others"
-            subtitle="We're not just another school ERP. Here's why schools should choose VidyaFlow."
+            subtitle="We're not just another school ERP. Here's why schools should choose Skolify."
             center
           />
 
@@ -437,7 +437,7 @@ export default function AboutPage() {
               From idea to a full platform
             </h2>
             <p className="mt-3 text-base text-slate-600 max-w-xl mx-auto">
-              Every milestone in building VidyaFlow — and what&apos;s coming next.
+              Every milestone in building Skolify — and what&apos;s coming next.
             </p>
           </div>
 
@@ -577,7 +577,7 @@ export default function AboutPage() {
                   <p className="text-sm text-emerald-700 leading-relaxed flex items-start gap-2">
                     <span className="text-lg flex-shrink-0">🌱</span>
                     <span>
-                      <strong>We&apos;re just getting started.</strong> VidyaFlow is continuously improving based on
+                      <strong>We&apos;re just getting started.</strong> Skolify is continuously improving based on
                       real feedback from real schools. Every week, we ship new features and improvements.
                     </span>
                   </p>

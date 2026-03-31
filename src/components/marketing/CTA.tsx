@@ -99,7 +99,7 @@ export function CTA() {
                       {/* Logo */}
                       <div className="flex items-center gap-3 mb-5">
                         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md">
-                          <span className="text-white font-extrabold text-sm">VF</span>
+                          <span className="text-white font-extrabold text-sm">SF</span>
                         </div>
                         <div>
                           <p className="text-sm font-bold text-slate-900">Skolify</p>
