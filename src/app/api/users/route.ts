@@ -1,11 +1,11 @@
-/* ─────────────────────────────────────────────────────────────
-   FILE: src/app/api/users/route.ts
-   GET  → list users (teachers/staff) for admin
-   POST → add teacher/staff
-   ─────────────────────────────────────────────────────────── */
+// =============================================================
+// FILE: src/app/api/users/route.ts
+// UPDATED: Added checkCanAddTeacher limit in POST
+// =============================================================
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { User } from '@/models/User'
+import { checkCanAddTeacher } from '@/lib/limitGuard'
 import bcrypt from 'bcryptjs'
 import { getServerSession } from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
@@ -38,6 +38,20 @@ export async function POST(req: NextRequest) {
 
     await connectDB()
     const body = await req.json()
+
+    // ─── CHECK TEACHER LIMIT ───
+    if (body.role === 'teacher') {
+        const limitCheck = await checkCanAddTeacher(session.user.tenantId)
+        if (!limitCheck.allowed) {
+            return NextResponse.json({
+                error: limitCheck.message,
+                limitReached: true,
+                current: limitCheck.current,
+                limit: limitCheck.limit,
+                plan: limitCheck.plan,
+            }, { status: 403 })
+        }
+    }
 
     // Check duplicate phone
     const existing = await User.findOne({

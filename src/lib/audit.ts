@@ -49,9 +49,12 @@ export async function logAudit(params: LogParams): Promise<void> {
   try {
     await connectDB()
 
+    // Sanitize ObjectId fields — prevent CastError
+    const isValidId = (id?: string) => id && id !== 'unknown' && id !== '' && /^[a-f\d]{24}$/i.test(id)
+
     await AuditLog.create({
-      tenantId: params.tenantId || undefined,
-      userId: params.userId || undefined,
+      tenantId: isValidId(params.tenantId) ? params.tenantId : undefined,
+      userId: isValidId(params.userId) ? params.userId : undefined,
       userName: params.userName,
       userRole: params.userRole,
       action: params.action,
@@ -67,7 +70,6 @@ export async function logAudit(params: LogParams): Promise<void> {
       riskLevel: getRiskLevel(params.action),
     })
   } catch (error) {
-    // Audit log failure should NEVER break the app
     console.error('AUDIT LOG ERROR:', error)
   }
 }

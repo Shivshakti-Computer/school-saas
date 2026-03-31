@@ -10,9 +10,10 @@ import { School } from '@/models/School'
 import { Subscription } from '@/models/Subscription'
 import { is2FAEnabled, isTrustedDevice } from './twoFactor'
 import { logLogin } from './audit'
+import { TRIAL_CONFIG } from './plans'
 
-const TRIAL_MODULES = ['students', 'teachers', 'attendance', 'notices', 'website', 'gallery']
-const TRIAL_PLAN = 'starter'
+const TRIAL_MODULES = TRIAL_CONFIG.modules
+const TRIAL_PLAN = TRIAL_CONFIG.plan
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -141,7 +142,7 @@ export const authOptions: NextAuthOptions = {
           // ── Subscription state ──
           const activeSub = await Subscription.findOne({
             tenantId: school._id,
-            status: 'active',
+            status: { $in: ['active', 'scheduled_cancel'] },
           }).sort({ createdAt: -1 }).lean() as any
 
           const now = new Date()
@@ -242,7 +243,7 @@ export const authOptions: NextAuthOptions = {
 
           const activeSub = await Subscription.findOne({
             tenantId: token.tenantId,
-            status: 'active',
+            status: { $in: ['active', 'scheduled_cancel'] },  // ← CHANGED
           }).sort({ createdAt: -1 }).lean() as any
 
           const now = new Date()

@@ -1,13 +1,37 @@
 // =============================================================
-// FILE: src/lib/plans.ts — COMPLETE REWRITE
-// 4 Plans, 20+ modules, affordable pricing
-// GST: future-ready (sirf flag badlo)
+// FILE: src/lib/plans.ts — UPDATED
+// Changes:
+// 1. Trial: 15 → 60 days
+// 2. Trial features: ALL modules combo (maximum features)
+// 3. Limits increased significantly
+// 4. New helper functions for limit checking
 // =============================================================
 
 export type PlanId = 'starter' | 'growth' | 'pro' | 'enterprise'
 export type BillingCycle = 'monthly' | 'yearly'
 
-// ─── GST CONFIG — jab GST number mile sirf enabled: true karo ───
+// ─── TRIAL CONFIG ───
+export const TRIAL_CONFIG = {
+    durationDays: 60,        // 60 days free trial
+    plan: 'starter' as PlanId,
+    // Trial me SARE modules milenge (sab plans ka combo)
+    // Taaki user sab try kare, habit bane, fir subscribe kare
+    modules: [
+        'students', 'teachers', 'attendance', 'notices',
+        'website', 'gallery', 'fees', 'exams', 'timetable',
+        'homework', 'documents', 'reports', 'communication',
+        'library', 'certificates', 'lms',
+        // Enterprise modules bhi trial me (limited)
+        'hr', 'transport', 'hostel',
+        'inventory', 'visitor', 'health', 'alumni',
+    ],
+    // Trial limits — generous but capped
+    maxStudents: 100,
+    maxTeachers: 10,
+    maxSmsPerMonth: 200,
+}
+
+// ─── GST CONFIG ───
 export const GST_CONFIG = {
     enabled: false,
     rate: 0.18,
@@ -15,7 +39,7 @@ export const GST_CONFIG = {
     legalName: 'Shivshakti Computer Academy',
 }
 
-// ─── Razorpay fees (hamesha lagte hain) ───
+// ─── Razorpay fees ───
 export const RAZORPAY_CONFIG = {
     feeRate: 0.02,
     gstOnFee: 0.18,
@@ -32,48 +56,59 @@ export interface Plan {
     description: string
     color: string
     modules: string[]
-    maxStudents: number    // -1 = unlimited
+    maxStudents: number     // -1 = unlimited
     maxTeachers: number
-    maxSmsPerMonth: number // -1 = unlimited
+    maxClasses: number      // NEW
+    maxSmsPerMonth: number  // -1 = unlimited
+    maxEmailPerMonth: number // NEW
+    maxWhatsappPerMonth: number // NEW
+    maxStorageGB: number    // NEW
     features: string[]
     notIncluded?: string[]
     highlighted?: boolean
 }
 
-// ─── 4 PLANS ───
+// ─── 4 PLANS (Updated Limits) ───
 export const PLANS: Record<PlanId, Plan> = {
 
     // ─────────────────────────────────────────
     // STARTER — ₹499/mo
-    // Chhoti schools, digital presence shuru
     // ─────────────────────────────────────────
     starter: {
         id: 'starter',
         name: 'Starter',
         tagline: 'Digital school ki shuruat — sirf ₹17/din',
         monthlyPrice: 499,
-        yearlyPrice: 4999,     // ₹417/mo — 2 months free
+        yearlyPrice: 4999,
         description: 'Chhoti schools ke liye — website, attendance, SMS sab ek jagah',
         color: '#64748B',
-        maxStudents: 200,
-        maxTeachers: 10,
-        maxSmsPerMonth: 500,
+        maxStudents: 500,        // 200 → 500
+        maxTeachers: 20,         // 10 → 20
+        maxClasses: 12,
+        maxSmsPerMonth: 2000,    // 500 → 2000
+        maxEmailPerMonth: 1000,
+        maxWhatsappPerMonth: 500,
+        maxStorageGB: 2,
         modules: [
             'students', 'teachers', 'attendance', 'notices',
             'website', 'gallery',
         ],
         features: [
-            'Upto 200 students',
+            'Upto 500 students',
+            'Upto 20 teachers',
             'Professional school website',
             'Student management + ID cards PDF',
             'Daily attendance tracking',
-            'Absent SMS to parents (auto)',
+            'Absent SMS/WhatsApp to parents (auto)',
             'Notice board with SMS blast',
             'Photo gallery & events',
             'Installable mobile app (PWA)',
             'Student & Parent login portal',
             'Daily data backup',
-            '500 SMS/month included',
+            '2,000 SMS/month included',
+            '1,000 Emails/month',
+            '500 WhatsApp/month',
+            '2 GB storage',
             'Email support',
         ],
         notIncluded: [
@@ -88,20 +123,23 @@ export const PLANS: Record<PlanId, Plan> = {
 
     // ─────────────────────────────────────────
     // GROWTH — ₹999/mo — MOST POPULAR
-    // Growing schools, complete management
     // ─────────────────────────────────────────
     growth: {
         id: 'growth',
         name: 'Growth',
         tagline: 'Sabse popular — poora school ek app mein',
         monthlyPrice: 999,
-        yearlyPrice: 9999,     // ₹833/mo — 2 months free
+        yearlyPrice: 9999,
         description: 'Growing schools ke liye — fees, exams, homework sab automated',
         color: '#4F46E5',
-        maxStudents: 500,
-        maxTeachers: 30,
-        maxSmsPerMonth: 2000,
-        highlighted: true,     // "Most Popular" badge
+        maxStudents: 1500,       // 500 → 1500
+        maxTeachers: 50,         // 30 → 50
+        maxClasses: 24,
+        maxSmsPerMonth: 5000,    // 2000 → 5000
+        maxEmailPerMonth: 5000,
+        maxWhatsappPerMonth: 2000,
+        maxStorageGB: 10,
+        highlighted: true,
         modules: [
             'students', 'teachers', 'attendance', 'notices',
             'website', 'gallery', 'fees', 'exams', 'timetable',
@@ -109,9 +147,10 @@ export const PLANS: Record<PlanId, Plan> = {
         ],
         features: [
             'Sab Starter features +',
-            'Upto 500 students',
+            'Upto 1,500 students',
+            'Upto 50 teachers',
             'Online fee collection (Razorpay)',
-            'Automatic fee reminders (SMS)',
+            'Automatic fee reminders (SMS + WhatsApp)',
             'Late fine automation',
             'Fee receipts PDF (auto)',
             'Exam scheduling + marks entry',
@@ -123,7 +162,10 @@ export const PLANS: Record<PlanId, Plan> = {
             'Class-wise & subject-wise reports',
             'Parent app (full access)',
             '3 website templates',
-            '2,000 SMS/month included',
+            '5,000 SMS/month included',
+            '5,000 Emails/month',
+            '2,000 WhatsApp/month',
+            '10 GB storage',
             'WhatsApp support',
         ],
         notIncluded: [
@@ -138,19 +180,22 @@ export const PLANS: Record<PlanId, Plan> = {
 
     // ─────────────────────────────────────────
     // PRO — ₹1,999/mo
-    // Established schools, premium features
     // ─────────────────────────────────────────
     pro: {
         id: 'pro',
         name: 'Pro',
         tagline: 'Complete solution — sab kuch included',
         monthlyPrice: 1999,
-        yearlyPrice: 19999,    // ₹1,667/mo — 2 months free
+        yearlyPrice: 19999,
         description: 'Bade schools ke liye — library, LMS, certificates, analytics',
         color: '#7C3AED',
-        maxStudents: 1500,
-        maxTeachers: 75,
-        maxSmsPerMonth: 5000,
+        maxStudents: 5000,       // 1500 → 5000
+        maxTeachers: 150,        // 75 → 150
+        maxClasses: 50,
+        maxSmsPerMonth: 15000,   // 5000 → 15000
+        maxEmailPerMonth: 15000,
+        maxWhatsappPerMonth: 5000,
+        maxStorageGB: 50,
         modules: [
             'students', 'teachers', 'attendance', 'notices',
             'website', 'gallery', 'fees', 'exams', 'timetable',
@@ -159,7 +204,8 @@ export const PLANS: Record<PlanId, Plan> = {
         ],
         features: [
             'Sab Growth features +',
-            'Upto 1,500 students',
+            'Upto 5,000 students',
+            'Upto 150 teachers',
             'Library book catalogue & issue tracking',
             'Custom certificate generation',
             'Online classes & video lessons (LMS)',
@@ -167,7 +213,10 @@ export const PLANS: Record<PlanId, Plan> = {
             'Excel & PDF data export',
             'Custom school branding (logo, colors)',
             'All website templates + custom design',
-            '5,000 SMS/month included',
+            '15,000 SMS/month included',
+            '15,000 Emails/month',
+            '5,000 WhatsApp/month',
+            '50 GB storage',
             'Priority bug fixes',
             'Dedicated WhatsApp group',
         ],
@@ -181,19 +230,22 @@ export const PLANS: Record<PlanId, Plan> = {
 
     // ─────────────────────────────────────────
     // ENTERPRISE — ₹3,999/mo
-    // Large schools, chains, no limits
     // ─────────────────────────────────────────
     enterprise: {
         id: 'enterprise',
         name: 'Enterprise',
         tagline: 'Zero limits — poora school ecosystem',
         monthlyPrice: 3999,
-        yearlyPrice: 39999,    // ₹3,333/mo — 2 months free
+        yearlyPrice: 39999,
         description: 'School chains & bade institutions ke liye — unlimited sab kuch',
         color: '#B45309',
         maxStudents: -1,
         maxTeachers: -1,
+        maxClasses: -1,
         maxSmsPerMonth: -1,
+        maxEmailPerMonth: -1,
+        maxWhatsappPerMonth: -1,
+        maxStorageGB: -1,
         modules: [
             'students', 'teachers', 'attendance', 'notices',
             'website', 'gallery', 'fees', 'exams', 'timetable',
@@ -213,14 +265,14 @@ export const PLANS: Record<PlanId, Plan> = {
             'Visitor management system',
             'Student health records',
             'Alumni network',
-            'Unlimited SMS',
+            'Unlimited SMS, Email & WhatsApp',
+            'Unlimited storage',
             'Multi-branch support',
             'API access for integrations',
             'White-label option (aapka logo)',
             'Dedicated account manager',
             'Custom feature development',
         ],
-        // Enterprise mein sab kuch hai — no notIncluded
     },
 }
 
@@ -244,7 +296,131 @@ export function getSavings(planId: PlanId): number {
     return (plan.monthlyPrice * 12) - plan.yearlyPrice
 }
 
-// ─── GST HELPERS (future ready) ───
+// ─── LIMIT CHECK HELPERS (NEW) ───
+
+export interface LimitCheck {
+    allowed: boolean
+    current: number
+    limit: number
+    remaining: number
+    isUnlimited: boolean
+    message?: string
+}
+
+export function checkStudentLimit(planId: PlanId, currentCount: number): LimitCheck {
+    const plan = getPlan(planId)
+    const limit = plan.maxStudents
+
+    if (limit === -1) {
+        return { allowed: true, current: currentCount, limit: -1, remaining: -1, isUnlimited: true }
+    }
+
+    return {
+        allowed: currentCount < limit,
+        current: currentCount,
+        limit,
+        remaining: Math.max(0, limit - currentCount),
+        isUnlimited: false,
+        message: currentCount >= limit
+            ? `Student limit reached (${currentCount}/${limit}). Upgrade your plan to add more students.`
+            : undefined,
+    }
+}
+
+export function checkTeacherLimit(planId: PlanId, currentCount: number): LimitCheck {
+    const plan = getPlan(planId)
+    const limit = plan.maxTeachers
+
+    if (limit === -1) {
+        return { allowed: true, current: currentCount, limit: -1, remaining: -1, isUnlimited: true }
+    }
+
+    return {
+        allowed: currentCount < limit,
+        current: currentCount,
+        limit,
+        remaining: Math.max(0, limit - currentCount),
+        isUnlimited: false,
+        message: currentCount >= limit
+            ? `Teacher limit reached (${currentCount}/${limit}). Upgrade your plan to add more teachers.`
+            : undefined,
+    }
+}
+
+export function checkSmsLimit(planId: PlanId, currentMonthUsage: number): LimitCheck {
+    const plan = getPlan(planId)
+    const limit = plan.maxSmsPerMonth
+
+    if (limit === -1) {
+        return { allowed: true, current: currentMonthUsage, limit: -1, remaining: -1, isUnlimited: true }
+    }
+
+    return {
+        allowed: currentMonthUsage < limit,
+        current: currentMonthUsage,
+        limit,
+        remaining: Math.max(0, limit - currentMonthUsage),
+        isUnlimited: false,
+        message: currentMonthUsage >= limit
+            ? `SMS limit reached (${currentMonthUsage}/${limit}). Upgrade for more SMS.`
+            : undefined,
+    }
+}
+
+export function checkEmailLimit(planId: PlanId, currentMonthUsage: number): LimitCheck {
+    const plan = getPlan(planId)
+    const limit = plan.maxEmailPerMonth
+
+    if (limit === -1) {
+        return { allowed: true, current: currentMonthUsage, limit: -1, remaining: -1, isUnlimited: true }
+    }
+
+    return {
+        allowed: currentMonthUsage < limit,
+        current: currentMonthUsage,
+        limit,
+        remaining: Math.max(0, limit - currentMonthUsage),
+        isUnlimited: false,
+    }
+}
+
+export function checkWhatsappLimit(planId: PlanId, currentMonthUsage: number): LimitCheck {
+    const plan = getPlan(planId)
+    const limit = plan.maxWhatsappPerMonth
+
+    if (limit === -1) {
+        return { allowed: true, current: currentMonthUsage, limit: -1, remaining: -1, isUnlimited: true }
+    }
+
+    return {
+        allowed: currentMonthUsage < limit,
+        current: currentMonthUsage,
+        limit,
+        remaining: Math.max(0, limit - currentMonthUsage),
+        isUnlimited: false,
+    }
+}
+
+// ─── TRIAL HELPERS (NEW) ───
+
+export function getTrialModules(): string[] {
+    return TRIAL_CONFIG.modules
+}
+
+export function getTrialDurationDays(): number {
+    return TRIAL_CONFIG.durationDays
+}
+
+export function isTrialExpired(trialEndsAt: Date | string): boolean {
+    return new Date(trialEndsAt) < new Date()
+}
+
+export function getTrialDaysRemaining(trialEndsAt: Date | string): number {
+    const diff = new Date(trialEndsAt).getTime() - Date.now()
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+}
+
+// ─── GST HELPERS ───
 
 export interface PriceBreakdown {
     baseAmount: number
@@ -364,4 +540,18 @@ export function calculateUpgradeAmount(
 export function getOrderAmountPaise(baseAmount: number): number {
     const { totalAmount } = getPriceBreakdown(baseAmount)
     return totalAmount * 100
+}
+
+// ─── DEMO ACCOUNT CONFIG (NEW) ───
+export const DEMO_CONFIG = {
+    schoolCode: 'demo_school',
+    schoolName: 'Demo School - Skolify',
+    adminPhone: '9999999999',
+    adminPassword: 'Demo@123',
+    adminName: 'Demo Admin',
+    plan: 'enterprise' as PlanId,
+    // Demo account never expires
+    trialDays: 36500, // ~100 years
+    modules: Object.keys(PLANS.enterprise.modules) as string[],
+    isDemo: true,
 }

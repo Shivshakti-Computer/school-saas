@@ -1,17 +1,17 @@
-/* ─────────────────────────────────────────────────────────────
-   FILE: src/app/api/students/route.ts
-   GET  → list students (with filters)
-   POST → add single student
-   ─────────────────────────────────────────────────────────── */
+// =============================================================
+// FILE: src/app/api/students/route.ts
+// UPDATED: Added checkCanAddStudent limit in POST
+// =============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { Student } from '@/models/Student'
 import { User } from '@/models/User'
-import bcrypt from 'bcryptjs'
 import { FeeStructure } from '@/models/FeeStructure'
 import { Fee } from '@/models/Fee'
+import { checkCanAddStudent } from '@/lib/limitGuard'
+import bcrypt from 'bcryptjs'
 
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
@@ -58,6 +58,19 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB()
+
+    // ─── CHECK STUDENT LIMIT ───
+    const limitCheck = await checkCanAddStudent(session.user.tenantId)
+    if (!limitCheck.allowed) {
+        return NextResponse.json({
+            error: limitCheck.message,
+            limitReached: true,
+            current: limitCheck.current,
+            limit: limitCheck.limit,
+            plan: limitCheck.plan,
+        }, { status: 403 })
+    }
+
     const body = await req.json()
 
     // Validate required fields
@@ -75,7 +88,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Phone number already registered' }, { status: 409 })
     }
 
-    // Auto-generate admission number: YYYY-0001
+    // Auto-generate admission number
     const year = new Date().getFullYear()
     const count = await Student.countDocuments({ tenantId: session.user.tenantId })
     const admissionNo = `${year}-${String(count + 1).padStart(4, '0')}`
@@ -112,8 +125,7 @@ export async function POST(req: NextRequest) {
         bloodGroup: body.bloodGroup,
     })
 
-
-    // Is class ke liye active fee structures dhundho
+    // Auto-assign fee structures
     const activeStructures = await FeeStructure.find({
         tenantId: session.user.tenantId,
         isActive: true,
@@ -125,7 +137,6 @@ export async function POST(req: NextRequest) {
         ],
     })
 
-    // Har structure ke liye fee record banao
     for (const struct of activeStructures) {
         await Fee.create({
             tenantId: session.user.tenantId,
@@ -141,9 +152,7 @@ export async function POST(req: NextRequest) {
         })
     }
 
-    console.log(`Auto-assigned ${activeStructures.length} fee structures to new student`)
-
-    // Parent account banao (agar already nahi hai)
+    // Parent account
     const existingParent = await User.findOne({
         tenantId: session.user.tenantId,
         phone: body.parentPhone,
@@ -163,5 +172,14 @@ export async function POST(req: NextRequest) {
         })
     }
 
-    return NextResponse.json({ student, admissionNo }, { status: 201 })
+    return NextResponse.json({
+        student,
+        admissionNo,
+        // ─── NEW: Return limit info ───
+        limits: {
+            current: limitCheck.current + 1,
+            limit: limitCheck.limit,
+            remaining: limitCheck.isUnlimited ? -1 : limitCheck.remaining - 1,
+        },
+    }, { status: 201 })
 }

@@ -14,6 +14,7 @@ import {
   getClientInfo,
 } from '@/lib/security'
 import { logAudit } from '@/lib/audit'
+import { TRIAL_CONFIG } from '@/lib/plans'
 
 export async function POST(req: NextRequest) {
   // ── Rate Limit ──
@@ -123,9 +124,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Trial: 15 days ──
+    // ── Trial: 60 days ──
     const trialEndsAt = new Date()
-    trialEndsAt.setDate(trialEndsAt.getDate() + 15)
+    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_CONFIG.durationDays) // 60 days
 
     // ── Create school ──
     const school = await School.create({
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
       email: email?.trim() || '',
       plan: 'starter',
       trialEndsAt,
-      modules: ['students', 'teachers', 'attendance', 'notices', 'website', 'gallery'],
+      modules: TRIAL_CONFIG.modules, // ALL modules during trial
       isActive: true,
       onboardingComplete: false,
     })

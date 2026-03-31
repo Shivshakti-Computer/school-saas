@@ -1,3 +1,6 @@
+// FILE: src/app/api/subscription/upgrade/route.ts
+// UPDATED: Fixed PLAN_ORDER (was missing 'growth'!), added audit
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import Razorpay from 'razorpay'
@@ -6,11 +9,9 @@ import { connectDB } from '@/lib/db'
 import { School } from '@/models/School'
 import { Subscription } from '@/models/Subscription'
 import {
-    getPlan,
-    getPrice,
-    calculateUpgradeAmount,
-    getOrderAmountPaise,
+    getPlan, getPrice, calculateUpgradeAmount, getOrderAmountPaise,
 } from '@/lib/plans'
+import { logAudit } from '@/lib/audit'
 import type { PlanId, BillingCycle } from '@/lib/plans'
 
 const rzp = new Razorpay({
@@ -18,6 +19,7 @@ const rzp = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET!,
 })
 
+// ✅ FIXED: 'growth' was missing!
 const PLAN_ORDER: PlanId[] = ['starter', 'growth', 'pro', 'enterprise']
 
 export async function POST(req: NextRequest) {
@@ -29,22 +31,15 @@ export async function POST(req: NextRequest) {
 
         await connectDB()
 
-        const {
-            newPlanId,
-            billingCycle,
-        }: { newPlanId: PlanId; billingCycle: BillingCycle } = await req.json()
+        const { newPlanId, billingCycle }: { newPlanId: PlanId; billingCycle: BillingCycle } = await req.json()
 
-        if (!['starter', 'pro', 'enterprise'].includes(newPlanId)) {
+        // ✅ FIXED: Added 'growth' to validation
+        if (!['starter', 'growth', 'pro', 'enterprise'].includes(newPlanId)) {
             return NextResponse.json({ error: 'Invalid plan' }, { status: 400 })
         }
 
         const school = await School.findById(session.user.tenantId)
-        if (!school) {
-            return NextResponse.json(
-                { error: 'School not found' },
-                { status: 404 }
-            )
-        }
+        if (!school) return NextResponse.json({ error: 'School not found' }, { status: 404 })
 
         const currentSub = await Subscription.findOne({
             tenantId: school._id,
@@ -60,19 +55,14 @@ export async function POST(req: NextRequest) {
             const newRank = PLAN_ORDER.indexOf(newPlanId)
             const currentCycle = currentSub.billingCycle as BillingCycle
 
-            // ← FIX: Separate checks for plan downgrade vs cycle downgrade
             if (newRank < currentRank) {
                 return NextResponse.json(
-                    {
-                        error:
-                            'Plan downgrade allowed nahi hai. Support se contact karein.',
-                    },
+                    { error: 'Plan downgrade allowed nahi hai. Support se contact karein.' },
                     { status: 400 }
                 )
             }
 
             if (newRank === currentRank) {
-                // Same plan — only monthly → yearly allowed
                 if (currentCycle === billingCycle) {
                     return NextResponse.json(
                         { error: 'Aap already isi plan aur cycle pe hain.' },
@@ -81,27 +71,21 @@ export async function POST(req: NextRequest) {
                 }
                 if (currentCycle === 'yearly' && billingCycle === 'monthly') {
                     return NextResponse.json(
-                        {
-                            error:
-                                'Yearly se monthly switch nahi ho sakta. Current period end hone ke baad monthly select karein.',
-                        },
+                        { error: 'Yearly se monthly switch nahi ho sakta. Current period end hone ke baad monthly select karein.' },
                         { status: 400 }
                     )
                 }
-                // monthly → yearly: allowed, continue below
             }
 
-            // ← FIX: Pass currentBillingCycle separately
             upgrade = calculateUpgradeAmount(
                 currentSub.plan as PlanId,
                 newPlanId,
-                billingCycle,           // new cycle
-                currentCycle,           // ← current cycle (was missing before!)
+                billingCycle,
+                currentCycle,
                 new Date(currentSub.currentPeriodStart),
                 new Date(currentSub.currentPeriodEnd)
             )
         } else {
-            // No active subscription — full price
             upgrade = {
                 newPlanPrice,
                 creditAmount: 0,
@@ -114,28 +98,19 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // FREE UPGRADE — credit covers everything
+        // FREE UPGRADE
         if (upgrade.totalPayable === 0) {
-            await applyUpgrade(
-                school._id.toString(),
-                newPlanId,
-                newPlanPrice,
-                billingCycle,
-                currentSub
-            )
-
             return NextResponse.json({
                 success: true,
                 noPayment: true,
+                breakdown: upgrade,
                 explanation: upgrade.explanation,
                 planName: getPlan(newPlanId).name,
             })
         }
 
-        // PAID UPGRADE — create Razorpay order
-        const receipt = `upg_${school._id
-            .toString()
-            .slice(-6)}_${Date.now().toString().slice(-6)}`
+        // PAID UPGRADE — Razorpay order
+        const receipt = `upg_${school._id.toString().slice(-6)}_${Date.now().toString().slice(-6)}`
 
         const order = await rzp.orders.create({
             amount: getOrderAmountPaise(upgrade.subtotal),
@@ -147,7 +122,21 @@ export async function POST(req: NextRequest) {
                 newPlanId,
                 billingCycle,
                 baseAmount: String(upgrade.subtotal),
+                upgradedFrom: currentSub?.plan || 'none',
             },
+        })
+
+        // Audit
+        await logAudit({
+            tenantId: session.user.tenantId,
+            userId: session.user.id,
+            userName: session.user.name || 'Unknown',
+            userRole: 'admin',
+            action: 'SUBSCRIPTION_UPGRADE',
+            resource: 'Subscription',
+            description: `Upgrade order: ${currentSub?.plan || 'none'} → ${newPlanId} (${billingCycle}) - ₹${upgrade.totalPayable}`,
+            metadata: { from: currentSub?.plan, to: newPlanId, billingCycle, amount: upgrade.totalPayable },
+            ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown',
         })
 
         return NextResponse.json({
@@ -162,18 +151,18 @@ export async function POST(req: NextRequest) {
     }
 }
 
-// ─── Shared helper ───
+// ─── Shared helper (exported for free upgrade route) ───
 export async function applyUpgrade(
     tenantId: string,
     newPlanId: PlanId,
     amount: number,
     billing: BillingCycle,
-    currentSub: any
+    currentSub: any,
+    paymentInfo?: { razorpayPaymentId: string; razorpayOrderId: string }
 ) {
     const now = new Date()
     const end = new Date(now)
 
-    // ← FIX: Exactly 30 or 365 days
     if (billing === 'monthly') {
         end.setDate(end.getDate() + 30)
     } else {
@@ -190,9 +179,13 @@ export async function applyUpgrade(
         })
     }
 
+    const invoiceNumber = paymentInfo
+        ? `INV-UPG-${Date.now().toString().slice(-8)}`
+        : undefined
+
     const newSub = await Subscription.create({
         tenantId,
-        razorpaySubId: `upg_${Date.now()}`,
+        razorpaySubId: paymentInfo?.razorpayPaymentId || `free_upg_${Date.now()}`,
         razorpayCustomerId: tenantId,
         plan: newPlanId,
         billingCycle: billing,
@@ -200,6 +193,17 @@ export async function applyUpgrade(
         status: 'active',
         currentPeriodStart: now,
         currentPeriodEnd: end,
+        upgradedFrom: currentSub?.plan,
+        lastPaymentAt: paymentInfo ? now : undefined,
+        paymentHistory: paymentInfo ? [{
+            razorpayPaymentId: paymentInfo.razorpayPaymentId,
+            razorpayOrderId: paymentInfo.razorpayOrderId,
+            amount,
+            currency: 'INR',
+            status: 'captured' as const,
+            paidAt: now,
+            invoiceNumber,
+        }] : [],
     })
 
     await School.findByIdAndUpdate(tenantId, {
@@ -208,4 +212,6 @@ export async function applyUpgrade(
         modules: plan.modules,
         trialEndsAt: end,
     })
+
+    return newSub
 }

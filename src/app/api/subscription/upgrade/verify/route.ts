@@ -1,12 +1,17 @@
+// FILE: src/app/api/subscription/upgrade/verify/route.ts
+// UPDATED: Added audit log, payment history
+
 import crypto from 'crypto'
 import Razorpay from 'razorpay'
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
-import { School } from '@/models/School'
+import  '@/models/School'
 import { Subscription } from '@/models/Subscription'
 import { getPlan } from '@/lib/plans'
+import { applyUpgrade } from '../route'
+import { logAudit } from '@/lib/audit'
 import type { PlanId, BillingCycle } from '@/lib/plans'
 
 const rzp = new Razorpay({
@@ -36,13 +41,22 @@ export async function POST(req: NextRequest) {
             .digest('hex')
 
         if (expected !== razorpay_signature) {
-            return NextResponse.json(
-                { error: 'Invalid signature' },
-                { status: 400 }
-            )
+            await logAudit({
+                tenantId: session.user.tenantId,
+                userId: session.user.id,
+                userName: session.user.name || 'Unknown',
+                userRole: 'admin',
+                action: 'PAYMENT_FAILED',
+                resource: 'Payment',
+                description: 'Upgrade payment signature invalid',
+                metadata: { razorpay_order_id },
+                ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown',
+                status: 'FAILURE',
+            })
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
         }
 
-        // Fetch order from Razorpay — source of truth
+        // Fetch order from Razorpay
         const order = await rzp.orders.fetch(razorpay_order_id)
         const notes = order.notes as {
             type?: string
@@ -50,20 +64,15 @@ export async function POST(req: NextRequest) {
             newPlanId?: string
             billingCycle?: string
             baseAmount?: string
+            upgradedFrom?: string
         }
 
         if (notes.type !== 'upgrade') {
-            return NextResponse.json(
-                { error: 'Invalid order type.' },
-                { status: 400 }
-            )
+            return NextResponse.json({ error: 'Invalid order type.' }, { status: 400 })
         }
 
         if (notes.schoolId !== session.user.tenantId) {
-            return NextResponse.json(
-                { error: 'Order does not belong to your account' },
-                { status: 403 }
-            )
+            return NextResponse.json({ error: 'Order does not belong to your account' }, { status: 403 })
         }
 
         const newPlanId = notes.newPlanId as PlanId
@@ -71,10 +80,7 @@ export async function POST(req: NextRequest) {
         const baseAmount = Number(notes.baseAmount)
 
         if (!newPlanId || !billingCycle || isNaN(baseAmount)) {
-            return NextResponse.json(
-                { error: 'Order notes incomplete' },
-                { status: 400 }
-            )
+            return NextResponse.json({ error: 'Order notes incomplete' }, { status: 400 })
         }
 
         const currentSub = await Subscription.findOne({
@@ -82,44 +88,34 @@ export async function POST(req: NextRequest) {
             status: 'active',
         })
 
-        // Apply upgrade
-        const now = new Date()
-        const end = new Date(now)
-
-        // ← FIX: Exactly 30 or 365 days
-        if (billingCycle === 'monthly') {
-            end.setDate(end.getDate() + 30)
-        } else {
-            end.setDate(end.getDate() + 365)
-        }
+        // Apply upgrade with payment info
+        const newSub = await applyUpgrade(
+            session.user.tenantId,
+            newPlanId,
+            baseAmount,
+            billingCycle,
+            currentSub,
+            { razorpayPaymentId: razorpay_payment_id, razorpayOrderId: razorpay_order_id }
+        )
 
         const plan = getPlan(newPlanId)
 
-        if (currentSub) {
-            await Subscription.findByIdAndUpdate(currentSub._id, {
-                status: 'cancelled',
-                cancelledAt: now,
-                cancelReason: `Upgraded to ${newPlanId} (${billingCycle})`,
-            })
-        }
-
-        const newSub = await Subscription.create({
+        // Audit
+        await logAudit({
             tenantId: session.user.tenantId,
-            razorpaySubId: `upg_${Date.now()}`,
-            razorpayCustomerId: session.user.tenantId,
-            plan: newPlanId,
-            billingCycle,
-            amount: baseAmount,
-            status: 'active',
-            currentPeriodStart: now,
-            currentPeriodEnd: end,
-        })
-
-        await School.findByIdAndUpdate(session.user.tenantId, {
-            plan: newPlanId,
-            subscriptionId: newSub._id.toString(),
-            modules: plan.modules,
-            trialEndsAt: end,
+            userId: session.user.id,
+            userName: session.user.name || 'Unknown',
+            userRole: 'admin',
+            action: 'PAYMENT_SUCCESS',
+            resource: 'Payment',
+            resourceId: newSub._id.toString(),
+            description: `Upgrade payment verified: ${notes.upgradedFrom || 'none'} → ${newPlanId} (${billingCycle}) - ₹${baseAmount}`,
+            metadata: {
+                razorpay_payment_id, razorpay_order_id,
+                from: notes.upgradedFrom, to: newPlanId,
+                billingCycle, amount: baseAmount,
+            },
+            ipAddress: req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown',
         })
 
         return NextResponse.json({

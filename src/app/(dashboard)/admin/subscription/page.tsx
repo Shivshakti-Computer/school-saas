@@ -15,6 +15,7 @@ import { WEBSITE_PLAN_LIMITS } from '@/lib/websitePlans'
 import { MODULE_REGISTRY, type ModuleKey } from '@/lib/moduleRegistry'
 import { clsx } from 'clsx'
 import { Portal } from '@/components/ui/Portal'
+import { CancelSubscriptionFlow } from '@/components/subscription/CancelSubscriptionFlow'
 
 declare global {
     interface Window { Razorpay: any }
@@ -859,16 +860,44 @@ function SubscriptionInner() {
                 )}
             </div>
 
-            {/* ─── CANCEL SECTION ─── */}
-            {status?.isPaid && !cancelConfirm && (
-                <div className="mt-10 pt-6 border-t border-slate-200 text-center">
-                    <button
-                        onClick={() => setCancelConfirm(true)}
-                        className="text-sm text-slate-400 hover:text-red-500 transition-colors underline underline-offset-2"
-                    >
-                        Cancel Subscription
-                    </button>
+            {/* Scheduled cancel banner */}
+            {status?.isScheduledCancel && (
+                <div className="mt-7 bg-amber-50 border border-amber-200 rounded-xl p-5">
+                    <div className="flex items-start gap-3">
+                        <span className="text-xl">⏳</span>
+                        <div className="flex-1">
+                            <p className="font-semibold text-sm text-amber-900 mb-1">
+                                Cancellation Scheduled
+                            </p>
+                            <p className="text-[13px] text-amber-700">
+                                Your {PLANS[currentPlanId!]?.name} plan will end on{' '}
+                                <strong>{formatDate(status.scheduledCancelAt!)}</strong>.
+                                Access continues until then.
+                            </p>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                const res = await fetch('/api/subscription/cancel', { method: 'DELETE' })
+                                const data = await res.json()
+                                if (data.success) {
+                                    setAlert({ type: 'success', msg: 'Cancellation reversed! Your plan is active again.' })
+                                    fetchStatus()
+                                }
+                            }}
+                            className="px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-xl hover:bg-amber-700 transition-colors"
+                        >
+                            Undo Cancel
+                        </button>
+                    </div>
                 </div>
+            )}
+
+            {/* Cancel flow — only show if paid and not already scheduled */}
+            {status?.isPaid && !status?.isScheduledCancel && currentPlanId && (
+                <CancelSubscriptionFlow
+                    currentPlan={currentPlanId}
+                    onCancelled={fetchStatus}
+                />
             )}
 
             {status?.isPaid && cancelConfirm && (
