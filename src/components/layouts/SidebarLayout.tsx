@@ -232,13 +232,24 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           />
         )}
 
-        {/* Security — admin only, not expired */}
-        {role === 'admin' && !isExpired && (
+        {/* Security — ALL ROLES, not expired */}
+        {!isExpired && (
           <NavItem
-            href="/admin/security"
+            href={
+              role === 'admin' ? '/admin/security'
+                : role === 'teacher' ? '/teacher/security'
+                  : role === 'student' ? '/student/security'
+                    : role === 'parent' ? '/parent/security'
+                      : '#'
+            }
             label="Security"
             icon={<Shield size={16} />}
-            active={pathname.startsWith('/admin/security')}
+            active={
+              pathname.startsWith('/admin/security') ||
+              pathname.startsWith('/teacher/security') ||
+              pathname.startsWith('/student/security') ||
+              pathname.startsWith('/parent/security')
+            }
           />
         )}
       </nav>
