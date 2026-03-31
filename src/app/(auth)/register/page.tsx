@@ -687,13 +687,13 @@ export default function RegisterPage() {
               </div>
               <h1 className="text-2xl font-bold text-slate-900">Register Your School</h1>
               <p className="text-sm text-slate-500 mt-1.5">
-                14-day free trial · No credit card required
+                15-day free trial · No credit card required
               </p>
 
               {/* Feature badges */}
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 {[
-                  { icon: '✓', label: 'Free 14-day trial', colors: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+                  { icon: '✓', label: 'Free 15-day trial', colors: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
                   { icon: '✓', label: 'All roles included', colors: 'bg-blue-50 border-blue-200 text-blue-700' },
                   { icon: '✓', label: 'Setup in 2 minutes', colors: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
                 ].map(b => (

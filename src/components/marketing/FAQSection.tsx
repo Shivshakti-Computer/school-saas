@@ -14,7 +14,7 @@ const faqs = [
   },
   {
     q: 'Can we start with a free trial?',
-    a: 'Yes! Every school gets a 14-day free trial with full access. No credit card required. After trial, choose a plan that fits your school size.',
+    a: 'Yes! Every school gets a 15-day free trial with full access. No credit card required. After trial, choose a plan that fits your school size.',
   },
   {
     q: 'Can parents pay fees online?',

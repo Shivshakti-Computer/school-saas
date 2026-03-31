@@ -83,7 +83,7 @@ export default function PricingPage() {
               </span>
             </h1>
             <p className="mt-5 text-base sm:text-lg text-slate-600 leading-relaxed">
-              Start with a 14-day free trial. No credit card required.
+              Start with a 15-day free trial. No credit card required.
               Pick the plan that fits, upgrade anytime.
             </p>
 
@@ -96,7 +96,7 @@ export default function PricingPage() {
                 No hidden fees
               </span>
               <span className="flex items-center gap-1.5">✅ Cancel anytime</span>
-              <span className="flex items-center gap-1.5">🎁 14-day free trial</span>
+              <span className="flex items-center gap-1.5">🎁 15-day free trial</span>
             </div>
           </div>
         </Container>
@@ -411,7 +411,7 @@ export default function PricingPage() {
             {[
               {
                 q: 'Kya free trial mein credit card lagta hai?',
-                a: 'Nahi! 14-day free trial bina kisi payment ke. Trial khatam hone pe plan choose karo.',
+                a: 'Nahi! 15-day free trial bina kisi payment ke. Trial khatam hone pe plan choose karo.',
               },
               {
                 q: 'Kya monthly se yearly switch kar sakte hain?',

@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Register Your School — Skolify',
-  description: 'Register your school on Skolify. 14-day free trial, no credit card required. Start managing your school in minutes.',
+  description: 'Register your school on Skolify. 15-day free trial, no credit card required. Start managing your school in minutes.',
   robots: { index: true, follow: true },
 }
 

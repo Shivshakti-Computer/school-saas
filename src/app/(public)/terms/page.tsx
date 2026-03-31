@@ -68,7 +68,7 @@ export default function TermsPage() {
 
       <LegalSection number="04" title="Free Trial">
         <p>
-          New registrations receive a <strong className="text-slate-800">14-day free trial</strong> with access
+          New registrations receive a <strong className="text-slate-800">15-day free trial</strong> with access
           to Starter-level modules only. No payment information is required during the trial.
         </p>
         <p>
