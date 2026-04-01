@@ -35,43 +35,43 @@ function buildStudentData(
         admissionNo,
         rollNo,
         academicYear,
-        admissionDate:  new Date(body.admissionDate),
+        admissionDate: new Date(body.admissionDate),
         admissionClass: body.class,
 
-        class:   body.class,
+        class: body.class,
         section: body.section,
-        stream:  body.stream || '',
+        stream: body.stream || '',
 
         dateOfBirth: new Date(body.dateOfBirth),
-        gender:      body.gender,
-        bloodGroup:  body.bloodGroup  || '',
+        gender: body.gender,
+        bloodGroup: body.bloodGroup || '',
         nationality: body.nationality || 'Indian',
-        religion:    body.religion    || '',
-        category:    body.category    || 'general',
+        religion: body.religion || '',
+        category: body.category || 'general',
 
-        fatherName:       body.fatherName.trim(),
+        fatherName: body.fatherName.trim(),
         fatherOccupation: body.fatherOccupation || '',
-        fatherPhone:      body.fatherPhone      || '',
-        motherName:       body.motherName       || '',
+        fatherPhone: body.fatherPhone || '',
+        motherName: body.motherName || '',
         motherOccupation: body.motherOccupation || '',
-        motherPhone:      body.motherPhone      || '',
-        parentPhone:      body.parentPhone.trim(),
-        parentEmail:      body.parentEmail      || '',
+        motherPhone: body.motherPhone || '',
+        parentPhone: body.parentPhone.trim(),
+        parentEmail: body.parentEmail || '',
 
         address: body.address?.trim() || 'Not provided',
-        city:    body.city    || '',
-        state:   body.state   || '',
+        city: body.city || '',
+        state: body.state || '',
         pincode: body.pincode || '',
 
         emergencyContact: body.emergencyContact || '',
-        emergencyName:    body.emergencyName    || '',
-        previousSchool:   body.previousSchool   || '',
-        previousClass:    body.previousClass    || '',
-        tcNumber:         body.tcNumber         || '',
+        emergencyName: body.emergencyName || '',
+        previousSchool: body.previousSchool || '',
+        previousClass: body.previousClass || '',
+        tcNumber: body.tcNumber || '',
 
         sessionHistory: [{
             academicYear,
-            class:   body.class,
+            class: body.class,
             section: body.section,
             rollNo,
         }],
@@ -92,41 +92,41 @@ export async function GET(req: NextRequest) {
     await connectDB()
     const { searchParams } = req.nextUrl
 
-    const cls          = searchParams.get('class')
-    const section      = searchParams.get('section')
-    const status       = searchParams.get('status') || 'active'
-    const search       = searchParams.get('search')
+    const cls = searchParams.get('class')
+    const section = searchParams.get('section')
+    const status = searchParams.get('status') || 'active'
+    const search = searchParams.get('search')
     const academicYear = searchParams.get('academicYear')
-    const gender       = searchParams.get('gender')
-    const category     = searchParams.get('category')
-    const stream       = searchParams.get('stream')
-    const page         = parseInt(searchParams.get('page')  || '1')
-    const limit        = parseInt(searchParams.get('limit') || '20')
+    const gender = searchParams.get('gender')
+    const category = searchParams.get('category')
+    const stream = searchParams.get('stream')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
 
     const query: Record<string, any> = {
         tenantId: session.user.tenantId,
     }
 
-    if (cls)          query.class        = cls
-    if (section)      query.section      = section
-    if (status)       query.status       = status
+    if (cls) query.class = cls
+    if (section) query.section = section
+    if (status) query.status = status
     if (academicYear) query.academicYear = academicYear
-    if (gender)       query.gender       = gender
-    if (category)     query.category     = category
-    if (stream)       query.stream       = stream
+    if (gender) query.gender = gender
+    if (category) query.category = category
+    if (stream) query.stream = stream
 
     if (search) {
         const directSearch = [
             { admissionNo: { $regex: search, $options: 'i' } },
-            { fatherName:  { $regex: search, $options: 'i' } },
+            { fatherName: { $regex: search, $options: 'i' } },
             { parentPhone: { $regex: search, $options: 'i' } },
-            { rollNo:      { $regex: search, $options: 'i' } },
+            { rollNo: { $regex: search, $options: 'i' } },
         ]
 
         const matchedUsers = await User.find({
             tenantId: session.user.tenantId,
-            role:     'student',
-            name:     { $regex: search, $options: 'i' },
+            role: 'student',
+            name: { $regex: search, $options: 'i' },
         }).select('_id').lean()
 
         const userIds = matchedUsers.map(u => u._id)
@@ -160,9 +160,9 @@ export async function GET(req: NextRequest) {
    POST — Create Student
    ══════════════════════════════════════════════ */
 export async function POST(req: NextRequest) {
-    let session: any  = null
+    let session: any = null
     let limitCheck: any = null
-    let user: any     = null
+    let user: any = null
 
     try {
         // ── Auth ──
@@ -177,10 +177,10 @@ export async function POST(req: NextRequest) {
         limitCheck = await checkCanAddStudent(session.user.tenantId)
         if (!limitCheck.allowed) {
             return NextResponse.json({
-                error:        limitCheck.message,
+                error: limitCheck.message,
                 limitReached: true,
-                current:      limitCheck.current,
-                limit:        limitCheck.limit,
+                current: limitCheck.current,
+                limit: limitCheck.limit,
             }, { status: 403 })
         }
 
@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
         // ── Duplicate Phone Check ──
         const existing = await User.findOne({
             tenantId: session.user.tenantId,
-            phone:    body.phone.trim(),
+            phone: body.phone.trim(),
         })
         if (existing) {
             return NextResponse.json(
@@ -231,7 +231,7 @@ export async function POST(req: NextRequest) {
             .select('subdomain')
             .lean() as any
 
-        const subdomain    = school?.subdomain || 'SCH'
+        const subdomain = school?.subdomain || 'SCH'
         const academicYear = body.academicYear || getCurrentAcademicYear()
 
         // ── Generate Numbers ──
@@ -253,13 +253,13 @@ export async function POST(req: NextRequest) {
         try {
             user = await User.create({
                 tenantId: session.user.tenantId,
-                name:     body.name.trim(),
-                phone:    body.phone.trim(),
-                email:    body.email?.trim() || undefined,
-                role:     'student',
+                name: body.name.trim(),
+                phone: body.phone.trim(),
+                email: body.email?.trim() || undefined,
+                role: 'student',
                 password: hashedPwd,
-                class:    body.class,
-                section:  body.section,
+                class: body.class,
+                section: body.section,
                 isActive: true,
             })
         } catch (userErr: any) {
@@ -302,7 +302,7 @@ export async function POST(req: NextRequest) {
 
                 // Fresh number generate karo from actual DB state
                 const actualLast = await Student.findOne({
-                    tenantId:    session.user.tenantId,
+                    tenantId: session.user.tenantId,
                     academicYear,
                 })
                     .sort({ createdAt: -1 })
@@ -322,13 +322,13 @@ export async function POST(req: NextRequest) {
                 try {
                     const retryUser = await User.create({
                         tenantId: session.user.tenantId,
-                        name:     body.name.trim(),
-                        phone:    body.phone.trim(),
-                        email:    body.email?.trim() || undefined,
-                        role:     'student',
+                        name: body.name.trim(),
+                        phone: body.phone.trim(),
+                        email: body.email?.trim() || undefined,
+                        role: 'student',
                         password: hashedPwd,
-                        class:    body.class,
-                        section:  body.section,
+                        class: body.class,
+                        section: body.section,
                         isActive: true,
                     })
 
@@ -370,12 +370,43 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Fee Auto-Assign ──
+        // REPLACE karo — dueDate add karo
         let feesAssigned = 0
+        const optionalFees: Array<{
+            _id: string
+            structureId: string
+            name: string
+            amount: number
+            dueDate: string      // ✅ ADD
+        }> = []
+
         try {
+            // ✅ DEBUG: Pehle all structures dekho
+            const allStructures = await FeeStructure.find({
+                tenantId: session.user.tenantId,
+            }).lean() as any[]
+
+            console.log('[Fee Debug] Total structures in DB:', allStructures.length)
+            console.log('[Fee Debug] Student data:', {
+                class: body.class,
+                section: body.section,
+                academicYear,
+                stream: body.stream,
+            })
+            console.log('[Fee Debug] All structures:', allStructures.map((s: any) => ({
+                name: s.name,
+                class: s.class,
+                section: s.section,
+                academicYear: s.academicYear,
+                autoAssign: s.autoAssign,
+                isActive: s.isActive,
+            })))
+
+            // ✅ Query — autoAssign wali structures
             const structures = await FeeStructure.find({
-                tenantId:    session.user.tenantId,
-                isActive:    true,
-                autoAssign:  true,
+                tenantId: session.user.tenantId,
+                isActive: true,
+                autoAssign: true,
                 academicYear,
                 $or: [
                     { class: 'all' },
@@ -384,6 +415,9 @@ export async function POST(req: NextRequest) {
                 ],
             }).lean() as any[]
 
+            console.log('[Fee Debug] After query filter:', structures.length)
+
+            // ✅ Section + Stream filter
             const matched = structures.filter((fs: any) => {
                 const sectionOk =
                     !fs.section ||
@@ -395,51 +429,81 @@ export async function POST(req: NextRequest) {
                     fs.stream === '' ||
                     fs.stream === body.stream
 
+                console.log(`[Fee Debug] "${fs.name}": sectionOk=${sectionOk} streamOk=${streamOk}`)
                 return sectionOk && streamOk
             })
 
+            console.log('[Fee Debug] Final matched:', matched.length)
+
             if (matched.length > 0) {
-                const ops = matched.map((fs: any) => ({
-                    insertOne: {
-                        document: {
-                            tenantId:    session.user.tenantId,
-                            studentId:   student._id,
-                            structureId: fs._id,
-                            amount:      fs.totalAmount,
-                            discount:    0,
-                            lateFine:    0,
-                            finalAmount: fs.totalAmount,
-                            dueDate:     fs.dueDate,
-                            status:      'pending',
-                            paidAmount:  0,
-                        },
-                    },
-                }))
-                await Fee.bulkWrite(ops)
-                feesAssigned = matched.length
+                const mandatoryOps: any[] = []
+
+                for (const fs of matched) {
+                    const mandatoryItems = fs.items.filter((i: any) => !i.isOptional)
+                    const optionalItems = fs.items.filter((i: any) => i.isOptional)
+
+                    // ✅ Mandatory items → Fee record banao
+                    if (mandatoryItems.length > 0) {
+                        const mandatoryAmount = mandatoryItems.reduce(
+                            (sum: number, i: any) => sum + i.amount, 0
+                        )
+                        mandatoryOps.push({
+                            insertOne: {
+                                document: {
+                                    tenantId: session.user.tenantId,
+                                    studentId: student._id,
+                                    structureId: fs._id,
+                                    amount: mandatoryAmount,
+                                    discount: 0,
+                                    lateFine: 0,
+                                    finalAmount: mandatoryAmount,
+                                    dueDate: fs.dueDate,
+                                    status: 'pending',
+                                    paidAmount: 0,
+                                },
+                            },
+                        })
+                        feesAssigned++
+                    }
+
+                    // REPLACE existing optional items loop
+                    for (const item of optionalItems) {
+                        optionalFees.push({
+                            _id: `${fs._id.toString()}_${item.label}`,
+                            structureId: fs._id.toString(),
+                            name: item.label,
+                            amount: item.amount,
+                            dueDate: fs.dueDate.toISOString(), // ✅ ADD
+                        })
+                    }
+                }
+
+                if (mandatoryOps.length > 0) {
+                    await Fee.bulkWrite(mandatoryOps)
+                }
             }
         } catch (feeErr) {
             console.error('[Fee Auto-Assign Error]', feeErr)
         }
 
         // ── Parent Account — fire and forget ──
-        ;(async () => {
+        ; (async () => {
             try {
                 const existingParent = await User.findOne({
                     tenantId: session.user.tenantId,
-                    phone:    body.parentPhone.trim(),
-                    role:     'parent',
+                    phone: body.parentPhone.trim(),
+                    role: 'parent',
                 })
                 if (!existingParent) {
                     const parentPwd = await bcrypt.hash(body.parentPhone, 10)
                     await User.create({
-                        tenantId:   session.user.tenantId,
-                        name:       `${body.fatherName} (Parent)`,
-                        phone:      body.parentPhone.trim(),
-                        role:       'parent',
-                        password:   parentPwd,
+                        tenantId: session.user.tenantId,
+                        name: `${body.fatherName} (Parent)`,
+                        phone: body.parentPhone.trim(),
+                        role: 'parent',
+                        password: parentPwd,
                         studentRef: student._id,
-                        isActive:   true,
+                        isActive: true,
                     })
                 }
             } catch (e) {
@@ -447,17 +511,19 @@ export async function POST(req: NextRequest) {
             }
         })()
 
-        // ── Success ──
+        // ── Success Response ──
         return NextResponse.json({
-            success:      true,
-            studentId:    student._id,
-            admissionNo:  student.admissionNo,
-            rollNo:       student.rollNo,
+            success: true,
+            studentId: student._id.toString(),
+            admissionNo: student.admissionNo,
+            rollNo: student.rollNo,
+            name: body.name.trim(),
             academicYear,
             feesAssigned,
+            optionalFees,   // ✅ [] ya items
             limits: {
-                current:   limitCheck.current + 1,
-                limit:     limitCheck.limit,
+                current: limitCheck.current + 1,
+                limit: limitCheck.limit,
                 remaining: limitCheck.isUnlimited
                     ? -1
                     : Math.max(0, limitCheck.remaining - 1),

@@ -256,6 +256,8 @@ export default function FeesPage() {
     const [editStructure, setEditStructure] = useState<FeeStructure | null>(null)
     const [showPayModal, setShowPayModal] = useState(false)
     const [selectedFee, setSelectedFee] = useState<Fee | null>(null)
+    const [showOptionalModal, setShowOptionalModal] = useState(false)
+    const [selectedStructure, setSelectedStructure] = useState<FeeStructure | null>(null)
 
     /* ── Stats ── */
     const totalDue = fees
@@ -1028,6 +1030,29 @@ export default function FeesPage() {
                                                             </button>
                                                         )}
 
+                                                        {/* Optional fees hain toh yeh button show karo */}
+                                                        {s.items.some((i: any) => i.isOptional) && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setSelectedStructure(s)
+                                                                    setShowOptionalModal(true)
+                                                                }}
+                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                                                                style={{ color: '#94A3B8' }}
+                                                                title="Assign optional fees"
+                                                                onMouseEnter={e => {
+                                                                    e.currentTarget.style.backgroundColor = '#FFFBEB'
+                                                                    e.currentTarget.style.color = '#D97706'
+                                                                }}
+                                                                onMouseLeave={e => {
+                                                                    e.currentTarget.style.backgroundColor = 'transparent'
+                                                                    e.currentTarget.style.color = '#94A3B8'
+                                                                }}
+                                                            >
+                                                                <Sparkles size={13} />
+                                                            </button>
+                                                        )}
+
                                                         {/* Deactivate */}
                                                         <button
                                                             onClick={() => deleteStructure(s._id)}
@@ -1092,6 +1117,23 @@ export default function FeesPage() {
                             setSelectedFee(null)
                         }}
                         onPaid={mode => markPaid(selectedFee._id, mode)}
+                    />
+                )}
+
+                {/* ✅ YAHAN ADD KARO — Optional Fee Modal */}
+                {selectedStructure && (
+                    <OptionalFeeModal
+                        open={showOptionalModal}
+                        structure={selectedStructure}
+                        onClose={() => {
+                            setShowOptionalModal(false)
+                            setSelectedStructure(null)
+                        }}
+                        onSuccess={msg => {
+                            setShowOptionalModal(false)
+                            setSelectedStructure(null)
+                            showSuccess(msg)
+                        }}
                     />
                 )}
             </Portal>
@@ -1301,7 +1343,13 @@ function FeeStructureModal({
         setError('')
     }, [editItem, open])
 
-    const totalAmount = form.items.reduce((s, i) => s + Number(i.amount), 0)
+    const mandatoryTotal = form.items
+        .filter(i => !i.isOptional)
+        .reduce((s, i) => s + Number(i.amount), 0)
+
+    const optionalTotal = form.items
+        .filter(i => i.isOptional)
+        .reduce((s, i) => s + Number(i.amount), 0)
 
     const setField = (key: string, val: any) => {
         setForm(f => {
@@ -1347,6 +1395,20 @@ function FeeStructureModal({
             return
         }
 
+        // ✅ Mandatory aur optional alag calculate karo
+        const mandatoryTotal = form.items
+            .filter(i => !i.isOptional)
+            .reduce((s, i) => s + Number(i.amount), 0)
+
+        const optionalTotal = form.items
+            .filter(i => i.isOptional)
+            .reduce((s, i) => s + Number(i.amount), 0)
+
+        if (mandatoryTotal <= 0) {
+            setError('Kam se kam ek mandatory fee item hona chahiye')
+            return
+        }
+
         setLoading(true)
         try {
             const url = editItem
@@ -1359,7 +1421,8 @@ function FeeStructureModal({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...form,
-                    totalAmount,
+                    totalAmount: mandatoryTotal,  // ✅ Sirf mandatory
+                    optionalTotal,                  // ✅ Info ke liye send karo
                     stream: isHigherSecondary ? form.stream : undefined,
                 }),
             })
@@ -1371,8 +1434,11 @@ function FeeStructureModal({
             onSuccess(
                 editItem
                     ? 'Fee structure updated successfully!'
-                    : `Fee structure created! ${data.feesCreated > 0
-                        ? `${data.feesCreated} students ko auto-assign ho gaya`
+                    : `Fee structure created!${data.feesCreated > 0
+                        ? ` ${data.feesCreated} students ko ₹${mandatoryTotal.toLocaleString('en-IN')} auto-assign ho gaya`
+                        : ''
+                    }${optionalTotal > 0
+                        ? ` | ₹${optionalTotal.toLocaleString('en-IN')} optional fees manually assign karni hogi`
                         : ''
                     }`
             )
@@ -1760,25 +1826,65 @@ function FeeStructureModal({
                                 </div>
 
                                 {/* Total */}
-                                <div
-                                    className="flex items-center justify-between mt-3 px-4 py-3 rounded-xl"
-                                    style={{
-                                        backgroundColor: '#EFF6FF',
-                                        border: '1px solid #BFDBFE',
-                                    }}
-                                >
-                                    <span
-                                        className="text-xs font-semibold"
-                                        style={{ color: '#1D4ED8' }}
+                                <div className="mt-3 space-y-2">
+                                    {/* Mandatory Total */}
+                                    <div
+                                        className="flex items-center justify-between px-4 py-3 rounded-xl"
+                                        style={{
+                                            backgroundColor: '#EFF6FF',
+                                            border: '1px solid #BFDBFE',
+                                        }}
                                     >
-                                        Total Fee Amount
-                                    </span>
-                                    <span
-                                        className="text-lg font-extrabold tabular-nums"
-                                        style={{ color: '#1D4ED8' }}
-                                    >
-                                        ₹{totalAmount.toLocaleString('en-IN')}
-                                    </span>
+                                        <div>
+                                            <span className="text-xs font-semibold" style={{ color: '#1D4ED8' }}>
+                                                Mandatory Total
+                                            </span>
+                                            <p className="text-[0.625rem] mt-0.5" style={{ color: '#60A5FA' }}>
+                                                Yeh amount sabhi students ko assign hogi
+                                            </p>
+                                        </div>
+                                        <span className="text-lg font-extrabold tabular-nums" style={{ color: '#1D4ED8' }}>
+                                            ₹{mandatoryTotal.toLocaleString('en-IN')}
+                                        </span>
+                                    </div>
+
+                                    {/* Optional Total — sirf tab show karo jab optional items hon */}
+                                    {optionalTotal > 0 && (
+                                        <div
+                                            className="flex items-center justify-between px-4 py-3 rounded-xl"
+                                            style={{
+                                                backgroundColor: '#FFFBEB',
+                                                border: '1px solid #FDE68A',
+                                            }}
+                                        >
+                                            <div>
+                                                <span className="text-xs font-semibold" style={{ color: '#D97706' }}>
+                                                    Optional Fees
+                                                </span>
+                                                <p className="text-[0.625rem] mt-0.5" style={{ color: '#F59E0B' }}>
+                                                    Manually assign karni padegi selected students ko
+                                                </p>
+                                            </div>
+                                            <span className="text-lg font-extrabold tabular-nums" style={{ color: '#D97706' }}>
+                                                ₹{optionalTotal.toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Grand Total — sirf show karo context ke liye */}
+                                    {optionalTotal > 0 && (
+                                        <div
+                                            className="flex items-center justify-between px-3 py-2 rounded-lg"
+                                            style={{ backgroundColor: '#F8FAFC' }}
+                                        >
+                                            <span className="text-xs" style={{ color: '#94A3B8' }}>
+                                                Grand Total (if all applicable)
+                                            </span>
+                                            <span className="text-sm font-bold tabular-nums" style={{ color: '#64748B' }}>
+                                                ₹{(mandatoryTotal + optionalTotal).toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -1902,6 +2008,338 @@ function FeeStructureModal({
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    )
+}
+
+
+
+// Optional Fee Assign Modal
+function OptionalFeeModal({
+    open,
+    structure,
+    onClose,
+    onSuccess,
+}: {
+    open: boolean
+    structure: FeeStructure | null
+    onClose: () => void
+    onSuccess: (msg: string) => void
+}) {
+    const [students, setStudents] = useState<any[]>([])
+    const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [selectedItem, setSelectedItem] = useState<string>('')
+    const [loading, setLoading] = useState(false)
+    const [fetching, setFetching] = useState(false)
+
+    const optionalItems = structure?.items.filter(i => i.isOptional) ?? []
+
+    useEffect(() => {
+        if (!open || !structure) return
+        setFetching(true)
+        setSelectedIds([])
+        setSelectedItem(optionalItems[0]?.label ?? '')
+
+        // Is class ke students fetch karo
+        const params = new URLSearchParams()
+        if (structure.class !== 'all') params.set('class', structure.class)
+        if (structure.section && structure.section !== 'all') {
+            params.set('section', structure.section)
+        }
+        params.set('status', 'active')
+        params.set('limit', '200')
+
+        fetch(`/api/students?${params}`)
+            .then(r => r.json())
+            .then(d => setStudents(d.students ?? []))
+            .finally(() => setFetching(false))
+    }, [open, structure])
+
+    const selectedItemData = optionalItems.find(i => i.label === selectedItem)
+
+    const handleAssign = async () => {
+        if (!structure || !selectedIds.length || !selectedItemData) return
+        setLoading(true)
+        try {
+            // Ek naya fee structure create karo sirf is optional item ke liye
+            // Ya existing structure pe additional fee add karo
+            const res = await fetch('/api/fees/optional-assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    structureId: structure._id,
+                    studentIds: selectedIds,
+                    item: selectedItemData,
+                    dueDate: structure.dueDate,
+                    academicYear: structure.academicYear,
+                }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error)
+            onSuccess(`${data.assigned} students ko ${selectedItemData.label} assign ho gaya`)
+            onClose()
+        } catch (err: any) {
+            console.error(err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    if (!open || !structure) return null
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                onClick={onClose}
+            />
+            <div
+                className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col"
+                style={{ border: '1px solid #E2E8F0' }}
+            >
+                {/* Header */}
+                <div
+                    className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+                    style={{ borderBottom: '1px solid #F1F5F9' }}
+                >
+                    <div className="flex items-center gap-3">
+                        <div
+                            className="w-9 h-9 rounded-xl flex items-center justify-center"
+                            style={{ backgroundColor: '#FFFBEB' }}
+                        >
+                            <Sparkles size={16} style={{ color: '#D97706' }} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold" style={{ color: '#0F172A' }}>
+                                Assign Optional Fee
+                            </h3>
+                            <p className="text-xs" style={{ color: '#94A3B8' }}>
+                                {structure.name} · Class {structure.class}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center"
+                        style={{ color: '#94A3B8' }}
+                    >
+                        <X size={14} />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto portal-scrollbar px-5 py-4 space-y-4">
+                    {/* Select Optional Item */}
+                    <div>
+                        <label
+                            className="text-xs font-semibold mb-2 block"
+                            style={{ color: '#475569' }}
+                        >
+                            Kaunsi optional fee assign karni hai?
+                        </label>
+                        <div className="space-y-2">
+                            {optionalItems.map(item => (
+                                <button
+                                    key={item.label}
+                                    onClick={() => setSelectedItem(item.label)}
+                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all"
+                                    style={{
+                                        border: `2px solid ${selectedItem === item.label ? '#D97706' : '#E2E8F0'}`,
+                                        backgroundColor: selectedItem === item.label
+                                            ? '#FFFBEB'
+                                            : '#FFFFFF',
+                                    }}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="w-2 h-2 rounded-full"
+                                            style={{
+                                                backgroundColor: selectedItem === item.label
+                                                    ? '#D97706'
+                                                    : '#CBD5E1',
+                                            }}
+                                        />
+                                        <span
+                                            className="text-sm font-medium"
+                                            style={{
+                                                color: selectedItem === item.label
+                                                    ? '#92400E'
+                                                    : '#475569',
+                                            }}
+                                        >
+                                            {item.label}
+                                        </span>
+                                    </div>
+                                    <span
+                                        className="text-sm font-bold tabular-nums"
+                                        style={{
+                                            color: selectedItem === item.label
+                                                ? '#D97706'
+                                                : '#64748B',
+                                        }}
+                                    >
+                                        ₹{item.amount.toLocaleString('en-IN')}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Select Students */}
+                    <div>
+                        <div className="flex items-center justify-between mb-2">
+                            <label
+                                className="text-xs font-semibold"
+                                style={{ color: '#475569' }}
+                            >
+                                Students select karo ({selectedIds.length} selected)
+                            </label>
+                            <button
+                                onClick={() => {
+                                    if (selectedIds.length === students.length) {
+                                        setSelectedIds([])
+                                    } else {
+                                        setSelectedIds(students.map(s => s._id))
+                                    }
+                                }}
+                                className="text-xs font-medium"
+                                style={{ color: '#2563EB' }}
+                            >
+                                {selectedIds.length === students.length
+                                    ? 'Deselect All'
+                                    : 'Select All'}
+                            </button>
+                        </div>
+
+                        {fetching ? (
+                            <div className="flex justify-center py-8">
+                                <Spinner size="lg" />
+                            </div>
+                        ) : students.length === 0 ? (
+                            <div className="portal-empty py-8">
+                                <p className="portal-empty-title">No students found</p>
+                            </div>
+                        ) : (
+                            <div
+                                className="divide-y divide-slate-100"  // ← Tailwind class mein rakho
+                                style={{
+                                    border: '1px solid #E2E8F0',
+                                    maxHeight: '280px',
+                                    overflowY: 'auto',
+                                }}
+                            >
+                                {students.map((s, idx) => (
+                                    <label
+                                        key={s._id}
+                                        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors"
+                                        style={{
+                                            // ✅ divideColor ki jagah borderBottom inline
+                                            borderBottom: idx < students.length - 1
+                                                ? '1px solid #F1F5F9'
+                                                : 'none',
+                                        }}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            className="rounded"
+                                            checked={selectedIds.includes(s._id)}
+                                            onChange={() => {
+                                                setSelectedIds(prev =>
+                                                    prev.includes(s._id)
+                                                        ? prev.filter(id => id !== s._id)
+                                                        : [...prev, s._id]
+                                                )
+                                            }}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <p
+                                                className="text-sm font-medium truncate"
+                                                style={{ color: '#0F172A' }}
+                                            >
+                                                {s.userId?.name}
+                                            </p>
+                                            <p
+                                                className="text-xs font-mono"
+                                                style={{ color: '#94A3B8' }}
+                                            >
+                                                {s.admissionNo} · Roll #{s.rollNo}
+                                            </p>
+                                        </div>
+                                        <span
+                                            className="text-xs font-semibold px-2 py-0.5 rounded-lg flex-shrink-0"
+                                            style={{
+                                                backgroundColor: '#EEF2FF',
+                                                color: '#4F46E5',
+                                            }}
+                                        >
+                                            {s.class}-{s.section}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Summary */}
+                    {selectedIds.length > 0 && selectedItemData && (
+                        <div
+                            className="rounded-xl p-4"
+                            style={{
+                                backgroundColor: '#FFFBEB',
+                                border: '1px solid #FDE68A',
+                            }}
+                        >
+                            <p
+                                className="text-xs font-semibold mb-1"
+                                style={{ color: '#92400E' }}
+                            >
+                                Assignment Summary
+                            </p>
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm" style={{ color: '#B45309' }}>
+                                    {selectedIds.length} students ×
+                                    ₹{selectedItemData.amount.toLocaleString('en-IN')}
+                                </span>
+                                <span
+                                    className="text-base font-bold tabular-nums"
+                                    style={{ color: '#D97706' }}
+                                >
+                                    ₹{(selectedIds.length * selectedItemData.amount)
+                                        .toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div
+                    className="px-5 py-4 flex gap-2 flex-shrink-0"
+                    style={{ borderTop: '1px solid #F1F5F9' }}
+                >
+                    <button
+                        onClick={onClose}
+                        className="flex-1 py-2 rounded-xl text-sm font-medium"
+                        style={{
+                            backgroundColor: '#F8FAFC',
+                            color: '#475569',
+                            border: '1px solid #E2E8F0',
+                        }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleAssign}
+                        disabled={loading || !selectedIds.length || !selectedItem}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
+                        style={{ backgroundColor: '#D97706', color: '#FFFFFF' }}
+                    >
+                        {loading ? <Spinner size="sm" /> : <Sparkles size={14} />}
+                        {loading
+                            ? 'Assigning...'
+                            : `Assign to ${selectedIds.length} Students`}
+                    </button>
+                </div>
             </div>
         </div>
     )

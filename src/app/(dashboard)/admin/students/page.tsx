@@ -58,6 +58,23 @@ interface FiltersState {
     stream: string
 }
 
+// ═══ Types ═══  ke andar add karo
+interface OptionalFeeItem {
+    _id: string
+    structureId: string
+    name: string
+    amount: number
+    dueDate: string      // ✅ ADD — existing API ko chahiye
+}
+
+interface NewStudentData {
+    studentId: string
+    admissionNo: string
+    rollNo: string
+    name: string
+    optionalFees: OptionalFeeItem[]
+}
+
 /* ═══ Constants ═══ */
 const CLASSES = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 const SECTIONS = ['A', 'B', 'C', 'D', 'E']
@@ -186,6 +203,9 @@ export default function StudentsPage() {
     const [showPromote, setShowPromote] = useState(false)
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
     const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [showOptionalFeeModal, setShowOptionalFeeModal] = useState(false)
+    const [newlyCreatedStudent, setNewlyCreatedStudent] = useState<NewStudentData | null>(null)
+    const [selectedOptionalFees, setSelectedOptionalFees] = useState<string[]>([]) // ✅ NEW
 
     // Filters
     const [filters, setFilters] = useState<FiltersState>({
@@ -253,8 +273,6 @@ export default function StudentsPage() {
         filters.category, filters.stream,
     ].filter(Boolean).length
 
-    // Check if stream filter should show
-    const showStreamFilter = !filters.class || ['11', '12'].includes(filters.class)
 
     const showSuccess = (msg: string) => {
         setAlert({ type: 'success', msg })
@@ -754,15 +772,25 @@ export default function StudentsPage() {
 
             {/* ═══ MODALS ═══ */}
             <Portal>
+                // REPLACE the AddStudentModal usage in Portal
                 <AddStudentModal
                     open={showAdd}
                     onClose={() => setShowAdd(false)}
-                    onSuccess={(msg) => {
+                    onSuccess={(msg, data) => {
+                        console.log('[onSuccess] data:', data) // debug — baad mein hatao
                         setShowAdd(false)
                         fetchStudents(1)
-                        showSuccess(msg)
+
+                        if (data.optionalFees && data.optionalFees.length > 0) {
+                            setNewlyCreatedStudent(data)
+                            setSelectedOptionalFees([])        // ✅ Reset
+                            setShowOptionalFeeModal(true)
+                        } else {
+                            showSuccess(msg)
+                        }
                     }}
                 />
+
 
                 {selectedStudent && (
                     <ViewStudentModal
@@ -798,6 +826,251 @@ export default function StudentsPage() {
                         showSuccess(msg)
                     }}
                 />
+
+                {showOptionalFeeModal && newlyCreatedStudent && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                        {/* Backdrop */}
+                        <div
+                            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                            onClick={() => {
+                                setShowOptionalFeeModal(false)
+                                setNewlyCreatedStudent(null)
+                                setSelectedOptionalFees([])
+                                showSuccess('Student added successfully!')
+                            }}
+                        />
+
+                        {/* Modal Box */}
+                        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10">
+
+                            {/* Header */}
+                            <div
+                                className="px-5 py-4 flex items-center justify-between"
+                                style={{ borderBottom: '1px solid #F1F5F9' }}
+                            >
+                                <div>
+                                    <h3 className="text-sm font-bold" style={{ color: '#0F172A' }}>
+                                        Optional Fees Assign Karo
+                                    </h3>
+                                    <p className="text-xs mt-0.5" style={{ color: '#94A3B8' }}>
+                                        {newlyCreatedStudent.name} · {newlyCreatedStudent.admissionNo}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setShowOptionalFeeModal(false)
+                                        setNewlyCreatedStudent(null)
+                                        setSelectedOptionalFees([])
+                                        showSuccess('Student added successfully!')
+                                    }}
+                                    className="w-7 h-7 rounded-lg flex items-center justify-center"
+                                    style={{ backgroundColor: '#F8FAFC', color: '#94A3B8' }}
+                                >
+                                    <X size={14} />
+                                </button>
+                            </div>
+
+                            {/* Body */}
+                            <div className="px-5 py-4">
+                                {/* Info Banner */}
+                                <div
+                                    className="flex items-start gap-2 p-3 rounded-lg mb-4"
+                                    style={{
+                                        backgroundColor: '#FFFBEB',
+                                        border: '1px solid #FDE68A',
+                                    }}
+                                >
+                                    <Info size={13} style={{ color: '#D97706', flexShrink: 0, marginTop: 1 }} />
+                                    <p className="text-xs" style={{ color: '#92400E' }}>
+                                        Ye fees optional hain (Transport, Hostel, etc.)
+                                        Mandatory fees already assign ho gayi hain.
+                                        Jo chahiye wo select karo.
+                                    </p>
+                                </div>
+
+                                {/* Fee List */}
+                                <div className="space-y-2 max-h-64 overflow-y-auto portal-scrollbar">
+                                    {newlyCreatedStudent.optionalFees.map((fee) => {
+                                        const isSelected = selectedOptionalFees.includes(fee._id)
+                                        return (
+                                            <label
+                                                key={fee._id}
+                                                className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all"
+                                                style={{
+                                                    border: `1.5px solid ${isSelected ? '#2563EB' : '#E2E8F0'}`,
+                                                    backgroundColor: isSelected ? '#EFF6FF' : '#FFFFFF',
+                                                }}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded"
+                                                    checked={isSelected}
+                                                    onChange={() =>
+                                                        setSelectedOptionalFees(prev =>
+                                                            prev.includes(fee._id)
+                                                                ? prev.filter(id => id !== fee._id)
+                                                                : [...prev, fee._id]
+                                                        )
+                                                    }
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <p
+                                                        className="text-sm font-semibold"
+                                                        style={{ color: '#0F172A' }}
+                                                    >
+                                                        {fee.name}
+                                                    </p>
+                                                    <p className="text-xs" style={{ color: '#64748B' }}>
+                                                        ₹{fee.amount.toLocaleString('en-IN')}
+                                                    </p>
+                                                </div>
+                                                {isSelected && (
+                                                    <span
+                                                        className="text-[0.625rem] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                                                        style={{
+                                                            backgroundColor: '#DBEAFE',
+                                                            color: '#1D4ED8',
+                                                        }}
+                                                    >
+                                                        ✓ Selected
+                                                    </span>
+                                                )}
+                                            </label>
+                                        )
+                                    })}
+                                </div>
+
+                                {/* Selected Total */}
+                                {selectedOptionalFees.length > 0 && (
+                                    <div
+                                        className="mt-3 px-4 py-2.5 rounded-xl flex items-center justify-between"
+                                        style={{
+                                            backgroundColor: '#EFF6FF',
+                                            border: '1px solid #BFDBFE',
+                                        }}
+                                    >
+                                        <span className="text-xs font-medium" style={{ color: '#1D4ED8' }}>
+                                            {selectedOptionalFees.length} fee(s) selected
+                                        </span>
+                                        <span className="text-sm font-bold" style={{ color: '#1D4ED8' }}>
+                                            ₹{newlyCreatedStudent.optionalFees
+                                                .filter(f => selectedOptionalFees.includes(f._id))
+                                                .reduce((sum, f) => sum + f.amount, 0)
+                                                .toLocaleString('en-IN')}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div
+                                className="px-5 py-4 flex gap-2"
+                                style={{ borderTop: '1px solid #F1F5F9' }}
+                            >
+                                {/* Skip */}
+                                <button
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                                    style={{
+                                        backgroundColor: '#F8FAFC',
+                                        color: '#475569',
+                                        border: '1px solid #E2E8F0',
+                                    }}
+                                    onClick={() => {
+                                        setShowOptionalFeeModal(false)
+                                        setNewlyCreatedStudent(null)
+                                        setSelectedOptionalFees([])
+                                        showSuccess('Student added successfully!')
+                                    }}
+                                >
+                                    Skip
+                                </button>
+
+                                {/* Assign */}
+                                <button
+                                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={{
+                                        backgroundColor: selectedOptionalFees.length > 0
+                                            ? '#2563EB'
+                                            : '#94A3B8',
+                                        color: '#FFFFFF',
+                                    }}
+                                    disabled={selectedOptionalFees.length === 0}
+                                    onClick={async () => {
+                                        if (!newlyCreatedStudent || selectedOptionalFees.length === 0)
+                                            return
+
+                                        try {
+                                            const feesToAssign = newlyCreatedStudent.optionalFees
+                                                .filter(f => selectedOptionalFees.includes(f._id))
+
+                                            // Group by structureId
+                                            const groupedByStructure = feesToAssign.reduce(
+                                                (acc, fee) => {
+                                                    if (!acc[fee.structureId]) {
+                                                        acc[fee.structureId] = {
+                                                            structureId: fee.structureId,
+                                                            dueDate: fee.dueDate,
+                                                            items: [],
+                                                        }
+                                                    }
+                                                    acc[fee.structureId].items.push({
+                                                        label: fee.name,
+                                                        amount: fee.amount,
+                                                    })
+                                                    return acc
+                                                },
+                                                {} as Record<string, {
+                                                    structureId: string
+                                                    dueDate: string
+                                                    items: Array<{ label: string; amount: number }>
+                                                }>
+                                            )
+
+                                            // Parallel API calls
+                                            const calls = Object.values(groupedByStructure).flatMap(
+                                                group => group.items.map(item =>
+                                                    fetch('/api/fees/optional-assign', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            structureId: group.structureId,
+                                                            studentIds: [newlyCreatedStudent.studentId],
+                                                            item,
+                                                            dueDate: group.dueDate,
+                                                            academicYear: getCurrentAcademicYear(),
+                                                        }),
+                                                    }).then(r => r.json())
+                                                )
+                                            )
+
+                                            const results = await Promise.all(calls)
+
+                                            const failed = results.filter(r => r.error)
+                                            if (failed.length > 0) {
+                                                throw new Error(failed[0].error)
+                                            }
+
+                                            const totalAssigned = results.reduce(
+                                                (sum, r) => sum + (r.assigned || 0), 0
+                                            )
+
+                                            setShowOptionalFeeModal(false)
+                                            setNewlyCreatedStudent(null)
+                                            setSelectedOptionalFees([])
+                                            showSuccess(
+                                                `Student added! ${totalAssigned} optional fee(s) assigned.`
+                                            )
+                                        } catch (err: any) {
+                                            showError(err.message || 'Optional fees assign nahi hui')
+                                        }
+                                    }}
+                                >
+                                    Assign Selected ({selectedOptionalFees.length})
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </Portal>
         </div>
     )
@@ -956,30 +1229,63 @@ function FeePreviewCard({
                     </div>
                 ) : (
                     <div className="space-y-2">
-                        {structures.map(s => (
-                            <div
-                                key={s._id}
-                                className="flex items-center justify-between rounded-lg px-3 py-2"
-                                style={{ backgroundColor: '#FFFFFF', border: '1px solid #BFDBFE' }}
-                            >
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-semibold truncate" style={{ color: '#1E40AF' }}>
-                                        {s.name}
-                                    </p>
-                                    <p className="text-[0.625rem] mt-0.5" style={{ color: '#60A5FA' }}>
-                                        {s.term} · Due: {new Date(s.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
-                                    </p>
+                        {structures.map(s => {
+                            const mandatoryItems = s.items.filter(i => !i.isOptional)
+                            const optionalItems = s.items.filter(i => i.isOptional)
+                            const mandatoryAmt = mandatoryItems.reduce((sum, i) => sum + i.amount, 0)
+
+                            return (
+                                <div
+                                    key={s._id}
+                                    className="rounded-lg overflow-hidden"
+                                    style={{ border: '1px solid #BFDBFE' }}
+                                >
+                                    {/* Header */}
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2"
+                                        style={{ backgroundColor: '#FFFFFF' }}
+                                    >
+                                        <div>
+                                            <p className="text-xs font-semibold" style={{ color: '#1E40AF' }}>
+                                                {s.name}
+                                            </p>
+                                            <p className="text-[0.625rem]" style={{ color: '#60A5FA' }}>
+                                                {s.term} · Due: {new Date(s.dueDate)
+                                                    .toLocaleDateString('en-IN', {
+                                                        day: 'numeric', month: 'short', year: '2-digit',
+                                                    })}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p
+                                                className="text-sm font-bold tabular-nums"
+                                                style={{ color: '#1D4ED8' }}
+                                            >
+                                                ₹{mandatoryAmt.toLocaleString('en-IN')}
+                                            </p>
+                                            <p className="text-[0.5625rem]" style={{ color: '#60A5FA' }}>
+                                                {mandatoryItems.length} mandatory item{mandatoryItems.length > 1 ? 's' : ''}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Optional items warning */}
+                                    {optionalItems.length > 0 && (
+                                        <div
+                                            className="flex items-center gap-2 px-3 py-1.5"
+                                            style={{ backgroundColor: '#FFFBEB', borderTop: '1px solid #FDE68A' }}
+                                        >
+                                            <Info size={10} style={{ color: '#D97706', flexShrink: 0 }} />
+                                            <p className="text-[0.5625rem]" style={{ color: '#D97706' }}>
+                                                {optionalItems.length} optional fee{optionalItems.length > 1 ? 's' : ''}
+                                                ({optionalItems.map(i => i.label).join(', ')}) —
+                                                manually assign karni padegi
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-right flex-shrink-0 ml-3">
-                                    <p className="text-sm font-bold tabular-nums" style={{ color: '#1D4ED8' }}>
-                                        ₹{s.totalAmount.toLocaleString('en-IN')}
-                                    </p>
-                                    <p className="text-[0.5625rem]" style={{ color: '#60A5FA' }}>
-                                        {s.items.length} item{s.items.length > 1 ? 's' : ''}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+                            )
+                        })}
 
                         {/* Total */}
                         {structures.length > 1 && (
@@ -1071,12 +1377,13 @@ function StreamSelector({
 /* ═══════════════════════════════════════════════════════════════
    ✅ ADD STUDENT MODAL — With Stream + Fee Auto-detect
    ═══════════════════════════════════════════════════════════════ */
+// ✅ 1. Type definition fix karo
 function AddStudentModal({
     open, onClose, onSuccess,
 }: {
     open: boolean
     onClose: () => void
-    onSuccess: (msg: string) => void
+    onSuccess: (msg: string, data: NewStudentData) => void  // ✅ Fixed
 }) {
     const initForm = () => ({
         name: '', phone: '', email: '',
@@ -1147,15 +1454,22 @@ function AddStudentModal({
                 body: JSON.stringify(form),
             })
             const data = await res.json()
+            // ✅ YE ADD KARO TEMPORARILY
+            console.log('=== API RESPONSE ===', JSON.stringify(data, null, 2))
+            console.log('optionalFees:', data.optionalFees)
+            console.log('optionalFees length:', data.optionalFees?.length)
             if (!res.ok) {
                 setError(data.error ?? 'Something went wrong')
                 return
             }
             reset()
+
+            // ✅ onSuccess ko full data bhejo
             onSuccess(
-                `Student added! Admission No: ${data.admissionNo} | Roll No: ${data.rollNo}` +
-                (data.feesAssigned > 0 ? ` | ${data.feesAssigned} fee(s) auto-assigned` : '')
+                `Student added! Admission No: ${data.admissionNo} | Roll No: ${data.rollNo}`,
+                data // ← full data
             )
+
         } finally {
             setLoading(false)
         }

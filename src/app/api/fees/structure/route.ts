@@ -62,7 +62,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'name, class, dueDate, items required' }, { status: 400 })
     }
 
-    const totalAmount = body.items.reduce((s: number, i: any) => s + Number(i.amount), 0)
+    // ✅ Sirf mandatory items ka total
+    const mandatoryTotal = body.items
+      .filter((i: any) => !i.isOptional)
+      .reduce((s: number, i: any) => s + Number(i.amount), 0)
 
     const structure = await FeeStructure.create({
       tenantId: session.user.tenantId,
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
       academicYear: body.academicYear ?? new Date().getFullYear() + '-' + (new Date().getFullYear() + 1).toString().slice(-2),
       term: body.term ?? 'Term 1',
       items: body.items,
-      totalAmount,
+      totalAmount: mandatoryTotal,
       dueDate: new Date(body.dueDate),
       lateFinePerDay: Number(body.lateFinePerDay) || 0,
       lateFineType: body.lateFineType || 'fixed',
@@ -89,14 +92,14 @@ export async function POST(req: NextRequest) {
         tenantId: session.user.tenantId,
         status: 'active',
       }
-      // Class filter
       if (body.class !== 'all') {
-        const classes = body.class.split(',').map((c: string) => c.trim())
-        studentQuery.class = { $in: classes }
+        studentQuery.class = { $in: body.class.split(',').map((c: string) => c.trim()) }
       }
-      // Section filter
       if (body.section && body.section !== 'all') {
         studentQuery.section = body.section
+      }
+      if (body.stream) {
+        studentQuery.stream = body.stream
       }
 
       const students = await Student.find(studentQuery).select('_id').lean()
@@ -108,10 +111,10 @@ export async function POST(req: NextRequest) {
               tenantId: session.user.tenantId,
               studentId: s._id,
               structureId: structure._id,
-              amount: totalAmount,
+              amount: mandatoryTotal,    // ✅ Sirf mandatory
               discount: 0,
               lateFine: 0,
-              finalAmount: totalAmount,
+              finalAmount: mandatoryTotal,    // ✅ Sirf mandatory
               dueDate: new Date(body.dueDate),
               status: 'pending',
               paidAmount: 0,
