@@ -3783,6 +3783,8 @@ function PaymentSettingsPanel({
     })
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [allowPartial, setAllowPartial] = useState(false)
+    const [minPartialAmt, setMinPartialAmt] = useState('')
 
     useEffect(() => {
         fetch('/api/payment-settings')
@@ -3794,6 +3796,8 @@ function PaymentSettingsPanel({
                     razorpayKeySecret: d.settings?.hasKey ? '••••••••' : '',
                     enableOnlinePayment: d.settings?.enableOnlinePayment ?? false,
                 })
+                setAllowPartial(d.settings?.allowStudentPartialPayment ?? false)
+                setMinPartialAmt(String(d.settings?.minPartialPaymentAmount ?? '0'))
             })
             .catch(() => {
                 onAlert({ type: 'error', msg: 'Failed to load payment settings' })
@@ -3954,6 +3958,62 @@ function PaymentSettingsPanel({
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* ════ Student Partial Payment ════ */}
+            <div
+                className="rounded-xl p-4 mt-4"
+                style={{ border: '1.5px solid #E2E8F0', backgroundColor: '#FAFAFA' }}
+            >
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-sm font-bold" style={{ color: '#0F172A' }}>
+                            Student Partial Payment
+                        </p>
+                        <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>
+                            Students ko apni marzi se partial amount pay karne do
+                        </p>
+                    </div>
+                    {/* Toggle */}
+                    <button
+                        type="button"
+                        onClick={() => setAllowPartial(p => !p)}
+                        className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                        style={{ backgroundColor: allowPartial ? '#059669' : '#E2E8F0' }}
+                    >
+                        <span
+                            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform"
+                            style={{ transform: allowPartial ? 'translateX(20px)' : 'translateX(0)' }}
+                        />
+                    </button>
+                </div>
+
+                {/* Minimum amount — sirf tab dikhao jab allowPartial ON ho */}
+                {allowPartial && (
+                    <div className="mt-3 pt-3" style={{ borderTop: '1px dashed #E2E8F0' }}>
+                        <label
+                            className="text-xs font-semibold mb-1.5 block"
+                            style={{ color: '#475569' }}
+                        >
+                            Minimum Partial Amount (₹)
+                        </label>
+                        <input
+                            type="number"
+                            value={minPartialAmt}
+                            onChange={e => setMinPartialAmt(e.target.value)}
+                            placeholder="0 = koi minimum nahi"
+                            min={0}
+                            className="w-full h-9 px-3 text-sm rounded-lg outline-none transition-all"
+                            style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#FFFFFF' }}
+                            onFocus={e => { e.target.style.borderColor = '#2563EB' }}
+                            onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
+                        />
+                        <p className="text-[11px] mt-1.5" style={{ color: '#94A3B8' }}>
+                            Example: ₹500 set karo → student kam se kam ₹500 dega.
+                            0 rakho → koi limit nahi.
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Save Button */}
