@@ -11,6 +11,7 @@ import {
     EmptyState, Spinner,
 } from '@/components/ui'
 import { Users } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface Teacher {
     _id: string
@@ -129,8 +130,8 @@ export default function TeachersPage() {
                                     <button
                                         onClick={() => toggleStatus(t._id, t.isActive)}
                                         className={`text-xs px-2 py-1 rounded-lg transition-colors ${t.isActive
-                                                ? 'text-red-600 hover:bg-red-50'
-                                                : 'text-emerald-600 hover:bg-emerald-50'
+                                            ? 'text-red-600 hover:bg-red-50'
+                                            : 'text-emerald-600 hover:bg-emerald-50'
                                             }`}
                                     >
                                         {t.isActive ? 'Deactivate' : 'Activate'}
@@ -142,15 +143,17 @@ export default function TeachersPage() {
                 )}
             </Card>
 
-            <AddTeacherModal
-                open={showAdd}
-                onClose={() => setShowAdd(false)}
-                onSuccess={() => {
-                    setShowAdd(false)
-                    fetchTeachers()
-                    setAlert({ type: 'success', msg: 'Teacher added! They can login with their phone number.' })
-                }}
-            />
+            <Portal>
+                <AddTeacherModal
+                    open={showAdd}
+                    onClose={() => setShowAdd(false)}
+                    onSuccess={() => {
+                        setShowAdd(false)
+                        fetchTeachers()
+                        setAlert({ type: 'success', msg: 'Teacher added! They can login with their phone number.' })
+                    }}
+                />
+            </Portal>
         </div>
     )
 }
@@ -279,8 +282,8 @@ function AddTeacherModal({
                                 type="button"
                                 onClick={() => toggleSubject(sub)}
                                 className={`px-2.5 py-1 text-xs rounded-md border transition-colors ${form.subjects.includes(sub)
-                                        ? 'bg-indigo-600 text-white border-indigo-600'
-                                        : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
+                                    ? 'bg-indigo-600 text-white border-indigo-600'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
                                     }`}
                             >
                                 {sub}

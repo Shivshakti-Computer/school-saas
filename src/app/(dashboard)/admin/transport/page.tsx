@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Spinner, Alert, EmptyState, StatCard } from '@/components/ui'
 import { Bus, Plus, MapPin, Trash2, Phone } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 export default function TransportPage() {
     const [routes, setRoutes] = useState<any[]>([])
@@ -118,60 +119,62 @@ export default function TransportPage() {
                 </div>
             )}
 
-            {/* View Route Modal */}
-            <Modal open={!!viewRoute} onClose={() => setViewRoute(null)} title={viewRoute?.routeName || 'Route'} size="lg">
-                {viewRoute && (
-                    <div>
-                        <div className="space-y-2 mb-4">
-                            {viewRoute.stops?.map((stop: any, i: number) => (
-                                <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-xs flex-shrink-0">{i + 1}</div>
-                                    <div className="flex-1">
-                                        <p className="font-medium text-sm">{stop.name}</p>
-                                        <p className="text-xs text-slate-500">Pickup: {stop.pickupTime} · Drop: {stop.dropTime}</p>
+            <Portal>
+                {/* View Route Modal */}
+                <Modal open={!!viewRoute} onClose={() => setViewRoute(null)} title={viewRoute?.routeName || 'Route'} size="lg">
+                    {viewRoute && (
+                        <div>
+                            <div className="space-y-2 mb-4">
+                                {viewRoute.stops?.map((stop: any, i: number) => (
+                                    <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+                                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-semibold text-xs flex-shrink-0">{i + 1}</div>
+                                        <div className="flex-1">
+                                            <p className="font-medium text-sm">{stop.name}</p>
+                                            <p className="text-xs text-slate-500">Pickup: {stop.pickupTime} · Drop: {stop.dropTime}</p>
+                                        </div>
+                                        <Badge variant="warning">₹{stop.fee}/mo</Badge>
                                     </div>
-                                    <Badge variant="warning">₹{stop.fee}/mo</Badge>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </Modal>
+
+                {/* Add Route Modal */}
+                <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Bus Route" size="lg">
+                    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                        <div className="grid grid-cols-3 gap-3">
+                            <Input label="Route Name" value={form.routeName} onChange={e => setForm({ ...form, routeName: e.target.value })} placeholder="e.g. City Route 1" />
+                            <Input label="Route No" value={form.routeNo} onChange={e => setForm({ ...form, routeNo: e.target.value })} placeholder="R1" />
+                            <Input label="Bus No" value={form.busNo} onChange={e => setForm({ ...form, busNo: e.target.value })} placeholder="CG-07-1234" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Driver Name" value={form.driverName} onChange={e => setForm({ ...form, driverName: e.target.value })} />
+                            <Input label="Driver Phone" value={form.driverPhone} onChange={e => setForm({ ...form, driverPhone: e.target.value })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Conductor (optional)" value={form.conductorName} onChange={e => setForm({ ...form, conductorName: e.target.value })} />
+                            <Input label="Capacity" type="number" value={String(form.capacity)} onChange={e => setForm({ ...form, capacity: Number(e.target.value) })} />
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-medium text-slate-600">Stops</label>
+                                <button onClick={addStop} className="text-xs text-indigo-600 hover:underline">+ Add Stop</button>
+                            </div>
+                            {form.stops.map((stop, i) => (
+                                <div key={i} className="flex gap-2 mb-2 items-end">
+                                    <Input placeholder="Stop name" value={stop.name} onChange={e => updateStop(i, 'name', e.target.value)} className="flex-1" />
+                                    <Input type="time" value={stop.pickupTime} onChange={e => updateStop(i, 'pickupTime', e.target.value)} className="w-24" />
+                                    <Input type="time" value={stop.dropTime} onChange={e => updateStop(i, 'dropTime', e.target.value)} className="w-24" />
+                                    <Input type="number" placeholder="Fee" value={String(stop.fee)} onChange={e => updateStop(i, 'fee', Number(e.target.value))} className="w-20" />
+                                    {form.stops.length > 1 && <button onClick={() => removeStop(i)} className="text-red-500 mb-2">✕</button>}
                                 </div>
                             ))}
                         </div>
+                        <Button className="w-full" onClick={handleCreate} loading={saving}>Create Route</Button>
                     </div>
-                )}
-            </Modal>
-
-            {/* Add Route Modal */}
-            <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Bus Route" size="lg">
-                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
-                    <div className="grid grid-cols-3 gap-3">
-                        <Input label="Route Name" value={form.routeName} onChange={e => setForm({ ...form, routeName: e.target.value })} placeholder="e.g. City Route 1" />
-                        <Input label="Route No" value={form.routeNo} onChange={e => setForm({ ...form, routeNo: e.target.value })} placeholder="R1" />
-                        <Input label="Bus No" value={form.busNo} onChange={e => setForm({ ...form, busNo: e.target.value })} placeholder="CG-07-1234" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Driver Name" value={form.driverName} onChange={e => setForm({ ...form, driverName: e.target.value })} />
-                        <Input label="Driver Phone" value={form.driverPhone} onChange={e => setForm({ ...form, driverPhone: e.target.value })} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Conductor (optional)" value={form.conductorName} onChange={e => setForm({ ...form, conductorName: e.target.value })} />
-                        <Input label="Capacity" type="number" value={String(form.capacity)} onChange={e => setForm({ ...form, capacity: Number(e.target.value) })} />
-                    </div>
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="text-xs font-medium text-slate-600">Stops</label>
-                            <button onClick={addStop} className="text-xs text-indigo-600 hover:underline">+ Add Stop</button>
-                        </div>
-                        {form.stops.map((stop, i) => (
-                            <div key={i} className="flex gap-2 mb-2 items-end">
-                                <Input placeholder="Stop name" value={stop.name} onChange={e => updateStop(i, 'name', e.target.value)} className="flex-1" />
-                                <Input type="time" value={stop.pickupTime} onChange={e => updateStop(i, 'pickupTime', e.target.value)} className="w-24" />
-                                <Input type="time" value={stop.dropTime} onChange={e => updateStop(i, 'dropTime', e.target.value)} className="w-24" />
-                                <Input type="number" placeholder="Fee" value={String(stop.fee)} onChange={e => updateStop(i, 'fee', Number(e.target.value))} className="w-20" />
-                                {form.stops.length > 1 && <button onClick={() => removeStop(i)} className="text-red-500 mb-2">✕</button>}
-                            </div>
-                        ))}
-                    </div>
-                    <Button className="w-full" onClick={handleCreate} loading={saving}>Create Route</Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

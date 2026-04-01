@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Select, Spinner, Alert, EmptyState } from '@/components/ui'
 import { MessageSquare, Send, Clock } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const CLASSES = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 
@@ -93,53 +94,55 @@ export default function CommunicationPage() {
                 </Card>
             )}
 
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Send Message" size="lg">
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <Select
-                            label="Channel"
-                            value={form.type}
-                            onChange={e => setForm({ ...form, type: e.target.value })}
-                            options={[
-                                { value: 'sms', label: 'SMS' },
-                                { value: 'whatsapp', label: 'WhatsApp' },
-                                { value: 'email', label: 'Email' },
-                            ]}
-                        />
-                        <Select
-                            label="Recipients"
-                            value={form.recipients}
-                            onChange={e => setForm({ ...form, recipients: e.target.value })}
-                            options={[
-                                { value: 'all', label: 'All Parents' },
-                                { value: 'class', label: 'Specific Class' },
-                            ]}
-                        />
+            <Portal>
+                <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Send Message" size="lg">
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <Select
+                                label="Channel"
+                                value={form.type}
+                                onChange={e => setForm({ ...form, type: e.target.value })}
+                                options={[
+                                    { value: 'sms', label: 'SMS' },
+                                    { value: 'whatsapp', label: 'WhatsApp' },
+                                    { value: 'email', label: 'Email' },
+                                ]}
+                            />
+                            <Select
+                                label="Recipients"
+                                value={form.recipients}
+                                onChange={e => setForm({ ...form, recipients: e.target.value })}
+                                options={[
+                                    { value: 'all', label: 'All Parents' },
+                                    { value: 'class', label: 'Specific Class' },
+                                ]}
+                            />
+                        </div>
+                        {form.recipients === 'class' && (
+                            <Select
+                                label="Select Class"
+                                value={form.targetClass}
+                                onChange={e => setForm({ ...form, targetClass: e.target.value })}
+                                options={[{ value: '', label: 'Choose class' }, ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))]}
+                            />
+                        )}
+                        <Input label="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Message subject" />
+                        <div>
+                            <label className="text-xs font-medium text-slate-600 mb-1 block">Message Content</label>
+                            <textarea
+                                value={form.content}
+                                onChange={e => setForm({ ...form, content: e.target.value })}
+                                className="w-full h-28 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
+                                placeholder="Type your message..."
+                            />
+                            <p className="text-[11px] text-slate-400 mt-1">{form.content.length} characters</p>
+                        </div>
+                        <Button className="w-full" onClick={handleSend} loading={sending}>
+                            <Send size={14} /> Send Message
+                        </Button>
                     </div>
-                    {form.recipients === 'class' && (
-                        <Select
-                            label="Select Class"
-                            value={form.targetClass}
-                            onChange={e => setForm({ ...form, targetClass: e.target.value })}
-                            options={[{ value: '', label: 'Choose class' }, ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))]}
-                        />
-                    )}
-                    <Input label="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Message subject" />
-                    <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">Message Content</label>
-                        <textarea
-                            value={form.content}
-                            onChange={e => setForm({ ...form, content: e.target.value })}
-                            className="w-full h-28 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
-                            placeholder="Type your message..."
-                        />
-                        <p className="text-[11px] text-slate-400 mt-1">{form.content.length} characters</p>
-                    </div>
-                    <Button className="w-full" onClick={handleSend} loading={sending}>
-                        <Send size={14} /> Send Message
-                    </Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

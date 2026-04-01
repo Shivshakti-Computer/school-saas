@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Badge, Modal, Input, Select, Spinner, Alert, EmptyState } from '@/components/ui'
 import { Award, Plus, Eye } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const CERT_TYPES = [
     { value: 'merit', label: 'Merit Certificate' },
@@ -108,51 +109,53 @@ export default function CertificatesPage() {
                 </div>
             )}
 
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Certificate Template" size="lg">
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Certificate Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Merit Award 2026" />
-                        <Select label="Type" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={CERT_TYPES} />
-                    </div>
-                    <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">Template Text</label>
-                        <textarea
-                            value={form.template}
-                            onChange={e => setForm({ ...form, template: e.target.value })}
-                            className="w-full h-32 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
-                            placeholder="This is to certify that {{studentName}} has been awarded..."
-                        />
-                    </div>
-                    <div>
-                        <div className="flex items-center justify-between mb-2">
-                            <label className="text-xs font-medium text-slate-600">Dynamic Fields</label>
-                            <button onClick={addField} className="text-xs text-indigo-600 hover:underline">+ Add Field</button>
+            <Portal>
+                <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Certificate Template" size="lg">
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Certificate Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Merit Award 2026" />
+                            <Select label="Type" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} options={CERT_TYPES} />
                         </div>
-                        {form.fields.map((f, i) => (
-                            <div key={i} className="flex gap-2 mb-2">
-                                <Input placeholder="Field name" value={f.name} onChange={e => {
-                                    const fields = [...form.fields]
-                                    fields[i] = { ...f, name: e.target.value }
-                                    setForm({ ...form, fields })
-                                }} />
-                                <Select
-                                    value={f.type}
-                                    onChange={e => {
-                                        const fields = [...form.fields]
-                                        fields[i] = { ...f, type: e.target.value }
-                                        setForm({ ...form, fields })
-                                    }}
-                                    options={[{ value: 'text', label: 'Text' }, { value: 'date', label: 'Date' }, { value: 'number', label: 'Number' }]}
-                                />
-                                {form.fields.length > 1 && (
-                                    <button onClick={() => removeField(i)} className="text-red-500 hover:text-red-700 text-xs px-2">✕</button>
-                                )}
+                        <div>
+                            <label className="text-xs font-medium text-slate-600 mb-1 block">Template Text</label>
+                            <textarea
+                                value={form.template}
+                                onChange={e => setForm({ ...form, template: e.target.value })}
+                                className="w-full h-32 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50"
+                                placeholder="This is to certify that {{studentName}} has been awarded..."
+                            />
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-medium text-slate-600">Dynamic Fields</label>
+                                <button onClick={addField} className="text-xs text-indigo-600 hover:underline">+ Add Field</button>
                             </div>
-                        ))}
+                            {form.fields.map((f, i) => (
+                                <div key={i} className="flex gap-2 mb-2">
+                                    <Input placeholder="Field name" value={f.name} onChange={e => {
+                                        const fields = [...form.fields]
+                                        fields[i] = { ...f, name: e.target.value }
+                                        setForm({ ...form, fields })
+                                    }} />
+                                    <Select
+                                        value={f.type}
+                                        onChange={e => {
+                                            const fields = [...form.fields]
+                                            fields[i] = { ...f, type: e.target.value }
+                                            setForm({ ...form, fields })
+                                        }}
+                                        options={[{ value: 'text', label: 'Text' }, { value: 'date', label: 'Date' }, { value: 'number', label: 'Number' }]}
+                                    />
+                                    {form.fields.length > 1 && (
+                                        <button onClick={() => removeField(i)} className="text-red-500 hover:text-red-700 text-xs px-2">✕</button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <Button className="w-full" onClick={handleCreate} loading={saving}>Create Certificate</Button>
                     </div>
-                    <Button className="w-full" onClick={handleCreate} loading={saving}>Create Certificate</Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

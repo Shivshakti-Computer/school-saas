@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Select, Spinner, Alert, EmptyState } from '@/components/ui'
 import { Heart, Search, Plus, FileText } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface HealthItem {
     _id: string
@@ -136,46 +137,48 @@ export default function HealthPage() {
             )}
 
             {/* Add Record Modal */}
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Health Record">
-                <div className="space-y-4">
-                    <Select
-                        label="Student"
-                        value={form.studentId}
-                        onChange={e => setForm({ ...form, studentId: e.target.value })}
-                        options={[{ value: '', label: 'Select Student' }, ...students.map((s: any) => ({ value: s._id, label: `${s.userId?.name || s.name || 'Unknown'} — ${s.class}` }))]}
-                    />
-                    <div className="grid grid-cols-3 gap-3">
-                        <Input label="Height (cm)" type="number" value={form.height} onChange={e => setForm({ ...form, height: e.target.value })} />
-                        <Input label="Weight (kg)" type="number" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} />
-                        <Select label="Blood Group" value={form.bloodGroup} onChange={e => setForm({ ...form, bloodGroup: e.target.value })} options={[
-                            { value: '', label: 'Select' }, { value: 'A+', label: 'A+' }, { value: 'A-', label: 'A-' }, { value: 'B+', label: 'B+' }, { value: 'B-', label: 'B-' },
-                            { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' }, { value: 'O+', label: 'O+' }, { value: 'O-', label: 'O-' },
-                        ]} />
-                    </div>
-                    <Input label="Allergies (comma separated)" value={form.allergies} onChange={e => setForm({ ...form, allergies: e.target.value })} placeholder="e.g. Dust, Peanuts" />
-                    <Input label="Medical Conditions (comma separated)" value={form.medicalConditions} onChange={e => setForm({ ...form, medicalConditions: e.target.value })} placeholder="e.g. Asthma" />
-                    <Button className="w-full" onClick={handleSave} loading={saving}>Save Record</Button>
-                </div>
-            </Modal>
-
-            {/* Add Checkup Modal */}
-            <Modal open={!!checkupModal} onClose={() => setCheckupModal(null)} title="Add Checkup">
-                <div className="space-y-4">
-                    <Input label="Date" type="date" value={checkupForm.date} onChange={e => setCheckupForm({ ...checkupForm, date: e.target.value })} />
-                    <Input label="Checkup Type" value={checkupForm.type} onChange={e => setCheckupForm({ ...checkupForm, type: e.target.value })} placeholder="e.g. Eye Checkup" />
-                    <Input label="Doctor Name" value={checkupForm.doctor} onChange={e => setCheckupForm({ ...checkupForm, doctor: e.target.value })} />
-                    <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">Notes</label>
-                        <textarea
-                            value={checkupForm.notes}
-                            onChange={e => setCheckupForm({ ...checkupForm, notes: e.target.value })}
-                            className="w-full h-20 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400"
-                            placeholder="Findings, recommendations..."
+            <Portal>
+                <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Health Record">
+                    <div className="space-y-4">
+                        <Select
+                            label="Student"
+                            value={form.studentId}
+                            onChange={e => setForm({ ...form, studentId: e.target.value })}
+                            options={[{ value: '', label: 'Select Student' }, ...students.map((s: any) => ({ value: s._id, label: `${s.userId?.name || s.name || 'Unknown'} — ${s.class}` }))]}
                         />
+                        <div className="grid grid-cols-3 gap-3">
+                            <Input label="Height (cm)" type="number" value={form.height} onChange={e => setForm({ ...form, height: e.target.value })} />
+                            <Input label="Weight (kg)" type="number" value={form.weight} onChange={e => setForm({ ...form, weight: e.target.value })} />
+                            <Select label="Blood Group" value={form.bloodGroup} onChange={e => setForm({ ...form, bloodGroup: e.target.value })} options={[
+                                { value: '', label: 'Select' }, { value: 'A+', label: 'A+' }, { value: 'A-', label: 'A-' }, { value: 'B+', label: 'B+' }, { value: 'B-', label: 'B-' },
+                                { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' }, { value: 'O+', label: 'O+' }, { value: 'O-', label: 'O-' },
+                            ]} />
+                        </div>
+                        <Input label="Allergies (comma separated)" value={form.allergies} onChange={e => setForm({ ...form, allergies: e.target.value })} placeholder="e.g. Dust, Peanuts" />
+                        <Input label="Medical Conditions (comma separated)" value={form.medicalConditions} onChange={e => setForm({ ...form, medicalConditions: e.target.value })} placeholder="e.g. Asthma" />
+                        <Button className="w-full" onClick={handleSave} loading={saving}>Save Record</Button>
                     </div>
-                    <Button className="w-full" onClick={handleAddCheckup} loading={saving}>Add Checkup</Button>
-                </div>
-            </Modal>
+                </Modal>
+
+                {/* Add Checkup Modal */}
+                <Modal open={!!checkupModal} onClose={() => setCheckupModal(null)} title="Add Checkup">
+                    <div className="space-y-4">
+                        <Input label="Date" type="date" value={checkupForm.date} onChange={e => setCheckupForm({ ...checkupForm, date: e.target.value })} />
+                        <Input label="Checkup Type" value={checkupForm.type} onChange={e => setCheckupForm({ ...checkupForm, type: e.target.value })} placeholder="e.g. Eye Checkup" />
+                        <Input label="Doctor Name" value={checkupForm.doctor} onChange={e => setCheckupForm({ ...checkupForm, doctor: e.target.value })} />
+                        <div>
+                            <label className="text-xs font-medium text-slate-600 mb-1 block">Notes</label>
+                            <textarea
+                                value={checkupForm.notes}
+                                onChange={e => setCheckupForm({ ...checkupForm, notes: e.target.value })}
+                                className="w-full h-20 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400"
+                                placeholder="Findings, recommendations..."
+                            />
+                        </div>
+                        <Button className="w-full" onClick={handleAddCheckup} loading={saving}>Add Checkup</Button>
+                    </div>
+                </Modal>
+            </Portal>
         </div>
     )
 }

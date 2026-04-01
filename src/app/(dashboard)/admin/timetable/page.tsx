@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Select, Input, Spinner, Alert, EmptyState, Modal } from '@/components/ui'
 import { Clock, Plus, Save, Trash2, X } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
 const DAY_LABELS: Record<string, string> = {
@@ -170,27 +171,29 @@ export default function TimetablePage() {
                 ))}
             </div>
 
-            {/* Add Period Modal */}
-            <Modal open={!!addPeriodModal} onClose={() => setAddPeriodModal(null)} title={`Add Period — ${DAY_LABELS[addPeriodModal || ''] || ''}`}>
-                <div className="space-y-4">
-                    <Input label="Subject" value={newPeriod.subject} onChange={e => setNewPeriod({ ...newPeriod, subject: e.target.value })} placeholder="e.g. Mathematics" />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Start Time" type="time" value={newPeriod.startTime} onChange={e => setNewPeriod({ ...newPeriod, startTime: e.target.value })} />
-                        <Input label="End Time" type="time" value={newPeriod.endTime} onChange={e => setNewPeriod({ ...newPeriod, endTime: e.target.value })} />
+            <Portal>
+                {/* Add Period Modal */}
+                <Modal open={!!addPeriodModal} onClose={() => setAddPeriodModal(null)} title={`Add Period — ${DAY_LABELS[addPeriodModal || ''] || ''}`}>
+                    <div className="space-y-4">
+                        <Input label="Subject" value={newPeriod.subject} onChange={e => setNewPeriod({ ...newPeriod, subject: e.target.value })} placeholder="e.g. Mathematics" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Start Time" type="time" value={newPeriod.startTime} onChange={e => setNewPeriod({ ...newPeriod, startTime: e.target.value })} />
+                            <Input label="End Time" type="time" value={newPeriod.endTime} onChange={e => setNewPeriod({ ...newPeriod, endTime: e.target.value })} />
+                        </div>
+                        {teachers.length > 0 && (
+                            <Select
+                                label="Teacher (optional)"
+                                value={newPeriod.teacherId || ''}
+                                onChange={e => setNewPeriod({ ...newPeriod, teacherId: e.target.value })}
+                                options={[{ value: '', label: 'Select Teacher' }, ...teachers.map((t: any) => ({ value: t._id, label: t.name }))]}
+                            />
+                        )}
+                        <Button className="w-full" onClick={() => addPeriodModal && addPeriod(addPeriodModal)}>
+                            Add Period
+                        </Button>
                     </div>
-                    {teachers.length > 0 && (
-                        <Select
-                            label="Teacher (optional)"
-                            value={newPeriod.teacherId || ''}
-                            onChange={e => setNewPeriod({ ...newPeriod, teacherId: e.target.value })}
-                            options={[{ value: '', label: 'Select Teacher' }, ...teachers.map((t: any) => ({ value: t._id, label: t.name }))]}
-                        />
-                    )}
-                    <Button className="w-full" onClick={() => addPeriodModal && addPeriod(addPeriodModal)}>
-                        Add Period
-                    </Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

@@ -9,6 +9,7 @@ import {
     UserCheck, AlertCircle, GraduationCap,
     Phone, MapPin, Calendar, Hash, BookOpen,
     CheckSquare, Printer, MoreVertical, Shield,
+    Sparkles, IndianRupee, Info,
 } from 'lucide-react'
 import { Spinner, Alert } from '@/components/ui'
 import { Portal } from '@/components/ui/Portal'
@@ -20,6 +21,7 @@ interface Student {
     rollNo: string
     class: string
     section: string
+    stream?: string
     academicYear: string
     fatherName: string
     motherName?: string
@@ -33,6 +35,18 @@ interface Student {
     userId: { name: string; phone: string; email?: string }
 }
 
+interface FeeStructure {
+    _id: string
+    name: string
+    class: string
+    section: string
+    academicYear: string
+    term: string
+    totalAmount: number
+    dueDate: string
+    items: Array<{ label: string; amount: number; isOptional: boolean }>
+}
+
 interface FiltersState {
     search: string
     class: string
@@ -41,14 +55,47 @@ interface FiltersState {
     academicYear: string
     gender: string
     category: string
+    stream: string
 }
 
 /* ═══ Constants ═══ */
-const CLASSES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+const CLASSES = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 const SECTIONS = ['A', 'B', 'C', 'D', 'E']
 const GENDERS = ['male', 'female', 'other']
 const CATEGORIES = ['general', 'obc', 'sc', 'st', 'other']
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
+
+// ✅ Stream Config
+const STREAMS = [
+    {
+        value: 'science',
+        label: 'Science',
+        color: '#2563EB',
+        bg: '#EFF6FF',
+        subjects: ['Physics', 'Chemistry', 'Mathematics', 'Biology', 'Computer Science', 'English'],
+    },
+    {
+        value: 'commerce',
+        label: 'Commerce',
+        color: '#059669',
+        bg: '#ECFDF5',
+        subjects: ['Accountancy', 'Business Studies', 'Economics', 'Mathematics', 'English'],
+    },
+    {
+        value: 'arts',
+        label: 'Arts / Humanities',
+        color: '#7C3AED',
+        bg: '#F5F3FF',
+        subjects: ['History', 'Geography', 'Political Science', 'Economics', 'Sociology', 'English'],
+    },
+    {
+        value: 'vocational',
+        label: 'Vocational',
+        color: '#D97706',
+        bg: '#FFFBEB',
+        subjects: ['Vocational Trade', 'Computer Applications', 'English'],
+    },
+]
 
 /* ── Helper: Academic years ── */
 function getAcademicYears(): string[] {
@@ -105,6 +152,21 @@ function GenderBadge({ gender }: { gender: string }) {
     )
 }
 
+/* ── Stream Badge ── */
+function StreamBadge({ stream }: { stream?: string }) {
+    if (!stream) return null
+    const cfg = STREAMS.find(s => s.value === stream)
+    if (!cfg) return null
+    return (
+        <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[0.625rem] font-semibold"
+            style={{ backgroundColor: cfg.bg, color: cfg.color }}
+        >
+            <Sparkles size={9} />
+            {cfg.label}
+        </span>
+    )
+}
 
 /* ═══════════════════════════════════════════
    MAIN PAGE
@@ -116,7 +178,6 @@ export default function StudentsPage() {
     const [page, setPage] = useState(1)
     const [loading, setLoading] = useState(true)
     const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
-    const [currentYear, setCurrentYear] = useState(getCurrentAcademicYear())
 
     // Modals
     const [showAdd, setShowAdd] = useState(false)
@@ -130,7 +191,7 @@ export default function StudentsPage() {
     const [filters, setFilters] = useState<FiltersState>({
         search: '', class: '', section: '',
         status: 'active', academicYear: getCurrentAcademicYear(),
-        gender: '', category: '',
+        gender: '', category: '', stream: '',
     })
     const [showFilters, setShowFilters] = useState(false)
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -147,6 +208,7 @@ export default function StudentsPage() {
             if (filters.academicYear) params.set('academicYear', filters.academicYear)
             if (filters.gender) params.set('gender', filters.gender)
             if (filters.category) params.set('category', filters.category)
+            if (filters.stream) params.set('stream', filters.stream)
             params.set('page', String(pg))
             params.set('limit', '20')
 
@@ -157,7 +219,6 @@ export default function StudentsPage() {
             setTotal(data.total ?? 0)
             setPages(data.pages ?? 1)
             setPage(pg)
-            if (data.currentYear) setCurrentYear(data.currentYear)
         } finally {
             setLoading(false)
         }
@@ -171,16 +232,13 @@ export default function StudentsPage() {
         }
     }, [fetchStudents])
 
-    // URL ?action=add
     useEffect(() => {
         if (window.location.search.includes('action=add')) setShowAdd(true)
     }, [])
 
-    /* ── Filter helper ── */
     const setFilter = (key: keyof FiltersState, val: string) =>
         setFilters(f => ({ ...f, [key]: val }))
 
-    /* ── Select all ── */
     const toggleSelectAll = () => {
         if (selectedIds.length === students.length) setSelectedIds([])
         else setSelectedIds(students.map(s => s._id))
@@ -190,10 +248,13 @@ export default function StudentsPage() {
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         )
 
-    /* ── Active filter count ── */
     const activeFilters = [
-        filters.class, filters.section, filters.gender, filters.category,
+        filters.class, filters.section, filters.gender,
+        filters.category, filters.stream,
     ].filter(Boolean).length
+
+    // Check if stream filter should show
+    const showStreamFilter = !filters.class || ['11', '12'].includes(filters.class)
 
     const showSuccess = (msg: string) => {
         setAlert({ type: 'success', msg })
@@ -218,7 +279,6 @@ export default function StudentsPage() {
                     </p>
                 </div>
                 <div className="flex gap-2 flex-wrap">
-                    {/* Bulk promote button — visible when selected */}
                     {selectedIds.length > 0 && (
                         <button
                             onClick={() => setShowPromote(true)}
@@ -229,16 +289,10 @@ export default function StudentsPage() {
                             Promote ({selectedIds.length})
                         </button>
                     )}
-
-                    {/* Excel Import */}
                     <label
                         htmlFor="excel-upload"
                         className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[0.8125rem] font-semibold cursor-pointer transition-all active:scale-[0.98]"
-                        style={{
-                            backgroundColor: '#FFFFFF',
-                            color: '#475569',
-                            border: '1px solid #E2E8F0',
-                        }}
+                        style={{ backgroundColor: '#FFFFFF', color: '#475569', border: '1px solid #E2E8F0' }}
                     >
                         <Upload size={14} />
                         <span className="hidden sm:inline">Import Excel</span>
@@ -262,16 +316,10 @@ export default function StudentsPage() {
                             e.target.value = ''
                         }}
                     />
-
-                    {/* Add Student */}
                     <button
                         onClick={() => setShowAdd(true)}
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[0.8125rem] font-semibold transition-all active:scale-[0.98]"
-                        style={{
-                            backgroundColor: '#2563EB',
-                            color: '#FFFFFF',
-                            boxShadow: '0 1px 3px rgba(37,99,235,0.3)',
-                        }}
+                        style={{ backgroundColor: '#2563EB', color: '#FFFFFF', boxShadow: '0 1px 3px rgba(37,99,235,0.3)' }}
                     >
                         <Plus size={14} strokeWidth={2.5} />
                         Add Student
@@ -279,7 +327,6 @@ export default function StudentsPage() {
                 </div>
             </div>
 
-            {/* Alert */}
             {alert && (
                 <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />
             )}
@@ -288,17 +335,12 @@ export default function StudentsPage() {
             <div className="portal-card">
                 <div className="p-4">
                     <div className="flex flex-wrap gap-3">
-
                         {/* Search */}
                         <div className="flex-1 min-w-[200px] relative">
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94A3B8' }} />
                             <input
                                 className="w-full h-9 pl-8 pr-3 text-sm rounded-lg transition-all outline-none"
-                                style={{
-                                    border: '1.5px solid #E2E8F0',
-                                    color: '#0F172A',
-                                    backgroundColor: '#FFFFFF',
-                                }}
+                                style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#FFFFFF' }}
                                 placeholder="Search name, admission no, phone..."
                                 value={filters.search}
                                 onChange={e => setFilter('search', e.target.value)}
@@ -312,11 +354,32 @@ export default function StudentsPage() {
                             className="h-9 px-3 text-sm rounded-lg border outline-none cursor-pointer"
                             style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', minWidth: '120px' }}
                             value={filters.class}
-                            onChange={e => setFilter('class', e.target.value)}
+                            onChange={e => {
+                                setFilter('class', e.target.value)
+                                // Clear stream if not 11/12
+                                if (!['11', '12'].includes(e.target.value)) {
+                                    setFilter('stream', '')
+                                }
+                            }}
                         >
                             <option value="">All Classes</option>
                             {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
                         </select>
+
+                        {/* Stream filter — only for 11/12 */}
+                        {(filters.class === '11' || filters.class === '12') && (
+                            <select
+                                className="h-9 px-3 text-sm rounded-lg border outline-none cursor-pointer"
+                                style={{ border: '1.5px solid #7C3AED', color: '#7C3AED', minWidth: '130px', backgroundColor: '#F5F3FF' }}
+                                value={filters.stream}
+                                onChange={e => setFilter('stream', e.target.value)}
+                            >
+                                <option value="">All Streams</option>
+                                {STREAMS.map(s => (
+                                    <option key={s.value} value={s.value}>{s.label}</option>
+                                ))}
+                            </select>
+                        )}
 
                         {/* Section */}
                         <select
@@ -355,7 +418,7 @@ export default function StudentsPage() {
                             <option value="graduated">Graduated</option>
                         </select>
 
-                        {/* More Filters Toggle */}
+                        {/* More Filters */}
                         <button
                             onClick={() => setShowFilters(!showFilters)}
                             className="inline-flex items-center gap-1.5 h-9 px-3 text-sm rounded-lg border transition-colors relative"
@@ -382,7 +445,6 @@ export default function StudentsPage() {
                             onClick={() => fetchStudents(page)}
                             className="h-9 w-9 rounded-lg border flex items-center justify-center transition-colors"
                             style={{ border: '1.5px solid #E2E8F0', color: '#94A3B8' }}
-                            title="Refresh"
                         >
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                         </button>
@@ -409,9 +471,29 @@ export default function StudentsPage() {
                                 <option value="">All Categories</option>
                                 {CATEGORIES.map(c => <option key={c} value={c} className="uppercase">{c.toUpperCase()}</option>)}
                             </select>
+
+                            {/* Stream in advanced filters (for all classes view) */}
+                            {!filters.class && (
+                                <select
+                                    className="h-9 px-3 text-sm rounded-lg border outline-none cursor-pointer"
+                                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', minWidth: '130px' }}
+                                    value={filters.stream}
+                                    onChange={e => setFilter('stream', e.target.value)}
+                                >
+                                    <option value="">All Streams</option>
+                                    {STREAMS.map(s => (
+                                        <option key={s.value} value={s.value}>{s.label}</option>
+                                    ))}
+                                </select>
+                            )}
+
                             <button
                                 onClick={() => {
-                                    setFilters({ search: '', class: '', section: '', status: 'active', academicYear: getCurrentAcademicYear(), gender: '', category: '' })
+                                    setFilters({
+                                        search: '', class: '', section: '',
+                                        status: 'active', academicYear: getCurrentAcademicYear(),
+                                        gender: '', category: '', stream: '',
+                                    })
                                     setShowFilters(false)
                                 }}
                                 className="h-9 px-3 text-sm rounded-lg transition-colors"
@@ -426,8 +508,6 @@ export default function StudentsPage() {
 
             {/* ═══ TABLE ═══ */}
             <div className="portal-card overflow-hidden">
-
-                {/* Bulk action bar */}
                 {selectedIds.length > 0 && (
                     <div
                         className="px-4 py-2.5 flex items-center gap-3 text-sm"
@@ -462,9 +542,7 @@ export default function StudentsPage() {
                     </div>
                 ) : students.length === 0 ? (
                     <div className="portal-empty py-20">
-                        <div className="portal-empty-icon">
-                            <Users size={24} />
-                        </div>
+                        <div className="portal-empty-icon"><Users size={24} /></div>
                         <p className="portal-empty-title">No students found</p>
                         <p className="portal-empty-text">
                             {Object.values(filters).some(Boolean)
@@ -511,9 +589,7 @@ export default function StudentsPage() {
                                     <tr
                                         key={s._id}
                                         className="group"
-                                        style={{
-                                            backgroundColor: selectedIds.includes(s._id) ? '#EFF6FF' : 'transparent',
-                                        }}
+                                        style={{ backgroundColor: selectedIds.includes(s._id) ? '#EFF6FF' : 'transparent' }}
                                     >
                                         <td className="px-4 py-3">
                                             <input
@@ -547,12 +623,18 @@ export default function StudentsPage() {
                                             </div>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span
-                                                className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold"
-                                                style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}
-                                            >
-                                                {s.class}-{s.section}
-                                            </span>
+                                            <div className="flex flex-col gap-1">
+                                                <span
+                                                    className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold w-fit"
+                                                    style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}
+                                                >
+                                                    {s.class}-{s.section}
+                                                </span>
+                                                {/* Stream badge for 11/12 */}
+                                                {s.stream && (
+                                                    <StreamBadge stream={s.stream} />
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3">
                                             <span className="text-sm font-mono font-medium" style={{ color: '#475569' }}>
@@ -583,7 +665,6 @@ export default function StudentsPage() {
                                         </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-1 justify-end">
-                                                {/* View */}
                                                 <button
                                                     onClick={() => { setSelectedStudent(s); setShowView(true) }}
                                                     className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
@@ -594,7 +675,6 @@ export default function StudentsPage() {
                                                 >
                                                     <Eye size={14} />
                                                 </button>
-                                                {/* Edit */}
                                                 <button
                                                     onClick={() => { setSelectedStudent(s); setShowEdit(true) }}
                                                     className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
@@ -605,7 +685,6 @@ export default function StudentsPage() {
                                                 >
                                                     <Edit2 size={14} />
                                                 </button>
-                                                {/* ID Card */}
                                                 <button
                                                     onClick={() => window.open(`/api/pdf/idcard/${s._id}`, '_blank')}
                                                     className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
@@ -625,7 +704,7 @@ export default function StudentsPage() {
                     </div>
                 )}
 
-                {/* ── Pagination ── */}
+                {/* Pagination */}
                 {pages > 1 && !loading && (
                     <div
                         className="flex items-center justify-between px-4 py-3"
@@ -691,10 +770,7 @@ export default function StudentsPage() {
                         student={selectedStudent}
                         onClose={() => setShowView(false)}
                         onEdit={() => { setShowView(false); setShowEdit(true) }}
-                        onIdCard={() => window.open(
-                            `/api/pdf/idcard/${selectedStudent._id}`,
-                            '_blank'
-                        )}
+                        onIdCard={() => window.open(`/api/pdf/idcard/${selectedStudent._id}`, '_blank')}
                     />
                 )}
 
@@ -730,20 +806,14 @@ export default function StudentsPage() {
 
 /* ═══════════════════════════════════════════════════════════════
    REUSABLE FIELD COMPONENTS — Modal ke BAHAR define karo
-   Ye ZAROORI hai — andar define karne se focus lose hota hai
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Text/Date/Email Input ── */
 const FormInput = ({
     label, value, onChange, type = 'text',
-    required = false, placeholder = '',
+    required = false, placeholder = '', helper,
 }: {
-    label: string
-    value: string
-    onChange: (val: string) => void
-    type?: string
-    required?: boolean
-    placeholder?: string
+    label: string; value: string; onChange: (val: string) => void
+    type?: string; required?: boolean; placeholder?: string; helper?: string
 }) => (
     <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold" style={{ color: '#475569' }}>
@@ -758,27 +828,19 @@ const FormInput = ({
             value={value}
             required={required}
             onChange={e => onChange(e.target.value)}
-            onFocus={e => {
-                e.target.style.borderColor = '#2563EB'
-                e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)'
-            }}
-            onBlur={e => {
-                e.target.style.borderColor = '#E2E8F0'
-                e.target.style.boxShadow = 'none'
-            }}
+            onFocus={e => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)' }}
+            onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = 'none' }}
         />
+        {helper && <p className="text-[0.625rem]" style={{ color: '#94A3B8' }}>{helper}</p>}
     </div>
 )
 
-/* ── Select Dropdown ── */
 const FormSelect = ({
-    label, value, onChange, options, required = false,
+    label, value, onChange, options, required = false, helper,
 }: {
-    label: string
-    value: string
-    onChange: (val: string) => void
+    label: string; value: string; onChange: (val: string) => void
     options: { value: string; label: string }[]
-    required?: boolean
+    required?: boolean; helper?: string
 }) => (
     <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold" style={{ color: '#475569' }}>
@@ -798,12 +860,216 @@ const FormSelect = ({
                 <option key={o.value} value={o.value}>{o.label}</option>
             ))}
         </select>
+        {helper && <p className="text-[0.625rem]" style={{ color: '#94A3B8' }}>{helper}</p>}
     </div>
 )
 
 
 /* ═══════════════════════════════════════════════════════════════
-   ADD STUDENT MODAL
+   ✅ FEE PREVIEW CARD — Add Student modal mein show hoga
+   ═══════════════════════════════════════════════════════════════ */
+function FeePreviewCard({
+    selectedClass,
+    selectedSection,
+    academicYear,
+}: {
+    selectedClass: string
+    selectedSection: string
+    academicYear: string
+}) {
+    const [structures, setStructures] = useState<FeeStructure[]>([])
+    const [loading, setLoading] = useState(false)
+    const [fetched, setFetched] = useState(false)
+
+    useEffect(() => {
+        if (!selectedClass) {
+            setStructures([])
+            setFetched(false)
+            return
+        }
+
+        setLoading(true)
+        setFetched(false)
+
+        const params = new URLSearchParams()
+        params.set('class', selectedClass)
+        params.set('year', academicYear)
+
+        fetch(`/api/fees/structure?${params}`)
+            .then(r => r.json())
+            .then(data => {
+                // Filter: class match + section match (or 'all')
+                const matched = (data.structures ?? []).filter((s: FeeStructure) => {
+                    const classMatch = s.class === 'all' || s.class === selectedClass
+                    const sectionMatch = !s.section || s.section === 'all' || s.section === selectedSection
+                    return classMatch && sectionMatch
+                })
+                setStructures(matched)
+                setFetched(true)
+            })
+            .catch(() => setFetched(true))
+            .finally(() => setLoading(false))
+    }, [selectedClass, selectedSection, academicYear])
+
+    if (!selectedClass) return null
+
+    const totalFee = structures.reduce((sum, s) => sum + s.totalAmount, 0)
+
+    return (
+        <div
+            className="col-span-2 rounded-xl overflow-hidden"
+            style={{ border: '1px solid #DBEAFE', backgroundColor: '#EFF6FF' }}
+        >
+            {/* Header */}
+            <div
+                className="flex items-center gap-2 px-4 py-2.5"
+                style={{ backgroundColor: '#DBEAFE', borderBottom: '1px solid #BFDBFE' }}
+            >
+                <IndianRupee size={13} style={{ color: '#2563EB' }} />
+                <span className="text-xs font-bold" style={{ color: '#1D4ED8' }}>
+                    Auto-detected Fee Structure
+                </span>
+                <span className="text-[0.625rem] ml-auto" style={{ color: '#3B82F6' }}>
+                    Class {selectedClass}
+                    {selectedSection ? `-${selectedSection}` : ''} · {academicYear}
+                </span>
+            </div>
+
+            <div className="px-4 py-3">
+                {loading ? (
+                    <div className="flex items-center gap-2">
+                        <Spinner size="sm" />
+                        <span className="text-xs" style={{ color: '#3B82F6' }}>Detecting fee structure...</span>
+                    </div>
+                ) : !fetched ? null : structures.length === 0 ? (
+                    <div className="flex items-start gap-2">
+                        <Info size={13} style={{ color: '#60A5FA', marginTop: 1 }} />
+                        <div>
+                            <p className="text-xs font-medium" style={{ color: '#1D4ED8' }}>
+                                No fee structure found
+                            </p>
+                            <p className="text-[0.625rem] mt-0.5" style={{ color: '#3B82F6' }}>
+                                Class {selectedClass} ke liye koi fee structure nahi bana hai.
+                                Student add hoga but fee baad mein assign karni padegi.
+                            </p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {structures.map(s => (
+                            <div
+                                key={s._id}
+                                className="flex items-center justify-between rounded-lg px-3 py-2"
+                                style={{ backgroundColor: '#FFFFFF', border: '1px solid #BFDBFE' }}
+                            >
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-semibold truncate" style={{ color: '#1E40AF' }}>
+                                        {s.name}
+                                    </p>
+                                    <p className="text-[0.625rem] mt-0.5" style={{ color: '#60A5FA' }}>
+                                        {s.term} · Due: {new Date(s.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                    </p>
+                                </div>
+                                <div className="text-right flex-shrink-0 ml-3">
+                                    <p className="text-sm font-bold tabular-nums" style={{ color: '#1D4ED8' }}>
+                                        ₹{s.totalAmount.toLocaleString('en-IN')}
+                                    </p>
+                                    <p className="text-[0.5625rem]" style={{ color: '#60A5FA' }}>
+                                        {s.items.length} item{s.items.length > 1 ? 's' : ''}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Total */}
+                        {structures.length > 1 && (
+                            <div
+                                className="flex items-center justify-between px-3 py-2 rounded-lg"
+                                style={{ backgroundColor: '#2563EB' }}
+                            >
+                                <span className="text-xs font-semibold" style={{ color: '#BFDBFE' }}>
+                                    Total Annual Fee
+                                </span>
+                                <span className="text-sm font-bold tabular-nums" style={{ color: '#FFFFFF' }}>
+                                    ₹{totalFee.toLocaleString('en-IN')}
+                                </span>
+                            </div>
+                        )}
+
+                        <p className="text-[0.625rem] flex items-center gap-1" style={{ color: '#3B82F6' }}>
+                            <CheckSquare size={9} />
+                            Yeh fees student add hote hi automatically assign ho jayengi
+                        </p>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ STREAM SELECTOR COMPONENT
+   ═══════════════════════════════════════════════════════════════ */
+function StreamSelector({
+    value,
+    onChange,
+}: {
+    value: string
+    onChange: (val: string) => void
+}) {
+    return (
+        <div className="col-span-2">
+            <label className="text-xs font-semibold mb-2 block" style={{ color: '#475569' }}>
+                Stream / Faculty <span style={{ color: '#EF4444' }}>*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+                {STREAMS.map(s => (
+                    <button
+                        key={s.value}
+                        type="button"
+                        onClick={() => onChange(s.value)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                        style={{
+                            border: `2px solid ${value === s.value ? s.color : '#E2E8F0'}`,
+                            backgroundColor: value === s.value ? s.bg : '#FFFFFF',
+                        }}
+                    >
+                        <div
+                            className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                            style={{
+                                backgroundColor: value === s.value ? s.color : '#F1F5F9',
+                                color: value === s.value ? '#FFFFFF' : '#94A3B8',
+                            }}
+                        >
+                            {s.label.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold" style={{ color: value === s.value ? s.color : '#0F172A' }}>
+                                {s.label}
+                            </p>
+                            <p className="text-[0.5625rem] truncate mt-0.5" style={{ color: '#94A3B8' }}>
+                                {s.subjects.slice(0, 3).join(', ')}...
+                            </p>
+                        </div>
+                        {value === s.value && (
+                            <div
+                                className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: s.color }}
+                            >
+                                <span className="text-white text-[0.5rem]">✓</span>
+                            </div>
+                        )}
+                    </button>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   ✅ ADD STUDENT MODAL — With Stream + Fee Auto-detect
    ═══════════════════════════════════════════════════════════════ */
 function AddStudentModal({
     open, onClose, onSuccess,
@@ -814,7 +1080,7 @@ function AddStudentModal({
 }) {
     const initForm = () => ({
         name: '', phone: '', email: '',
-        class: '', section: 'A',
+        class: '', section: 'A', stream: '',
         academicYear: getCurrentAcademicYear(),
         admissionDate: new Date().toISOString().split('T')[0],
         dateOfBirth: '', gender: 'male',
@@ -834,16 +1100,41 @@ function AddStudentModal({
     const [step, setStep] = useState(1)
     const totalSteps = 4
 
-    // ✅ Simple setter — string ke liye
+    // ✅ 11th/12th check
+    const isHigherSecondary = ['11', '12'].includes(form.class)
+
     const setField = useCallback((key: string, val: string) => {
-        setForm(prev => ({ ...prev, [key]: val }))
-    }, []) // ✅ Empty deps — kabhi re-create nahi hogi
+        setForm(prev => {
+            const updated = { ...prev, [key]: val }
+            // Auto-clear stream if class changed to non-11/12
+            if (key === 'class' && !['11', '12'].includes(val)) {
+                updated.stream = ''
+            }
+            return updated
+        })
+    }, [])
 
     const reset = useCallback(() => {
         setForm(initForm())
         setStep(1)
         setError('')
     }, [])
+
+    const handleNext = useCallback(() => {
+        if (step === 1) {
+            if (!form.name || !form.phone || !form.class) {
+                setError('Name, Phone aur Class required hain')
+                return
+            }
+            // 11/12 ke liye stream required
+            if (isHigherSecondary && !form.stream) {
+                setError('Class 11 & 12 ke liye Stream select karna zaroori hai')
+                return
+            }
+        }
+        setError('')
+        setStep(s => s + 1)
+    }, [step, form.name, form.phone, form.class, form.stream, isHigherSecondary])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -861,20 +1152,14 @@ function AddStudentModal({
                 return
             }
             reset()
-            onSuccess(`Student added! Admission No: ${data.admissionNo} | Roll No: ${data.rollNo}`)
+            onSuccess(
+                `Student added! Admission No: ${data.admissionNo} | Roll No: ${data.rollNo}` +
+                (data.feesAssigned > 0 ? ` | ${data.feesAssigned} fee(s) auto-assigned` : '')
+            )
         } finally {
             setLoading(false)
         }
     }
-
-    const handleNext = useCallback(() => {
-        if (step === 1 && (!form.name || !form.phone || !form.class)) {
-            setError('Name, Phone aur Class required hain')
-            return
-        }
-        setError('')
-        setStep(s => s + 1)
-    }, [step, form.name, form.phone, form.class])
 
     const handleClose = useCallback(() => {
         onClose()
@@ -885,10 +1170,7 @@ function AddStudentModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                onClick={handleClose}
-            />
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
             <div
                 className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
                 style={{ border: '1px solid #E2E8F0' }}
@@ -918,10 +1200,7 @@ function AddStudentModal({
 
                 {/* Progress Bar */}
                 <div className="px-6 pt-3 pb-0 flex-shrink-0">
-                    <div
-                        className="w-full h-1.5 rounded-full"
-                        style={{ backgroundColor: '#F1F5F9' }}
-                    >
+                    <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: '#F1F5F9' }}>
                         <div
                             className="h-full rounded-full transition-all duration-300"
                             style={{
@@ -1002,6 +1281,23 @@ function AddStudentModal({
                                     type="date"
                                     required
                                 />
+
+                                {/* ✅ Stream Selector — Only for 11th & 12th */}
+                                {isHigherSecondary && (
+                                    <StreamSelector
+                                        value={form.stream}
+                                        onChange={val => setField('stream', val)}
+                                    />
+                                )}
+
+                                {/* ✅ Fee Auto-detect Preview */}
+                                {form.class && (
+                                    <FeePreviewCard
+                                        selectedClass={form.class}
+                                        selectedSection={form.section}
+                                        academicYear={form.academicYear}
+                                    />
+                                )}
                             </div>
                         )}
 
@@ -1066,7 +1362,7 @@ function AddStudentModal({
                                     label="Previous Class"
                                     value={form.previousClass}
                                     onChange={val => setField('previousClass', val)}
-                                    placeholder="e.g. Class 5"
+                                    placeholder="e.g. Class 10"
                                 />
                                 <FormInput
                                     label="TC Number"
@@ -1080,71 +1376,18 @@ function AddStudentModal({
                         {/* ── Step 3: Family Info ── */}
                         {step === 3 && (
                             <div className="grid grid-cols-2 gap-4">
-                                <FormInput
-                                    label="Father's Name"
-                                    value={form.fatherName}
-                                    onChange={val => setField('fatherName', val)}
-                                    required
-                                    placeholder="Ram Kumar"
-                                />
-                                <FormInput
-                                    label="Father's Phone"
-                                    value={form.fatherPhone}
-                                    onChange={val => setField('fatherPhone', val)}
-                                    placeholder="9888888888"
-                                />
-                                <FormInput
-                                    label="Father's Occupation"
-                                    value={form.fatherOccupation}
-                                    onChange={val => setField('fatherOccupation', val)}
-                                    placeholder="Farmer, Teacher, etc."
-                                />
-                                <div /> {/* spacer */}
-                                <FormInput
-                                    label="Mother's Name"
-                                    value={form.motherName}
-                                    onChange={val => setField('motherName', val)}
-                                    placeholder="Sita Devi"
-                                />
-                                <FormInput
-                                    label="Mother's Phone"
-                                    value={form.motherPhone}
-                                    onChange={val => setField('motherPhone', val)}
-                                    placeholder="9777777777"
-                                />
-                                <FormInput
-                                    label="Mother's Occupation"
-                                    value={form.motherOccupation}
-                                    onChange={val => setField('motherOccupation', val)}
-                                    placeholder="Optional"
-                                />
-                                <div /> {/* spacer */}
-                                <FormInput
-                                    label="Parent/Guardian Phone"
-                                    value={form.parentPhone}
-                                    onChange={val => setField('parentPhone', val)}
-                                    required
-                                    placeholder="Primary contact number"
-                                />
-                                <FormInput
-                                    label="Parent Email"
-                                    value={form.parentEmail}
-                                    onChange={val => setField('parentEmail', val)}
-                                    type="email"
-                                    placeholder="parent@email.com"
-                                />
-                                <FormInput
-                                    label="Emergency Contact Name"
-                                    value={form.emergencyName}
-                                    onChange={val => setField('emergencyName', val)}
-                                    placeholder="Uncle/Relative name"
-                                />
-                                <FormInput
-                                    label="Emergency Contact No."
-                                    value={form.emergencyContact}
-                                    onChange={val => setField('emergencyContact', val)}
-                                    placeholder="9666666666"
-                                />
+                                <FormInput label="Father's Name" value={form.fatherName} onChange={val => setField('fatherName', val)} required placeholder="Ram Kumar" />
+                                <FormInput label="Father's Phone" value={form.fatherPhone} onChange={val => setField('fatherPhone', val)} placeholder="9888888888" />
+                                <FormInput label="Father's Occupation" value={form.fatherOccupation} onChange={val => setField('fatherOccupation', val)} placeholder="Farmer, Teacher, etc." />
+                                <div />
+                                <FormInput label="Mother's Name" value={form.motherName} onChange={val => setField('motherName', val)} placeholder="Sita Devi" />
+                                <FormInput label="Mother's Phone" value={form.motherPhone} onChange={val => setField('motherPhone', val)} placeholder="9777777777" />
+                                <FormInput label="Mother's Occupation" value={form.motherOccupation} onChange={val => setField('motherOccupation', val)} placeholder="Optional" />
+                                <div />
+                                <FormInput label="Parent/Guardian Phone" value={form.parentPhone} onChange={val => setField('parentPhone', val)} required placeholder="Primary contact number" />
+                                <FormInput label="Parent Email" value={form.parentEmail} onChange={val => setField('parentEmail', val)} type="email" placeholder="parent@email.com" />
+                                <FormInput label="Emergency Contact Name" value={form.emergencyName} onChange={val => setField('emergencyName', val)} placeholder="Uncle/Relative name" />
+                                <FormInput label="Emergency Contact No." value={form.emergencyContact} onChange={val => setField('emergencyContact', val)} placeholder="9666666666" />
                             </div>
                         )}
 
@@ -1152,32 +1395,11 @@ function AddStudentModal({
                         {step === 4 && (
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
-                                    <FormInput
-                                        label="Full Address"
-                                        value={form.address}
-                                        onChange={val => setField('address', val)}
-                                        required
-                                        placeholder="House No, Street, Village/Colony"
-                                    />
+                                    <FormInput label="Full Address" value={form.address} onChange={val => setField('address', val)} required placeholder="House No, Street, Village/Colony" />
                                 </div>
-                                <FormInput
-                                    label="City/Town"
-                                    value={form.city}
-                                    onChange={val => setField('city', val)}
-                                    placeholder="Lucknow"
-                                />
-                                <FormInput
-                                    label="State"
-                                    value={form.state}
-                                    onChange={val => setField('state', val)}
-                                    placeholder="Uttar Pradesh"
-                                />
-                                <FormInput
-                                    label="Pincode"
-                                    value={form.pincode}
-                                    onChange={val => setField('pincode', val)}
-                                    placeholder="226001"
-                                />
+                                <FormInput label="City/Town" value={form.city} onChange={val => setField('city', val)} placeholder="Lucknow" />
+                                <FormInput label="State" value={form.state} onChange={val => setField('state', val)} placeholder="Uttar Pradesh" />
+                                <FormInput label="Pincode" value={form.pincode} onChange={val => setField('pincode', val)} placeholder="226001" />
                             </div>
                         )}
                     </div>
@@ -1187,11 +1409,7 @@ function AddStudentModal({
                         <div className="mx-6 mb-2">
                             <div
                                 className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
-                                style={{
-                                    backgroundColor: '#FEF2F2',
-                                    color: '#DC2626',
-                                    border: '1px solid #FECACA',
-                                }}
+                                style={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
                             >
                                 <AlertCircle size={15} />
                                 {error}
@@ -1208,15 +1426,9 @@ function AddStudentModal({
                             type="button"
                             onClick={step > 1 ? () => setStep(s => s - 1) : handleClose}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                            style={{
-                                backgroundColor: '#F8FAFC',
-                                color: '#475569',
-                                border: '1px solid #E2E8F0',
-                            }}
+                            style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}
                         >
-                            {step > 1 ? (
-                                <><ChevronLeft size={14} /> Back</>
-                            ) : 'Cancel'}
+                            {step > 1 ? <><ChevronLeft size={14} /> Back</> : 'Cancel'}
                         </button>
 
                         {step < totalSteps ? (
@@ -1248,16 +1460,12 @@ function AddStudentModal({
 
 
 /* ═══════════════════════════════════════════
-   VIEW STUDENT MODAL
+   VIEW STUDENT MODAL (unchanged structure, stream added)
    ═══════════════════════════════════════════ */
 function ViewStudentModal({
     open, student, onClose, onEdit, onIdCard,
 }: {
-    open: boolean
-    student: Student
-    onClose: () => void
-    onEdit: () => void
-    onIdCard: () => void
+    open: boolean; student: Student; onClose: () => void; onEdit: () => void; onIdCard: () => void
 }) {
     const [fullData, setFullData] = useState<any>(null)
     const [loading, setLoading] = useState(false)
@@ -1272,12 +1480,12 @@ function ViewStudentModal({
     }, [open, student._id])
 
     if (!open) return null
-
     const s = fullData || student
 
-    const Row = ({ label, value, icon }: { label: string; value?: string; icon?: React.ReactNode }) => (
+    const streamInfo = STREAMS.find(st => st.value === s.stream)
+
+    const Row = ({ label, value }: { label: string; value?: string }) => (
         <div className="flex items-start gap-3 py-2.5" style={{ borderBottom: '1px solid #F8FAFC' }}>
-            {icon && <span style={{ color: '#94A3B8', marginTop: 1 }}>{icon}</span>}
             <span className="text-xs font-semibold w-32 flex-shrink-0" style={{ color: '#94A3B8' }}>{label}</span>
             <span className="text-sm font-medium flex-1" style={{ color: '#0F172A' }}>
                 {value || <span style={{ color: '#CBD5E1' }}>—</span>}
@@ -1289,14 +1497,10 @@ function ViewStudentModal({
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-
                 {/* Header */}
                 <div
                     className="px-6 py-5 flex items-center gap-4"
-                    style={{
-                        background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
-                        borderRadius: '1rem 1rem 0 0',
-                    }}
+                    style={{ background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)', borderRadius: '1rem 1rem 0 0' }}
                 >
                     <div
                         className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold"
@@ -1319,6 +1523,16 @@ function ViewStudentModal({
                                 Class {s.class}-{s.section} · Roll #{s.rollNo}
                             </span>
                             <StatusBadge status={s.status} />
+                            {/* Stream badge in view */}
+                            {s.stream && streamInfo && (
+                                <span
+                                    className="inline-flex items-center gap-1 text-[0.6875rem] font-semibold px-2 py-0.5 rounded-full"
+                                    style={{ backgroundColor: streamInfo.bg, color: streamInfo.color }}
+                                >
+                                    <Sparkles size={9} />
+                                    {streamInfo.label}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <div className="flex gap-2">
@@ -1348,18 +1562,18 @@ function ViewStudentModal({
                         <div className="flex justify-center py-12"><Spinner size="lg" /></div>
                     ) : (
                         <div className="space-y-5">
-
-                            {/* Academic */}
                             <Section title="Academic Information" icon={<GraduationCap size={14} />}>
                                 <Row label="Admission No" value={s.admissionNo} />
                                 <Row label="Academic Year" value={s.academicYear} />
                                 <Row label="Class & Section" value={`Class ${s.class} - Section ${s.section}`} />
+                                {/* ✅ Stream in view */}
+                                {s.stream && (
+                                    <Row label="Stream" value={streamInfo?.label} />
+                                )}
                                 <Row label="Roll Number" value={`#${s.rollNo}`} />
                                 <Row label="Admission Date" value={s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN') : ''} />
-                                <Row label="Admission Class" value={`Class ${s.admissionClass || s.class}`} />
                             </Section>
 
-                            {/* Personal */}
                             <Section title="Personal Information" icon={<UserCheck size={14} />}>
                                 <Row label="Date of Birth" value={s.dateOfBirth ? new Date(s.dateOfBirth).toLocaleDateString('en-IN') : ''} />
                                 <Row label="Gender" value={s.gender} />
@@ -1369,7 +1583,6 @@ function ViewStudentModal({
                                 <Row label="Religion" value={s.religion} />
                             </Section>
 
-                            {/* Family */}
                             <Section title="Family Information" icon={<Users size={14} />}>
                                 <Row label="Father's Name" value={s.fatherName} />
                                 <Row label="Father's Phone" value={s.fatherPhone} />
@@ -1381,7 +1594,6 @@ function ViewStudentModal({
                                 <Row label="Emergency Contact" value={s.emergencyContact ? `${s.emergencyName} — ${s.emergencyContact}` : ''} />
                             </Section>
 
-                            {/* Address */}
                             <Section title="Address" icon={<MapPin size={14} />}>
                                 <Row label="Address" value={s.address} />
                                 <Row label="City" value={s.city} />
@@ -1389,7 +1601,6 @@ function ViewStudentModal({
                                 <Row label="Pincode" value={s.pincode} />
                             </Section>
 
-                            {/* Previous School */}
                             {(s.previousSchool || s.tcNumber) && (
                                 <Section title="Previous School" icon={<BookOpen size={14} />}>
                                     <Row label="School Name" value={s.previousSchool} />
@@ -1398,7 +1609,6 @@ function ViewStudentModal({
                                 </Section>
                             )}
 
-                            {/* Session History */}
                             {s.sessionHistory?.length > 0 && (
                                 <Section title="Session History" icon={<Calendar size={14} />}>
                                     <div className="space-y-2 mt-1">
@@ -1443,7 +1653,6 @@ function ViewStudentModal({
     )
 }
 
-/* Section wrapper for View Modal */
 function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
     return (
         <div>
@@ -1452,9 +1661,7 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
                 <h4 className="text-xs font-bold uppercase tracking-wider" style={{ color: '#94A3B8' }}>{title}</h4>
             </div>
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #F1F5F9' }}>
-                <div className="divide-y divide-slate-50 px-4">
-                    {children}
-                </div>
+                <div className="divide-y divide-slate-50 px-4">{children}</div>
             </div>
         </div>
     )
@@ -1462,20 +1669,19 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
 
 
 /* ═══════════════════════════════════════════
-   EDIT STUDENT MODAL
+   EDIT STUDENT MODAL — Stream support added
    ═══════════════════════════════════════════ */
 function EditStudentModal({
     open, student, onClose, onSuccess,
 }: {
-    open: boolean
-    student: Student
-    onClose: () => void
-    onSuccess: (msg: string) => void
+    open: boolean; student: Student; onClose: () => void; onSuccess: (msg: string) => void
 }) {
     const [form, setForm] = useState<any>({})
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [fetching, setFetching] = useState(false)
+
+    const isHigherSecondary = ['11', '12'].includes(form.class)
 
     useEffect(() => {
         if (!open || !student._id) return
@@ -1487,6 +1693,7 @@ function EditStudentModal({
                 setForm({
                     class: s.class,
                     section: s.section,
+                    stream: s.stream || '',
                     fatherName: s.fatherName,
                     motherName: s.motherName || '',
                     fatherOccupation: s.fatherOccupation || '',
@@ -1509,10 +1716,21 @@ function EditStudentModal({
             .finally(() => setFetching(false))
     }, [open, student._id])
 
-    const set = (k: string, v: string) => setForm((f: any) => ({ ...f, [k]: v }))
+    const set = (k: string, v: string) => setForm((f: any) => {
+        const updated = { ...f, [k]: v }
+        // Clear stream if class changed to non-11/12
+        if (k === 'class' && !['11', '12'].includes(v)) {
+            updated.stream = ''
+        }
+        return updated
+    })
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (isHigherSecondary && !form.stream) {
+            setError('Class 11/12 ke liye stream select karna zaroori hai')
+            return
+        }
         setLoading(true)
         setError('')
         try {
@@ -1586,17 +1804,45 @@ function EditStudentModal({
                                 <div>
                                     <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>Academic</h4>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <Field label="Class" field="class" options={[{ value: '', label: 'Select' }, ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))]} />
-                                        <Field label="Section" field="section" options={SECTIONS.map(s => ({ value: s, label: `Section ${s}` }))} />
-                                        <Field label="Status" field="status" options={[
-                                            { value: 'active', label: 'Active' },
-                                            { value: 'inactive', label: 'Inactive' },
-                                            { value: 'transferred', label: 'Transferred' },
-                                            { value: 'graduated', label: 'Graduated' },
-                                        ]} />
-                                        <Field label="Blood Group" field="bloodGroup" options={[{ value: '', label: 'Not Known' }, ...BLOOD_GROUPS.map(b => ({ value: b, label: b }))]} />
+                                        <Field
+                                            label="Class"
+                                            field="class"
+                                            options={[{ value: '', label: 'Select' }, ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))]}
+                                        />
+                                        <Field
+                                            label="Section"
+                                            field="section"
+                                            options={SECTIONS.map(s => ({ value: s, label: `Section ${s}` }))}
+                                        />
+
+                                        {/* ✅ Stream in Edit — only for 11/12 */}
+                                        {isHigherSecondary && (
+                                            <div className="col-span-2">
+                                                <StreamSelector
+                                                    value={form.stream || ''}
+                                                    onChange={val => set('stream', val)}
+                                                />
+                                            </div>
+                                        )}
+
+                                        <Field
+                                            label="Status"
+                                            field="status"
+                                            options={[
+                                                { value: 'active', label: 'Active' },
+                                                { value: 'inactive', label: 'Inactive' },
+                                                { value: 'transferred', label: 'Transferred' },
+                                                { value: 'graduated', label: 'Graduated' },
+                                            ]}
+                                        />
+                                        <Field
+                                            label="Blood Group"
+                                            field="bloodGroup"
+                                            options={[{ value: '', label: 'Not Known' }, ...BLOOD_GROUPS.map(b => ({ value: b, label: b }))]}
+                                        />
                                     </div>
                                 </div>
+
                                 {/* Family */}
                                 <div>
                                     <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>Family</h4>
@@ -1611,6 +1857,7 @@ function EditStudentModal({
                                         <Field label="Emergency Contact" field="emergencyContact" />
                                     </div>
                                 </div>
+
                                 {/* Address */}
                                 <div>
                                     <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>Address</h4>
@@ -1648,15 +1895,12 @@ function EditStudentModal({
 
 
 /* ═══════════════════════════════════════════
-   PROMOTE STUDENTS MODAL
+   PROMOTE MODAL — unchanged
    ═══════════════════════════════════════════ */
 function PromoteModal({
     open, studentIds, onClose, onSuccess,
 }: {
-    open: boolean
-    studentIds: string[]
-    onClose: () => void
-    onSuccess: (msg: string) => void
+    open: boolean; studentIds: string[]; onClose: () => void; onSuccess: (msg: string) => void
 }) {
     const nextYear = (() => {
         const current = getCurrentAcademicYear()
@@ -1665,19 +1909,24 @@ function PromoteModal({
     })()
 
     const [form, setForm] = useState({
-        toClass: '',
-        toSection: 'A',
+        toClass: '', toSection: 'A',
         toAcademicYear: nextYear,
         result: 'promoted' as 'promoted' | 'detained',
+        toStream: '', // ✅ Stream in promote too
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
     const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+    const isHigherSecondary = ['11', '12'].includes(form.toClass)
 
     const handlePromote = async () => {
         if (!form.toClass || !form.toSection || !form.toAcademicYear) {
             setError('Please fill all fields')
+            return
+        }
+        if (isHigherSecondary && !form.toStream) {
+            setError('Class 11/12 ke liye stream select karo')
             return
         }
         setLoading(true)
@@ -1686,7 +1935,11 @@ function PromoteModal({
             const res = await fetch('/api/students/promote', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...form, studentIds }),
+                body: JSON.stringify({
+                    ...form,
+                    studentIds,
+                    stream: isHigherSecondary ? form.toStream : undefined,
+                }),
             })
             const data = await res.json()
             if (!res.ok) { setError(data.error || 'Failed'); return }
@@ -1701,8 +1954,8 @@ function PromoteModal({
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
-                <div className="px-6 py-4" style={{ borderBottom: '1px solid #F1F5F9' }}>
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
+                <div className="px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #F1F5F9' }}>
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#FFF7ED' }}>
                             <TrendingUp size={18} style={{ color: '#EA580C' }} />
@@ -1717,7 +1970,7 @@ function PromoteModal({
                     </div>
                 </div>
 
-                <div className="px-6 py-5 space-y-4">
+                <div className="flex-1 overflow-y-auto portal-scrollbar px-6 py-5 space-y-4">
                     {/* Info Banner */}
                     <div className="px-4 py-3 rounded-xl text-sm" style={{ backgroundColor: '#FFF7ED', border: '1px solid #FDBA74' }}>
                         <p className="font-semibold" style={{ color: '#9A3412' }}>⚠️ Before promoting:</p>
@@ -1746,7 +1999,7 @@ function PromoteModal({
                         ))}
                     </div>
 
-                    {/* To Class */}
+                    {/* To Class & Section */}
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <label className="text-xs font-semibold" style={{ color: '#475569' }}>
@@ -1756,7 +2009,10 @@ function PromoteModal({
                                 className="h-9 px-3 text-sm rounded-lg border outline-none"
                                 style={{ border: '1.5px solid #E2E8F0', color: '#0F172A' }}
                                 value={form.toClass}
-                                onChange={e => set('toClass', e.target.value)}
+                                onChange={e => {
+                                    set('toClass', e.target.value)
+                                    if (!['11', '12'].includes(e.target.value)) set('toStream', '')
+                                }}
                             >
                                 <option value="">Select Class</option>
                                 {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
@@ -1774,6 +2030,14 @@ function PromoteModal({
                             </select>
                         </div>
                     </div>
+
+                    {/* ✅ Stream in Promote — only for 11/12 */}
+                    {isHigherSecondary && (
+                        <StreamSelector
+                            value={form.toStream}
+                            onChange={val => set('toStream', val)}
+                        />
+                    )}
 
                     {/* Academic Year */}
                     <div className="flex flex-col gap-1">
@@ -1795,7 +2059,7 @@ function PromoteModal({
                     )}
                 </div>
 
-                <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid #F1F5F9' }}>
+                <div className="px-6 py-4 flex justify-end gap-2 flex-shrink-0" style={{ borderTop: '1px solid #F1F5F9' }}>
                     <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}>
                         Cancel
                     </button>

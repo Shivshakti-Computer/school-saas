@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Spinner, Alert, EmptyState } from '@/components/ui'
 import { UserPlus, Plus, LogOut, Clock } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface VisitorItem {
     _id: string
@@ -130,15 +131,17 @@ export default function VisitorPage() {
                 </Card>
             )}
 
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Visitor Check In">
-                <div className="space-y-4">
-                    <Input label="Visitor Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
-                    <Input label="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" />
-                    <Input label="Purpose of Visit" value={form.purpose} onChange={e => setForm({ ...form, purpose: e.target.value })} placeholder="e.g. Parent meeting" />
-                    <Input label="To Meet" value={form.toMeet} onChange={e => setForm({ ...form, toMeet: e.target.value })} placeholder="e.g. Principal, Class Teacher" />
-                    <Button className="w-full" onClick={handleCreate} loading={saving}>Check In Visitor</Button>
-                </div>
-            </Modal>
+            <Portal>
+                <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Visitor Check In">
+                    <div className="space-y-4">
+                        <Input label="Visitor Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
+                        <Input label="Phone Number" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" />
+                        <Input label="Purpose of Visit" value={form.purpose} onChange={e => setForm({ ...form, purpose: e.target.value })} placeholder="e.g. Parent meeting" />
+                        <Input label="To Meet" value={form.toMeet} onChange={e => setForm({ ...form, toMeet: e.target.value })} placeholder="e.g. Principal, Class Teacher" />
+                        <Button className="w-full" onClick={handleCreate} loading={saving}>Check In Visitor</Button>
+                    </div>
+                </Modal>
+            </Portal>
         </div>
     )
 }

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Spinner, Alert, EmptyState } from '@/components/ui'
 import { GraduationCap, Plus, Search, MapPin, Briefcase } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface AlumniItem {
     _id: string
@@ -130,22 +131,24 @@ export default function AlumniPage() {
                 </div>
             )}
 
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Alumni">
-                <div className="space-y-4">
-                    <Input label="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Alumni name" />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" />
-                        <Input label="Batch Year" type="number" value={String(form.batch)} onChange={e => setForm({ ...form, batch: Number(e.target.value) })} />
+            <Portal>
+                <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Add Alumni">
+                    <div className="space-y-4">
+                        <Input label="Full Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Alumni name" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="10-digit mobile" />
+                            <Input label="Batch Year" type="number" value={String(form.batch)} onChange={e => setForm({ ...form, batch: Number(e.target.value) })} />
+                        </div>
+                        <Input label="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Current Occupation" value={form.currentOccupation} onChange={e => setForm({ ...form, currentOccupation: e.target.value })} placeholder="e.g. Engineer" />
+                            <Input label="Current Location" value={form.currentLocation} onChange={e => setForm({ ...form, currentLocation: e.target.value })} placeholder="e.g. Raipur" />
+                        </div>
+                        <Input label="LinkedIn URL (optional)" value={form.linkedin} onChange={e => setForm({ ...form, linkedin: e.target.value })} placeholder="https://linkedin.com/in/..." />
+                        <Button className="w-full" onClick={handleCreate} loading={saving}>Add Alumni</Button>
                     </div>
-                    <Input label="Email (optional)" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="email@example.com" />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Current Occupation" value={form.currentOccupation} onChange={e => setForm({ ...form, currentOccupation: e.target.value })} placeholder="e.g. Engineer" />
-                        <Input label="Current Location" value={form.currentLocation} onChange={e => setForm({ ...form, currentLocation: e.target.value })} placeholder="e.g. Raipur" />
-                    </div>
-                    <Input label="LinkedIn URL (optional)" value={form.linkedin} onChange={e => setForm({ ...form, linkedin: e.target.value })} placeholder="https://linkedin.com/in/..." />
-                    <Button className="w-full" onClick={handleCreate} loading={saving}>Add Alumni</Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

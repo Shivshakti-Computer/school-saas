@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Select, Spinner, Alert, EmptyState, StatCard } from '@/components/ui'
 import { Library, Plus, BookOpen, ArrowLeft, Search, RotateCcw } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const CATEGORIES = ['General', 'Fiction', 'Non-Fiction', 'Science', 'Mathematics', 'History', 'Literature', 'Computer', 'Reference', 'Magazine']
 
@@ -212,35 +213,37 @@ export default function LibraryPage() {
                 </Card>
             )}
 
-            {/* Add Book Modal */}
-            <Modal open={addBookModal} onClose={() => setAddBookModal(false)} title="Add Book">
-                <div className="space-y-4">
-                    <Input label="Title" value={bookForm.title} onChange={e => setBookForm({ ...bookForm, title: e.target.value })} />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Author" value={bookForm.author} onChange={e => setBookForm({ ...bookForm, author: e.target.value })} />
-                        <Input label="ISBN" value={bookForm.isbn} onChange={e => setBookForm({ ...bookForm, isbn: e.target.value })} />
+            <Portal>
+                {/* Add Book Modal */}
+                <Modal open={addBookModal} onClose={() => setAddBookModal(false)} title="Add Book">
+                    <div className="space-y-4">
+                        <Input label="Title" value={bookForm.title} onChange={e => setBookForm({ ...bookForm, title: e.target.value })} />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Author" value={bookForm.author} onChange={e => setBookForm({ ...bookForm, author: e.target.value })} />
+                            <Input label="ISBN" value={bookForm.isbn} onChange={e => setBookForm({ ...bookForm, isbn: e.target.value })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Select label="Category" value={bookForm.category} onChange={e => setBookForm({ ...bookForm, category: e.target.value })} options={CATEGORIES.map(c => ({ value: c, label: c }))} />
+                            <Input label="Total Copies" type="number" value={String(bookForm.totalCopies)} onChange={e => setBookForm({ ...bookForm, totalCopies: Number(e.target.value) })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Publisher" value={bookForm.publisher} onChange={e => setBookForm({ ...bookForm, publisher: e.target.value })} />
+                            <Input label="Shelf/Rack" value={bookForm.location} onChange={e => setBookForm({ ...bookForm, location: e.target.value })} />
+                        </div>
+                        <Button className="w-full" onClick={handleAddBook} loading={saving}>Add Book</Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Select label="Category" value={bookForm.category} onChange={e => setBookForm({ ...bookForm, category: e.target.value })} options={CATEGORIES.map(c => ({ value: c, label: c }))} />
-                        <Input label="Total Copies" type="number" value={String(bookForm.totalCopies)} onChange={e => setBookForm({ ...bookForm, totalCopies: Number(e.target.value) })} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Publisher" value={bookForm.publisher} onChange={e => setBookForm({ ...bookForm, publisher: e.target.value })} />
-                        <Input label="Shelf/Rack" value={bookForm.location} onChange={e => setBookForm({ ...bookForm, location: e.target.value })} />
-                    </div>
-                    <Button className="w-full" onClick={handleAddBook} loading={saving}>Add Book</Button>
-                </div>
-            </Modal>
+                </Modal>
 
-            {/* Issue Book Modal */}
-            <Modal open={issueBookModal} onClose={() => setIssueBookModal(false)} title="Issue Book">
-                <div className="space-y-4">
-                    <Select label="Book" value={issueForm.bookId} onChange={e => setIssueForm({ ...issueForm, bookId: e.target.value })} options={[{ value: '', label: 'Select Book' }, ...books.filter(b => b.availableCopies > 0).map(b => ({ value: b._id, label: `${b.title} — ${b.author} (${b.availableCopies} avail)` }))]} />
-                    <Select label="Student" value={issueForm.studentId} onChange={e => setIssueForm({ ...issueForm, studentId: e.target.value })} options={[{ value: '', label: 'Select Student' }, ...students.map((s: any) => ({ value: s._id, label: `${s.userId?.name || 'Unknown'} — ${s.class} (${s.admissionNo})` }))]} />
-                    <Input label="Due Date" type="date" value={issueForm.dueDate} onChange={e => setIssueForm({ ...issueForm, dueDate: e.target.value })} />
-                    <Button className="w-full" onClick={handleIssueBook} loading={saving}>Issue Book</Button>
-                </div>
-            </Modal>
+                {/* Issue Book Modal */}
+                <Modal open={issueBookModal} onClose={() => setIssueBookModal(false)} title="Issue Book">
+                    <div className="space-y-4">
+                        <Select label="Book" value={issueForm.bookId} onChange={e => setIssueForm({ ...issueForm, bookId: e.target.value })} options={[{ value: '', label: 'Select Book' }, ...books.filter(b => b.availableCopies > 0).map(b => ({ value: b._id, label: `${b.title} — ${b.author} (${b.availableCopies} avail)` }))]} />
+                        <Select label="Student" value={issueForm.studentId} onChange={e => setIssueForm({ ...issueForm, studentId: e.target.value })} options={[{ value: '', label: 'Select Student' }, ...students.map((s: any) => ({ value: s._id, label: `${s.userId?.name || 'Unknown'} — ${s.class} (${s.admissionNo})` }))]} />
+                        <Input label="Due Date" type="date" value={issueForm.dueDate} onChange={e => setIssueForm({ ...issueForm, dueDate: e.target.value })} />
+                        <Button className="w-full" onClick={handleIssueBook} loading={saving}>Issue Book</Button>
+                    </div>
+                </Modal>
+            </Portal>
         </div>
     )
 }

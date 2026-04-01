@@ -1,51 +1,37 @@
-// FILE: src/lib/admissionUtils.ts
-// Admission Number & Roll Number generation utilities
+// FILE: src/lib/admissionUtils.ts — FINAL FIX
 
 import { connectDB } from './db'
 import { Student } from '@/models/Student'
-import '@/models/School'
 
-/**
- * Get current academic year
- * Indian academic year: April to March
- * April 2024 → March 2025 = "2024-25"
- */
 export function getCurrentAcademicYear(): string {
     const now = new Date()
-    const month = now.getMonth() + 1 // 1-12
+    const month = now.getMonth() + 1
     const year = now.getFullYear()
-
     if (month >= 4) {
-        // April onwards = new year
         return `${year}-${String(year + 1).slice(-2)}`
-    } else {
-        // Jan-March = previous year's session
-        return `${year - 1}-${String(year).slice(-2)}`
     }
+    return `${year - 1}-${String(year).slice(-2)}`
 }
 
-/**
- * Get all academic years for dropdown
- * Last 5 years + current + next
- */
 export function getAcademicYears(): string[] {
     const currentYear = new Date().getFullYear()
     const years: string[] = []
-    
     for (let y = currentYear - 3; y <= currentYear + 1; y++) {
         years.push(`${y}-${String(y + 1).slice(-2)}`)
     }
-    
     return years.reverse()
 }
 
-/**
- * Generate Admission Number
- * Format: SCHOOLCODE/YEAR/SEQNO
- * Example: DPS/2024-25/0001
- * 
- * School code = first 3-4 chars of subdomain (uppercase)
- */
+function getSchoolCode(subdomain: string): string {
+    const s = subdomain.toUpperCase().trim()
+    if (s.length <= 4) return s
+    const words = s.split(/[-_\s]+/).filter(Boolean)
+    if (words.length >= 2) {
+        return words.map(w => w[0]).join('').slice(0, 4)
+    }
+    return s.slice(0, 3)
+}
+
 export async function generateAdmissionNo(
     tenantId: string,
     subdomain: string,
@@ -53,50 +39,32 @@ export async function generateAdmissionNo(
 ): Promise<string> {
     await connectDB()
 
-    // School code from subdomain
-    // "delhipublicschool" → "DPS" (initials)
-    // "stmarys" → "STM"
     const schoolCode = getSchoolCode(subdomain)
 
-    // Count students in this academic year for this school
-    const count = await Student.countDocuments({
+    // ✅ Sirf tenantId + academicYear se last dhundho
+    // Regex hatao — schoolCode mismatch issue fix
+    const last = await Student.findOne({
         tenantId,
         academicYear,
     })
+        .sort({ createdAt: -1 })  // Latest student
+        .select('admissionNo')
+        .lean() as any
 
-    const seq = String(count + 1).padStart(4, '0')
-    return `${schoolCode}/${academicYear}/${seq}`
-}
+    let nextSeq = 1
 
-/**
- * Extract school code from subdomain
- * Examples:
- * "dps" → "DPS"
- * "stmarys" → "STM"  
- * "kendriyavidyalaya" → "KV"
- * "sunshine" → "SUN"
- */
-function getSchoolCode(subdomain: string): string {
-    const s = subdomain.toUpperCase().trim()
-    
-    // If short (≤4 chars), use as-is
-    if (s.length <= 4) return s
-    
-    // Try to get initials (split on common separators)
-    const words = s.split(/[-_\s]+/).filter(Boolean)
-    if (words.length >= 2) {
-        return words.map(w => w[0]).join('').slice(0, 4)
+    if (last?.admissionNo) {
+        // "DPS/2025-26/0007" → split → last part → 7 → next = 8
+        // "SCH/2025-26/0003" → split → last part → 3 → next = 4
+        // Koi bhi format ho — last "/" ke baad number lo
+        const lastPart = last.admissionNo.split('/').pop()
+        const lastSeq = parseInt(lastPart || '0') || 0
+        nextSeq = lastSeq + 1
     }
-    
-    // Otherwise take first 3 chars
-    return s.slice(0, 3)
+
+    return `${schoolCode}/${academicYear}/${String(nextSeq).padStart(4, '0')}`
 }
 
-/**
- * Generate Roll Number — Section-wise sequential
- * Format: Simple number (1, 2, 3...)
- * Ordered alphabetically by name within section
- */
 export async function generateRollNo(
     tenantId: string,
     className: string,
@@ -105,21 +73,27 @@ export async function generateRollNo(
 ): Promise<string> {
     await connectDB()
 
-    const count = await Student.countDocuments({
+    const last = await Student.findOne({
         tenantId,
         class: className,
         section,
         academicYear,
         status: { $ne: 'transferred' },
     })
+        .sort({ createdAt: -1 })  // Latest
+        .select('rollNo')
+        .lean() as any
 
-    return String(count + 1)
+    let nextSeq = 1
+
+    if (last?.rollNo) {
+        const lastRoll = parseInt(last.rollNo) || 0
+        nextSeq = lastRoll + 1
+    }
+
+    return String(nextSeq).padStart(2, '0')
 }
 
-/**
- * Reassign roll numbers for a class-section
- * Call this after promotion/transfer to keep roll nos sequential
- */
 export async function reassignRollNumbers(
     tenantId: string,
     className: string,
@@ -135,29 +109,23 @@ export async function reassignRollNumbers(
         academicYear,
         status: 'active',
     })
-    .populate('userId', 'name')
-    .sort({ 'userId.name': 1 }) // Alphabetical
+        .populate('userId', 'name')
+        .sort({ 'userId.name': 1 })
 
     for (let i = 0; i < students.length; i++) {
         await Student.findByIdAndUpdate(students[i]._id, {
-            rollNo: String(i + 1),
+            rollNo: String(i + 1).padStart(2, '0'),
         })
     }
 }
 
-/**
- * Validate academic year format
- */
 export function isValidAcademicYear(year: string): boolean {
     return /^\d{4}-\d{2}$/.test(year)
 }
 
-/**
- * Get next class after promotion
- */
 export function getNextClass(currentClass: string): string | null {
     const classNum = parseInt(currentClass)
     if (isNaN(classNum)) return null
-    if (classNum >= 12) return null // Already max
+    if (classNum >= 12) return null
     return String(classNum + 1)
 }

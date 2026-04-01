@@ -1,5 +1,4 @@
-// FILE: src/app/api/students/route.ts
-// FIXED: Search by name via User populate
+// FILE: src/app/api/students/route.ts — COMPLETE FINAL
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -18,6 +17,72 @@ import {
 } from '@/lib/admissionUtils'
 import bcrypt from 'bcryptjs'
 
+/* ══════════════════════════════════════════════
+   HELPER — Student data object banana
+   Ek jagah define karo — duplicate nahi hoga
+   ══════════════════════════════════════════════ */
+function buildStudentData(
+    body: any,
+    userId: string,
+    tenantId: string,
+    admissionNo: string,
+    rollNo: string,
+    academicYear: string,
+) {
+    return {
+        tenantId,
+        userId,
+        admissionNo,
+        rollNo,
+        academicYear,
+        admissionDate:  new Date(body.admissionDate),
+        admissionClass: body.class,
+
+        class:   body.class,
+        section: body.section,
+        stream:  body.stream || '',
+
+        dateOfBirth: new Date(body.dateOfBirth),
+        gender:      body.gender,
+        bloodGroup:  body.bloodGroup  || '',
+        nationality: body.nationality || 'Indian',
+        religion:    body.religion    || '',
+        category:    body.category    || 'general',
+
+        fatherName:       body.fatherName.trim(),
+        fatherOccupation: body.fatherOccupation || '',
+        fatherPhone:      body.fatherPhone      || '',
+        motherName:       body.motherName       || '',
+        motherOccupation: body.motherOccupation || '',
+        motherPhone:      body.motherPhone      || '',
+        parentPhone:      body.parentPhone.trim(),
+        parentEmail:      body.parentEmail      || '',
+
+        address: body.address?.trim() || 'Not provided',
+        city:    body.city    || '',
+        state:   body.state   || '',
+        pincode: body.pincode || '',
+
+        emergencyContact: body.emergencyContact || '',
+        emergencyName:    body.emergencyName    || '',
+        previousSchool:   body.previousSchool   || '',
+        previousClass:    body.previousClass    || '',
+        tcNumber:         body.tcNumber         || '',
+
+        sessionHistory: [{
+            academicYear,
+            class:   body.class,
+            section: body.section,
+            rollNo,
+        }],
+
+        status: 'active',
+    }
+}
+
+/* ══════════════════════════════════════════════
+   GET — List Students with filters
+   ══════════════════════════════════════════════ */
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session?.user || !['admin', 'teacher'].includes(session.user.role)) {
@@ -34,36 +99,34 @@ export async function GET(req: NextRequest) {
     const academicYear = searchParams.get('academicYear')
     const gender       = searchParams.get('gender')
     const category     = searchParams.get('category')
+    const stream       = searchParams.get('stream')
     const page         = parseInt(searchParams.get('page')  || '1')
     const limit        = parseInt(searchParams.get('limit') || '20')
 
-    // Build student query
-    const query: Record<string, any> = { 
-        tenantId: session.user.tenantId 
+    const query: Record<string, any> = {
+        tenantId: session.user.tenantId,
     }
-    
+
     if (cls)          query.class        = cls
     if (section)      query.section      = section
     if (status)       query.status       = status
     if (academicYear) query.academicYear = academicYear
     if (gender)       query.gender       = gender
     if (category)     query.category     = category
+    if (stream)       query.stream       = stream
 
-    // Name search — pehle User me search karo
     if (search) {
-        // Search by admissionNo, fatherName, parentPhone
         const directSearch = [
-            { admissionNo:  { $regex: search, $options: 'i' } },
-            { fatherName:   { $regex: search, $options: 'i' } },
-            { parentPhone:  { $regex: search, $options: 'i' } },
-            { rollNo:       { $regex: search, $options: 'i' } },
+            { admissionNo: { $regex: search, $options: 'i' } },
+            { fatherName:  { $regex: search, $options: 'i' } },
+            { parentPhone: { $regex: search, $options: 'i' } },
+            { rollNo:      { $regex: search, $options: 'i' } },
         ]
 
-        // Also search by user name
         const matchedUsers = await User.find({
             tenantId: session.user.tenantId,
-            role: 'student',
-            name: { $regex: search, $options: 'i' },
+            role:     'student',
+            name:     { $regex: search, $options: 'i' },
         }).select('_id').lean()
 
         const userIds = matchedUsers.map(u => u._id)
@@ -84,226 +147,357 @@ export async function GET(req: NextRequest) {
         Student.countDocuments(query),
     ])
 
-    const currentYear = getCurrentAcademicYear()
-
     return NextResponse.json({
         students,
         total,
         page,
         pages: Math.ceil(total / limit),
-        currentYear,
+        currentYear: getCurrentAcademicYear(),
     })
 }
 
+/* ══════════════════════════════════════════════
+   POST — Create Student
+   ══════════════════════════════════════════════ */
 export async function POST(req: NextRequest) {
-    const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    let session: any  = null
+    let limitCheck: any = null
+    let user: any     = null
 
-    await connectDB()
+    try {
+        // ── Auth ──
+        session = await getServerSession(authOptions)
+        if (!session?.user || session.user.role !== 'admin') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
 
-    // Check student limit
-    const limitCheck = await checkCanAddStudent(session.user.tenantId)
-    if (!limitCheck.allowed) {
-        return NextResponse.json({
-            error: limitCheck.message,
-            limitReached: true,
-            current: limitCheck.current,
-            limit: limitCheck.limit,
-        }, { status: 403 })
-    }
+        await connectDB()
 
-    const body = await req.json()
+        // ── Limit Check ──
+        limitCheck = await checkCanAddStudent(session.user.tenantId)
+        if (!limitCheck.allowed) {
+            return NextResponse.json({
+                error:        limitCheck.message,
+                limitReached: true,
+                current:      limitCheck.current,
+                limit:        limitCheck.limit,
+            }, { status: 403 })
+        }
 
-    // Validate required fields
-    const required = [
-        'name', 'phone', 'class', 'section',
-        'fatherName', 'parentPhone', 'address',
-        'dateOfBirth', 'gender', 'admissionDate',
-    ]
-    for (const field of required) {
-        if (!body[field]?.toString().trim()) {
+        // ── Parse Body ──
+        const body = await req.json()
+
+        // ── Debug log (remove in production) ──
+        // console.log('[Student POST] body keys:', Object.keys(body))
+        // console.log('[Student POST] class:', body.class, 'section:', body.section)
+
+        // ── Validation ──
+        const required = [
+            'name', 'phone', 'class', 'section',
+            'fatherName', 'parentPhone',
+            'dateOfBirth', 'gender', 'admissionDate',
+        ]
+        for (const field of required) {
+            if (!body[field]?.toString().trim()) {
+                return NextResponse.json(
+                    { error: `${field} is required` },
+                    { status: 400 }
+                )
+            }
+        }
+
+        // Stream validation for 11/12
+        if (['11', '12'].includes(body.class) && !body.stream) {
             return NextResponse.json(
-                { error: `${field} is required` },
+                { error: 'Class 11/12 ke liye stream required hai' },
                 { status: 400 }
             )
         }
-    }
 
-    // Duplicate phone check
-    const existing = await User.findOne({
-        tenantId: session.user.tenantId,
-        phone: body.phone,
-    })
-    if (existing) {
-        return NextResponse.json(
-            { error: 'Is phone number se pehle se account registered hai' },
-            { status: 409 }
-        )
-    }
+        // ── Duplicate Phone Check ──
+        const existing = await User.findOne({
+            tenantId: session.user.tenantId,
+            phone:    body.phone.trim(),
+        })
+        if (existing) {
+            return NextResponse.json(
+                { error: 'Is phone number se pehle se account registered hai' },
+                { status: 409 }
+            )
+        }
 
-    // Get school for admission number
-    const school = await School.findById(session.user.tenantId)
-        .select('subdomain')
-        .lean() as any
+        // ── School Info ──
+        const school = await School.findById(session.user.tenantId)
+            .select('subdomain')
+            .lean() as any
 
-    const subdomain    = school?.subdomain || 'SCH'
-    const academicYear = body.academicYear || getCurrentAcademicYear()
+        const subdomain    = school?.subdomain || 'SCH'
+        const academicYear = body.academicYear || getCurrentAcademicYear()
 
-    // Generate admission & roll numbers
-    const [admissionNo, rollNo] = await Promise.all([
-        generateAdmissionNo(
+        // ── Generate Numbers ──
+        const admissionNo = await generateAdmissionNo(
             session.user.tenantId,
             subdomain,
             academicYear
-        ),
-        generateRollNo(
+        )
+        const rollNo = await generateRollNo(
             session.user.tenantId,
             body.class,
             body.section,
             academicYear
-        ),
-    ])
+        )
 
-    // Create User account
-    const hashedPwd = await bcrypt.hash(body.parentPhone, 10)
-    const user = await User.create({
-        tenantId: session.user.tenantId,
-        name:     body.name.trim(),
-        phone:    body.phone.trim(),
-        email:    body.email?.trim() || undefined,
-        role:     'student',
-        password: hashedPwd,
-        class:    body.class,
-        section:  body.section,
-        isActive: true,
-    })
+        // ── Create User ──
+        const hashedPwd = await bcrypt.hash(body.parentPhone, 10)
 
-    // Create Student record
-    const student = await Student.create({
-        tenantId:  session.user.tenantId,
-        userId:    user._id,
-        admissionNo,
-        rollNo,
-        academicYear,
-        admissionDate:  new Date(body.admissionDate),
-        admissionClass: body.class,
+        try {
+            user = await User.create({
+                tenantId: session.user.tenantId,
+                name:     body.name.trim(),
+                phone:    body.phone.trim(),
+                email:    body.email?.trim() || undefined,
+                role:     'student',
+                password: hashedPwd,
+                class:    body.class,
+                section:  body.section,
+                isActive: true,
+            })
+        } catch (userErr: any) {
+            if (userErr.code === 11000) {
+                return NextResponse.json(
+                    { error: 'Is phone number se pehle se account registered hai' },
+                    { status: 409 }
+                )
+            }
+            throw userErr
+        }
 
-        class:   body.class,
-        section: body.section,
+        // ── Create Student ──
+        // ✅ buildStudentData helper use karo — koi field miss nahi hogi
+        let student: any
 
-        dateOfBirth: new Date(body.dateOfBirth),
-        gender:      body.gender,
-        bloodGroup:  body.bloodGroup  || '',
-        nationality: body.nationality || 'Indian',
-        religion:    body.religion    || '',
-        category:    body.category    || 'general',
+        try {
+            student = await Student.create(
+                buildStudentData(
+                    body,
+                    user._id,
+                    session.user.tenantId,
+                    admissionNo,
+                    rollNo,
+                    academicYear,
+                )
+            )
+        } catch (studentErr: any) {
+            // ── Rollback user ──
+            if (user?._id) {
+                await User.findByIdAndDelete(user._id)
+                console.warn('[Rollback] User deleted:', user._id.toString())
+            }
 
-        fatherName:       body.fatherName.trim(),
-        fatherOccupation: body.fatherOccupation || '',
-        fatherPhone:      body.fatherPhone       || '',
-        motherName:       body.motherName        || '',
-        motherOccupation: body.motherOccupation  || '',
-        motherPhone:      body.motherPhone       || '',
-        parentPhone:      body.parentPhone.trim(),
-        parentEmail:      body.parentEmail       || '',
+            // ── AdmissionNo conflict — retry ──
+            if (studentErr.code === 11000 &&
+                studentErr.message?.includes('admissionNo')) {
 
-        address: body.address.trim(),
-        city:    body.city    || '',
-        state:   body.state   || '',
-        pincode: body.pincode || '',
+                console.warn('[AdmissionNo Conflict] Retrying with fresh number...')
 
-        emergencyContact: body.emergencyContact || '',
-        emergencyName:    body.emergencyName    || '',
+                // Fresh number generate karo from actual DB state
+                const actualLast = await Student.findOne({
+                    tenantId:    session.user.tenantId,
+                    academicYear,
+                })
+                    .sort({ createdAt: -1 })
+                    .select('admissionNo')
+                    .lean() as any
 
-        previousSchool: body.previousSchool || '',
-        previousClass:  body.previousClass  || '',
-        tcNumber:       body.tcNumber       || '',
+                let retrySeq = 1
+                if (actualLast?.admissionNo) {
+                    const lastPart = actualLast.admissionNo.split('/').pop()
+                    retrySeq = (parseInt(lastPart || '0') || 0) + 1
+                }
 
-        sessionHistory: [{
-            academicYear,
-            class:   body.class,
-            section: body.section,
-            rollNo,
-        }],
+                const schoolCodeRetry = subdomain.toUpperCase().slice(0, 3)
+                const retryAdmissionNo = `${schoolCodeRetry}/${academicYear}/${String(retrySeq).padStart(4, '0')}`
 
-        status: 'active',
-    })
+                // New user banana padega (purana delete ho gaya)
+                try {
+                    const retryUser = await User.create({
+                        tenantId: session.user.tenantId,
+                        name:     body.name.trim(),
+                        phone:    body.phone.trim(),
+                        email:    body.email?.trim() || undefined,
+                        role:     'student',
+                        password: hashedPwd,
+                        class:    body.class,
+                        section:  body.section,
+                        isActive: true,
+                    })
 
-    // Auto-assign fee structures (non-blocking)
-    ;(async () => {
+                    user = retryUser // update reference for rollback
+
+                    student = await Student.create(
+                        buildStudentData(
+                            body,
+                            retryUser._id,
+                            session.user.tenantId,
+                            retryAdmissionNo,
+                            rollNo,
+                            academicYear,
+                        )
+                    )
+                } catch (retryErr: any) {
+                    if (user?._id) await User.findByIdAndDelete(user._id)
+                    console.error('[Retry Failed]', retryErr)
+                    return NextResponse.json(
+                        { error: 'Student creation failed — please try again' },
+                        { status: 500 }
+                    )
+                }
+
+            } else if (studentErr.name === 'ValidationError') {
+                const messages = Object.values(studentErr.errors)
+                    .map((e: any) => e.message)
+                    .join(', ')
+                return NextResponse.json(
+                    { error: `Validation failed: ${messages}` },
+                    { status: 400 }
+                )
+            } else {
+                return NextResponse.json(
+                    { error: studentErr.message || 'Student creation failed' },
+                    { status: 500 }
+                )
+            }
+        }
+
+        // ── Fee Auto-Assign ──
+        let feesAssigned = 0
         try {
             const structures = await FeeStructure.find({
-                tenantId:   session.user.tenantId,
-                isActive:   true,
-                autoAssign: true,
+                tenantId:    session.user.tenantId,
+                isActive:    true,
+                autoAssign:  true,
+                academicYear,
                 $or: [
                     { class: 'all' },
                     { class: body.class },
-                    // Comma-separated classes: "9,10,11"
                     { class: { $regex: `(^|,)\\s*${body.class}\\s*(,|$)` } },
                 ],
-                academicYear,
+            }).lean() as any[]
+
+            const matched = structures.filter((fs: any) => {
+                const sectionOk =
+                    !fs.section ||
+                    fs.section === 'all' ||
+                    fs.section === body.section
+
+                const streamOk =
+                    !fs.stream ||
+                    fs.stream === '' ||
+                    fs.stream === body.stream
+
+                return sectionOk && streamOk
             })
 
-            for (const struct of structures) {
-                await Fee.create({
-                    tenantId:    session.user.tenantId,
-                    studentId:   student._id,
-                    structureId: struct._id,
-                    amount:      struct.totalAmount,
-                    discount:    0,
-                    lateFine:    0,
-                    finalAmount: struct.totalAmount,
-                    dueDate:     struct.dueDate,
-                    status:      'pending',
-                    paidAmount:  0,
-                    academicYear,
-                })
+            if (matched.length > 0) {
+                const ops = matched.map((fs: any) => ({
+                    insertOne: {
+                        document: {
+                            tenantId:    session.user.tenantId,
+                            studentId:   student._id,
+                            structureId: fs._id,
+                            amount:      fs.totalAmount,
+                            discount:    0,
+                            lateFine:    0,
+                            finalAmount: fs.totalAmount,
+                            dueDate:     fs.dueDate,
+                            status:      'pending',
+                            paidAmount:  0,
+                        },
+                    },
+                }))
+                await Fee.bulkWrite(ops)
+                feesAssigned = matched.length
             }
-        } catch (e) {
-            console.error('[Fee Auto-Assign Error]', e)
+        } catch (feeErr) {
+            console.error('[Fee Auto-Assign Error]', feeErr)
         }
-    })()
 
-    // Create Parent account (non-blocking)
-    ;(async () => {
-        try {
-            const existingParent = await User.findOne({
-                tenantId: session.user.tenantId,
-                phone:    body.parentPhone,
-                role:     'parent',
-            })
-
-            if (!existingParent) {
-                const parentPwd = await bcrypt.hash(body.parentPhone, 10)
-                await User.create({
-                    tenantId:   session.user.tenantId,
-                    name:       `${body.fatherName} (Parent)`,
-                    phone:      body.parentPhone.trim(),
-                    role:       'parent',
-                    password:   parentPwd,
-                    studentRef: student._id,
-                    isActive:   true,
+        // ── Parent Account — fire and forget ──
+        ;(async () => {
+            try {
+                const existingParent = await User.findOne({
+                    tenantId: session.user.tenantId,
+                    phone:    body.parentPhone.trim(),
+                    role:     'parent',
                 })
+                if (!existingParent) {
+                    const parentPwd = await bcrypt.hash(body.parentPhone, 10)
+                    await User.create({
+                        tenantId:   session.user.tenantId,
+                        name:       `${body.fatherName} (Parent)`,
+                        phone:      body.parentPhone.trim(),
+                        role:       'parent',
+                        password:   parentPwd,
+                        studentRef: student._id,
+                        isActive:   true,
+                    })
+                }
+            } catch (e) {
+                console.error('[Parent Creation Error]', e)
             }
-        } catch (e) {
-            console.error('[Parent Creation Error]', e)
-        }
-    })()
+        })()
 
-    return NextResponse.json({
-        student,
-        admissionNo,
-        rollNo,
-        academicYear,
-        limits: {
-            current:   limitCheck.current + 1,
-            limit:     limitCheck.limit,
-            remaining: limitCheck.isUnlimited 
-                ? -1 
-                : Math.max(0, limitCheck.remaining - 1),
-        },
-    }, { status: 201 })
+        // ── Success ──
+        return NextResponse.json({
+            success:      true,
+            studentId:    student._id,
+            admissionNo:  student.admissionNo,
+            rollNo:       student.rollNo,
+            academicYear,
+            feesAssigned,
+            limits: {
+                current:   limitCheck.current + 1,
+                limit:     limitCheck.limit,
+                remaining: limitCheck.isUnlimited
+                    ? -1
+                    : Math.max(0, limitCheck.remaining - 1),
+            },
+        }, { status: 201 })
+
+    } catch (err: any) {
+        console.error('[Student POST Error]', err)
+
+        // Global rollback
+        if (user?._id) {
+            try {
+                await User.findByIdAndDelete(user._id)
+                console.warn('[Global Rollback] User deleted:', user._id)
+            } catch (rbErr) {
+                console.error('[Rollback Failed]', rbErr)
+            }
+        }
+
+        if (err.code === 11000) {
+            const field = Object.keys(err.keyPattern || {})[0] || 'field'
+            return NextResponse.json(
+                { error: `Duplicate ${field} — already exists` },
+                { status: 409 }
+            )
+        }
+
+        if (err.name === 'ValidationError') {
+            const messages = Object.values(err.errors)
+                .map((e: any) => e.message)
+                .join(', ')
+            return NextResponse.json(
+                { error: `Validation: ${messages}` },
+                { status: 400 }
+            )
+        }
+
+        return NextResponse.json(
+            { error: err.message || 'Internal server error' },
+            { status: 500 }
+        )
+    }
 }

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Badge, Modal, Input, Select, Spinner, Alert, EmptyState } from '@/components/ui'
 import { PlayCircle, Plus, BookOpen, Video, FileText, Eye, Globe } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const CLASSES = ['LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
 const SUBJECTS = ['Hindi', 'English', 'Mathematics', 'Science', 'Social Studies', 'Computer', 'Sanskrit']
@@ -151,75 +152,77 @@ export default function LMSPage() {
                 </div>
             )}
 
-            {/* Create Course */}
-            <Modal open={courseModal} onClose={() => setCourseModal(false)} title="New Course">
-                <div className="space-y-4">
-                    <Input label="Course Title" value={courseForm.title} onChange={e => setCourseForm({ ...courseForm, title: e.target.value })} placeholder="e.g. Mathematics Chapter 1–5" />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Select label="Class" value={courseForm.class} onChange={e => setCourseForm({ ...courseForm, class: e.target.value })} options={CLASSES.map(c => ({ value: c, label: `Class ${c}` }))} />
-                        <Select label="Subject" value={courseForm.subject} onChange={e => setCourseForm({ ...courseForm, subject: e.target.value })} options={SUBJECTS.map(s => ({ value: s, label: s }))} />
+            <Portal>
+                {/* Create Course */}
+                <Modal open={courseModal} onClose={() => setCourseModal(false)} title="New Course">
+                    <div className="space-y-4">
+                        <Input label="Course Title" value={courseForm.title} onChange={e => setCourseForm({ ...courseForm, title: e.target.value })} placeholder="e.g. Mathematics Chapter 1–5" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Select label="Class" value={courseForm.class} onChange={e => setCourseForm({ ...courseForm, class: e.target.value })} options={CLASSES.map(c => ({ value: c, label: `Class ${c}` }))} />
+                            <Select label="Subject" value={courseForm.subject} onChange={e => setCourseForm({ ...courseForm, subject: e.target.value })} options={SUBJECTS.map(s => ({ value: s, label: s }))} />
+                        </div>
+                        <div>
+                            <label className="text-xs font-medium text-slate-600 mb-1 block">Description</label>
+                            <textarea value={courseForm.description} onChange={e => setCourseForm({ ...courseForm, description: e.target.value })} className="w-full h-20 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400" placeholder="What will students learn?" />
+                        </div>
+                        <Button className="w-full" onClick={handleCreateCourse} loading={saving}>Create Course</Button>
                     </div>
-                    <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">Description</label>
-                        <textarea value={courseForm.description} onChange={e => setCourseForm({ ...courseForm, description: e.target.value })} className="w-full h-20 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400" placeholder="What will students learn?" />
-                    </div>
-                    <Button className="w-full" onClick={handleCreateCourse} loading={saving}>Create Course</Button>
-                </div>
-            </Modal>
+                </Modal>
 
-            {/* Add Lesson */}
-            <Modal open={!!lessonModal} onClose={() => setLessonModal(null)} title="Add Lesson">
-                <div className="space-y-4">
-                    <Input label="Lesson Title" value={lessonForm.title} onChange={e => setLessonForm({ ...lessonForm, title: e.target.value })} placeholder="e.g. Introduction to Algebra" />
-                    <Select label="Content Type" value={lessonForm.type} onChange={e => setLessonForm({ ...lessonForm, type: e.target.value })} options={LESSON_TYPES} />
-                    <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">
-                            {lessonForm.type === 'video' ? 'YouTube/Video URL' : lessonForm.type === 'pdf' ? 'PDF URL' : 'Content'}
-                        </label>
-                        <textarea
-                            value={lessonForm.content}
-                            onChange={e => setLessonForm({ ...lessonForm, content: e.target.value })}
-                            className="w-full h-24 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400"
-                            placeholder={lessonForm.type === 'video' ? 'https://youtube.com/watch?v=...' : lessonForm.type === 'pdf' ? 'https://example.com/file.pdf' : 'Type lesson content here...'}
-                        />
+                {/* Add Lesson */}
+                <Modal open={!!lessonModal} onClose={() => setLessonModal(null)} title="Add Lesson">
+                    <div className="space-y-4">
+                        <Input label="Lesson Title" value={lessonForm.title} onChange={e => setLessonForm({ ...lessonForm, title: e.target.value })} placeholder="e.g. Introduction to Algebra" />
+                        <Select label="Content Type" value={lessonForm.type} onChange={e => setLessonForm({ ...lessonForm, type: e.target.value })} options={LESSON_TYPES} />
+                        <div>
+                            <label className="text-xs font-medium text-slate-600 mb-1 block">
+                                {lessonForm.type === 'video' ? 'YouTube/Video URL' : lessonForm.type === 'pdf' ? 'PDF URL' : 'Content'}
+                            </label>
+                            <textarea
+                                value={lessonForm.content}
+                                onChange={e => setLessonForm({ ...lessonForm, content: e.target.value })}
+                                className="w-full h-24 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400"
+                                placeholder={lessonForm.type === 'video' ? 'https://youtube.com/watch?v=...' : lessonForm.type === 'pdf' ? 'https://example.com/file.pdf' : 'Type lesson content here...'}
+                            />
+                        </div>
+                        {lessonForm.type === 'video' && (
+                            <Input label="Duration (minutes)" type="number" value={String(lessonForm.duration)} onChange={e => setLessonForm({ ...lessonForm, duration: Number(e.target.value) })} />
+                        )}
+                        <Button className="w-full" onClick={handleAddLesson} loading={saving}>Add Lesson</Button>
                     </div>
-                    {lessonForm.type === 'video' && (
-                        <Input label="Duration (minutes)" type="number" value={String(lessonForm.duration)} onChange={e => setLessonForm({ ...lessonForm, duration: Number(e.target.value) })} />
+                </Modal>
+
+                {/* View Course */}
+                <Modal open={!!viewCourse} onClose={() => setViewCourse(null)} title={viewCourse?.title || 'Course'} size="lg">
+                    {viewCourse && (
+                        <div>
+                            <div className="flex gap-2 mb-4">
+                                <Badge variant="info">Class {viewCourse.class}</Badge>
+                                <Badge variant="purple">{viewCourse.subject}</Badge>
+                                <Badge variant={viewCourse.isPublished ? 'success' : 'warning'}>
+                                    {viewCourse.isPublished ? 'Published' : 'Draft'}
+                                </Badge>
+                            </div>
+                            <p className="text-sm text-slate-600 mb-4">{viewCourse.description}</p>
+                            <h4 className="font-semibold text-sm mb-3">Lessons ({viewCourse.lessons?.length || 0})</h4>
+                            <div className="space-y-2">
+                                {viewCourse.lessons?.map((l: any, i: number) => (
+                                    <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-sm">
+                                            {l.type === 'video' ? '🎥' : l.type === 'pdf' ? '📄' : l.type === 'quiz' ? '❓' : '📝'}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-slate-800">{l.title}</p>
+                                            <p className="text-xs text-slate-500">{l.type}{l.duration ? ` · ${l.duration} min` : ''}</p>
+                                        </div>
+                                        <Badge>{l.order || i + 1}</Badge>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     )}
-                    <Button className="w-full" onClick={handleAddLesson} loading={saving}>Add Lesson</Button>
-                </div>
-            </Modal>
-
-            {/* View Course */}
-            <Modal open={!!viewCourse} onClose={() => setViewCourse(null)} title={viewCourse?.title || 'Course'} size="lg">
-                {viewCourse && (
-                    <div>
-                        <div className="flex gap-2 mb-4">
-                            <Badge variant="info">Class {viewCourse.class}</Badge>
-                            <Badge variant="purple">{viewCourse.subject}</Badge>
-                            <Badge variant={viewCourse.isPublished ? 'success' : 'warning'}>
-                                {viewCourse.isPublished ? 'Published' : 'Draft'}
-                            </Badge>
-                        </div>
-                        <p className="text-sm text-slate-600 mb-4">{viewCourse.description}</p>
-                        <h4 className="font-semibold text-sm mb-3">Lessons ({viewCourse.lessons?.length || 0})</h4>
-                        <div className="space-y-2">
-                            {viewCourse.lessons?.map((l: any, i: number) => (
-                                <div key={i} className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-sm">
-                                        {l.type === 'video' ? '🎥' : l.type === 'pdf' ? '📄' : l.type === 'quiz' ? '❓' : '📝'}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium text-slate-800">{l.title}</p>
-                                        <p className="text-xs text-slate-500">{l.type}{l.duration ? ` · ${l.duration} min` : ''}</p>
-                                    </div>
-                                    <Badge>{l.order || i + 1}</Badge>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

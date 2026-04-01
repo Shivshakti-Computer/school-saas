@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Select, Spinner, Alert, EmptyState } from '@/components/ui'
 import { FileCheck, Plus, Copy, Trash2 } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const DOC_TYPES = [
     { value: 'tc', label: 'Transfer Certificate (TC)' },
@@ -116,28 +117,30 @@ export default function DocumentsPage() {
                 </div>
             )}
 
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Document Template" size="lg">
-                <div className="space-y-4">
-                    <Select
-                        label="Document Type"
-                        value={form.type}
-                        onChange={e => handleTypeChange(e.target.value)}
-                        options={DOC_TYPES}
-                    />
-                    <Input label="Template Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-                    <div>
-                        <label className="text-xs font-medium text-slate-600 mb-1 block">
-                            Template Content <span className="text-slate-400">(Use {'{{variableName}}'} for dynamic fields)</span>
-                        </label>
-                        <textarea
-                            value={form.content}
-                            onChange={e => setForm({ ...form, content: e.target.value })}
-                            className="w-full h-40 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 font-mono"
+            <Portal>
+                <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Document Template" size="lg">
+                    <div className="space-y-4">
+                        <Select
+                            label="Document Type"
+                            value={form.type}
+                            onChange={e => handleTypeChange(e.target.value)}
+                            options={DOC_TYPES}
                         />
+                        <Input label="Template Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
+                        <div>
+                            <label className="text-xs font-medium text-slate-600 mb-1 block">
+                                Template Content <span className="text-slate-400">(Use {'{{variableName}}'} for dynamic fields)</span>
+                            </label>
+                            <textarea
+                                value={form.content}
+                                onChange={e => setForm({ ...form, content: e.target.value })}
+                                className="w-full h-40 px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50 font-mono"
+                            />
+                        </div>
+                        <Button className="w-full" onClick={handleCreate} loading={saving}>Create Template</Button>
                     </div>
-                    <Button className="w-full" onClick={handleCreate} loading={saving}>Create Template</Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

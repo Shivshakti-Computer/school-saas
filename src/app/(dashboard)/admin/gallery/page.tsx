@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Modal, Input, Spinner, Alert, EmptyState } from '@/components/ui'
 import { Image, Plus, Trash2, Upload, Eye, X } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface Album {
     _id: string
@@ -142,41 +143,43 @@ export default function GalleryPage() {
                 </div>
             )}
 
-            {/* Create Modal */}
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Album">
-                <div className="space-y-4">
-                    <Input label="Album Name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Annual Day 2026" />
-                    <Input label="Description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description" />
-                    <label className="flex items-center gap-2 text-sm text-slate-600">
-                        <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="rounded" />
-                        Show on school website
-                    </label>
-                    <Button className="w-full" onClick={handleCreate} loading={saving}>Create Album</Button>
-                </div>
-            </Modal>
-
-            {/* View Modal */}
-            <Modal open={!!viewAlbum} onClose={() => setViewAlbum(null)} title={viewAlbum?.name || 'Album'} size="lg">
-                {viewAlbum && (
-                    <div>
-                        <p className="text-sm text-slate-500 mb-4">{viewAlbum.description}</p>
-                        {viewAlbum.images?.length > 0 ? (
-                            <div className="grid grid-cols-3 gap-2">
-                                {viewAlbum.images.map((img, i) => (
-                                    <div key={i} className="aspect-square bg-slate-100 rounded-lg overflow-hidden">
-                                        <img src={img.url} alt={img.caption || ''} className="w-full h-full object-cover" />
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-slate-400">
-                                <Upload size={32} className="mx-auto mb-2" />
-                                <p className="text-sm">No photos yet. Upload photos to this album.</p>
-                            </div>
-                        )}
+            <Portal>
+                {/* Create Modal */}
+                <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="New Album">
+                    <div className="space-y-4">
+                        <Input label="Album Name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Annual Day 2026" />
+                        <Input label="Description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief description" />
+                        <label className="flex items-center gap-2 text-sm text-slate-600">
+                            <input type="checkbox" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="rounded" />
+                            Show on school website
+                        </label>
+                        <Button className="w-full" onClick={handleCreate} loading={saving}>Create Album</Button>
                     </div>
-                )}
-            </Modal>
+                </Modal>
+
+                {/* View Modal */}
+                <Modal open={!!viewAlbum} onClose={() => setViewAlbum(null)} title={viewAlbum?.name || 'Album'} size="lg">
+                    {viewAlbum && (
+                        <div>
+                            <p className="text-sm text-slate-500 mb-4">{viewAlbum.description}</p>
+                            {viewAlbum.images?.length > 0 ? (
+                                <div className="grid grid-cols-3 gap-2">
+                                    {viewAlbum.images.map((img, i) => (
+                                        <div key={i} className="aspect-square bg-slate-100 rounded-lg overflow-hidden">
+                                            <img src={img.url} alt={img.caption || ''} className="w-full h-full object-cover" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 text-slate-400">
+                                    <Upload size={32} className="mx-auto mb-2" />
+                                    <p className="text-sm">No photos yet. Upload photos to this album.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </Modal>
+            </Portal>
         </div>
     )
 }

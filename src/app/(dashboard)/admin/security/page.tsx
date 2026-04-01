@@ -12,6 +12,7 @@ import {
   Key, Copy, Check, RefreshCw,
   AlertTriangle, Clock,
 } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface TwoFAStatus {
   enabled: boolean
@@ -304,63 +305,65 @@ export default function SecurityPage() {
         </Card>
       </div>
 
-      {/* Backup Codes Modal */}
-      <Modal open={showBackupCodes} onClose={() => setShowBackupCodes(false)} title="Your Backup Codes" size="sm">
-        <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-            <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700"><strong>Save these now!</strong> They won&apos;t be shown again.</p>
-          </div>
-          <div className="bg-slate-50 rounded-xl p-4">
-            <div className="grid grid-cols-2 gap-2">
-              {backupCodes.map((code, i) => (
-                <div key={i} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-center">
-                  <span className="font-mono text-sm font-bold text-slate-700 tracking-wider">{code}</span>
-                </div>
-              ))}
+      <Portal>
+        {/* Backup Codes Modal */}
+        <Modal open={showBackupCodes} onClose={() => setShowBackupCodes(false)} title="Your Backup Codes" size="sm">
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700"><strong>Save these now!</strong> They won&apos;t be shown again.</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4">
+              <div className="grid grid-cols-2 gap-2">
+                {backupCodes.map((code, i) => (
+                  <div key={i} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-center">
+                    <span className="font-mono text-sm font-bold text-slate-700 tracking-wider">{code}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" className="flex-1" onClick={copyAllCodes}>
+                {copiedAll ? <Check size={14} /> : <Copy size={14} />}
+                {copiedAll ? 'Copied!' : 'Copy All'}
+              </Button>
+              <Button variant="primary" size="sm" className="flex-1" onClick={() => setShowBackupCodes(false)}>
+                I&apos;ve Saved These
+              </Button>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" className="flex-1" onClick={copyAllCodes}>
-              {copiedAll ? <Check size={14} /> : <Copy size={14} />}
-              {copiedAll ? 'Copied!' : 'Copy All'}
-            </Button>
-            <Button variant="primary" size="sm" className="flex-1" onClick={() => setShowBackupCodes(false)}>
-              I&apos;ve Saved These
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
 
-      {/* Disable Confirm */}
-      <Modal open={showDisableConfirm} onClose={() => setShowDisableConfirm(false)} title="Disable 2FA?" size="sm">
-        <div className="space-y-4">
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
-            <AlertTriangle size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-red-700">Your account will be less secure without 2FA.</p>
+        {/* Disable Confirm */}
+        <Modal open={showDisableConfirm} onClose={() => setShowDisableConfirm(false)} title="Disable 2FA?" size="sm">
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-700">Your account will be less secure without 2FA.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setShowDisableConfirm(false)}>Cancel</Button>
+              <Button variant="danger" size="sm" className="flex-1" onClick={handleDisable} loading={actionLoading}>Yes, Disable</Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" className="flex-1" onClick={() => setShowDisableConfirm(false)}>Cancel</Button>
-            <Button variant="danger" size="sm" className="flex-1" onClick={handleDisable} loading={actionLoading}>Yes, Disable</Button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
 
-      {/* Regenerate Confirm */}
-      <Modal open={showRegenerateConfirm} onClose={() => setShowRegenerateConfirm(false)} title="Regenerate Codes?" size="sm">
-        <div className="space-y-4">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
-            <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700">Old backup codes will become <strong>invalid</strong>.</p>
+        {/* Regenerate Confirm */}
+        <Modal open={showRegenerateConfirm} onClose={() => setShowRegenerateConfirm(false)} title="Regenerate Codes?" size="sm">
+          <div className="space-y-4">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">Old backup codes will become <strong>invalid</strong>.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" className="flex-1" onClick={() => setShowRegenerateConfirm(false)}>Cancel</Button>
+              <Button variant="primary" size="sm" className="flex-1" onClick={handleRegenerateCodes} loading={actionLoading}>
+                <RefreshCw size={12} /> Regenerate
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" className="flex-1" onClick={() => setShowRegenerateConfirm(false)}>Cancel</Button>
-            <Button variant="primary" size="sm" className="flex-1" onClick={handleRegenerateCodes} loading={actionLoading}>
-              <RefreshCw size={12} /> Regenerate
-            </Button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      </Portal>
     </div>
   )
 }

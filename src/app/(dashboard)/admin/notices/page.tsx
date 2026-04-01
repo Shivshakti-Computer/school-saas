@@ -10,6 +10,7 @@ import {
     Input, Alert, EmptyState, Spinner,
 } from '@/components/ui'
 import { Bell, Send } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface Notice {
     _id: string
@@ -120,15 +121,17 @@ export default function NoticesPage() {
                 </div>
             )}
 
-            <AddNoticeModal
-                open={showAdd}
-                onClose={() => setShowAdd(false)}
-                onSuccess={() => {
-                    setShowAdd(false)
-                    fetchNotices()
-                    setAlert({ type: 'success', msg: 'Notice posted successfully!' })
-                }}
-            />
+            <Portal>
+                <AddNoticeModal
+                    open={showAdd}
+                    onClose={() => setShowAdd(false)}
+                    onSuccess={() => {
+                        setShowAdd(false)
+                        fetchNotices()
+                        setAlert({ type: 'success', msg: 'Notice posted successfully!' })
+                    }}
+                />
+            </Portal>
         </div>
     )
 }

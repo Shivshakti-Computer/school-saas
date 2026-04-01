@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Select, Spinner, Alert, EmptyState, StatCard } from '@/components/ui'
 import { Building, Plus, Utensils, Users } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 const ROOM_TYPES = [
@@ -196,45 +197,47 @@ export default function HostelPage() {
                 </div>
             )}
 
-            {/* Add Room */}
-            <Modal open={addRoomModal} onClose={() => setAddRoomModal(false)} title="Add Hostel Room">
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Hostel Name" value={roomForm.hostelName} onChange={e => setRoomForm({ ...roomForm, hostelName: e.target.value })} placeholder="e.g. Boys Hostel" />
-                        <Input label="Room No" value={roomForm.roomNo} onChange={e => setRoomForm({ ...roomForm, roomNo: e.target.value })} placeholder="e.g. 101" />
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        <Input label="Floor" type="number" value={String(roomForm.floor)} onChange={e => setRoomForm({ ...roomForm, floor: Number(e.target.value) })} />
-                        <Select label="Type" value={roomForm.type} onChange={e => setRoomForm({ ...roomForm, type: e.target.value })} options={ROOM_TYPES} />
-                        <Input label="Capacity" type="number" value={String(roomForm.capacity)} onChange={e => setRoomForm({ ...roomForm, capacity: Number(e.target.value) })} />
-                    </div>
-                    <Input label="Monthly Fee ₹" type="number" value={String(roomForm.monthlyFee)} onChange={e => setRoomForm({ ...roomForm, monthlyFee: Number(e.target.value) })} />
-                    <Input label="Amenities (comma separated)" value={roomForm.amenities} onChange={e => setRoomForm({ ...roomForm, amenities: e.target.value })} placeholder="Fan, Bed, Desk, Cupboard" />
-                    <Button className="w-full" onClick={handleAddRoom} loading={saving}>Add Room</Button>
-                </div>
-            </Modal>
-
-            {/* Mess Menu Modal */}
-            <Modal open={!!messModal} onClose={() => setMessModal(null)} title={`${messModal} — Mess Menu`}>
-                <div className="space-y-4">
-                    {mealForm.map((meal, i) => (
-                        <div key={i} className="space-y-2">
-                            <div className="flex items-center gap-2">
-                                <Badge variant={meal.type === 'breakfast' ? 'warning' : meal.type === 'lunch' ? 'success' : meal.type === 'snacks' ? 'info' : 'purple'}>
-                                    {meal.type}
-                                </Badge>
-                                <Input type="time" value={meal.time} onChange={e => {
-                                    const updated = [...mealForm]; updated[i] = { ...meal, time: e.target.value }; setMealForm(updated)
-                                }} className="w-28" />
-                            </div>
-                            <Input placeholder="Items (comma separated)" value={meal.items} onChange={e => {
-                                const updated = [...mealForm]; updated[i] = { ...meal, items: e.target.value }; setMealForm(updated)
-                            }} />
+            <Portal>
+                {/* Add Room */}
+                <Modal open={addRoomModal} onClose={() => setAddRoomModal(false)} title="Add Hostel Room">
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Hostel Name" value={roomForm.hostelName} onChange={e => setRoomForm({ ...roomForm, hostelName: e.target.value })} placeholder="e.g. Boys Hostel" />
+                            <Input label="Room No" value={roomForm.roomNo} onChange={e => setRoomForm({ ...roomForm, roomNo: e.target.value })} placeholder="e.g. 101" />
                         </div>
-                    ))}
-                    <Button className="w-full" onClick={handleSaveMess} loading={saving}>Save Menu</Button>
-                </div>
-            </Modal>
+                        <div className="grid grid-cols-3 gap-3">
+                            <Input label="Floor" type="number" value={String(roomForm.floor)} onChange={e => setRoomForm({ ...roomForm, floor: Number(e.target.value) })} />
+                            <Select label="Type" value={roomForm.type} onChange={e => setRoomForm({ ...roomForm, type: e.target.value })} options={ROOM_TYPES} />
+                            <Input label="Capacity" type="number" value={String(roomForm.capacity)} onChange={e => setRoomForm({ ...roomForm, capacity: Number(e.target.value) })} />
+                        </div>
+                        <Input label="Monthly Fee ₹" type="number" value={String(roomForm.monthlyFee)} onChange={e => setRoomForm({ ...roomForm, monthlyFee: Number(e.target.value) })} />
+                        <Input label="Amenities (comma separated)" value={roomForm.amenities} onChange={e => setRoomForm({ ...roomForm, amenities: e.target.value })} placeholder="Fan, Bed, Desk, Cupboard" />
+                        <Button className="w-full" onClick={handleAddRoom} loading={saving}>Add Room</Button>
+                    </div>
+                </Modal>
+
+                {/* Mess Menu Modal */}
+                <Modal open={!!messModal} onClose={() => setMessModal(null)} title={`${messModal} — Mess Menu`}>
+                    <div className="space-y-4">
+                        {mealForm.map((meal, i) => (
+                            <div key={i} className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                    <Badge variant={meal.type === 'breakfast' ? 'warning' : meal.type === 'lunch' ? 'success' : meal.type === 'snacks' ? 'info' : 'purple'}>
+                                        {meal.type}
+                                    </Badge>
+                                    <Input type="time" value={meal.time} onChange={e => {
+                                        const updated = [...mealForm]; updated[i] = { ...meal, time: e.target.value }; setMealForm(updated)
+                                    }} className="w-28" />
+                                </div>
+                                <Input placeholder="Items (comma separated)" value={meal.items} onChange={e => {
+                                    const updated = [...mealForm]; updated[i] = { ...meal, items: e.target.value }; setMealForm(updated)
+                                }} />
+                            </div>
+                        ))}
+                        <Button className="w-full" onClick={handleSaveMess} loading={saving}>Save Menu</Button>
+                    </div>
+                </Modal>
+            </Portal>
         </div>
     )
 }

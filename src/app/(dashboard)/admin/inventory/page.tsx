@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Select, Spinner, Alert, EmptyState } from '@/components/ui'
 import { Package, Plus, Edit2, AlertTriangle } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const CATEGORIES = ['Furniture', 'Electronics', 'Stationery', 'Sports', 'Lab Equipment', 'Books', 'Cleaning', 'Other']
 
@@ -141,22 +142,24 @@ export default function InventoryPage() {
                 </Card>
             )}
 
-            <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditItem(null) }} title={editItem ? 'Edit Item' : 'Add Item'}>
-                <div className="space-y-4">
-                    <Input label="Item Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Desk" />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Select label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} options={CATEGORIES.map(c => ({ value: c, label: c }))} />
-                        <Input label="SKU Code" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="Optional" />
+            <Portal>
+                <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditItem(null) }} title={editItem ? 'Edit Item' : 'Add Item'}>
+                    <div className="space-y-4">
+                        <Input label="Item Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Desk" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Select label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} options={CATEGORIES.map(c => ({ value: c, label: c }))} />
+                            <Input label="SKU Code" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="Optional" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <Input label="Quantity" type="number" value={String(form.quantity)} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })} />
+                            <Input label="Min Stock" type="number" value={String(form.minStock)} onChange={e => setForm({ ...form, minStock: Number(e.target.value) })} />
+                            <Input label="Unit Price ₹" type="number" value={String(form.unitPrice)} onChange={e => setForm({ ...form, unitPrice: Number(e.target.value) })} />
+                        </div>
+                        <Input label="Location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Room 101" />
+                        <Button className="w-full" onClick={handleSave} loading={saving}>{editItem ? 'Update Item' : 'Add Item'}</Button>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        <Input label="Quantity" type="number" value={String(form.quantity)} onChange={e => setForm({ ...form, quantity: Number(e.target.value) })} />
-                        <Input label="Min Stock" type="number" value={String(form.minStock)} onChange={e => setForm({ ...form, minStock: Number(e.target.value) })} />
-                        <Input label="Unit Price ₹" type="number" value={String(form.unitPrice)} onChange={e => setForm({ ...form, unitPrice: Number(e.target.value) })} />
-                    </div>
-                    <Input label="Location" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Room 101" />
-                    <Button className="w-full" onClick={handleSave} loading={saving}>{editItem ? 'Update Item' : 'Add Item'}</Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

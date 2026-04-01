@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { PageHeader, Button, Card, Table, Tr, Td, Badge, Modal, Input, Select, Spinner, Alert, EmptyState, StatCard } from '@/components/ui'
 import { Briefcase, Plus, DollarSign, Calendar, Users } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 const DEPARTMENTS = ['Administration', 'Science', 'Mathematics', 'English', 'Hindi', 'Social Studies', 'Computer', 'Physical Education', 'Art', 'Library', 'Accounts', 'Support']
 const DESIGNATIONS = ['Principal', 'Vice Principal', 'Class Teacher', 'Subject Teacher', 'Librarian', 'Lab Assistant', 'Accountant', 'Clerk', 'Peon', 'Security', 'Driver']
@@ -207,31 +208,33 @@ export default function HRPage() {
                 )
             )}
 
-            {/* Add Staff Modal */}
-            <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Staff Record" size="lg">
-                <div className="space-y-4">
-                    <Select label="Link Teacher Account" value={form.userId} onChange={e => setForm({ ...form, userId: e.target.value })} options={[{ value: '', label: 'Select Teacher' }, ...teachers.map((t: any) => ({ value: t._id, label: t.name }))]} />
-                    <div className="grid grid-cols-3 gap-3">
-                        <Input label="Employee ID" value={form.employeeId} onChange={e => setForm({ ...form, employeeId: e.target.value })} placeholder="EMP001" />
-                        <Select label="Designation" value={form.designation} onChange={e => setForm({ ...form, designation: e.target.value })} options={DESIGNATIONS.map(d => ({ value: d, label: d }))} />
-                        <Select label="Department" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} options={DEPARTMENTS.map(d => ({ value: d, label: d }))} />
+            <Portal>
+                {/* Add Staff Modal */}
+                <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Staff Record" size="lg">
+                    <div className="space-y-4">
+                        <Select label="Link Teacher Account" value={form.userId} onChange={e => setForm({ ...form, userId: e.target.value })} options={[{ value: '', label: 'Select Teacher' }, ...teachers.map((t: any) => ({ value: t._id, label: t.name }))]} />
+                        <div className="grid grid-cols-3 gap-3">
+                            <Input label="Employee ID" value={form.employeeId} onChange={e => setForm({ ...form, employeeId: e.target.value })} placeholder="EMP001" />
+                            <Select label="Designation" value={form.designation} onChange={e => setForm({ ...form, designation: e.target.value })} options={DESIGNATIONS.map(d => ({ value: d, label: d }))} />
+                            <Select label="Department" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} options={DEPARTMENTS.map(d => ({ value: d, label: d }))} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Monthly Salary ₹" type="number" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} />
+                            <Input label="Joining Date" type="date" value={form.joiningDate} onChange={e => setForm({ ...form, joiningDate: e.target.value })} />
+                        </div>
+                        <Input label="Address" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Emergency Contact" value={form.emergencyContact} onChange={e => setForm({ ...form, emergencyContact: e.target.value })} />
+                            <Input label="PAN Number" value={form.panNumber} onChange={e => setForm({ ...form, panNumber: e.target.value })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <Input label="Bank Account" value={form.bankAccount} onChange={e => setForm({ ...form, bankAccount: e.target.value })} />
+                            <Input label="IFSC Code" value={form.ifscCode} onChange={e => setForm({ ...form, ifscCode: e.target.value })} />
+                        </div>
+                        <Button className="w-full" onClick={handleAddStaff} loading={saving}>Add Staff Record</Button>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Monthly Salary ₹" type="number" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} />
-                        <Input label="Joining Date" type="date" value={form.joiningDate} onChange={e => setForm({ ...form, joiningDate: e.target.value })} />
-                    </div>
-                    <Input label="Address" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Emergency Contact" value={form.emergencyContact} onChange={e => setForm({ ...form, emergencyContact: e.target.value })} />
-                        <Input label="PAN Number" value={form.panNumber} onChange={e => setForm({ ...form, panNumber: e.target.value })} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <Input label="Bank Account" value={form.bankAccount} onChange={e => setForm({ ...form, bankAccount: e.target.value })} />
-                        <Input label="IFSC Code" value={form.ifscCode} onChange={e => setForm({ ...form, ifscCode: e.target.value })} />
-                    </div>
-                    <Button className="w-full" onClick={handleAddStaff} loading={saving}>Add Staff Record</Button>
-                </div>
-            </Modal>
+                </Modal>
+            </Portal>
         </div>
     )
 }

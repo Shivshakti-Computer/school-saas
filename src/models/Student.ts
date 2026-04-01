@@ -15,6 +15,7 @@ export interface IStudent extends Document {
     // ── Current Academic Info ──
     class: string
     section: string
+    stream?: string
     
     // ── Personal Info ──
     dateOfBirth: Date
@@ -87,6 +88,7 @@ const StudentSchema = new Schema<IStudent>({
     // Current Academic
     class: { type: String, required: true },
     section: { type: String, required: true },
+    stream:  { type: String, enum: ['science', 'commerce', 'arts', 'vocational', ''], default: '' }, // ✅ ADD
 
     // Personal
     dateOfBirth: { type: Date, required: true },

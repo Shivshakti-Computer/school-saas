@@ -11,6 +11,7 @@ import {
     EmptyState, Spinner,
 } from '@/components/ui'
 import { BookOpen, Plus } from 'lucide-react'
+import { Portal } from '@/components/ui/Portal'
 
 interface Exam {
     _id: string
@@ -111,15 +112,17 @@ export default function ExamsClient() {
                 </Card>
             )}
 
-            <AddExamModal
-                open={showAdd}
-                onClose={() => setShowAdd(false)}
-                onSuccess={() => {
-                    setShowAdd(false)
-                    fetchExams()
-                    setAlert({ type: 'success', msg: 'Exam scheduled successfully!' })
-                }}
-            />
+            <Portal>
+                <AddExamModal
+                    open={showAdd}
+                    onClose={() => setShowAdd(false)}
+                    onSuccess={() => {
+                        setShowAdd(false)
+                        fetchExams()
+                        setAlert({ type: 'success', msg: 'Exam scheduled successfully!' })
+                    }}
+                />
+            </Portal>
         </div>
     )
 }
