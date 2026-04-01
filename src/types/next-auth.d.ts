@@ -1,8 +1,5 @@
-// src/types/next-auth.d.ts
-// Yeh file NextAuth ke default types ko extend karti hai
-// Iske bina session.user.role, tenantId etc. TypeScript error deta hai
-
-// src/types/next-auth.d.ts
+// FILE: src/types/next-auth.d.ts
+// UPDATED: Added allowedModules for staff role-based access
 
 import NextAuth, { DefaultSession, DefaultUser } from 'next-auth'
 import { JWT as DefaultJWT } from 'next-auth/jwt'
@@ -22,8 +19,12 @@ declare module 'next-auth' {
             trialEndsAt: string
             subscriptionId: string | null
             subscriptionEnd: string | null
-            subscriptionStatus: string  // 'trial' | 'active' | 'expired'
+            subscriptionStatus: string
             twoFactorRequired: boolean
+            // ── NEW ──
+            allowedModules: string[]   // Staff-specific module permissions
+            employeeId?: string
+            staffCategory?: string     // 'teaching' | 'non_teaching' | 'admin' | 'support'
         } & DefaultSession['user']
     }
 }
@@ -40,6 +41,9 @@ interface User extends DefaultUser {
     subscriptionEnd: string | null
     subscriptionStatus: string
     twoFactorRequired: boolean
+    allowedModules: string[]
+    employeeId?: string
+    staffCategory?: string
 }
 
 declare module 'next-auth/jwt' {
@@ -57,5 +61,9 @@ declare module 'next-auth/jwt' {
         subscriptionStatus: string
         twoFactorRequired: boolean
         lastDbCheck: number
+        // ── NEW ──
+        allowedModules: string[]
+        employeeId?: string
+        staffCategory?: string
     }
 }

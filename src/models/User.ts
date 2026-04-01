@@ -1,21 +1,31 @@
+// FILE: src/models/User.ts
+// UPDATED: Added 'staff' role + allowedModules for granular access control
+// BACKWARD COMPATIBLE — all existing data works as-is
+
 import mongoose, { Schema, Document } from 'mongoose'
 
-export type UserRole = 'admin' | 'teacher' | 'student' | 'parent' | 'superadmin'
+export type UserRole = 'admin' | 'teacher' | 'staff' | 'student' | 'parent' | 'superadmin'
 
 export interface IUser extends Document {
-    tenantId: mongoose.Types.ObjectId  // School._id
+    tenantId: mongoose.Types.ObjectId
     name: string
     email?: string
     phone: string
     role: UserRole
     password: string
     // Role-specific fields
-    studentRef?: mongoose.Types.ObjectId   // parent → child student
-    subjects?: string[]                     // teacher → which subjects
-    class?: string                          // student/teacher → class
+    studentRef?: mongoose.Types.ObjectId
+    subjects?: string[]
+    class?: string
     section?: string
-    employeeId?: string                     // teacher/staff
-    pushToken?: string                      // PWA push notifications
+    employeeId?: string
+    pushToken?: string
+    // ── NEW: Staff Module Permissions ──
+    // Only used when role = 'staff'
+    // Empty array = no module access (can only view dashboard)
+    // Admin always has full access (not checked)
+    // Teacher has access based on moduleRegistry roles
+    allowedModules?: string[]
     isActive: boolean
     lastLogin?: Date
 }
@@ -25,7 +35,11 @@ const UserSchema = new Schema<IUser>({
     name: { type: String, required: true },
     email: { type: String, sparse: true },
     phone: { type: String, required: true },
-    role: { type: String, enum: ['admin', 'teacher', 'student', 'parent', 'superadmin'], required: true },
+    role: {
+        type: String,
+        enum: ['admin', 'teacher', 'staff', 'student', 'parent', 'superadmin'],
+        required: true,
+    },
     password: { type: String, required: true },
     studentRef: { type: Schema.Types.ObjectId, ref: 'Student' },
     subjects: [String],
@@ -33,12 +47,15 @@ const UserSchema = new Schema<IUser>({
     section: { type: String },
     employeeId: { type: String },
     pushToken: { type: String },
+    // ── NEW FIELD ──
+    allowedModules: { type: [String], default: [] },
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date },
 }, { timestamps: true })
 
-// Compound index for fast tenant queries
+// Compound indexes
 UserSchema.index({ tenantId: 1, role: 1 })
 UserSchema.index({ tenantId: 1, phone: 1 })
+UserSchema.index({ tenantId: 1, employeeId: 1 })
 
 export const User = mongoose.models.User || mongoose.model<IUser>('User', UserSchema)

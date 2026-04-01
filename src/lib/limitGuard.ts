@@ -1,5 +1,5 @@
 // FILE: src/lib/limitGuard.ts
-// Check student/teacher count limits before adding new ones
+// UPDATED: checkCanAddTeacher now counts both 'teacher' and 'staff' roles
 
 import { connectDB } from './db'
 import { School } from '@/models/School'
@@ -83,15 +83,17 @@ export async function checkCanAddStudent(tenantId: string): Promise<LimitResult>
     }
 }
 
+// UPDATED: Count both 'teacher' AND 'staff' roles toward teacher limit
 export async function checkCanAddTeacher(tenantId: string): Promise<LimitResult> {
     await connectDB()
 
     const { plan: planId, isTrial } = await getEffectivePlan(tenantId)
     const plan = getPlan(planId)
 
+    // Count both teacher and staff roles (they share the same limit)
     const currentCount = await User.countDocuments({
         tenantId,
-        role: 'teacher',
+        role: { $in: ['teacher', 'staff'] },
         isActive: true,
     })
 
@@ -113,7 +115,7 @@ export async function checkCanAddTeacher(tenantId: string): Promise<LimitResult>
         isUnlimited: false,
         plan: planId,
         message: !allowed
-            ? `Teacher limit reached (${currentCount}/${limit}). Upgrade your plan to add more teachers.`
+            ? `Staff limit reached (${currentCount}/${limit}). Upgrade your plan to add more staff members.`
             : undefined,
     }
 }

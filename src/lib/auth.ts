@@ -1,5 +1,6 @@
 // FILE: src/lib/auth.ts (UPDATED)
-// Changes: Added 2FA check, audit logging, rate limit awareness
+// CHANGES: Load allowedModules + staffCategory for staff role into session
+// BACKWARD COMPATIBLE — existing admin/teacher/student/parent flows unchanged
 
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
@@ -8,6 +9,7 @@ import { connectDB } from './db'
 import { User } from '@/models/User'
 import { School } from '@/models/School'
 import { Subscription } from '@/models/Subscription'
+import { Staff } from '@/models/Staff'
 import { is2FAEnabled, isTrustedDevice } from './twoFactor'
 import { logLogin } from './audit'
 import { TRIAL_CONFIG } from './plans'
@@ -26,7 +28,6 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
         subdomain: { label: 'School Code', type: 'text' },
         type: { label: 'Type', type: 'text' },
-        // 2FA fields
         twoFactorVerified: { label: '2FA Verified', type: 'text' },
         deviceId: { label: 'Device ID', type: 'text' },
       },
@@ -65,6 +66,9 @@ export const authOptions: NextAuthOptions = {
                 subscriptionEnd: null,
                 subscriptionStatus: 'active',
                 twoFactorRequired: false,
+                allowedModules: [],
+                employeeId: undefined,
+                staffCategory: undefined,
               } as any
             }
 
@@ -108,7 +112,7 @@ export const authOptions: NextAuthOptions = {
           }
 
           /* ══════════════════════════════════════════
-             2FA CHECK (Admin only for now)
+             2FA CHECK (Admin only)
           ══════════════════════════════════════════ */
 
           let twoFactorRequired = false
@@ -122,9 +126,7 @@ export const authOptions: NextAuthOptions = {
                 ? await isTrustedDevice(user._id.toString(), deviceId)
                 : false
 
-              // If 2FA is enabled but not yet verified in this login flow
               if (!trusted && credentials.twoFactorVerified !== 'true') {
-                // Return special response — frontend will show 2FA screen
                 twoFactorRequired = true
               }
             }
@@ -138,6 +140,39 @@ export const authOptions: NextAuthOptions = {
             user._id.toString(), user.name, user.role,
             school._id.toString(), ip, userAgent, true
           )
+
+          // ── NEW: Load staff-specific data ──
+          let allowedModules: string[] = []
+          let employeeId: string | undefined
+          let staffCategory: string | undefined
+
+          if (user.role === 'staff') {
+            const staffRecord = await Staff.findOne({
+              tenantId: school._id,
+              userId: user._id,
+              status: { $in: ['active', 'on_leave'] },
+            }).select('allowedModules employeeId staffCategory').lean() as any
+
+            if (staffRecord) {
+              allowedModules = staffRecord.allowedModules || []
+              employeeId = staffRecord.employeeId
+              staffCategory = staffRecord.staffCategory
+            }
+
+            // Also sync from User.allowedModules (fallback)
+            if (allowedModules.length === 0 && user.allowedModules?.length) {
+              allowedModules = user.allowedModules
+            }
+          }
+
+          // For teacher role, load from User model
+          if (user.role === 'teacher') {
+            allowedModules = user.allowedModules || []
+            employeeId = user.employeeId
+
+            // If teacher has no explicit allowedModules, they get default teacher modules
+            // (handled in SidebarLayout via moduleRegistry)
+          }
 
           // ── Subscription state ──
           const activeSub = await Subscription.findOne({
@@ -188,7 +223,11 @@ export const authOptions: NextAuthOptions = {
             subscriptionId: school.subscriptionId ?? null,
             subscriptionEnd: subEnd ? subEnd.toISOString() : null,
             subscriptionStatus,
-            twoFactorRequired, // 🔑 NEW: tells frontend to show 2FA
+            twoFactorRequired,
+            // ── NEW ──
+            allowedModules,
+            employeeId,
+            staffCategory,
           } as any
 
         } catch (error) {
@@ -215,6 +254,10 @@ export const authOptions: NextAuthOptions = {
         token.subscriptionStatus = (user as any).subscriptionStatus
         token.twoFactorRequired = (user as any).twoFactorRequired || false
         token.lastDbCheck = Date.now()
+        // ── NEW ──
+        token.allowedModules = (user as any).allowedModules || []
+        token.employeeId = (user as any).employeeId
+        token.staffCategory = (user as any).staffCategory
         return token
       }
 
@@ -243,7 +286,7 @@ export const authOptions: NextAuthOptions = {
 
           const activeSub = await Subscription.findOne({
             tenantId: token.tenantId,
-            status: { $in: ['active', 'scheduled_cancel'] },  // ← CHANGED
+            status: { $in: ['active', 'scheduled_cancel'] },
           }).sort({ createdAt: -1 }).lean() as any
 
           const now = new Date()
@@ -271,6 +314,24 @@ export const authOptions: NextAuthOptions = {
             token.subscriptionId = null
             token.subscriptionEnd = null
             token.subscriptionStatus = 'expired'
+          }
+
+          // ── NEW: Refresh staff permissions ──
+          if (token.role === 'staff') {
+            const staffRecord = await Staff.findOne({
+              tenantId: token.tenantId,
+              userId: token.id,
+              status: { $in: ['active', 'on_leave'] },
+            }).select('allowedModules employeeId staffCategory').lean() as any
+
+            if (staffRecord) {
+              token.allowedModules = staffRecord.allowedModules || []
+              token.employeeId = staffRecord.employeeId
+              token.staffCategory = staffRecord.staffCategory
+            } else {
+              // Staff record not found or inactive — block access
+              token.allowedModules = []
+            }
           }
 
           token.schoolName = school.name || token.schoolName
@@ -301,6 +362,10 @@ export const authOptions: NextAuthOptions = {
         session.user.subscriptionEnd = token.subscriptionEnd as string | null
         session.user.subscriptionStatus = token.subscriptionStatus as string
         session.user.twoFactorRequired = token.twoFactorRequired as boolean
+        // ── NEW ──
+        session.user.allowedModules = (token.allowedModules as string[]) || []
+        session.user.employeeId = token.employeeId as string | undefined
+        session.user.staffCategory = token.staffCategory as string | undefined
       }
       return session
     },

@@ -16,7 +16,7 @@ export type AuditAction =
   | 'SETTINGS_CHANGE' | 'MODULE_ACCESS_DENIED'
 
 export type AuditResource =
-  | 'Auth' | 'User' | 'Student' | 'Teacher' | 'Parent'
+  | 'Auth' | 'User' | 'Staff' | 'Student' | 'Teacher' | 'Parent'
   | 'School' | 'Subscription' | 'Payment'
   | 'Attendance' | 'Fee' | 'Exam' | 'Timetable'
   | 'Notice' | 'Homework' | 'Document'

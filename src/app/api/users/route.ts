@@ -1,7 +1,7 @@
-// =============================================================
 // FILE: src/app/api/users/route.ts
-// UPDATED: Added checkCanAddTeacher limit in POST
-// =============================================================
+// UPDATED: Support 'staff' role in queries, backward compatible
+// Legacy endpoint — new staff creation should use /api/staff
+
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { User } from '@/models/User'
@@ -12,7 +12,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== 'admin') {
+    if (!session?.user || !['admin', 'superadmin'].includes(session.user.role)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -20,7 +20,16 @@ export async function GET(req: NextRequest) {
     const role = req.nextUrl.searchParams.get('role')
 
     const query: any = { tenantId: session.user.tenantId }
-    if (role) query.role = role
+
+    if (role) {
+        // Support querying multiple roles
+        if (role === 'teacher') {
+            // When asking for teachers, also include staff for backward compat
+            query.role = { $in: ['teacher', 'staff'] }
+        } else {
+            query.role = role
+        }
+    }
 
     const users = await User.find(query)
         .select('-password')
@@ -39,8 +48,8 @@ export async function POST(req: NextRequest) {
     await connectDB()
     const body = await req.json()
 
-    // ─── CHECK TEACHER LIMIT ───
-    if (body.role === 'teacher') {
+    // ─── CHECK TEACHER/STAFF LIMIT ───
+    if (['teacher', 'staff'].includes(body.role)) {
         const limitCheck = await checkCanAddTeacher(session.user.tenantId)
         if (!limitCheck.allowed) {
             return NextResponse.json({
@@ -68,6 +77,7 @@ export async function POST(req: NextRequest) {
         tenantId: session.user.tenantId,
         ...body,
         password: hashedPwd,
+        allowedModules: body.allowedModules || [],
         isActive: true,
     })
 
