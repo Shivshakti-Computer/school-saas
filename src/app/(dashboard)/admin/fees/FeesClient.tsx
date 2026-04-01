@@ -1,14 +1,13 @@
 // FILE: src/app/(dashboard)/admin/fees/page.tsx
 'use client'
-
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
     CreditCard, Plus, Edit2, Trash2, Users, RefreshCw,
-    ChevronRight, ChevronLeft, X, AlertCircle, Search,
-    Filter, TrendingUp, Wallet, AlertTriangle, CheckSquare,
-    Calendar, IndianRupee, Receipt, Settings, Zap,
-    ArrowUpRight, Clock, BarChart2, Eye, Download,
-    Sparkles, Info, ToggleLeft, ToggleRight, Hash,
+    ChevronRight, X, AlertCircle, Search,
+    TrendingUp, AlertTriangle, CheckSquare,
+    IndianRupee, Receipt, Settings,
+    Zap, Clock, BarChart2, Eye, Download,
+    Sparkles, Info, Printer,
 } from 'lucide-react'
 import { Spinner, Alert } from '@/components/ui'
 import { Portal } from '@/components/ui/Portal'
@@ -33,6 +32,14 @@ interface FeeStructure {
     items: Array<{ label: string; amount: number; isOptional: boolean }>
 }
 
+interface FeePaymentRecord {
+    amount: number
+    paymentMode: string
+    receiptNumber: string
+    paidAt: string
+    razorpayPaymentId?: string
+}
+
 interface Fee {
     _id: string
     studentId: {
@@ -42,7 +49,7 @@ interface Fee {
         section: string
         userId: { name: string; phone: string }
     }
-    structureId: { _id: string; name: string }
+    structureId: { _id: string; name: string; term?: string }
     finalAmount: number
     paidAmount: number
     discount: number
@@ -53,6 +60,7 @@ interface Fee {
     receiptNumber?: string
     paidAt?: string
     paymentMode?: string
+    payments?: FeePaymentRecord[]
 }
 
 interface PaymentSettings {
@@ -88,15 +96,14 @@ function getCurrentAcademicYear(): string {
     return `${yr}-${String(yr + 1).slice(-2)}`
 }
 
-/* ═══════════════════════════════════════════
-   REUSABLE FORM COMPONENTS — Outside modals
-   ═══════════════════════════════════════════ */
+
+/* ═══ Reusable Form Components ═══ */
 const FormInput = ({
     label, value, onChange, type = 'text',
-    required = false, placeholder = '', helper,
+    required = false, placeholder = '', helper, disabled = false,
 }: {
     label: string; value: string | number; onChange: (val: string) => void
-    type?: string; required?: boolean; placeholder?: string; helper?: string
+    type?: string; required?: boolean; placeholder?: string; helper?: string; disabled?: boolean
 }) => (
     <div className="flex flex-col gap-1">
         <label className="text-xs font-semibold" style={{ color: '#475569' }}>
@@ -105,19 +112,14 @@ const FormInput = ({
         <input
             type={type}
             className="h-9 px-3 text-sm rounded-lg outline-none transition-all"
-            style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#FFFFFF' }}
+            style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: disabled ? '#F8FAFC' : '#FFFFFF' }}
             placeholder={placeholder}
             value={value}
             required={required}
+            disabled={disabled}
             onChange={e => onChange(e.target.value)}
-            onFocus={e => {
-                e.target.style.borderColor = '#2563EB'
-                e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)'
-            }}
-            onBlur={e => {
-                e.target.style.borderColor = '#E2E8F0'
-                e.target.style.boxShadow = 'none'
-            }}
+            onFocus={e => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)' }}
+            onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = 'none' }}
         />
         {helper && <p className="text-[0.625rem]" style={{ color: '#94A3B8' }}>{helper}</p>}
     </div>
@@ -140,8 +142,6 @@ const FormSelect = ({
             value={value}
             required={required}
             onChange={e => onChange(e.target.value)}
-            onFocus={e => { e.target.style.borderColor = '#2563EB' }}
-            onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
         >
             {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
@@ -152,7 +152,6 @@ const FormSelect = ({
 /* ═══ Status Badge ═══ */
 function FeeBadge({ status, dueDate }: { status: string; dueDate: string }) {
     const isOverdue = status === 'pending' && new Date(dueDate) < new Date()
-
     const cfg: Record<string, { bg: string; color: string; label: string }> = {
         paid: { bg: '#ECFDF5', color: '#059669', label: 'Paid' },
         waived: { bg: '#F1F5F9', color: '#64748B', label: 'Waived' },
@@ -189,7 +188,7 @@ function StreamBadge({ stream }: { stream?: string }) {
     )
 }
 
-/* ═══ Stat Card (mini) ═══ */
+/* ═══ Mini Stat Card ═══ */
 function MiniStatCard({
     label, value, icon, iconBg, iconColor, valueColor,
 }: {
@@ -210,22 +209,14 @@ function MiniStatCard({
             }}
         >
             <div className="flex items-center gap-3">
-                <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: iconBg }}
-                >
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: iconBg }}>
                     <span style={{ color: iconColor }}>{icon}</span>
                 </div>
                 <div>
-                    <p
-                        className="text-xl font-extrabold tracking-tight leading-none tabular-nums"
-                        style={{ color: valueColor || '#0F172A' }}
-                    >
+                    <p className="text-xl font-extrabold tracking-tight leading-none tabular-nums" style={{ color: valueColor || '#0F172A' }}>
                         {value}
                     </p>
-                    <p className="text-[0.6875rem] mt-0.5 font-medium" style={{ color: '#94A3B8' }}>
-                        {label}
-                    </p>
+                    <p className="text-[0.6875rem] mt-0.5 font-medium" style={{ color: '#94A3B8' }}>{label}</p>
                 </div>
             </div>
         </div>
@@ -241,14 +232,13 @@ export default function FeesPage() {
     const [structures, setStructures] = useState<FeeStructure[]>([])
     const [loading, setLoading] = useState(true)
     const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+    const [onlinePayEnabled, setOnlinePayEnabled] = useState(false)
 
-    // Fee filters
+    // Filters
     const [filterStatus, setFilterStatus] = useState('')
     const [filterClass, setFilterClass] = useState('')
     const [filterSearch, setFilterSearch] = useState('')
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-    // Structure filters
     const [structureClass, setStructureClass] = useState('')
 
     // Modals
@@ -256,20 +246,32 @@ export default function FeesPage() {
     const [editStructure, setEditStructure] = useState<FeeStructure | null>(null)
     const [showPayModal, setShowPayModal] = useState(false)
     const [selectedFee, setSelectedFee] = useState<Fee | null>(null)
+    const [showReceiptModal, setShowReceiptModal] = useState(false)
+    const [receiptData, setReceiptData] = useState<any>(null)
     const [showOptionalModal, setShowOptionalModal] = useState(false)
     const [selectedStructure, setSelectedStructure] = useState<FeeStructure | null>(null)
 
-    /* ── Stats ── */
+    /* ── Stats (include partial in calculations) ── */
     const totalDue = fees
-        .filter(f => f.status === 'pending')
-        .reduce((s, f) => s + f.finalAmount, 0)
+        .filter(f => ['pending', 'partial'].includes(f.status))
+        .reduce((s, f) => s + (f.finalAmount - f.paidAmount), 0)
     const totalPaid = fees
-        .filter(f => f.status === 'paid')
+        .filter(f => ['paid', 'partial'].includes(f.status))
         .reduce((s, f) => s + f.paidAmount, 0)
     const overdueCount = fees
-        .filter(f => f.status === 'pending' && new Date(f.dueDate) < new Date())
+        .filter(f => ['pending', 'partial'].includes(f.status) && new Date(f.dueDate) < new Date())
         .length
-    const pendingCount = fees.filter(f => f.status === 'pending').length
+    const partialCount = fees.filter(f => f.status === 'partial').length
+
+    /* ── Check payment settings ── */
+    useEffect(() => {
+        fetch('/api/payment-settings')
+            .then(r => r.json())
+            .then(d => {
+                setOnlinePayEnabled(d.settings?.enableOnlinePayment && d.settings?.hasKey)
+            })
+            .catch(() => { })
+    }, [])
 
     /* ── Fetch Fees ── */
     const fetchFees = useCallback(async () => {
@@ -312,9 +314,7 @@ export default function FeesPage() {
         if (tab !== 'fees') return
         if (searchTimeout.current) clearTimeout(searchTimeout.current)
         searchTimeout.current = setTimeout(() => fetchFees(), 300)
-        return () => {
-            if (searchTimeout.current) clearTimeout(searchTimeout.current)
-        }
+        return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current) }
     }, [filterSearch, fetchFees, tab])
 
     const showSuccess = (msg: string) => {
@@ -327,10 +327,8 @@ export default function FeesPage() {
     const deleteStructure = async (id: string) => {
         if (!confirm('Is fee structure ko deactivate karna chahte hain?')) return
         const res = await fetch(`/api/fees/structure/${id}`, { method: 'DELETE' })
-        if (res.ok) {
-            showSuccess('Structure deactivated successfully')
-            fetchStructures()
-        } else showError('Failed to deactivate')
+        if (res.ok) { showSuccess('Structure deactivated'); fetchStructures() }
+        else showError('Failed to deactivate')
     }
 
     const applyLateFine = async (id: string, name: string) => {
@@ -355,20 +353,44 @@ export default function FeesPage() {
         } else showError('Failed to assign fees')
     }
 
-    const markPaid = async (feeId: string, paymentMode = 'cash') => {
+    /* ── Record Payment (Partial/Full) ── */
+    const recordPayment = async (feeId: string, paymentMode: string, amount: number, notes?: string) => {
         const res = await fetch(`/api/fees/${feeId}/mark-paid`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paymentMode }),
+            body: JSON.stringify({ paymentMode, amount, notes }),
         })
+        const data = await res.json()
         if (res.ok) {
-            showSuccess('Fee marked as paid successfully')
+            showSuccess(`Payment of ₹${amount.toLocaleString('en-IN')} recorded. Receipt: ${data.receiptNumber}`)
             setShowPayModal(false)
+            setSelectedFee(null)
             fetchFees()
-        } else showError('Failed to mark as paid')
+            // Show receipt
+            if (data.receipt) {
+                setReceiptData(data.receipt)
+                setShowReceiptModal(true)
+            }
+        } else {
+            showError(data.error || 'Failed to record payment')
+        }
     }
 
-    /* ── Tab Config ── */
+    /* ── View Receipt ── */
+    const viewReceipt = async (feeId: string, paymentIndex?: number) => {
+        try {
+            const params = paymentIndex !== undefined ? `?paymentIndex=${paymentIndex}` : ''
+            const res = await fetch(`/api/fees/${feeId}/receipt${params}`)
+            const data = await res.json()
+            if (res.ok) {
+                setReceiptData(data.receipt)
+                setShowReceiptModal(true)
+            } else showError('Failed to load receipt')
+        } catch {
+            showError('Failed to load receipt')
+        }
+    }
+
     const TABS = [
         { id: 'fees', label: 'Student Fees', icon: <CreditCard size={14} /> },
         { id: 'structures', label: 'Fee Structures', icon: <BarChart2 size={14} /> },
@@ -377,7 +399,6 @@ export default function FeesPage() {
 
     return (
         <div className="space-y-5 pb-8">
-
             {/* ═══ PAGE HEADER ═══ */}
             <div className="portal-page-header">
                 <div>
@@ -396,11 +417,7 @@ export default function FeesPage() {
                         <button
                             onClick={() => { setEditStructure(null); setShowStructureModal(true) }}
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[0.8125rem] font-semibold transition-all active:scale-[0.98]"
-                            style={{
-                                backgroundColor: '#2563EB',
-                                color: '#FFFFFF',
-                                boxShadow: '0 1px 3px rgba(37,99,235,0.3)',
-                            }}
+                            style={{ backgroundColor: '#2563EB', color: '#FFFFFF', boxShadow: '0 1px 3px rgba(37,99,235,0.3)' }}
                         >
                             <Plus size={14} strokeWidth={2.5} />
                             New Structure
@@ -418,16 +435,10 @@ export default function FeesPage() {
                 </div>
             </div>
 
-            {/* Alert */}
-            {alert && (
-                <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />
-            )}
+            {alert && <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />}
 
             {/* ═══ TABS ═══ */}
-            <div
-                className="flex gap-1 p-1 rounded-xl w-fit"
-                style={{ backgroundColor: '#F1F5F9' }}
-            >
+            <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: '#F1F5F9' }}>
                 {TABS.map(t => (
                     <button
                         key={t.id}
@@ -439,53 +450,21 @@ export default function FeesPage() {
                             boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                         }}
                     >
-                        <span style={{ color: tab === t.id ? '#2563EB' : '#94A3B8' }}>
-                            {t.icon}
-                        </span>
+                        <span style={{ color: tab === t.id ? '#2563EB' : '#94A3B8' }}>{t.icon}</span>
                         {t.label}
                     </button>
                 ))}
             </div>
 
-            {/* ═══════════════════════════════════════════
-                TAB: STUDENT FEES
-               ═══════════════════════════════════════════ */}
+            {/* ═══ TAB: STUDENT FEES ═══ */}
             {tab === 'fees' && (
                 <div className="space-y-4">
-                    {/* Stats Row */}
                     {!loading && (
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                            <MiniStatCard
-                                label="Total Pending"
-                                value={`₹${totalDue.toLocaleString('en-IN')}`}
-                                icon={<AlertTriangle size={18} />}
-                                iconBg="#FEF2F2"
-                                iconColor="#DC2626"
-                                valueColor="#DC2626"
-                            />
-                            <MiniStatCard
-                                label="Total Collected"
-                                value={`₹${totalPaid.toLocaleString('en-IN')}`}
-                                icon={<TrendingUp size={18} />}
-                                iconBg="#ECFDF5"
-                                iconColor="#059669"
-                                valueColor="#059669"
-                            />
-                            <MiniStatCard
-                                label="Overdue"
-                                value={overdueCount}
-                                icon={<Clock size={18} />}
-                                iconBg="#FFF7ED"
-                                iconColor="#EA580C"
-                                valueColor="#EA580C"
-                            />
-                            <MiniStatCard
-                                label="Total Records"
-                                value={fees.length}
-                                icon={<Receipt size={18} />}
-                                iconBg="#EFF6FF"
-                                iconColor="#2563EB"
-                            />
+                            <MiniStatCard label="Total Due" value={`₹${totalDue.toLocaleString('en-IN')}`} icon={<AlertTriangle size={18} />} iconBg="#FEF2F2" iconColor="#DC2626" valueColor="#DC2626" />
+                            <MiniStatCard label="Total Collected" value={`₹${totalPaid.toLocaleString('en-IN')}`} icon={<TrendingUp size={18} />} iconBg="#ECFDF5" iconColor="#059669" valueColor="#059669" />
+                            <MiniStatCard label="Overdue" value={overdueCount} icon={<Clock size={18} />} iconBg="#FFF7ED" iconColor="#EA580C" valueColor="#EA580C" />
+                            <MiniStatCard label="Partial Paid" value={partialCount} icon={<IndianRupee size={18} />} iconBg="#EFF6FF" iconColor="#2563EB" />
                         </div>
                     )}
 
@@ -493,42 +472,21 @@ export default function FeesPage() {
                     <div className="portal-card">
                         <div className="p-4">
                             <div className="flex flex-wrap gap-3">
-                                {/* Search */}
                                 <div className="flex-1 min-w-[200px] relative">
-                                    <Search
-                                        size={14}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2"
-                                        style={{ color: '#94A3B8' }}
-                                    />
+                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94A3B8' }} />
                                     <input
                                         className="w-full h-9 pl-8 pr-3 text-sm rounded-lg outline-none transition-all"
-                                        style={{
-                                            border: '1.5px solid #E2E8F0',
-                                            color: '#0F172A',
-                                            backgroundColor: '#FFFFFF',
-                                        }}
+                                        style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#FFFFFF' }}
                                         placeholder="Search student name, admission no..."
                                         value={filterSearch}
                                         onChange={e => setFilterSearch(e.target.value)}
-                                        onFocus={e => {
-                                            e.target.style.borderColor = '#2563EB'
-                                            e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)'
-                                        }}
-                                        onBlur={e => {
-                                            e.target.style.borderColor = '#E2E8F0'
-                                            e.target.style.boxShadow = 'none'
-                                        }}
+                                        onFocus={e => { e.target.style.borderColor = '#2563EB' }}
+                                        onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
                                     />
                                 </div>
-
-                                {/* Status */}
                                 <select
                                     className="h-9 px-3 text-sm rounded-lg outline-none cursor-pointer"
-                                    style={{
-                                        border: '1.5px solid #E2E8F0',
-                                        color: '#0F172A',
-                                        minWidth: '120px',
-                                    }}
+                                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', minWidth: '120px' }}
                                     value={filterStatus}
                                     onChange={e => setFilterStatus(e.target.value)}
                                 >
@@ -538,22 +496,14 @@ export default function FeesPage() {
                                     <option value="partial">Partial</option>
                                     <option value="waived">Waived</option>
                                 </select>
-
-                                {/* Class */}
                                 <select
                                     className="h-9 px-3 text-sm rounded-lg outline-none cursor-pointer"
-                                    style={{
-                                        border: '1.5px solid #E2E8F0',
-                                        color: '#0F172A',
-                                        minWidth: '120px',
-                                    }}
+                                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', minWidth: '120px' }}
                                     value={filterClass}
                                     onChange={e => setFilterClass(e.target.value)}
                                 >
                                     <option value="">All Classes</option>
-                                    {CLASSES.map(c => (
-                                        <option key={c} value={c}>Class {c}</option>
-                                    ))}
+                                    {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
                                 </select>
                             </div>
                         </div>
@@ -568,9 +518,7 @@ export default function FeesPage() {
                             </div>
                         ) : fees.length === 0 ? (
                             <div className="portal-empty py-20">
-                                <div className="portal-empty-icon">
-                                    <CreditCard size={24} />
-                                </div>
+                                <div className="portal-empty-icon"><CreditCard size={24} /></div>
                                 <p className="portal-empty-title">No fee records found</p>
                                 <p className="portal-empty-text">
                                     {filterStatus || filterClass || filterSearch
@@ -578,11 +526,7 @@ export default function FeesPage() {
                                         : 'Pehle fee structure banao, phir students ko assign hoga'}
                                 </p>
                                 {!filterStatus && !filterClass && !filterSearch && (
-                                    <button
-                                        onClick={() => setTab('structures')}
-                                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold"
-                                        style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
-                                    >
+                                    <button onClick={() => setTab('structures')} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold" style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}>
                                         <Plus size={14} /> Create Fee Structure
                                     </button>
                                 )}
@@ -595,6 +539,7 @@ export default function FeesPage() {
                                             <th>Student</th>
                                             <th>Fee Structure</th>
                                             <th>Amount</th>
+                                            <th>Paid</th>
                                             <th>Due Date</th>
                                             <th>Status</th>
                                             <th className="text-right">Actions</th>
@@ -604,161 +549,78 @@ export default function FeesPage() {
                                         {fees.map(f => {
                                             const student = f.studentId
                                             const structure = f.structureId
-                                            const isOverdue = f.status === 'pending' &&
-                                                new Date(f.dueDate) < new Date()
-                                            const daysOverdue = isOverdue
-                                                ? Math.floor(
-                                                    (Date.now() - new Date(f.dueDate).getTime()) / 86400000
-                                                )
-                                                : 0
+                                            const remaining = f.finalAmount - f.paidAmount
+                                            const isOverdue = ['pending', 'partial'].includes(f.status) && new Date(f.dueDate) < new Date()
+                                            const daysOverdue = isOverdue ? Math.floor((Date.now() - new Date(f.dueDate).getTime()) / 86400000) : 0
 
                                             return (
                                                 <tr key={f._id} className="group">
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-3">
-                                                            <div
-                                                                className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
-                                                                style={{
-                                                                    backgroundColor: '#EEF2FF',
-                                                                    color: '#4F46E5',
-                                                                }}
-                                                            >
+                                                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}>
                                                                 {student?.userId?.name?.charAt(0) ?? '?'}
                                                             </div>
                                                             <div>
-                                                                <p
-                                                                    className="text-sm font-semibold"
-                                                                    style={{ color: '#0F172A' }}
-                                                                >
-                                                                    {student?.userId?.name ?? 'N/A'}
-                                                                </p>
-                                                                <p
-                                                                    className="text-[0.6875rem] font-mono"
-                                                                    style={{ color: '#94A3B8' }}
-                                                                >
-                                                                    {student?.admissionNo} · Class{' '}
-                                                                    {student?.class}-{student?.section}
-                                                                </p>
+                                                                <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>{student?.userId?.name ?? 'N/A'}</p>
+                                                                <p className="text-[0.6875rem] font-mono" style={{ color: '#94A3B8' }}>{student?.admissionNo} · Class {student?.class}-{student?.section}</p>
                                                             </div>
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <p
-                                                            className="text-sm font-medium"
-                                                            style={{ color: '#475569' }}
-                                                        >
-                                                            {structure?.name ?? '—'}
-                                                        </p>
+                                                        <p className="text-sm font-medium" style={{ color: '#475569' }}>{structure?.name ?? '—'}</p>
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <p
-                                                            className="text-sm font-bold tabular-nums"
-                                                            style={{ color: '#0F172A' }}
-                                                        >
-                                                            ₹{f.finalAmount.toLocaleString('en-IN')}
-                                                        </p>
-                                                        {f.discount > 0 && (
-                                                            <p
-                                                                className="text-[0.6875rem]"
-                                                                style={{ color: '#059669' }}
-                                                            >
-                                                                Discount: ₹{f.discount}
-                                                            </p>
-                                                        )}
-                                                        {f.lateFine > 0 && (
-                                                            <p
-                                                                className="text-[0.6875rem]"
-                                                                style={{ color: '#DC2626' }}
-                                                            >
-                                                                Fine: +₹{f.lateFine}
-                                                            </p>
+                                                        <p className="text-sm font-bold tabular-nums" style={{ color: '#0F172A' }}>₹{f.finalAmount.toLocaleString('en-IN')}</p>
+                                                        {f.discount > 0 && <p className="text-[0.6875rem]" style={{ color: '#059669' }}>Discount: ₹{f.discount}</p>}
+                                                        {f.lateFine > 0 && <p className="text-[0.6875rem]" style={{ color: '#DC2626' }}>Fine: +₹{f.lateFine}</p>}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <p className="text-sm font-bold tabular-nums" style={{ color: f.paidAmount > 0 ? '#059669' : '#94A3B8' }}>₹{f.paidAmount.toLocaleString('en-IN')}</p>
+                                                        {remaining > 0 && f.status !== 'waived' && (
+                                                            <p className="text-[0.6875rem]" style={{ color: '#DC2626' }}>Due: ₹{remaining.toLocaleString('en-IN')}</p>
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <p
-                                                            className="text-sm"
-                                                            style={{ color: '#475569' }}
-                                                        >
-                                                            {new Date(f.dueDate).toLocaleDateString(
-                                                                'en-IN',
-                                                                { day: 'numeric', month: 'short', year: '2-digit' }
-                                                            )}
+                                                        <p className="text-sm" style={{ color: '#475569' }}>
+                                                            {new Date(f.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                                                         </p>
-                                                        {isOverdue && (
-                                                            <p
-                                                                className="text-[0.6875rem] font-semibold"
-                                                                style={{ color: '#DC2626' }}
-                                                            >
-                                                                {daysOverdue}d overdue
-                                                            </p>
-                                                        )}
+                                                        {isOverdue && <p className="text-[0.6875rem] font-semibold" style={{ color: '#DC2626' }}>{daysOverdue}d overdue</p>}
                                                     </td>
                                                     <td className="px-4 py-3">
-                                                        <FeeBadge
-                                                            status={f.status}
-                                                            dueDate={f.dueDate}
-                                                        />
+                                                        <FeeBadge status={f.status} dueDate={f.dueDate} />
                                                         {f.paidAt && (
-                                                            <p
-                                                                className="text-[0.625rem] mt-0.5"
-                                                                style={{ color: '#94A3B8' }}
-                                                            >
-                                                                Paid:{' '}
-                                                                {new Date(f.paidAt).toLocaleDateString(
-                                                                    'en-IN',
-                                                                    { day: 'numeric', month: 'short' }
-                                                                )}
+                                                            <p className="text-[0.625rem] mt-0.5" style={{ color: '#94A3B8' }}>
+                                                                Paid: {new Date(f.paidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                                                             </p>
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-1 justify-end">
-                                                            {/* Mark Paid */}
-                                                            {f.status === 'pending' && (
+                                                            {/* Record Payment — show for pending and partial */}
+                                                            {['pending', 'partial'].includes(f.status) && (
                                                                 <button
-                                                                    onClick={() => {
-                                                                        setSelectedFee(f)
-                                                                        setShowPayModal(true)
-                                                                    }}
+                                                                    onClick={() => { setSelectedFee(f); setShowPayModal(true) }}
                                                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                                                                    style={{
-                                                                        backgroundColor: '#ECFDF5',
-                                                                        color: '#059669',
-                                                                        border: '1px solid #A7F3D0',
-                                                                    }}
-                                                                    onMouseEnter={e => {
-                                                                        e.currentTarget.style.backgroundColor = '#059669'
-                                                                        e.currentTarget.style.color = '#FFFFFF'
-                                                                    }}
-                                                                    onMouseLeave={e => {
-                                                                        e.currentTarget.style.backgroundColor = '#ECFDF5'
-                                                                        e.currentTarget.style.color = '#059669'
-                                                                    }}
+                                                                    style={{ backgroundColor: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}
+                                                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#059669'; e.currentTarget.style.color = '#FFFFFF' }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#ECFDF5'; e.currentTarget.style.color = '#059669' }}
                                                                 >
                                                                     <CheckSquare size={11} />
-                                                                    Mark Paid
+                                                                    {f.status === 'partial' ? 'Pay More' : 'Record Payment'}
                                                                 </button>
                                                             )}
-                                                            {/* Receipt */}
-                                                            {f.receiptUrl && (
-                                                                <a
-                                                                    href={f.receiptUrl}
-                                                                    target="_blank"
-                                                                    rel="noreferrer"
+                                                            {/* View Receipt */}
+                                                            {(f.status === 'paid' || f.status === 'partial') && (
+                                                                <button
+                                                                    onClick={() => viewReceipt(f._id)}
                                                                     className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
                                                                     style={{ color: '#94A3B8' }}
                                                                     title="View Receipt"
-                                                                    onMouseEnter={e => {
-                                                                        e.currentTarget.style.backgroundColor = '#EFF6FF'
-                                                                        e.currentTarget.style.color = '#2563EB'
-                                                                    }}
-                                                                    onMouseLeave={e => {
-                                                                        e.currentTarget.style.backgroundColor = 'transparent'
-                                                                        e.currentTarget.style.color = '#94A3B8'
-                                                                    }}
+                                                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#EFF6FF'; e.currentTarget.style.color = '#2563EB' }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
                                                                 >
                                                                     <Receipt size={13} />
-                                                                </a>
+                                                                </button>
                                                             )}
                                                         </div>
                                                     </td>
@@ -772,7 +634,6 @@ export default function FeesPage() {
                     </div>
                 </div>
             )}
-
             {/* ═══════════════════════════════════════════
                 TAB: FEE STRUCTURES
                ═══════════════════════════════════════════ */}
@@ -1082,58 +943,44 @@ export default function FeesPage() {
                 </div>
             )}
 
-            {/* ═══════════════════════════════════════════
-                TAB: PAYMENT SETTINGS
-               ═══════════════════════════════════════════ */}
+            {/* ═══ TAB: PAYMENT SETTINGS ═══ */}
             {tab === 'settings' && (
                 <PaymentSettingsPanel onAlert={a => setAlert(a)} />
             )}
 
             {/* ═══ MODALS ═══ */}
             <Portal>
-                {/* Fee Structure Create/Edit Modal */}
                 <FeeStructureModal
                     open={showStructureModal}
                     editItem={editStructure}
-                    onClose={() => {
-                        setShowStructureModal(false)
-                        setEditStructure(null)
-                    }}
-                    onSuccess={msg => {
-                        setShowStructureModal(false)
-                        setEditStructure(null)
-                        fetchStructures()
-                        showSuccess(msg)
-                    }}
+                    onClose={() => { setShowStructureModal(false); setEditStructure(null) }}
+                    onSuccess={msg => { setShowStructureModal(false); setEditStructure(null); fetchStructures(); showSuccess(msg) }}
                 />
 
-                {/* Mark Paid Modal */}
                 {selectedFee && (
-                    <MarkPaidModal
+                    <RecordPaymentModal
                         open={showPayModal}
                         fee={selectedFee}
-                        onClose={() => {
-                            setShowPayModal(false)
-                            setSelectedFee(null)
-                        }}
-                        onPaid={mode => markPaid(selectedFee._id, mode)}
+                        onlinePayEnabled={onlinePayEnabled}
+                        onClose={() => { setShowPayModal(false); setSelectedFee(null) }}
+                        onPaid={recordPayment}
                     />
                 )}
 
-                {/* ✅ YAHAN ADD KARO — Optional Fee Modal */}
+                {receiptData && (
+                    <ReceiptModal
+                        open={showReceiptModal}
+                        data={receiptData}
+                        onClose={() => { setShowReceiptModal(false); setReceiptData(null) }}
+                    />
+                )}
+
                 {selectedStructure && (
                     <OptionalFeeModal
                         open={showOptionalModal}
                         structure={selectedStructure}
-                        onClose={() => {
-                            setShowOptionalModal(false)
-                            setSelectedStructure(null)
-                        }}
-                        onSuccess={msg => {
-                            setShowOptionalModal(false)
-                            setSelectedStructure(null)
-                            showSuccess(msg)
-                        }}
+                        onClose={() => { setShowOptionalModal(false); setSelectedStructure(null) }}
+                        onSuccess={msg => { setShowOptionalModal(false); setSelectedStructure(null); showSuccess(msg) }}
                     />
                 )}
             </Portal>
@@ -1142,97 +989,364 @@ export default function FeesPage() {
 }
 
 
-/* ═══════════════════════════════════════════════════════════════
-   MARK PAID MODAL
-   ═══════════════════════════════════════════════════════════════ */
-function MarkPaidModal({
-    open, fee, onClose, onPaid,
+/* ════════════════════════════════════════════
+   RECORD PAYMENT MODAL 
+   - Partial payment support
+   - Payment mode selection
+   - Online Razorpay option (if enabled)
+   - Notes field
+   - Print receipt after payment ✨ NEW
+   ════════════════════════════════════════════ */
+function RecordPaymentModal({
+    open, fee, onlinePayEnabled, onClose, onPaid,
 }: {
     open: boolean
     fee: Fee
+    onlinePayEnabled: boolean
     onClose: () => void
-    onPaid: (mode: string) => void
+    onPaid: (feeId: string, mode: string, amount: number, notes?: string) => void
 }) {
+    const remaining = fee.finalAmount - fee.paidAmount
     const [mode, setMode] = useState('cash')
+    const [payType, setPayType] = useState<'full' | 'partial'>('full')
+    const [partialAmount, setPartialAmount] = useState('')
+    const [notes, setNotes] = useState('')
     const [loading, setLoading] = useState(false)
+    const [paymentSuccess, setPaymentSuccess] = useState<{
+        amount: number
+        mode: string
+        receiptNumber: string
+        paidAt: string
+    } | null>(null)
+    const [successPaperSize, setSuccessPaperSize] = useState<'A4' | 'A5'>('A4')
 
     const MODES = [
         { value: 'cash', label: 'Cash', icon: '💵', color: '#059669', bg: '#ECFDF5' },
-        { value: 'online', label: 'Online', icon: '📱', color: '#2563EB', bg: '#EFF6FF' },
-        { value: 'cheque', label: 'Cheque', icon: '📄', color: '#7C3AED', bg: '#F5F3FF' },
-        { value: 'dd', label: 'DD', icon: '🏦', color: '#D97706', bg: '#FFFBEB' },
+        { value: 'cheque', label: 'Cheque', icon: '📝', color: '#7C3AED', bg: '#F5F3FF' },
+        { value: 'dd', label: 'DD', icon: '🏛️', color: '#D97706', bg: '#FFFBEB' },
     ]
+
+    // Add online option only if enabled
+    if (onlinePayEnabled) {
+        MODES.unshift({ value: 'online', label: 'Online (Razorpay)', icon: '💳', color: '#2563EB', bg: '#EFF6FF' })
+    }
+
+    const effectiveAmount = payType === 'full' ? remaining : Math.min(Number(partialAmount) || 0, remaining)
+
+    // ─── Print individual receipt from success screen ───
+        // ─── Print individual receipt from success screen ───
+    const handlePrintSuccessReceipt = () => {
+        if (!paymentSuccess) return
+
+        const school = (fee as any).school || {}
+        const student = fee.studentId || {} as any
+        const isA5 = successPaperSize === 'A5'
+        const newRemaining = remaining - paymentSuccess.amount
+        const totalPaidSoFar = fee.paidAmount + paymentSuccess.amount
+        const status = newRemaining <= 0 ? 'paid' : 'partial'
+
+        printSingleReceipt({
+            school,
+            student: {
+                name: student?.userId?.name || 'N/A',
+                admissionNo: student?.admissionNo || 'N/A',
+                class: student?.class || 'N/A',
+                section: student?.section || '',
+                fatherName: (student as any)?.fatherName || '',
+            },
+            payment: {
+                receiptNumber: paymentSuccess.receiptNumber,
+                amount: paymentSuccess.amount,
+                mode: paymentSuccess.mode,
+                paidAt: paymentSuccess.paidAt,
+            },
+            fee: {
+                totalAmount: fee.finalAmount,
+                totalPaidSoFar: totalPaidSoFar,
+                remaining: Math.max(0, newRemaining),
+                status: status,
+                feeType: (fee as any).feeType || 'Tuition Fee',
+            },
+            academicYear: (fee as any).academicYear || '',
+            paperSize: successPaperSize,
+        })
+    }
+
+    const handleSubmit = async () => {
+        if (effectiveAmount <= 0) return
+        setLoading(true)
+
+        if (mode === 'online') {
+            // Trigger Razorpay payment flow
+            try {
+                const res = await fetch('/api/fees/pay', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ feeId: fee._id, amount: effectiveAmount }),
+                })
+                const data = await res.json()
+                if (!res.ok) {
+                    alert(data.error || 'Failed to create payment order')
+                    setLoading(false)
+                    return
+                }
+
+                // Open Razorpay checkout
+                const options = {
+                    key: data.keyId,
+                    amount: data.amount,
+                    currency: data.currency,
+                    name: 'Fee Payment',
+                    order_id: data.orderId,
+                    handler: function () {
+                        // Payment success — webhook will handle the rest
+                        alert('Payment successful! Receipt will be generated automatically.')
+                        onClose()
+                        window.location.reload()
+                    },
+                    modal: {
+                        ondismiss: function () {
+                            setLoading(false)
+                        }
+                    },
+                    theme: { color: '#2563EB' },
+                }
+
+                const rzpWindow = window as any
+                if (rzpWindow.Razorpay) {
+                    const rzp = new rzpWindow.Razorpay(options)
+                    rzp.open()
+                } else {
+                    // Load Razorpay script
+                    const script = document.createElement('script')
+                    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+                    script.onload = () => {
+                        const rzp2 = new rzpWindow.Razorpay(options)
+                        rzp2.open()
+                    }
+                    document.body.appendChild(script)
+                }
+            } catch {
+                alert('Failed to initiate online payment')
+                setLoading(false)
+            }
+        } else {
+            // Offline payment — record directly
+            await onPaid(fee._id, mode, effectiveAmount, notes)
+
+            // Show success screen with print option
+            const now = new Date().toISOString()
+            const receiptNum = `RCP-${Date.now().toString(36).toUpperCase()}`
+            setPaymentSuccess({
+                amount: effectiveAmount,
+                mode: mode,
+                receiptNumber: receiptNum,
+                paidAt: now,
+            })
+            setLoading(false)
+        }
+    }
+
+    // Reset state when modal closes
+    const handleClose = () => {
+        setPaymentSuccess(null)
+        setPayType('full')
+        setPartialAmount('')
+        setNotes('')
+        setMode('cash')
+        onClose()
+    }
 
     if (!open) return null
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                onClick={onClose}
-            />
-            <div
-                className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm"
-                style={{ border: '1px solid #E2E8F0' }}
-            >
-                {/* Header */}
-                <div
-                    className="flex items-center justify-between px-5 py-4"
-                    style={{ borderBottom: '1px solid #F1F5F9' }}
-                >
-                    <div className="flex items-center gap-3">
-                        <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center"
-                            style={{ backgroundColor: '#ECFDF5' }}
-                        >
-                            <CheckSquare size={16} style={{ color: '#059669' }} />
+    // ─── SUCCESS SCREEN (after payment) ───
+    if (paymentSuccess) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+                <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md" style={{ border: '1px solid #E2E8F0' }}>
+                    {/* Success Header */}
+                    <div className="text-center pt-8 pb-4 px-5">
+                        {/* Animated Checkmark */}
+                        <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #059669, #10B981)', boxShadow: '0 8px 24px rgba(5, 150, 105, 0.3)' }}>
+                            <CheckSquare size={28} style={{ color: '#FFFFFF' }} />
                         </div>
-                        <div>
-                            <h3
-                                className="text-sm font-bold"
-                                style={{ color: '#0F172A' }}
-                            >
-                                Mark as Paid
-                            </h3>
-                            <p className="text-xs" style={{ color: '#94A3B8' }}>
-                                {fee.studentId?.userId?.name}
-                            </p>
+                        <h3 className="text-xl font-extrabold" style={{ color: '#059669' }}>Payment Successful!</h3>
+                        <p className="text-sm mt-1" style={{ color: '#64748B' }}>
+                            ₹{paymentSuccess.amount.toLocaleString('en-IN')} received via {paymentSuccess.mode}
+                        </p>
+                    </div>
+
+                    {/* Receipt Summary Card */}
+                    <div className="mx-5 mb-4 rounded-xl overflow-hidden" style={{ border: '1.5px solid #E2E8F0' }}>
+                        <div className="px-4 py-2.5" style={{ background: 'linear-gradient(135deg, #F0F9FF, #E0F2FE)', borderBottom: '1px solid #BAE6FD' }}>
+                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#0369A1' }}>Receipt Summary</span>
+                        </div>
+                        <div className="px-4 py-3 space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span style={{ color: '#64748B' }}>Receipt No.</span>
+                                <span className="font-bold font-mono" style={{ color: '#0F172A' }}>{paymentSuccess.receiptNumber}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span style={{ color: '#64748B' }}>Student</span>
+                                <span className="font-semibold" style={{ color: '#0F172A' }}>{(fee.studentId as any)?.userId?.name || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                                <span style={{ color: '#64748B' }}>Date</span>
+                                <span className="font-semibold" style={{ color: '#0F172A' }}>
+                                    {new Date(paymentSuccess.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center pt-2" style={{ borderTop: '1px dashed #E2E8F0' }}>
+                                <span className="text-sm font-semibold" style={{ color: '#059669' }}>Amount Paid</span>
+                                <span className="text-xl font-black font-mono" style={{ color: '#059669' }}>₹{paymentSuccess.amount.toLocaleString('en-IN')}</span>
+                            </div>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}
-                    >
+
+                    {/* Paper Size + Print */}
+                    <div className="mx-5 mb-4">
+                        <p className="text-[10px] font-semibold mb-2 uppercase tracking-wider" style={{ color: '#94A3B8' }}>Print Receipt</p>
+                        <div className="flex gap-2">
+                            {/* Paper Size Toggle */}
+                            <div className="flex items-center rounded-lg overflow-hidden flex-shrink-0" style={{ border: '1px solid #E2E8F0' }}>
+                                <button
+                                    onClick={() => setSuccessPaperSize('A4')}
+                                    className="px-3 py-2 text-xs font-bold transition-colors"
+                                    style={{
+                                        backgroundColor: successPaperSize === 'A4' ? '#2563EB' : '#F8FAFC',
+                                        color: successPaperSize === 'A4' ? '#FFFFFF' : '#64748B',
+                                    }}
+                                >
+                                    A4
+                                </button>
+                                <button
+                                    onClick={() => setSuccessPaperSize('A5')}
+                                    className="px-3 py-2 text-xs font-bold transition-colors"
+                                    style={{
+                                        backgroundColor: successPaperSize === 'A5' ? '#2563EB' : '#F8FAFC',
+                                        color: successPaperSize === 'A5' ? '#FFFFFF' : '#64748B',
+                                        borderLeft: '1px solid #E2E8F0',
+                                    }}
+                                >
+                                    A5
+                                </button>
+                            </div>
+                            <button
+                                onClick={handlePrintSuccessReceipt}
+                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                                style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
+                            >
+                                <Printer size={14} />
+                                Print Receipt ({successPaperSize})
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-5 py-4 flex gap-2" style={{ borderTop: '1px solid #F1F5F9' }}>
+                        <button
+                            onClick={handleClose}
+                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                            style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}
+                        >
+                            Done
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // ─── NORMAL PAYMENT FORM ───
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md" style={{ border: '1px solid #E2E8F0' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#ECFDF5' }}>
+                            <IndianRupee size={16} style={{ color: '#059669' }} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold" style={{ color: '#0F172A' }}>Record Payment</h3>
+                            <p className="text-xs" style={{ color: '#94A3B8' }}>{fee.studentId?.userId?.name}</p>
+                        </div>
+                    </div>
+                    <button onClick={handleClose} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}>
                         <X size={14} />
                     </button>
                 </div>
 
                 <div className="px-5 py-4 space-y-4">
-                    {/* Amount Info */}
-                    <div
-                        className="rounded-xl p-4 text-center"
-                        style={{
-                            background: 'linear-gradient(135deg, #ECFDF5, #F0FDF4)',
-                            border: '1px solid #A7F3D0',
-                        }}
-                    >
-                        <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#047857' }}>
-                            ₹{fee.finalAmount.toLocaleString('en-IN')}
-                        </p>
-                        <p className="text-xs mt-0.5" style={{ color: '#059669' }}>
-                            {fee.structureId?.name}
-                        </p>
+                    {/* Fee Summary */}
+                    <div className="rounded-xl p-4" style={{ background: 'linear-gradient(135deg, #F8FAFC, #F1F5F9)', border: '1px solid #E2E8F0' }}>
+                        <div className="flex justify-between mb-2">
+                            <span className="text-xs" style={{ color: '#64748B' }}>Total Fee</span>
+                            <span className="text-sm font-bold" style={{ color: '#0F172A' }}>₹{fee.finalAmount.toLocaleString('en-IN')}</span>
+                        </div>
+                        {fee.paidAmount > 0 && (
+                            <div className="flex justify-between mb-2">
+                                <span className="text-xs" style={{ color: '#059669' }}>Already Paid</span>
+                                <span className="text-sm font-bold" style={{ color: '#059669' }}>₹{fee.paidAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between pt-2" style={{ borderTop: '1px dashed #CBD5E1' }}>
+                            <span className="text-xs font-semibold" style={{ color: '#DC2626' }}>Remaining</span>
+                            <span className="text-lg font-extrabold tabular-nums" style={{ color: '#DC2626' }}>₹{remaining.toLocaleString('en-IN')}</span>
+                        </div>
                     </div>
+
+                    {/* Payment Type: Full or Partial */}
+                    <div>
+                        <p className="text-xs font-semibold mb-2" style={{ color: '#475569' }}>Payment Type</p>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                onClick={() => setPayType('full')}
+                                className="px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-center"
+                                style={{
+                                    border: `2px solid ${payType === 'full' ? '#059669' : '#E2E8F0'}`,
+                                    backgroundColor: payType === 'full' ? '#ECFDF5' : '#FFFFFF',
+                                    color: payType === 'full' ? '#059669' : '#64748B',
+                                }}
+                            >
+                                Full Payment
+                                <br />
+                                <span className="text-xs font-normal">₹{remaining.toLocaleString('en-IN')}</span>
+                            </button>
+                            <button
+                                onClick={() => setPayType('partial')}
+                                className="px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-center"
+                                style={{
+                                    border: `2px solid ${payType === 'partial' ? '#D97706' : '#E2E8F0'}`,
+                                    backgroundColor: payType === 'partial' ? '#FFFBEB' : '#FFFFFF',
+                                    color: payType === 'partial' ? '#D97706' : '#64748B',
+                                }}
+                            >
+                                Partial Payment
+                                <br />
+                                <span className="text-xs font-normal">Custom amount</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Partial Amount Input */}
+                    {payType === 'partial' && (
+                        <FormInput
+                            label="Enter Amount (₹)"
+                            value={partialAmount}
+                            onChange={setPartialAmount}
+                            type="number"
+                            required
+                            placeholder={`Max ₹${remaining.toLocaleString('en-IN')}`}
+                            helper={`Maximum payable: ₹${remaining.toLocaleString('en-IN')}`}
+                        />
+                    )}
 
                     {/* Payment Mode */}
                     <div>
-                        <p
-                            className="text-xs font-semibold mb-2"
-                            style={{ color: '#475569' }}
-                        >
-                            Payment Mode
-                        </p>
+                        <p className="text-xs font-semibold mb-2" style={{ color: '#475569' }}>Payment Mode</p>
                         <div className="grid grid-cols-2 gap-2">
                             {MODES.map(m => (
                                 <button
@@ -1251,36 +1365,39 @@ function MarkPaidModal({
                             ))}
                         </div>
                     </div>
+
+                    {/* Notes */}
+                    {mode !== 'online' && (
+                        <FormInput
+                            label="Notes (optional)"
+                            value={notes}
+                            onChange={setNotes}
+                            placeholder="e.g. Cheque no, reference..."
+                        />
+                    )}
+
+                    {/* Amount being paid */}
+                    {effectiveAmount > 0 && (
+                        <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#ECFDF5', border: '1px solid #A7F3D0' }}>
+                            <p className="text-xs" style={{ color: '#059669' }}>You are paying</p>
+                            <p className="text-2xl font-extrabold tabular-nums" style={{ color: '#047857' }}>₹{effectiveAmount.toLocaleString('en-IN')}</p>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
-                <div
-                    className="px-5 py-4 flex gap-2"
-                    style={{ borderTop: '1px solid #F1F5F9' }}
-                >
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-2 rounded-xl text-sm font-medium"
-                        style={{
-                            backgroundColor: '#F8FAFC',
-                            color: '#475569',
-                            border: '1px solid #E2E8F0',
-                        }}
-                    >
+                <div className="px-5 py-4 flex gap-2" style={{ borderTop: '1px solid #F1F5F9' }}>
+                    <button onClick={handleClose} className="flex-1 py-2 rounded-xl text-sm font-medium" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}>
                         Cancel
                     </button>
                     <button
-                        onClick={async () => {
-                            setLoading(true)
-                            await onPaid(mode)
-                            setLoading(false)
-                        }}
-                        disabled={loading}
+                        onClick={handleSubmit}
+                        disabled={loading || effectiveAmount <= 0}
                         className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
-                        style={{ backgroundColor: '#059669', color: '#FFFFFF' }}
+                        style={{ backgroundColor: mode === 'online' ? '#2563EB' : '#059669', color: '#FFFFFF' }}
                     >
                         {loading ? <Spinner size="sm" /> : <CheckSquare size={14} />}
-                        {loading ? 'Processing...' : 'Confirm Payment'}
+                        {loading ? 'Processing...' : mode === 'online' ? 'Pay Online' : 'Confirm Payment'}
                     </button>
                 </div>
             </div>
@@ -1288,6 +1405,1016 @@ function MarkPaidModal({
     )
 }
 
+
+/* ════════════════════════════════════════════
+   SHARED PRINT FUNCTION — Single Receipt
+   Used by both ReceiptModal & RecordPaymentModal
+   ════════════════════════════════════════════ */
+function printSingleReceipt({
+    school,
+    student,
+    payment,
+    fee,
+    academicYear,
+    paperSize,
+    allPayments,
+    feeBreakdown,
+}: {
+    school: any
+    student: { name: string; admissionNo: string; class: string; section: string; fatherName?: string }
+    payment: { receiptNumber: string; amount: number; mode: string; paidAt: string }
+    fee: { totalAmount: number; totalPaidSoFar?: number; remaining?: number; status: string; feeType?: string; discount?: number }
+    academicYear?: string
+    paperSize: 'A4' | 'A5'
+    allPayments?: any[]
+    feeBreakdown?: any[]
+}) {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    const isA5 = paperSize === 'A5'
+    const statusClass = (fee.status || 'paid').toLowerCase()
+
+    printWindow.document.write(`
+    <html>
+      <head>
+        <title>Fee Receipt - ${payment.receiptNumber || 'N/A'}</title>
+        <style>
+          @page {
+            size: ${isA5 ? '148mm 210mm' : '210mm 297mm'};
+            margin: ${isA5 ? '8mm' : '15mm'};
+          }
+
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+
+          body {
+            font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            color: #1E293B;
+            background: #FFFFFF;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+
+          .receipt-wrapper {
+            max-width: ${isA5 ? '130mm' : '180mm'};
+            margin: 0 auto;
+            padding: ${isA5 ? '12px' : '24px'};
+          }
+
+          .receipt-top-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #1D4ED8, #3B82F6, #60A5FA, #3B82F6, #1D4ED8);
+            border-radius: 2px 2px 0 0;
+            margin-bottom: ${isA5 ? '12px' : '20px'};
+          }
+
+          .school-header {
+            text-align: center;
+            padding-bottom: ${isA5 ? '10px' : '16px'};
+            border-bottom: 2px solid #1D4ED8;
+            margin-bottom: ${isA5 ? '10px' : '16px'};
+          }
+
+          .school-logo-circle {
+            width: ${isA5 ? '44px' : '56px'};
+            height: ${isA5 ? '44px' : '56px'};
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1D4ED8, #3B82F6);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+          }
+
+          .school-logo-circle span {
+            color: #FFFFFF;
+            font-weight: 800;
+            font-size: ${isA5 ? '16px' : '20px'};
+            letter-spacing: 1px;
+          }
+
+          .school-name {
+            font-size: ${isA5 ? '16px' : '22px'};
+            font-weight: 800;
+            color: #0F172A;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+          }
+
+          .school-address {
+            font-size: ${isA5 ? '9px' : '11px'};
+            color: #64748B;
+            margin-bottom: 4px;
+            line-height: 1.4;
+          }
+
+          .school-contact {
+            font-size: ${isA5 ? '8px' : '10px'};
+            color: #94A3B8;
+          }
+
+          .receipt-title-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #1D4ED8, #2563EB);
+            color: #FFFFFF;
+            font-size: ${isA5 ? '10px' : '12px'};
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: ${isA5 ? '4px 16px' : '6px 24px'};
+            border-radius: 20px;
+            margin-top: 8px;
+          }
+
+          .receipt-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: ${isA5 ? '10px' : '14px'};
+            padding: ${isA5 ? '8px 10px' : '10px 14px'};
+            background: #F8FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+          }
+
+          .receipt-meta .meta-group { text-align: left; }
+          .receipt-meta .meta-group:last-child { text-align: right; }
+
+          .meta-label {
+            font-size: ${isA5 ? '8px' : '9px'};
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-weight: 600;
+          }
+
+          .meta-value {
+            font-size: ${isA5 ? '11px' : '13px'};
+            font-weight: 700;
+            color: #0F172A;
+            font-family: 'Courier New', monospace;
+            margin-top: 2px;
+          }
+
+          .student-info-card {
+            border: 1.5px solid #E2E8F0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: ${isA5 ? '10px' : '16px'};
+          }
+
+          .student-info-header {
+            background: linear-gradient(135deg, #F0F9FF, #E0F2FE);
+            padding: ${isA5 ? '6px 10px' : '8px 14px'};
+            border-bottom: 1px solid #BAE6FD;
+          }
+
+          .student-info-header span {
+            font-size: ${isA5 ? '8px' : '10px'};
+            font-weight: 700;
+            color: #0369A1;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+
+          .student-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+          }
+
+          .student-info-cell {
+            padding: ${isA5 ? '6px 10px' : '8px 14px'};
+            border-bottom: 1px solid #F1F5F9;
+            border-right: 1px solid #F1F5F9;
+          }
+
+          .student-info-cell:nth-child(even) { border-right: none; }
+          .student-info-cell:nth-last-child(-n+2) { border-bottom: none; }
+
+          .cell-label {
+            font-size: ${isA5 ? '7px' : '9px'};
+            color: #94A3B8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            margin-bottom: 2px;
+          }
+
+          .cell-value {
+            font-size: ${isA5 ? '10px' : '12px'};
+            font-weight: 700;
+            color: #1E293B;
+          }
+
+          .fee-table-wrapper {
+            margin-bottom: ${isA5 ? '10px' : '16px'};
+            border: 1.5px solid #E2E8F0;
+            border-radius: 10px;
+            overflow: hidden;
+          }
+
+          .fee-table { width: 100%; border-collapse: collapse; }
+
+          .fee-table thead th {
+            background: linear-gradient(135deg, #1E293B, #334155);
+            color: #FFFFFF;
+            font-size: ${isA5 ? '8px' : '10px'};
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: ${isA5 ? '8px 10px' : '10px 14px'};
+            text-align: left;
+          }
+
+          .fee-table thead th:last-child { text-align: right; }
+
+          .fee-table tbody td {
+            padding: ${isA5 ? '7px 10px' : '9px 14px'};
+            font-size: ${isA5 ? '10px' : '12px'};
+            color: #334155;
+            border-bottom: 1px solid #F1F5F9;
+          }
+
+          .fee-table tbody td:last-child {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+          }
+
+          .fee-table tbody tr:last-child td { border-bottom: none; }
+          .fee-table tbody tr:nth-child(even) { background: #FAFBFC; }
+
+          .amount-summary {
+            border: 2px solid #E2E8F0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: ${isA5 ? '10px' : '16px'};
+          }
+
+          .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: ${isA5 ? '7px 12px' : '9px 16px'};
+            border-bottom: 1px solid #F1F5F9;
+          }
+
+          .summary-row:last-child { border-bottom: none; }
+          .summary-row .sr-label { font-size: ${isA5 ? '10px' : '12px'}; color: #475569; font-weight: 500; }
+          .summary-row .sr-value { font-size: ${isA5 ? '10px' : '12px'}; font-weight: 700; color: #1E293B; font-family: 'Courier New', monospace; }
+
+          .summary-row.total-row {
+            background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
+            border-bottom: none;
+            padding: ${isA5 ? '10px 12px' : '12px 16px'};
+          }
+
+          .summary-row.total-row .sr-label {
+            font-size: ${isA5 ? '11px' : '13px'};
+            font-weight: 800;
+            color: #166534;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          .summary-row.total-row .sr-value {
+            font-size: ${isA5 ? '14px' : '18px'};
+            font-weight: 900;
+            color: #15803D;
+          }
+
+          .summary-row.remaining-row { background: #FEF2F2; }
+          .summary-row.remaining-row .sr-label { color: #DC2626; font-weight: 600; }
+          .summary-row.remaining-row .sr-value { color: #DC2626; font-weight: 700; }
+
+          .amount-words {
+            font-size: ${isA5 ? '9px' : '11px'};
+            color: #475569;
+            font-style: italic;
+            padding: ${isA5 ? '6px 10px' : '8px 14px'};
+            background: #FFFBEB;
+            border: 1px dashed #FCD34D;
+            border-radius: 6px;
+            margin-bottom: ${isA5 ? '10px' : '14px'};
+            text-align: center;
+          }
+
+          .status-badge {
+            display: inline-block;
+            padding: ${isA5 ? '3px 12px' : '4px 16px'};
+            border-radius: 20px;
+            font-size: ${isA5 ? '9px' : '11px'};
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+          }
+
+          .status-paid { background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; }
+          .status-partial { background: #FEF9C3; color: #854D0E; border: 1px solid #FDE68A; }
+          .status-unpaid { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+          .status-overdue { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+
+          .payment-history { margin-bottom: ${isA5 ? '10px' : '16px'}; }
+
+          .payment-history-title {
+            font-size: ${isA5 ? '8px' : '10px'};
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+          }
+
+          .history-table { width: 100%; border-collapse: collapse; border: 1px solid #E2E8F0; border-radius: 6px; overflow: hidden; }
+
+          .history-table th {
+            background: #F1F5F9;
+            font-size: ${isA5 ? '7px' : '9px'};
+            color: #64748B;
+            padding: ${isA5 ? '4px 8px' : '6px 10px'};
+            text-align: left;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          .history-table th:last-child { text-align: right; }
+
+          .history-table td {
+            font-size: ${isA5 ? '9px' : '10px'};
+            padding: ${isA5 ? '4px 8px' : '5px 10px'};
+            border-top: 1px solid #F1F5F9;
+            color: #334155;
+          }
+
+          .history-table td:last-child {
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #15803D;
+          }
+
+          /* Highlight current receipt row */
+          .history-table tr.current-receipt {
+            background: #ECFDF5;
+          }
+
+          .history-table tr.current-receipt td {
+            font-weight: 700;
+            color: #059669;
+          }
+
+          .signature-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-top: ${isA5 ? '20px' : '36px'};
+            padding-top: ${isA5 ? '10px' : '16px'};
+          }
+
+          .signature-box { text-align: center; width: 40%; }
+          .signature-line { border-top: 1.5px solid #94A3B8; margin-bottom: 4px; }
+          .signature-label { font-size: ${isA5 ? '8px' : '10px'}; color: #64748B; font-weight: 600; }
+
+          .seal-area {
+            width: ${isA5 ? '50px' : '70px'};
+            height: ${isA5 ? '50px' : '70px'};
+            border: 2px dashed #CBD5E1;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
+
+          .seal-area span { font-size: ${isA5 ? '7px' : '8px'}; color: #CBD5E1; text-transform: uppercase; font-weight: 600; }
+
+          .receipt-footer {
+            margin-top: ${isA5 ? '12px' : '20px'};
+            padding-top: ${isA5 ? '8px' : '12px'};
+            border-top: 1.5px solid #E2E8F0;
+            text-align: center;
+          }
+
+          .footer-note { font-size: ${isA5 ? '7px' : '9px'}; color: #94A3B8; line-height: 1.6; }
+          .footer-note strong { color: #64748B; }
+
+          .receipt-bottom-bar {
+            height: 4px;
+            background: linear-gradient(90deg, #1D4ED8, #3B82F6, #60A5FA, #3B82F6, #1D4ED8);
+            border-radius: 0 0 2px 2px;
+            margin-top: ${isA5 ? '12px' : '20px'};
+          }
+
+          .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: ${isA5 ? '60px' : '80px'};
+            font-weight: 900;
+            color: rgba(0, 0, 0, 0.03);
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            pointer-events: none;
+            z-index: 0;
+            white-space: nowrap;
+          }
+
+          @media print {
+            body { padding: 0; background: #FFFFFF; }
+            .receipt-wrapper { max-width: 100%; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="watermark">${statusClass === 'paid' ? 'PAID' : ''}</div>
+        <div class="receipt-wrapper">
+          <div class="receipt-top-bar"></div>
+
+          <!-- School Header -->
+          <div class="school-header">
+            <div class="school-logo-circle">
+              <span>${(school.name || student.name || 'S').charAt(0).toUpperCase()}</span>
+            </div>
+            <div class="school-name">${school.name || 'School Name'}</div>
+            ${school.address ? `<div class="school-address">${school.address}</div>` : ''}
+            ${school.phone || school.email ? `<div class="school-contact">${school.phone ? 'Ph: ' + school.phone : ''}${school.phone && school.email ? ' | ' : ''}${school.email ? 'Email: ' + school.email : ''}</div>` : ''}
+            <div class="receipt-title-badge">Fee Receipt</div>
+          </div>
+
+          <!-- Receipt Meta -->
+          <div class="receipt-meta">
+            <div class="meta-group">
+              <div class="meta-label">Receipt No.</div>
+              <div class="meta-value">${payment.receiptNumber || 'N/A'}</div>
+            </div>
+            <div class="meta-group">
+              <div class="meta-label">Academic Year</div>
+              <div class="meta-value">${academicYear || school.academicYear || new Date().getFullYear() + '-' + (new Date().getFullYear() + 1).toString().slice(-2)}</div>
+            </div>
+            <div class="meta-group" style="text-align: right;">
+              <div class="meta-label">Date</div>
+              <div class="meta-value">${payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</div>
+            </div>
+          </div>
+
+          <!-- Student Info -->
+          <div class="student-info-card">
+            <div class="student-info-header"><span>Student Details</span></div>
+            <div class="student-info-grid">
+              <div class="student-info-cell">
+                <div class="cell-label">Student Name</div>
+                <div class="cell-value">${student.name || 'N/A'}</div>
+              </div>
+              <div class="student-info-cell">
+                <div class="cell-label">Admission No.</div>
+                <div class="cell-value" style="font-family: 'Courier New', monospace;">${student.admissionNo || 'N/A'}</div>
+              </div>
+              <div class="student-info-cell">
+                <div class="cell-label">Class & Section</div>
+                <div class="cell-value">${student.class || 'N/A'}${student.section ? ' - ' + student.section : ''}</div>
+              </div>
+              <div class="student-info-cell">
+                <div class="cell-label">Payment Mode</div>
+                <div class="cell-value" style="text-transform: capitalize;">${payment.mode || 'N/A'}</div>
+              </div>
+              ${student.fatherName ? `
+              <div class="student-info-cell" style="grid-column: span 2; border-bottom: none;">
+                <div class="cell-label">Father's Name</div>
+                <div class="cell-value">${student.fatherName}</div>
+              </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Fee Table -->
+          <div class="fee-table-wrapper">
+            <table class="fee-table">
+              <thead>
+                <tr>
+                  <th style="width: 40px;">#</th>
+                  <th>Description</th>
+                  <th style="text-align: right;">Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${feeBreakdown && feeBreakdown.length > 0
+            ? feeBreakdown.map((item: any, i: number) => `
+                    <tr>
+                      <td>${i + 1}</td>
+                      <td>${item.name || item.description || 'Fee'}</td>
+                      <td>₹${(item.amount || 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                  `).join('')
+            : `
+                    <tr>
+                      <td>1</td>
+                      <td>${fee.feeType || 'Tuition Fee'}</td>
+                      <td>₹${(fee.totalAmount || 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                  `
+        }
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Amount Summary -->
+          <div class="amount-summary">
+            <div class="summary-row">
+              <span class="sr-label">Total Fee Amount</span>
+              <span class="sr-value">₹${(fee.totalAmount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            ${fee.discount ? `
+            <div class="summary-row">
+              <span class="sr-label">Discount</span>
+              <span class="sr-value" style="color: #2563EB;">- ₹${(fee.discount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            ` : ''}
+            ${fee.totalPaidSoFar ? `
+            <div class="summary-row">
+              <span class="sr-label">Total Paid So Far</span>
+              <span class="sr-value">₹${(fee.totalPaidSoFar || 0).toLocaleString('en-IN')}</span>
+            </div>
+            ` : ''}
+            <div class="summary-row total-row">
+              <span class="sr-label">💰 Amount Paid (This Receipt)</span>
+              <span class="sr-value">₹${(payment.amount || 0).toLocaleString('en-IN')}</span>
+            </div>
+            ${(fee.remaining || 0) > 0 ? `
+            <div class="summary-row remaining-row">
+              <span class="sr-label">Balance Remaining</span>
+              <span class="sr-value">₹${(fee.remaining || 0).toLocaleString('en-IN')}</span>
+            </div>
+            ` : ''}
+          </div>
+
+          <!-- Amount in Words -->
+          <div class="amount-words">
+            <strong>Amount in words:</strong> ${numberToWords(payment.amount || 0)} Rupees Only
+          </div>
+
+          <!-- Status Badge -->
+          <div style="text-align: center; margin-bottom: ${isA5 ? '10px' : '14px'};">
+            <span class="status-badge status-${statusClass}">
+              ${(fee.status || 'paid').toUpperCase()}
+            </span>
+          </div>
+
+          <!-- Payment History -->
+          ${allPayments && allPayments.length > 1 ? `
+          <div class="payment-history">
+            <div class="payment-history-title">📋 Payment History</div>
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Receipt No.</th>
+                  <th>Date</th>
+                  <th>Mode</th>
+                  <th>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allPayments.map((p: any) => `
+                  <tr class="${p.receiptNumber === payment.receiptNumber ? 'current-receipt' : ''}">
+                    <td style="font-family: 'Courier New', monospace;">${p.receiptNumber || '-'}${p.receiptNumber === payment.receiptNumber ? ' ◄' : ''}</td>
+                    <td>${new Date(p.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td style="text-transform: capitalize;">${p.mode || p.paymentMode || '-'}</td>
+                    <td>₹${(p.amount || 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
+
+          <!-- Signature Section -->
+          <div class="signature-section">
+            <div class="signature-box">
+              <div class="signature-line"></div>
+              <div class="signature-label">Received By</div>
+            </div>
+            <div class="seal-area"><span>Seal</span></div>
+            <div class="signature-box">
+              <div class="signature-line"></div>
+              <div class="signature-label">Authorized Signatory</div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="receipt-footer">
+            <div class="footer-note">
+              <strong>Note:</strong> This is a computer-generated receipt and does not require a physical signature.<br/>
+              Fee once paid is non-refundable. Please retain this receipt for future reference.<br/>
+              <span style="color: #CBD5E1;">Printed on: ${new Date().toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}</span>
+            </div>
+          </div>
+
+          <div class="receipt-bottom-bar"></div>
+        </div>
+      </body>
+    </html>
+  `)
+    printWindow.document.close()
+    setTimeout(() => {
+        printWindow.print()
+    }, 300)
+}
+
+
+/* ════════════════════════════════════════════
+   RECEIPT MODAL — View & Print Receipt
+   Now with per-payment print buttons ✨
+   ════════════════════════════════════════════ */
+function ReceiptModal({
+    open, data, onClose,
+}: {
+    open: boolean
+    data: any
+    onClose: () => void
+}) {
+    if (!open || !data) return null
+
+    const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4')
+
+    // Support both direct receipt data and API receipt data
+    const school = data.school || {}
+    const student = data.student || data
+    const feeInfo = data.fee || data
+    const payment = data.payment || data
+
+    // ─── Build common params for printing ───
+    const buildPrintParams = (paymentData: any) => ({
+        school,
+        student: {
+            name: student.studentName || student.name || 'N/A',
+            admissionNo: student.admissionNo || 'N/A',
+            class: student.class || 'N/A',
+            section: student.section || '',
+            fatherName: student.fatherName || '',
+        },
+        payment: {
+            receiptNumber: paymentData.receiptNumber || 'N/A',
+            amount: paymentData.amount || 0,
+            mode: paymentData.mode || paymentData.paymentMode || 'N/A',
+            paidAt: paymentData.paidAt || new Date().toISOString(),
+        },
+        fee: {
+            totalAmount: feeInfo.totalAmount || data.totalAmount || 0,
+            totalPaidSoFar: feeInfo.totalPaidSoFar || data.totalPaidSoFar || 0,
+            remaining: feeInfo.remaining || data.remainingAmount || 0,
+            status: feeInfo.status || data.status || 'paid',
+            feeType: feeInfo.feeType || data.feeType || 'Tuition Fee',
+            discount: feeInfo.discount || data.discount || 0,
+        },
+        academicYear: data.academicYear || school.academicYear || '',
+        paperSize,
+        allPayments: data.allPayments,
+        feeBreakdown: data.feeBreakdown,
+    })
+
+    // Print current/main receipt
+    const handlePrint = () => {
+        printSingleReceipt(buildPrintParams(payment))
+    }
+
+    // Print a specific payment from history
+    const handlePrintSpecificPayment = (paymentItem: any) => {
+        // Calculate cumulative paid up to this payment
+        const allPayments = data.allPayments || []
+        const paymentIndex = allPayments.findIndex((p: any) => p.receiptNumber === paymentItem.receiptNumber)
+        let cumulativePaid = 0
+        for (let i = 0; i <= paymentIndex; i++) {
+            cumulativePaid += allPayments[i]?.amount || 0
+        }
+        const totalAmount = feeInfo.totalAmount || data.totalAmount || 0
+        const remainingAtThatPoint = totalAmount - cumulativePaid
+        const statusAtThatPoint = remainingAtThatPoint <= 0 ? 'paid' : 'partial'
+
+        printSingleReceipt({
+            school,
+            student: {
+                name: student.studentName || student.name || 'N/A',
+                admissionNo: student.admissionNo || 'N/A',
+                class: student.class || 'N/A',
+                section: student.section || '',
+                fatherName: student.fatherName || '',
+            },
+            payment: {
+                receiptNumber: paymentItem.receiptNumber || 'N/A',
+                amount: paymentItem.amount || 0,
+                mode: paymentItem.mode || paymentItem.paymentMode || 'N/A',
+                paidAt: paymentItem.paidAt || new Date().toISOString(),
+            },
+            fee: {
+                totalAmount: totalAmount,
+                totalPaidSoFar: cumulativePaid,
+                remaining: Math.max(0, remainingAtThatPoint),
+                status: statusAtThatPoint,
+                feeType: feeInfo.feeType || data.feeType || 'Tuition Fee',
+                discount: feeInfo.discount || data.discount || 0,
+            },
+            academicYear: data.academicYear || school.academicYear || '',
+            paperSize,
+            allPayments: data.allPayments,
+            feeBreakdown: data.feeBreakdown,
+        })
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" style={{ border: '1px solid #E2E8F0' }}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#EFF6FF' }}>
+                            <Receipt size={16} style={{ color: '#2563EB' }} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold" style={{ color: '#0F172A' }}>Fee Receipt</h3>
+                            <p className="text-xs" style={{ color: '#94A3B8' }}>{payment.receiptNumber || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {/* Paper Size Toggle */}
+                        <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid #E2E8F0' }}>
+                            <button
+                                onClick={() => setPaperSize('A4')}
+                                className="px-2.5 py-1.5 text-[10px] font-bold transition-colors"
+                                style={{
+                                    backgroundColor: paperSize === 'A4' ? '#2563EB' : '#F8FAFC',
+                                    color: paperSize === 'A4' ? '#FFFFFF' : '#64748B',
+                                }}
+                            >
+                                A4
+                            </button>
+                            <button
+                                onClick={() => setPaperSize('A5')}
+                                className="px-2.5 py-1.5 text-[10px] font-bold transition-colors"
+                                style={{
+                                    backgroundColor: paperSize === 'A5' ? '#2563EB' : '#F8FAFC',
+                                    color: paperSize === 'A5' ? '#FFFFFF' : '#64748B',
+                                    borderLeft: '1px solid #E2E8F0',
+                                }}
+                            >
+                                A5
+                            </button>
+                        </div>
+                        <button
+                            onClick={handlePrint}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                            style={{ color: '#2563EB', backgroundColor: '#EFF6FF' }}
+                            title="Print Receipt"
+                        >
+                            <Printer size={14} />
+                        </button>
+                        <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}>
+                            <X size={14} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Receipt Content */}
+                <div className="flex-1 overflow-y-auto px-5 py-4" id="receipt-content">
+                    {/* School Header */}
+                    <div className="text-center mb-4 pb-4" style={{ borderBottom: '2px solid #1D4ED8' }}>
+                        <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)' }}>
+                            <span className="text-white font-extrabold text-base">
+                                {(school.name || student.schoolName || 'S').charAt(0).toUpperCase()}
+                            </span>
+                        </div>
+                        <h2 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: '#0F172A' }}>
+                            {school.name || student.schoolName || 'School Name'}
+                        </h2>
+                        {school.address && <p className="text-[11px] mt-1" style={{ color: '#64748B' }}>{school.address}</p>}
+                        <div className="inline-block mt-2 px-4 py-1 rounded-full text-[10px] font-bold tracking-widest text-white uppercase" style={{ background: 'linear-gradient(135deg, #1D4ED8, #2563EB)' }}>
+                            Fee Receipt
+                        </div>
+                    </div>
+
+                    {/* Receipt Info */}
+                    <div className="flex justify-between items-start mb-3 p-3 rounded-lg" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                        <div>
+                            <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Receipt No.</span>
+                            <p className="font-bold font-mono text-sm" style={{ color: '#0F172A' }}>{payment.receiptNumber || 'N/A'}</p>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Date</span>
+                            <p className="font-bold text-sm" style={{ color: '#0F172A' }}>
+                                {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Student Info Card */}
+                    <div className="rounded-xl mb-3 overflow-hidden" style={{ border: '1.5px solid #E2E8F0' }}>
+                        <div className="px-3 py-2" style={{ background: 'linear-gradient(135deg, #F0F9FF, #E0F2FE)', borderBottom: '1px solid #BAE6FD' }}>
+                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#0369A1' }}>Student Details</span>
+                        </div>
+                        <div className="grid grid-cols-2">
+                            <div className="px-3 py-2" style={{ borderBottom: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9' }}>
+                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Student Name</span>
+                                <p className="text-xs font-bold" style={{ color: '#1E293B' }}>{student.studentName || student.name || 'N/A'}</p>
+                            </div>
+                            <div className="px-3 py-2" style={{ borderBottom: '1px solid #F1F5F9' }}>
+                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Admission No.</span>
+                                <p className="text-xs font-bold font-mono" style={{ color: '#1E293B' }}>{student.admissionNo || 'N/A'}</p>
+                            </div>
+                            <div className="px-3 py-2" style={{ borderRight: '1px solid #F1F5F9' }}>
+                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Class & Section</span>
+                                <p className="text-xs font-bold" style={{ color: '#1E293B' }}>{student.class}{student.section ? ' - ' + student.section : ''}</p>
+                            </div>
+                            <div className="px-3 py-2">
+                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Payment Mode</span>
+                                <p className="text-xs font-bold capitalize" style={{ color: '#1E293B' }}>{payment.mode || payment.paymentMode || 'N/A'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Amount Summary */}
+                    <div className="rounded-xl mb-3 overflow-hidden" style={{ border: '2px solid #E2E8F0' }}>
+                        <div className="flex justify-between items-center px-4 py-2.5" style={{ borderBottom: '1px solid #F1F5F9' }}>
+                            <span className="text-xs" style={{ color: '#475569' }}>Total Fee Amount</span>
+                            <span className="text-xs font-bold font-mono" style={{ color: '#1E293B' }}>₹{(feeInfo.totalAmount || data.totalAmount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="flex justify-between items-center px-4 py-3" style={{ background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}>
+                            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#166534' }}>Amount Paid</span>
+                            <span className="text-xl font-black font-mono" style={{ color: '#15803D' }}>₹{(payment.amount || data.paidAmount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                        {(feeInfo.totalPaidSoFar || data.totalPaidSoFar) && (
+                            <div className="flex justify-between items-center px-4 py-2" style={{ borderTop: '1px solid #E2E8F0' }}>
+                                <span className="text-xs" style={{ color: '#475569' }}>Total Paid So Far</span>
+                                <span className="text-xs font-bold font-mono" style={{ color: '#1E293B' }}>₹{(feeInfo.totalPaidSoFar || data.totalPaidSoFar || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                        )}
+                        {(feeInfo.remaining || data.remainingAmount) > 0 && (
+                            <div className="flex justify-between items-center px-4 py-2" style={{ backgroundColor: '#FEF2F2', borderTop: '1px solid #FECACA' }}>
+                                <span className="text-xs font-semibold" style={{ color: '#DC2626' }}>Balance Remaining</span>
+                                <span className="text-xs font-bold font-mono" style={{ color: '#DC2626' }}>₹{(feeInfo.remaining || data.remainingAmount || 0).toLocaleString('en-IN')}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Status */}
+                    <div className="text-center mb-3">
+                        <FeeBadge status={feeInfo.status || data.status || 'paid'} dueDate={new Date().toISOString()} />
+                    </div>
+
+                    {/* Payment History — with individual print buttons */}
+                    {data.allPayments && data.allPayments.length > 1 && (
+                        <div className="mt-3">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#475569' }}>📋 Payment History</p>
+                                <p className="text-[8px]" style={{ color: '#94A3B8' }}>Click 🖨️ to print individual receipt</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                {data.allPayments.map((p: any, i: number) => {
+                                    const isCurrentReceipt = p.receiptNumber === payment.receiptNumber
+                                    return (
+                                        <div
+                                            key={i}
+                                            className="flex justify-between items-center px-3 py-2.5 rounded-xl text-xs transition-all"
+                                            style={{
+                                                backgroundColor: isCurrentReceipt ? '#ECFDF5' : '#F8FAFC',
+                                                border: isCurrentReceipt ? '1.5px solid #A7F3D0' : '1px solid #F1F5F9',
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                {/* Payment Index Circle */}
+                                                <div
+                                                    className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
+                                                    style={{
+                                                        backgroundColor: isCurrentReceipt ? '#059669' : '#E2E8F0',
+                                                        color: isCurrentReceipt ? '#FFFFFF' : '#64748B',
+                                                    }}
+                                                >
+                                                    {i + 1}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="font-mono font-semibold truncate" style={{ color: isCurrentReceipt ? '#059669' : '#334155' }}>
+                                                            {p.receiptNumber}
+                                                        </span>
+                                                        {isCurrentReceipt && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[7px] font-bold uppercase tracking-wider" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                                                                Current
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span style={{ color: '#94A3B8' }}>
+                                                            {new Date(p.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                        </span>
+                                                        <span className="capitalize" style={{ color: '#94A3B8' }}>
+                                                            • {p.mode || p.paymentMode || '-'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 flex-shrink-0">
+                                                <span className="font-bold font-mono" style={{ color: '#15803D' }}>
+                                                    ₹{p.amount.toLocaleString('en-IN')}
+                                                </span>
+                                                {/* Individual Print Button */}
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handlePrintSpecificPayment(p)
+                                                    }}
+                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                                                    style={{
+                                                        backgroundColor: '#EFF6FF',
+                                                        color: '#2563EB',
+                                                        border: '1px solid #BFDBFE',
+                                                    }}
+                                                    title={`Print receipt ${p.receiptNumber}`}
+                                                >
+                                                    <Printer size={12} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Print All Receipts Button */}
+                            <button
+                                onClick={() => {
+                                    data.allPayments.forEach((p: any, i: number) => {
+                                        setTimeout(() => handlePrintSpecificPayment(p), i * 500)
+                                    })
+                                }}
+                                className="w-full mt-2 py-2 rounded-xl text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
+                                style={{
+                                    backgroundColor: '#F8FAFC',
+                                    color: '#475569',
+                                    border: '1px dashed #CBD5E1',
+                                }}
+                            >
+                                <Printer size={12} />
+                                Print All {data.allPayments.length} Receipts
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-4 flex gap-2 flex-shrink-0" style={{ borderTop: '1px solid #F1F5F9' }}>
+                    <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}>
+                        Close
+                    </button>
+                    <button
+                        onClick={handlePrint}
+                        className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                        style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
+                    >
+                        <Printer size={14} />
+                        Print {paperSize}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+
+/* ════════════════════════════════════════════
+   HELPER — Convert Number to Words (Indian)
+   ════════════════════════════════════════════ */
+function numberToWords(num: number): string {
+    if (num === 0) return 'Zero'
+
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+        'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+        'Seventeen', 'Eighteen', 'Nineteen']
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+
+    function convertLessThanThousand(n: number): string {
+        if (n === 0) return ''
+        if (n < 20) return ones[n]
+        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '')
+        return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' and ' + convertLessThanThousand(n % 100) : '')
+    }
+
+    const absNum = Math.abs(Math.floor(num))
+
+    if (absNum < 1000) return convertLessThanThousand(absNum)
+
+    const crore = Math.floor(absNum / 10000000)
+    const lakh = Math.floor((absNum % 10000000) / 100000)
+    const thousand = Math.floor((absNum % 100000) / 1000)
+    const remainder = absNum % 1000
+
+    let result = ''
+    if (crore) result += convertLessThanThousand(crore) + ' Crore '
+    if (lakh) result += convertLessThanThousand(lakh) + ' Lakh '
+    if (thousand) result += convertLessThanThousand(thousand) + ' Thousand '
+    if (remainder) result += convertLessThanThousand(remainder)
+
+    return result.trim()
+}
 
 /* ═══════════════════════════════════════════════════════════════
    FEE STRUCTURE MODAL — Create / Edit

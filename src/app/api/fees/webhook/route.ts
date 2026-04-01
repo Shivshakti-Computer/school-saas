@@ -1,100 +1,104 @@
-// -------------------------------------------------------------
 // FILE: src/app/api/fees/webhook/route.ts
-// Razorpay webhook — payment confirm hone pe auto-update
-// REPLACE existing webhook file
-// -------------------------------------------------------------
-
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { connectDB } from '@/lib/db'
 import { Fee } from '@/models/Fee'
 import { Student } from '@/models/Student'
-import { sendSMS, SMS_TEMPLATES } from '@/lib/sms'
-import { generateReceiptPDF } from '@/lib/pdf'
+import { School } from '@/models/School'
+
+function generateReceiptNo(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  const rand = Math.random().toString(36).substring(2, 7).toUpperCase()
+  return `RCP-${y}${m}${d}-${rand}`
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.text()
     const sig = req.headers.get('x-razorpay-signature') ?? ''
 
-    // Signature verify karo
-    const expected = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
-      .update(body)
-      .digest('hex')
-
-    if (sig !== expected) {
-      console.error('Webhook signature mismatch')
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-    }
-
-    const event = JSON.parse(body)
-    console.log('Razorpay webhook event:', event.event)
-
     await connectDB()
 
+    const event = JSON.parse(body)
+
+    // Find the fee to get tenantId, then verify with school's secret
     if (event.event === 'payment.captured') {
       const payment = event.payload.payment.entity
       const notes = payment.notes ?? {}
+      const feeId = notes.feeId
+      const tenantId = notes.tenantId
 
-      // Fee record dhundho order ID se
-      const fee = await Fee.findOneAndUpdate(
-        { razorpayOrderId: payment.order_id },
-        {
-          $set: {
-            status: 'paid',
-            paidAmount: payment.amount / 100,
-            razorpayPaymentId: payment.id,
-            paidAt: new Date(),
-            paymentMode: 'online',
-          },
-        },
-        { new: true }
-      )
-
-      if (fee) {
-        // Receipt number generate karo
-        const receiptNumber = `RCP-${Date.now()}`
-        await Fee.findByIdAndUpdate(fee._id, { receiptNumber })
-
-        // Receipt PDF generate karo (background mein)
-        try {
-          const receiptUrl = await generateReceiptPDF(fee._id.toString())
-          await Fee.findByIdAndUpdate(fee._id, { receiptUrl })
-        } catch (pdfErr) {
-          console.error('Receipt PDF error (non-fatal):', pdfErr)
-        }
-
-        // SMS to parent
-        try {
-          const student = await Student.findById(fee.studentId).lean() as any
-          if (student?.parentPhone) {
-            await sendSMS(
-              student.parentPhone,
-              SMS_TEMPLATES.feePaid(
-                student.admissionNo ?? 'Student',
-                fee.paidAmount,
-                receiptNumber
-              )
-            )
-          }
-        } catch (smsErr) {
-          console.error('SMS error (non-fatal):', smsErr)
-        }
+      if (!feeId || !tenantId) {
+        console.error('Webhook: Missing feeId or tenantId in notes')
+        return NextResponse.json({ received: true })
       }
+
+      // Get school's Razorpay secret for verification
+      const school = await School.findById(tenantId)
+        .select('paymentSettings')
+        .lean() as any
+
+      const secret = school?.paymentSettings?.razorpayKeySecret ||
+        process.env.RAZORPAY_KEY_SECRET!
+
+      // Verify signature
+      const expected = crypto
+        .createHmac('sha256', secret)
+        .update(body)
+        .digest('hex')
+
+      if (sig !== expected) {
+        console.error('Webhook signature mismatch for tenant:', tenantId)
+        return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+      }
+
+      const fee = await Fee.findOne({ razorpayOrderId: payment.order_id })
+      if (!fee) {
+        console.error('Webhook: Fee not found for order:', payment.order_id)
+        return NextResponse.json({ received: true })
+      }
+
+      const paidAmountRupees = payment.amount / 100
+      const newTotalPaid = fee.paidAmount + paidAmountRupees
+      const isFullyPaid = newTotalPaid >= fee.finalAmount
+      const receiptNumber = generateReceiptNo()
+
+      const paymentRecord = {
+        amount: paidAmountRupees,
+        paymentMode: 'online' as const,
+        razorpayPaymentId: payment.id,
+        receiptNumber,
+        paidAt: new Date(),
+      }
+
+      await Fee.findByIdAndUpdate(fee._id, {
+        $set: {
+          status: isFullyPaid ? 'paid' : 'partial',
+          paidAmount: newTotalPaid,
+          razorpayPaymentId: payment.id,
+          paidAt: new Date(),
+          paymentMode: 'online',
+          receiptNumber,
+        },
+        $push: {
+          payments: paymentRecord,
+        },
+      })
+
+      console.log(`Webhook: Fee ${fee._id} - Paid ₹${paidAmountRupees}, Total: ₹${newTotalPaid}/${fee.finalAmount}, Status: ${isFullyPaid ? 'paid' : 'partial'}`)
     }
 
     if (event.event === 'payment.failed') {
       const payment = event.payload.payment.entity
       console.log('Payment failed:', payment.id, payment.error_description)
-      // Optionally notify admin or student
     }
 
     return NextResponse.json({ received: true })
-
   } catch (err: any) {
     console.error('Webhook error:', err)
-    // Always return 200 to Razorpay (don't retry)
     return NextResponse.json({ received: true })
   }
 }
