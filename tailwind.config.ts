@@ -46,6 +46,17 @@ const config: Config = {
         slate: {
           750: '#293548',
         },
+        // Portal-specific semantic colors
+        portal: {
+          bg: '#F8FAFC',
+          sidebar: '#FFFFFF',
+          'sidebar-hover': '#F1F5F9',
+          'sidebar-active': '#EFF6FF',
+          header: '#FFFFFF',
+          card: '#FFFFFF',
+          border: '#E2E8F0',
+          'border-light': '#F1F5F9',
+        },
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', 'system-ui', '-apple-system', 'sans-serif'],
@@ -60,6 +71,15 @@ const config: Config = {
         'gradient-x': 'gradientX 8s ease infinite',
         'bounce-slow': 'bounceSlow 2s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
+        // New portal animations
+        'sidebar-in': 'sidebarIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'sidebar-out': 'sidebarOut 0.2s ease-in forwards',
+        'overlay-in': 'overlayIn 0.3s ease forwards',
+        'overlay-out': 'overlayOut 0.2s ease forwards',
+        'tooltip': 'tooltipIn 0.15s ease-out forwards',
+        'dropdown': 'dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+        'count-up': 'countUp 0.6s ease-out forwards',
       },
       keyframes: {
         fadeIn: {
@@ -94,6 +114,39 @@ const config: Config = {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        // New portal keyframes
+        sidebarIn: {
+          '0%': { transform: 'translateX(-100%)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        sidebarOut: {
+          '0%': { transform: 'translateX(0)', opacity: '1' },
+          '100%': { transform: 'translateX(-100%)', opacity: '0' },
+        },
+        overlayIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        overlayOut: {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' },
+        },
+        tooltipIn: {
+          '0%': { opacity: '0', transform: 'translateX(8px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        dropdownIn: {
+          '0%': { opacity: '0', transform: 'translateY(-4px) scale(0.98)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        pulseSoft: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        },
+        countUp: {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       boxShadow: {
         'soft': '0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 4px 16px -4px rgba(0, 0, 0, 0.08)',
@@ -101,11 +154,41 @@ const config: Config = {
         'elevated': '0 8px 24px -4px rgba(0, 0, 0, 0.1), 0 16px 48px -8px rgba(0, 0, 0, 0.1)',
         'brand': '0 4px 16px -2px rgba(37, 99, 235, 0.25)',
         'brand-lg': '0 8px 32px -4px rgba(37, 99, 235, 0.3)',
+        // New portal shadows
+        'sidebar': '4px 0 24px -4px rgba(0, 0, 0, 0.08)',
+        'header': '0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px -2px rgba(0, 0, 0, 0.03)',
+        'card-hover': '0 8px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -4px rgba(0, 0, 0, 0.04)',
+        'nav-active': 'inset 3px 0 0 0 #2563EB',
+        'inner-soft': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.04)',
       },
       borderRadius: {
         '2xl': '1rem',
         '3xl': '1.25rem',
         '4xl': '1.5rem',
+      },
+      // Smooth transitions for portal
+      transitionDuration: {
+        '250': '250ms',
+        '350': '350ms',
+        '400': '400ms',
+      },
+      transitionTimingFunction: {
+        'smooth': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'bounce-in': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+      },
+      // Better spacing for portal
+      spacing: {
+        '4.5': '1.125rem',
+        '13': '3.25rem',
+        '15': '3.75rem',
+        '17': '4.25rem',
+        '18': '4.5rem',
+        'sidebar': '16.5rem', // 264px - perfect sidebar width
+        'sidebar-collapsed': '4.5rem', // 72px
+      },
+      width: {
+        'sidebar': '16.5rem',
+        'sidebar-collapsed': '4.5rem',
       },
     },
   },
