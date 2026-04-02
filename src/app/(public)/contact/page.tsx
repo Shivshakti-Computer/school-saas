@@ -194,7 +194,7 @@ export default function ContactPage() {
                   </div>
 
                   <p className="text-sm text-slate-600 mb-5">
-                    No credit card required. Get full access to all features for 14 days. We&apos;ll personally help you set up.
+                    No credit card required. Get full access to all features for 60 days. We&apos;ll personally help you set up.
                   </p>
 
                   <a
