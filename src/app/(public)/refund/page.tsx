@@ -24,7 +24,7 @@ export default function RefundPage() {
     >
       <LegalSection number="01" title="Free Trial Period">
         <p>
-          Every new school registration receives a <strong className="text-slate-800">15-day free trial</strong> with
+          Every new school registration receives a <strong className="text-slate-800">60-day free trial</strong> with
           no payment required. No credit card is needed during the trial period.
         </p>
         <p>

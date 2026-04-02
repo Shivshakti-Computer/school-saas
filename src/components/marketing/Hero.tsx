@@ -198,7 +198,7 @@ export function Hero() {
                 </div>
 
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md">
-                  <span className="text-white text-xs font-bold">VF</span>
+                  <span className="text-white text-xs font-bold">SF</span>
                 </div>
               </div>
 

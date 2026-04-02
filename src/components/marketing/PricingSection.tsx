@@ -197,7 +197,7 @@ export function PricingSection() {
           <span className="w-1 h-1 rounded-full bg-slate-300" />
           <span>No setup fees</span>
           <span className="w-1 h-1 rounded-full bg-slate-300" />
-          <span>15-day free trial</span>
+          <span>60-day free trial</span>
         </div>
       </Container>
     </section>

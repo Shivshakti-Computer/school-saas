@@ -44,7 +44,7 @@ const contactMethods = [
 
 const officeInfo = {
   address: 'Shivshakti Computer Academy, Main Road, Ambikapur, Chhattisgarh - 497001',
-  hours: 'Monday - Saturday: 9:00 AM - 7:00 PM IST',
+  hours: 'Monday - Saturday: 10:00 AM - 6:00 PM IST',
   response: 'We typically respond within 2-4 hours during business days.',
 }
 
