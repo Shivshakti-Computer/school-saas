@@ -523,7 +523,8 @@ export default function RegisterPage() {
                 <h2 className="text-2xl font-bold text-slate-900">You're all set! 🎉</h2>
                 <p className="text-sm text-slate-500 mt-1.5">
                   <span className="font-semibold text-emerald-600">{success.schoolName}</span> has been registered.
-                  Your {success.trialDays}-day free trial has started.
+                  {/* Your {success.trialDays}-day free trial has started. */}
+                  Your free trial has started.
                 </p>
               </div>
 
