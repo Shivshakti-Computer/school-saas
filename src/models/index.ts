@@ -1,3 +1,7 @@
+export { MessageCredit } from './MessageCredit'
+export { MessageLog } from './MessageLog'
+export { CreditTransaction } from './CreditTransaction'
+
 export { School } from './School'
 export { User } from './User'
 export { Student } from './Student'

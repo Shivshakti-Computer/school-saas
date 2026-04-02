@@ -15,6 +15,7 @@ import {
 } from '@/lib/security'
 import { logAudit } from '@/lib/audit'
 import { TRIAL_CONFIG } from '@/lib/plans'
+import { grantTrialCredits } from '@/lib/credits'
 
 export async function POST(req: NextRequest) {
   // ── Rate Limit ──
@@ -141,6 +142,8 @@ export async function POST(req: NextRequest) {
       isActive: true,
       onboardingComplete: false,
     })
+
+    await grantTrialCredits(school._id.toString())
 
     // ── Create admin user (with stronger hash) ──
     const hashedPwd = await bcrypt.hash(password, 12) // Increased from 10 to 12

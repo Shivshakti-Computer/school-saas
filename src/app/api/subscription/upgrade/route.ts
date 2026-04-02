@@ -13,6 +13,7 @@ import {
 } from '@/lib/plans'
 import { logAudit } from '@/lib/audit'
 import type { PlanId, BillingCycle } from '@/lib/plans'
+import { grantMonthlyCredits } from '@/lib/credits'
 
 const rzp = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID!,
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest) {
 }
 
 // ─── Shared helper (exported for free upgrade route) ───
+// ── applyUpgrade function mein add karo ──
 export async function applyUpgrade(
     tenantId: string,
     newPlanId: PlanId,
@@ -195,23 +197,34 @@ export async function applyUpgrade(
         currentPeriodEnd: end,
         upgradedFrom: currentSub?.plan,
         lastPaymentAt: paymentInfo ? now : undefined,
-        paymentHistory: paymentInfo ? [{
-            razorpayPaymentId: paymentInfo.razorpayPaymentId,
-            razorpayOrderId: paymentInfo.razorpayOrderId,
-            amount,
-            currency: 'INR',
-            status: 'captured' as const,
-            paidAt: now,
-            invoiceNumber,
-        }] : [],
+        paymentHistory: paymentInfo
+            ? [
+                {
+                    razorpayPaymentId: paymentInfo.razorpayPaymentId,
+                    razorpayOrderId: paymentInfo.razorpayOrderId,
+                    amount,
+                    currency: 'INR',
+                    status: 'captured' as const,
+                    paidAt: now,
+                    invoiceNumber,
+                },
+            ]
+            : [],
     })
 
     await School.findByIdAndUpdate(tenantId, {
         plan: newPlanId,
         subscriptionId: newSub._id.toString(),
         modules: plan.modules,
-        trialEndsAt: end,
     })
+
+    // ── NEW: Grant credits for new plan ──
+    // Upgrade pe naye plan ke credits milenge
+    try {
+        await grantMonthlyCredits(tenantId, newPlanId, false)
+    } catch (err) {
+        console.error('Credit grant on upgrade failed (non-critical):', err)
+    }
 
     return newSub
 }

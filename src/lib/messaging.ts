@@ -1,265 +1,287 @@
-// =============================================================
 // FILE: src/lib/messaging.ts
-// Unified messaging — uses email.ts, sms.ts, whatsapp.ts
-// Handles limits, usage tracking, bulk send
-// =============================================================
-import mongoose, { Schema } from 'mongoose'
-import { sendEmail } from './email'
-import { sendSMS } from './sms'
+// Unified send — SMS + WhatsApp + Email with credit check
+// ═══════════════════════════════════════════════════════════
+
 import { connectDB } from './db'
+import { MessageLog } from '@/models/MessageLog'
+import { deductCredits, checkCredits } from './credits'
+import { sendEmail } from './email'
+import { CREDIT_COSTS, TRIAL_CONFIG } from '@/config/pricing'
 import { School } from '@/models/School'
-import { getPlan, TRIAL_CONFIG } from './plans'
-import type { PlanId } from './plans'
-import { sendWhatsApp } from './whatsapp'
+import type { MessageChannel, MessagePurpose } from '@/models/MessageLog'
+import type { CreditType } from '@/config/pricing'
+import { msg91SendSMS, msg91SendWhatsApp } from './msg91'
 
-// ─── MessageUsage Model ───
-const MessageUsageSchema = new Schema({
-  tenantId: { type: Schema.Types.ObjectId, ref: 'School', required: true, index: true },
-  month: { type: String, required: true },
-  smsCount: { type: Number, default: 0 },
-  emailCount: { type: Number, default: 0 },
-  whatsappCount: { type: Number, default: 0 },
-}, { timestamps: true })
-
-MessageUsageSchema.index({ tenantId: 1, month: 1 }, { unique: true })
-
-export const MessageUsage = mongoose.models.MessageUsage
-  || mongoose.model('MessageUsage', MessageUsageSchema)
-
-function getCurrentMonth(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-}
-
-export type MessageChannel = 'sms' | 'email' | 'whatsapp'
-
-// ─── Check limit ───
-export async function checkMessageLimit(
-  tenantId: string,
-  channel: MessageChannel
-): Promise<{
-  allowed: boolean
-  used: number
-  limit: number
-  remaining: number
-  plan: string
-}> {
-  await connectDB()
-
-  const school = await School.findById(tenantId)
-    .select('plan subscriptionId trialEndsAt')
-    .lean() as any
-
-  if (!school) return { allowed: false, used: 0, limit: 0, remaining: 0, plan: 'unknown' }
-
-  const now = new Date()
-  const isPaid = Boolean(school.subscriptionId)
-  const isInTrial = !isPaid && new Date(school.trialEndsAt) > now
-  const plan = getPlan(school.plan as PlanId)
-
-  let channelLimit: number
-  let usageField: string
-
-  switch (channel) {
-    case 'sms':
-      channelLimit = isInTrial ? TRIAL_CONFIG.maxSmsPerMonth : plan.maxSmsPerMonth
-      usageField = 'smsCount'
-      break
-    case 'email':
-      channelLimit = isInTrial ? 500 : plan.maxEmailPerMonth
-      usageField = 'emailCount'
-      break
-    case 'whatsapp':
-      channelLimit = isInTrial ? 100 : plan.maxWhatsappPerMonth
-      usageField = 'whatsappCount'
-      break
-  }
-
-  if (channelLimit === -1) {
-    return { allowed: true, used: 0, limit: -1, remaining: -1, plan: school.plan }
-  }
-
-  const month = getCurrentMonth()
-  const usage = await MessageUsage.findOne({ tenantId, month }).lean() as any
-  const used = usage?.[usageField] || 0
-
-  return {
-    allowed: used < channelLimit,
-    used,
-    limit: channelLimit,
-    remaining: Math.max(0, channelLimit - used),
-    plan: school.plan,
-  }
-}
-
-export async function checkSMSLimit(tenantId: string) {
-  return checkMessageLimit(tenantId, 'sms')
-}
-
-// ─── Increment usage ───
-async function incrementUsage(
-  tenantId: string,
-  field: 'smsCount' | 'emailCount' | 'whatsappCount',
-  count: number = 1
-) {
-  const month = getCurrentMonth()
-  await MessageUsage.findOneAndUpdate(
-    { tenantId, month },
-    { $inc: { [field]: count } },
-    { upsert: true }
-  )
-}
-
-// ─── Send single message ───
-interface SendOptions {
+export interface SendMessageOptions {
   tenantId: string
   channel: MessageChannel
-  to: string
-  subject?: string
+  purpose: MessagePurpose
+  recipient: string
+  recipientName?: string
   message: string
+  // ── Email specific ──
+  subject?: string
   html?: string
-  templateName?: string
-  templateParams?: Record<string, string>
-  skipLimitCheck?: boolean
+  // ── MSG91 specific ──
+  templateId?: string
+  templateParams?: string[]
+  // ── Meta ──
+  sentBy?: string
+  sentByName?: string
+  metadata?: Record<string, any>
+  skipCreditCheck?: boolean  // System messages (OTP, confirmations)
 }
 
-export async function sendMessage(params: SendOptions): Promise<{
+export interface SendResult {
   success: boolean
   channel: MessageChannel
+  creditsUsed: number
+  messageLogId?: string
   error?: string
-  limitReached?: boolean
-}> {
-  try {
-    if (!params.skipLimitCheck) {
-      const limit = await checkMessageLimit(params.tenantId, params.channel)
-      if (!limit.allowed) {
-        return {
-          success: false,
-          channel: params.channel,
-          error: `${params.channel.toUpperCase()} limit reached (${limit.used}/${limit.limit}). Upgrade your plan.`,
-          limitReached: true,
-        }
+  skipped?: boolean
+  skipReason?: string
+}
+
+// ── Main send function ──
+export async function sendMessage(options: SendMessageOptions): Promise<SendResult> {
+  await connectDB()
+
+  const creditType = options.channel as CreditType
+  const creditCost = CREDIT_COSTS[creditType]
+
+  // Check credits (skip for OTP/system)
+  if (!options.skipCreditCheck) {
+    const creditCheck = await checkCredits(options.tenantId, creditType, 1)
+    if (!creditCheck.canSend) {
+      // Log as skipped
+      const log = await MessageLog.create({
+        tenantId: options.tenantId,
+        channel: options.channel,
+        purpose: options.purpose,
+        recipient: options.recipient,
+        recipientName: options.recipientName,
+        message: options.message,
+        creditsUsed: 0,
+        status: 'skipped',
+        errorMessage: creditCheck.message,
+        sentBy: options.sentBy,
+        sentByName: options.sentByName,
+        metadata: options.metadata,
+      })
+
+      return {
+        success: false,
+        channel: options.channel,
+        creditsUsed: 0,
+        messageLogId: log._id.toString(),
+        skipped: true,
+        skipReason: creditCheck.message,
       }
     }
+  }
 
-    let result: { success: boolean; error?: string }
+  // Create log entry (queued)
+  const log = await MessageLog.create({
+    tenantId: options.tenantId,
+    channel: options.channel,
+    purpose: options.purpose,
+    recipient: options.recipient,
+    recipientName: options.recipientName,
+    message: options.message,
+    templateId: options.templateId,
+    creditsUsed: creditCost,
+    status: 'queued',
+    sentBy: options.sentBy,
+    sentByName: options.sentByName,
+    metadata: options.metadata,
+  })
 
-    switch (params.channel) {
-      case 'email':
-        result = await sendEmail(
-          params.to,
-          params.subject || 'Skolify Notification',
-          params.html || `<p>${params.message}</p>`
-        )
-        if (result.success) await incrementUsage(params.tenantId, 'emailCount')
-        break
+  let providerResult: { success: boolean; messageId?: string; error?: string }
 
-      case 'sms':
-        result = await sendSMS(params.to, params.message)
-        if (result.success) await incrementUsage(params.tenantId, 'smsCount')
-        break
-
-      case 'whatsapp':
-        result = await sendWhatsApp(
-          params.to,
-          params.message,
-          params.templateName,
-          params.templateParams
-        )
-        if (result.success) await incrementUsage(params.tenantId, 'whatsappCount')
-        break
-
-      default:
-        return { success: false, channel: params.channel, error: 'Unknown channel' }
+  // ── Send via provider ──
+  try {
+    if (options.channel === 'sms') {
+      providerResult = await msg91SendSMS(
+        options.recipient,
+        options.message,
+        options.templateId
+      )
+    } else if (options.channel === 'whatsapp') {
+      providerResult = await msg91SendWhatsApp(
+        options.recipient,
+        options.message,
+        options.templateId,
+        options.templateParams
+      )
+    } else {
+      // Email
+      const subject = options.subject ?? 'Message from your school'
+      const html = options.html ?? `<p>${options.message}</p>`
+      providerResult = await sendEmail(options.recipient, subject, html)
     }
-
-    return { success: result.success, channel: params.channel, error: result.error }
   } catch (err: any) {
-    return { success: false, channel: params.channel, error: err.message }
+    providerResult = { success: false, error: err?.message ?? 'Provider error' }
+  }
+
+  // ── Update log ──
+  const finalStatus = providerResult.success ? 'sent' : 'failed'
+  await MessageLog.findByIdAndUpdate(log._id, {
+    status: finalStatus,
+    providerMessageId: providerResult.messageId,
+    errorMessage: providerResult.error,
+    deliveredAt: providerResult.success ? new Date() : undefined,
+  })
+
+  // ── Deduct credits if sent ──
+  if (providerResult.success && !options.skipCreditCheck) {
+    await deductCredits(
+      options.tenantId,
+      creditType,
+      1,
+      options.purpose,
+      log._id.toString()
+    )
+  }
+
+  return {
+    success: providerResult.success,
+    channel: options.channel,
+    creditsUsed: providerResult.success ? creditCost : 0,
+    messageLogId: log._id.toString(),
+    error: providerResult.error,
   }
 }
 
-// ─── Bulk send ───
-export async function sendBulkMessage(
-  tenantId: string,
-  channel: MessageChannel,
-  recipients: string[],
-  message: string,
-  options: Partial<SendOptions> = {}
-): Promise<{
+// ── Bulk send (e.g., attendance SMS to all absent students) ──
+export interface BulkSendOptions {
+  tenantId: string
+  channel: MessageChannel
+  purpose: MessagePurpose
+  recipients: Array<{
+    recipient: string
+    recipientName?: string
+    message: string
+    templateParams?: string[]
+  }>
+  templateId?: string
+  sentBy?: string
+  sentByName?: string
+  subject?: string
+}
+
+export interface BulkSendResult {
   total: number
   sent: number
   failed: number
-  errors: string[]
-  limitReached: boolean
-}> {
-  const errors: string[] = []
-  let sent = 0
-  let limitReached = false
-
-  const limit = await checkMessageLimit(tenantId, channel)
-  if (!limit.allowed) {
-    return {
-      total: recipients.length, sent: 0, failed: recipients.length,
-      errors: [`${channel.toUpperCase()} limit reached (${limit.used}/${limit.limit})`],
-      limitReached: true,
-    }
-  }
-
-  if (limit.remaining !== -1 && recipients.length > limit.remaining) {
-    return {
-      total: recipients.length, sent: 0, failed: recipients.length,
-      errors: [`Not enough ${channel.toUpperCase()} quota. Need ${recipients.length}, have ${limit.remaining}`],
-      limitReached: true,
-    }
-  }
-
-  for (const to of recipients) {
-    const result = await sendMessage({
-      tenantId, channel, to, message,
-      ...options,
-      skipLimitCheck: true,
-    })
-    if (result.success) {
-      sent++
-    } else {
-      errors.push(`${to}: ${result.error}`)
-      if (result.limitReached) { limitReached = true; break }
-    }
-  }
-
-  return { total: recipients.length, sent, failed: recipients.length - sent, errors, limitReached }
+  skipped: number
+  creditsUsed: number
+  insufficientCredits: boolean
 }
 
-// ─── Message Templates (SMS/WhatsApp text) ───
-export const MESSAGE_TEMPLATES = {
-  otp: (otp: string, mins: number = 5) =>
-    `Your Skolify login OTP is: ${otp}. Valid for ${mins} minutes. Do not share with anyone.`,
+export async function sendBulkMessages(options: BulkSendOptions): Promise<BulkSendResult> {
+  await connectDB()
 
-  feeReminder: (studentName: string, amount: string, dueDate: string) =>
-    `Dear Parent, fee of Rs.${amount} for ${studentName} is due on ${dueDate}. Please pay on time. - Skolify`,
+  const creditType = options.channel as CreditType
+  const totalRequired = Math.ceil(options.recipients.length * CREDIT_COSTS[creditType])
 
-  absentAlert: (studentName: string, date: string) =>
-    `Dear Parent, ${studentName} was marked absent on ${date}. Contact school if incorrect. - Skolify`,
+  // Pre-check total credits
+  const creditCheck = await checkCredits(options.tenantId, creditType, options.recipients.length)
 
-  examSchedule: (examName: string, date: string) =>
-    `Exam Alert: ${examName} is scheduled on ${date}. Please prepare. - Skolify`,
+  if (!creditCheck.canSend) {
+    // Log all as skipped
+    const logs = options.recipients.map(r => ({
+      tenantId: options.tenantId,
+      channel: options.channel,
+      purpose: options.purpose,
+      recipient: r.recipient,
+      recipientName: r.recipientName,
+      message: r.message,
+      creditsUsed: 0,
+      status: 'skipped' as const,
+      errorMessage: 'Insufficient credits',
+      sentBy: options.sentBy,
+      sentByName: options.sentByName,
+    }))
+    await MessageLog.insertMany(logs)
 
-  resultPublished: (examName: string, className: string) =>
-    `Results for ${examName} (${className}) published. Login to Skolify to view. - Skolify`,
+    return {
+      total: options.recipients.length,
+      sent: 0,
+      failed: 0,
+      skipped: options.recipients.length,
+      creditsUsed: 0,
+      insufficientCredits: true,
+    }
+  }
 
-  notice: (title: string) =>
-    `New Notice: ${title}. Login to Skolify to read. - Skolify`,
+  // Send in batches of 50
+  const BATCH_SIZE = 50
+  let sent = 0, failed = 0, skipped = 0, creditsUsed = 0
 
-  welcome: (schoolName: string, code: string) =>
-    `Welcome to ${schoolName} on Skolify! School Code: ${code}. Login at skolify.in/login`,
+  for (let i = 0; i < options.recipients.length; i += BATCH_SIZE) {
+    const batch = options.recipients.slice(i, i + BATCH_SIZE)
 
-  feeReceived: (studentName: string, amount: string, receiptNo: string) =>
-    `Fee received: Rs.${amount} for ${studentName}. Receipt: ${receiptNo}. Thank you! - Skolify`,
+    await Promise.allSettled(
+      batch.map(async (r) => {
+        const result = await sendMessage({
+          tenantId: options.tenantId,
+          channel: options.channel,
+          purpose: options.purpose,
+          recipient: r.recipient,
+          recipientName: r.recipientName,
+          message: r.message,
+          templateId: options.templateId,
+          templateParams: r.templateParams,
+          sentBy: options.sentBy,
+          sentByName: options.sentByName,
+          subject: options.subject,
+        })
 
-  homeworkAssigned: (className: string, subject: string, dueDate: string) =>
-    `New homework for ${className} - ${subject}. Due: ${dueDate}. Check Skolify app. - Skolify`,
+        if (result.skipped) skipped++
+        else if (result.success) { sent++; creditsUsed += result.creditsUsed }
+        else failed++
+      })
+    )
 
-  attendanceReport: (studentName: string, month: string, percentage: string) =>
-    `${studentName}'s attendance for ${month}: ${percentage}%. - Skolify`,
+    // Small delay between batches
+    if (i + BATCH_SIZE < options.recipients.length) {
+      await new Promise(r => setTimeout(r, 200))
+    }
+  }
+
+  return {
+    total: options.recipients.length,
+    sent,
+    failed,
+    skipped,
+    creditsUsed,
+    insufficientCredits: false,
+  }
+}
+
+// ── SMS Templates (MSG91 style) ──
+export const SMS_TEMPLATES = {
+  absentAlert: (studentName: string, date: string, schoolName: string) =>
+    `${studentName} was ABSENT on ${date} at ${schoolName}. Please contact school if needed. -Skolify`,
+
+  feeReminder: (studentName: string, amount: number, dueDate: string) =>
+    `Fee of Rs.${amount} for ${studentName} due on ${dueDate}. Pay online to avoid late fine. -Skolify`,
+
+  feePaid: (studentName: string, amount: number, receiptNo: string) =>
+    `Payment Rs.${amount} received for ${studentName}. Receipt: ${receiptNo}. Thank you! -Skolify`,
+
+  examResult: (studentName: string, examName: string) =>
+    `${studentName}'s ${examName} result is now available. Login to portal to view. -Skolify`,
+
+  notice: (schoolName: string, title: string) =>
+    `${schoolName}: New notice - "${title}". Login to portal for details. -Skolify`,
+
+  admissionApproved: (studentName: string, schoolName: string) =>
+    `${studentName}'s admission at ${schoolName} is APPROVED. Visit school for further process. -Skolify`,
+
+  creditLow: (balance: number) =>
+    `Skolify Alert: Your message credit balance is low (${balance} credits). Recharge now to continue messaging.`,
+
+  trialEnding: (daysLeft: number) =>
+    `Skolify: Your 60-day free trial ends in ${daysLeft} days. Subscribe now at skolify.in to continue.`,
 }

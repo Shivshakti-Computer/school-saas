@@ -1,40 +1,59 @@
 // FILE: src/app/api/messaging/usage/route.ts
+// UPDATED: Real data now
 
 import { NextRequest, NextResponse } from 'next/server'
-import { checkSMSLimit, MessageUsage } from '@/lib/messaging'
 import { apiGuard } from '@/lib/apiGuard'
+import { getCreditStats } from '@/lib/credits'
+import { connectDB } from '@/lib/db'
+import { MessageLog } from '@/models/MessageLog'
+import { CreditTransaction } from '@/models/CreditTransaction'
 
 export async function GET(req: NextRequest) {
     const guard = await apiGuard(req, {
-        allowedRoles: ['admin', 'superadmin'],
-        skipPlanCheck: true,
+        allowedRoles: ['admin', 'staff', 'superadmin'],
+        rateLimit: 'api',
     })
     if (guard instanceof NextResponse) return guard
 
-    const { session } = guard
+    await connectDB()
 
-    try {
-        const smsLimit = await checkSMSLimit(session.user.tenantId)
+    const tenantId = guard.session.user.tenantId
+    const stats = await getCreditStats(tenantId)
 
-        // Get current month usage
-        const month = new Date().toISOString().slice(0, 7)
-        const usage = await MessageUsage.findOne({
-            tenantId: session.user.tenantId,
-            month,
-        }).lean() as any
+    // Current month stats
+    const monthStart = new Date()
+    monthStart.setDate(1)
+    monthStart.setHours(0, 0, 0, 0)
 
-        return NextResponse.json({
-            sms: {
-                used: smsLimit.used,
-                limit: smsLimit.limit,
-                remaining: smsLimit.remaining,
-                plan: smsLimit.plan,
+    const monthlyByChannel = await MessageLog.aggregate([
+        {
+            $match: {
+                tenantId: new (require('mongoose').Types.ObjectId)(tenantId),
+                createdAt: { $gte: monthStart },
+                status: { $in: ['sent', 'delivered'] },
             },
-            email: { used: usage?.emailCount || 0 },
-            whatsapp: { used: usage?.whatsappCount || 0 },
-            month,
-        })
-    } catch (err: any) {
-        return NextResponse.json({ error: err.message }, { status: 500 })
-    }
+        },
+        {
+            $group: {
+                _id: '$channel',
+                count: { $sum: 1 },
+                credits: { $sum: '$creditsUsed' },
+            },
+        },
+    ])
+
+    // Recent transactions
+    const recentTxns = await CreditTransaction.find({ tenantId })
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean()
+
+    return NextResponse.json({
+        success: true,
+        data: {
+            ...stats,
+            monthlyByChannel,
+            recentTransactions: recentTxns,
+        },
+    })
 }

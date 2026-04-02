@@ -1,6 +1,6 @@
-// FILE: src/lib/auth.ts (UPDATED)
-// CHANGES: Load allowedModules + staffCategory for staff role into session
-// BACKWARD COMPATIBLE — existing admin/teacher/student/parent flows unchanged
+// FILE: src/lib/auth.ts
+// COMPLETE FILE — creditBalance + addonLimits added
+// ═══════════════════════════════════════════════════════════
 
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
@@ -12,7 +12,7 @@ import { Subscription } from '@/models/Subscription'
 import { Staff } from '@/models/Staff'
 import { is2FAEnabled, isTrustedDevice } from './twoFactor'
 import { logLogin } from './audit'
-import { TRIAL_CONFIG } from './plans'
+import { TRIAL_CONFIG } from '@/config/pricing'
 
 const TRIAL_MODULES = TRIAL_CONFIG.modules
 const TRIAL_PLAN = TRIAL_CONFIG.plan
@@ -21,7 +21,6 @@ export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'credentials',
-
       credentials: {
         phone: { label: 'Phone/Email', type: 'text' },
         email: { label: 'Email', type: 'text' },
@@ -36,12 +35,14 @@ export const authOptions: NextAuthOptions = {
         try {
           await connectDB()
 
-          const ip = (req as any)?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() || 'unknown'
+          const ip =
+            (req as any)?.headers?.['x-forwarded-for']?.split(',')[0]?.trim() ||
+            'unknown'
           const userAgent = (req as any)?.headers?.['user-agent'] || 'unknown'
 
-          /* ══════════════════════════════════════════
-             SUPERADMIN LOGIN
-          ══════════════════════════════════════════ */
+          // ══════════════════════════════════════
+          // SUPERADMIN LOGIN
+          // ══════════════════════════════════════
           if (credentials?.type === 'superadmin') {
             if (!credentials.email || !credentials.password) return null
 
@@ -49,8 +50,10 @@ export const authOptions: NextAuthOptions = {
               credentials.email === process.env.SUPERADMIN_EMAIL &&
               credentials.password === process.env.SUPERADMIN_PASSWORD
             ) {
-              await logLogin('superadmin', 'Super Admin', 'superadmin', '', ip, userAgent, true)
-
+              await logLogin(
+                'superadmin', 'Super Admin', 'superadmin',
+                '', ip, userAgent, true
+              )
               return {
                 id: 'superadmin',
                 name: 'Super Admin',
@@ -69,6 +72,8 @@ export const authOptions: NextAuthOptions = {
                 allowedModules: [],
                 employeeId: undefined,
                 staffCategory: undefined,
+                creditBalance: 0,
+                addonLimits: { extraStudents: 0, extraTeachers: 0 },
               } as any
             }
 
@@ -76,18 +81,19 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          /* ══════════════════════════════════════════
-             SCHOOL LOGIN
-          ══════════════════════════════════════════ */
-
-          if (!credentials?.phone?.trim() || !credentials?.password) {
-            return null
-          }
+          // ══════════════════════════════════════
+          // SCHOOL LOGIN
+          // ══════════════════════════════════════
+          if (!credentials?.phone?.trim() || !credentials?.password) return null
 
           const subdomain = credentials.subdomain?.toLowerCase().trim()
           if (!subdomain) return null
 
+          // ← Include creditBalance + addonLimits
           const school = await School.findOne({ subdomain, isActive: true })
+            .select('+creditBalance +addonLimits')
+            .lean() as any
+
           if (!school) return null
 
           const loginId = credentials.phone.trim()
@@ -101,47 +107,44 @@ export const authOptions: NextAuthOptions = {
           })
 
           if (!user) {
-            await logLogin('unknown', loginId, 'unknown', school._id.toString(), ip, userAgent, false)
+            await logLogin(
+              'unknown', loginId, 'unknown',
+              school._id.toString(), ip, userAgent, false
+            )
             return null
           }
 
           const match = await bcrypt.compare(credentials.password, user.password)
           if (!match) {
-            await logLogin(user._id.toString(), user.name, user.role, school._id.toString(), ip, userAgent, false)
+            await logLogin(
+              user._id.toString(), user.name, user.role,
+              school._id.toString(), ip, userAgent, false
+            )
             return null
           }
 
-          /* ══════════════════════════════════════════
-             2FA CHECK (Admin only)
-          ══════════════════════════════════════════ */
-
+          // ── 2FA (Admin only) ──
           let twoFactorRequired = false
-
           if (user.role === 'admin') {
             const has2FA = await is2FAEnabled(user._id.toString())
-
             if (has2FA) {
               const deviceId = credentials.deviceId || ''
               const trusted = deviceId
                 ? await isTrustedDevice(user._id.toString(), deviceId)
                 : false
-
               if (!trusted && credentials.twoFactorVerified !== 'true') {
                 twoFactorRequired = true
               }
             }
           }
 
-          // Update last login
           await User.findByIdAndUpdate(user._id, { lastLogin: new Date() })
-
-          // Log successful login
           await logLogin(
             user._id.toString(), user.name, user.role,
             school._id.toString(), ip, userAgent, true
           )
 
-          // ── NEW: Load staff-specific data ──
+          // ── Staff specific data ──
           let allowedModules: string[] = []
           let employeeId: string | undefined
           let staffCategory: string | undefined
@@ -158,20 +161,14 @@ export const authOptions: NextAuthOptions = {
               employeeId = staffRecord.employeeId
               staffCategory = staffRecord.staffCategory
             }
-
-            // Also sync from User.allowedModules (fallback)
             if (allowedModules.length === 0 && user.allowedModules?.length) {
               allowedModules = user.allowedModules
             }
           }
 
-          // For teacher role, load from User model
           if (user.role === 'teacher') {
             allowedModules = user.allowedModules || []
             employeeId = user.employeeId
-
-            // If teacher has no explicit allowedModules, they get default teacher modules
-            // (handled in SidebarLayout via moduleRegistry)
           }
 
           // ── Subscription state ──
@@ -194,15 +191,13 @@ export const authOptions: NextAuthOptions = {
           if (hasPaidSub && subEnd && subEnd > now) {
             effectivePlan = activeSub.plan
             effectiveModules = school.modules || []
-            subscriptionStatus = 'active'
+            subscriptionStatus = activeSub.status === 'scheduled_cancel'
+              ? 'scheduled_cancel'
+              : 'active'
           } else if (!hasPaidSub && trialEnd > now) {
             effectivePlan = TRIAL_PLAN
             effectiveModules = TRIAL_MODULES
             subscriptionStatus = 'trial'
-          } else if (hasPaidSub && subEnd && subEnd <= now) {
-            effectivePlan = 'starter'
-            effectiveModules = []
-            subscriptionStatus = 'expired'
           } else {
             effectivePlan = 'starter'
             effectiveModules = []
@@ -224,10 +219,12 @@ export const authOptions: NextAuthOptions = {
             subscriptionEnd: subEnd ? subEnd.toISOString() : null,
             subscriptionStatus,
             twoFactorRequired,
-            // ── NEW ──
             allowedModules,
             employeeId,
             staffCategory,
+            // ── NEW ──
+            creditBalance: school.creditBalance ?? 0,
+            addonLimits: school.addonLimits ?? { extraStudents: 0, extraTeachers: 0 },
           } as any
 
         } catch (error) {
@@ -254,24 +251,32 @@ export const authOptions: NextAuthOptions = {
         token.subscriptionStatus = (user as any).subscriptionStatus
         token.twoFactorRequired = (user as any).twoFactorRequired || false
         token.lastDbCheck = Date.now()
-        // ── NEW ──
         token.allowedModules = (user as any).allowedModules || []
         token.employeeId = (user as any).employeeId
         token.staffCategory = (user as any).staffCategory
+        // ── NEW ──
+        token.creditBalance = (user as any).creditBalance ?? 0
+        token.addonLimits = (user as any).addonLimits ?? {
+          extraStudents: 0,
+          extraTeachers: 0,
+        }
         return token
       }
 
       if (token.role === 'superadmin') return token
 
-      // Refresh from DB every 30 seconds
+      // ── Refresh from DB every 30 seconds ──
       const lastCheck = (token.lastDbCheck as number) || 0
       const THIRTY_SECONDS = 30 * 1000
 
       if (Date.now() - lastCheck > THIRTY_SECONDS) {
         try {
           await connectDB()
+
           const school = await School.findById(token.tenantId)
-            .select('plan modules subscriptionId trialEndsAt isActive name')
+            .select(
+              'plan modules subscriptionId trialEndsAt isActive name creditBalance addonLimits'
+            )
             .lean() as any
 
           if (!school || !school.isActive) {
@@ -280,6 +285,7 @@ export const authOptions: NextAuthOptions = {
             token.subscriptionId = null
             token.subscriptionEnd = null
             token.subscriptionStatus = 'expired'
+            token.creditBalance = 0
             token.lastDbCheck = Date.now()
             return token
           }
@@ -301,7 +307,8 @@ export const authOptions: NextAuthOptions = {
             token.modules = school.modules || []
             token.subscriptionId = school.subscriptionId
             token.subscriptionEnd = subEnd.toISOString()
-            token.subscriptionStatus = 'active'
+            token.subscriptionStatus =
+              activeSub.status === 'scheduled_cancel' ? 'scheduled_cancel' : 'active'
           } else if (!hasPaidSub && trialEnd > now) {
             token.plan = TRIAL_PLAN
             token.modules = TRIAL_MODULES
@@ -316,7 +323,7 @@ export const authOptions: NextAuthOptions = {
             token.subscriptionStatus = 'expired'
           }
 
-          // ── NEW: Refresh staff permissions ──
+          // ── Refresh staff permissions ──
           if (token.role === 'staff') {
             const staffRecord = await Staff.findOne({
               tenantId: token.tenantId,
@@ -324,14 +331,16 @@ export const authOptions: NextAuthOptions = {
               status: { $in: ['active', 'on_leave'] },
             }).select('allowedModules employeeId staffCategory').lean() as any
 
-            if (staffRecord) {
-              token.allowedModules = staffRecord.allowedModules || []
-              token.employeeId = staffRecord.employeeId
-              token.staffCategory = staffRecord.staffCategory
-            } else {
-              // Staff record not found or inactive — block access
-              token.allowedModules = []
-            }
+            token.allowedModules = staffRecord?.allowedModules || []
+            token.employeeId = staffRecord?.employeeId
+            token.staffCategory = staffRecord?.staffCategory
+          }
+
+          // ── NEW: Refresh credit balance ──
+          token.creditBalance = school.creditBalance ?? 0
+          token.addonLimits = school.addonLimits ?? {
+            extraStudents: 0,
+            extraTeachers: 0,
           }
 
           token.schoolName = school.name || token.schoolName
@@ -362,10 +371,15 @@ export const authOptions: NextAuthOptions = {
         session.user.subscriptionEnd = token.subscriptionEnd as string | null
         session.user.subscriptionStatus = token.subscriptionStatus as string
         session.user.twoFactorRequired = token.twoFactorRequired as boolean
-        // ── NEW ──
         session.user.allowedModules = (token.allowedModules as string[]) || []
         session.user.employeeId = token.employeeId as string | undefined
         session.user.staffCategory = token.staffCategory as string | undefined
+        // ── NEW ──
+        session.user.creditBalance = (token.creditBalance as number) ?? 0
+        session.user.addonLimits = (token.addonLimits as any) ?? {
+          extraStudents: 0,
+          extraTeachers: 0,
+        }
       }
       return session
     },

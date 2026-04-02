@@ -25,6 +25,12 @@ declare module 'next-auth' {
             allowedModules: string[]   // Staff-specific module permissions
             employeeId?: string
             staffCategory?: string     // 'teaching' | 'non_teaching' | 'admin' | 'support'
+            // ── NEW ──
+            creditBalance: number
+            addonLimits: {
+                extraStudents: number
+                extraTeachers: number
+            }
         } & DefaultSession['user']
     }
 }
@@ -44,6 +50,12 @@ interface User extends DefaultUser {
     allowedModules: string[]
     employeeId?: string
     staffCategory?: string
+    // ── NEW ──
+    creditBalance: number
+    addonLimits: {
+        extraStudents: number
+        extraTeachers: number
+    }
 }
 
 declare module 'next-auth/jwt' {
@@ -65,5 +77,11 @@ declare module 'next-auth/jwt' {
         allowedModules: string[]
         employeeId?: string
         staffCategory?: string
+        // ── NEW ──
+        creditBalance: number
+        addonLimits: {
+            extraStudents: number
+            extraTeachers: number
+        }
     }
 }

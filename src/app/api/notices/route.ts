@@ -1,7 +1,7 @@
-// ─────────────────────────────────────────────────────────────
-// FILE: src/app/api/notices/route.ts  — FIXED VERSION
-// Problem: Query mein $and nesting wrong tha
-// ─────────────────────────────────────────────────────────────
+// FILE: src/app/api/notices/route.ts
+// UPDATED: SMS blast via credit system
+// BACKWARD COMPATIBLE — same GET/POST structure
+// ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -9,9 +9,12 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { Notice } from '@/models/Notice'
 import { User } from '@/models/User'
-import { sendSMS, SMS_TEMPLATES } from '@/lib/sms'
+import { sendBulkMessages } from '@/lib/messaging'
+import { SMS_TEMPLATES } from '@/lib/sms'
 import { PUSH_TEMPLATES, sendPushToTenant } from '@/lib/push'
+import { checkCredits } from '@/lib/credits'
 
+// ── GET — same as before ──
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -24,13 +27,11 @@ export async function GET(req: NextRequest) {
     const role = session.user.role
     const now = new Date()
 
-    // FIXED: Simple flat query — nested $and was causing issues
     const query: any = {
       tenantId: session.user.tenantId,
       isActive: true,
     }
 
-    // Role filter — admin sees all, others see their role + all
     if (role !== 'admin') {
       query.$or = [
         { targetRole: 'all' },
@@ -43,7 +44,6 @@ export async function GET(req: NextRequest) {
       .limit(50)
       .lean()
 
-    // Filter expired notices in JS (simpler than MongoDB query)
     const activeNotices = notices.filter(n => {
       if (!n.expiresAt) return true
       return new Date(n.expiresAt) >= now
@@ -57,14 +57,19 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// ── POST — credit system integrated ──
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || !['admin', 'teacher'].includes(session.user.role)) {
+    if (
+      !session?.user ||
+      !['admin', 'teacher', 'staff'].includes(session.user.role)
+    ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     await connectDB()
+
     const body = await req.json()
 
     if (!body.title || !body.content) {
@@ -74,6 +79,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    // ── Create notice ──
     const notice = await Notice.create({
       tenantId: session.user.tenantId,
       title: body.title,
@@ -90,53 +96,120 @@ export async function POST(req: NextRequest) {
       smsCount: 0,
     })
 
-    // SMS blast agar requested ho
+    // ── SMS blast via credit system ──
+    let smsResult = {
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      creditsUsed: 0,
+      creditError: '',
+    }
+
     if (body.sendSms) {
       try {
+        // Get target users
         const userQuery: any = {
           tenantId: session.user.tenantId,
           isActive: true,
         }
-        if (body.targetRole !== 'all') {
+        if (body.targetRole && body.targetRole !== 'all') {
           userQuery.role = body.targetRole
         }
 
-        const users = await User.find(userQuery).select('phone').lean()
-        const phones = users.map((u: any) => u.phone).filter(Boolean)
+        const users = await User.find(userQuery)
+          .select('phone name')
+          .lean()
 
-        if (phones.length > 0) {
-          // Fast2SMS max 1000 per request — chunk karo
-          for (let i = 0; i < phones.length; i += 1000) {
-            const chunk = phones.slice(i, i + 1000)
-            await sendSMS(chunk, SMS_TEMPLATES.notice(session.user.schoolName, body.title))
+        const validUsers = users.filter((u: any) => u.phone)
+
+        if (validUsers.length > 0) {
+          // Check credits before sending
+          const creditCheck = await checkCredits(
+            session.user.tenantId,
+            'sms',
+            validUsers.length
+          )
+
+          if (!creditCheck.canSend) {
+            smsResult.creditError = creditCheck.message ||
+              `Insufficient credits. Balance: ${creditCheck.balance}, Required: ${creditCheck.required}`
+            smsResult.skipped = validUsers.length
+          } else {
+            // Build recipients
+            const recipients = validUsers.map((u: any) => ({
+              recipient: u.phone,
+              recipientName: u.name || 'User',
+              message: SMS_TEMPLATES.notice(
+                session.user.schoolName,
+                body.title
+              ),
+            }))
+
+            // Send in chunks of 1000 (MSG91 limit)
+            const CHUNK = 1000
+            for (let i = 0; i < recipients.length; i += CHUNK) {
+              const chunk = recipients.slice(i, i + CHUNK)
+              const chunkResult = await sendBulkMessages({
+                tenantId: session.user.tenantId,
+                channel: 'sms',
+                purpose: 'notice',
+                recipients: chunk,
+                sentBy: session.user.id,
+                sentByName: session.user.name,
+              })
+              smsResult.sent += chunkResult.sent
+              smsResult.failed += chunkResult.failed
+              smsResult.skipped += chunkResult.skipped
+              smsResult.creditsUsed += chunkResult.creditsUsed
+
+              // Stop if credits run out mid-blast
+              if (chunkResult.insufficientCredits) {
+                smsResult.creditError = 'Credits exhausted mid-blast. Remaining messages skipped.'
+                break
+              }
+            }
+
+            // Update notice with SMS stats
+            await Notice.findByIdAndUpdate(notice._id, {
+              smsSent: smsResult.sent > 0,
+              smsCount: smsResult.sent,
+            })
           }
-
-          await Notice.findByIdAndUpdate(notice._id, {
-            smsSent: true,
-            smsCount: phones.length,
-          })
         }
       } catch (smsErr) {
-        // SMS fail hone pe notice to save ho — just log karo
-        console.error('SMS error (notice saved):', smsErr)
+        console.error('SMS blast error (non-critical):', smsErr)
+        smsResult.creditError = 'SMS send failed'
       }
+    }
+
+    // ── Push notifications ──
+    try {
+      const pushPayload = PUSH_TEMPLATES.noticePosted(
+        session.user.schoolName,
+        body.title
+      )
+      await sendPushToTenant(
+        session.user.tenantId,
+        body.targetRole === 'all'
+          ? ['student', 'parent', 'teacher']
+          : [body.targetRole],
+        pushPayload
+      ).catch(console.error)
+    } catch (pushErr) {
+      console.error('Push error (non-critical):', pushErr)
     }
 
     const saved = await Notice.findById(notice._id).lean()
 
-    // After notice is saved:
-    const pushPayload = PUSH_TEMPLATES.noticePosted(
-      session.user.schoolName,
-      body.title
+    return NextResponse.json(
+      {
+        notice: saved,
+        sms: body.sendSms ? smsResult : null,
+        // Warning if credit issues
+        warning: smsResult.creditError || undefined,
+      },
+      { status: 201 }
     )
-    await sendPushToTenant(
-      session.user.tenantId,
-      body.targetRole === 'all' ? ['student', 'parent', 'teacher'] : [body.targetRole],
-      pushPayload
-    ).catch(console.error)  // non-fatal
-
-
-    return NextResponse.json({ notice: saved }, { status: 201 })
 
   } catch (err: any) {
     console.error('Notice POST error:', err)
