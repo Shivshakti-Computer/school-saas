@@ -1,5 +1,5 @@
 // FILE: src/lib/credits.ts
-// COMPLETE FILE — All fixes applied
+// FIXED: grantUpgradeCredits correct math + rollover properly implemented
 // ═══════════════════════════════════════════════════════════
 
 import { connectDB } from './db'
@@ -20,17 +20,13 @@ import {
     type ExtraStudentPackId,
     type ExtraTeacherPackId,
 } from '@/config/pricing'
-
-// ── Import type separately from model ──
 import type { ICreditTransaction } from '@/models/CreditTransaction'
 
-// ─── Transaction type alias (from interface, not model) ───
 type TransactionType = ICreditTransaction['type']
 
 // ══════════════════════════════════════════════════════════
 // GET OR CREATE CREDIT RECORD
 // ══════════════════════════════════════════════════════════
-
 export async function getOrCreateCredit(tenantId: string) {
     let credit = await MessageCredit.findOne({ tenantId })
 
@@ -66,7 +62,6 @@ export async function getOrCreateCredit(tenantId: string) {
 // ══════════════════════════════════════════════════════════
 // GET BALANCE
 // ══════════════════════════════════════════════════════════
-
 export async function getCreditBalance(tenantId: string): Promise<number> {
     await connectDB()
     const credit = await MessageCredit.findOne({ tenantId })
@@ -78,7 +73,6 @@ export async function getCreditBalance(tenantId: string): Promise<number> {
 // ══════════════════════════════════════════════════════════
 // CHECK CREDITS
 // ══════════════════════════════════════════════════════════
-
 export interface CreditCheckResult {
     canSend: boolean
     balance: number
@@ -115,7 +109,6 @@ export async function checkCredits(
 // ══════════════════════════════════════════════════════════
 // DEDUCT CREDITS (Atomic)
 // ══════════════════════════════════════════════════════════
-
 export interface DeductResult {
     success: boolean
     creditsDeducted: number
@@ -134,18 +127,9 @@ export async function deductCredits(
 
     const required = calculateCreditCost(type, count)
 
-    // Atomic update — only deduct if balance is sufficient
     const credit = await MessageCredit.findOneAndUpdate(
-        {
-            tenantId,
-            balance: { $gte: required },
-        },
-        {
-            $inc: {
-                balance: -required,
-                totalUsed: required,
-            },
-        },
+        { tenantId, balance: { $gte: required } },
+        { $inc: { balance: -required, totalUsed: required } },
         { new: true }
     )
 
@@ -159,7 +143,6 @@ export async function deductCredits(
         }
     }
 
-    // Log transaction
     await CreditTransaction.create({
         tenantId,
         type: 'message_deduct' as TransactionType,
@@ -172,10 +155,7 @@ export async function deductCredits(
         purpose,
     })
 
-    // Sync quick-access balance on School doc
-    await School.findByIdAndUpdate(tenantId, {
-        creditBalance: credit.balance,
-    })
+    await School.findByIdAndUpdate(tenantId, { creditBalance: credit.balance })
 
     return {
         success: true,
@@ -187,7 +167,6 @@ export async function deductCredits(
 // ══════════════════════════════════════════════════════════
 // ADD CREDITS
 // ══════════════════════════════════════════════════════════
-
 export async function addCredits(
     tenantId: string,
     amount: number,
@@ -205,12 +184,7 @@ export async function addCredits(
 
     const credit = await MessageCredit.findOneAndUpdate(
         { tenantId },
-        {
-            $inc: {
-                balance: amount,
-                totalEarned: amount,
-            },
-        },
+        { $inc: { balance: amount, totalEarned: amount } },
         { new: true, upsert: true }
     )
 
@@ -228,17 +202,21 @@ export async function addCredits(
         adjustedBy: meta?.adjustedBy,
     })
 
-    await School.findByIdAndUpdate(tenantId, {
-        creditBalance: credit.balance,
-    })
+    await School.findByIdAndUpdate(tenantId, { creditBalance: credit.balance })
 
     return { newBalance: credit.balance }
 }
 
 // ══════════════════════════════════════════════════════════
-// MONTHLY CREDIT GRANT (Called by cron — 1st of every month)
+// MONTHLY CREDIT GRANT
+// Cron pe call hoga — 1st of every month
+//
+// Rollover rules:
+//   starter:    rolloverMonths = 0  → expire all unused, grant fresh
+//   growth:     rolloverMonths = 3  → carry forward upto 3 months old
+//   pro:        rolloverMonths = 6  → carry forward upto 6 months old
+//   enterprise: rolloverMonths = -1 → never expire, always carry forward
 // ══════════════════════════════════════════════════════════
-
 export async function grantMonthlyCredits(
     tenantId: string,
     planId: PlanId,
@@ -251,11 +229,11 @@ export async function grantMonthlyCredits(
         ? TRIAL_CONFIG.freeCredits
         : plan.freeCreditsPerMonth
 
-    const month = new Date().toISOString().slice(0, 7) // "2025-01"
+    const month = new Date().toISOString().slice(0, 7)
     const credit = await getOrCreateCredit(tenantId)
 
     // Already granted this month — skip
-    const alreadyGranted = credit.monthlyCredits.some(
+    const alreadyGranted = (credit.monthlyCredits ?? []).some(
         (m: any) => m.month === month
     )
     if (alreadyGranted) {
@@ -267,32 +245,64 @@ export async function grantMonthlyCredits(
     let rolledOver = 0
     let expired = 0
 
-    // ── Handle rollover vs expiry ──
-    if (rolloverMonths === 0 && currentBalance > 0) {
-        // Starter — no rollover, expire unused credits
-        expired = currentBalance
+    if (rolloverMonths === 0) {
+        // ── Starter: No rollover — expire all unused ──
+        if (currentBalance > 0) {
+            expired = currentBalance
 
-        await CreditTransaction.create({
-            tenantId,
-            type: 'expired' as TransactionType,
-            amount: -currentBalance,
-            balanceBefore: currentBalance,
-            balanceAfter: 0,
-            description: `Monthly credits expired — ${plan.name} plan (no rollover)`,
-        })
+            await CreditTransaction.create({
+                tenantId,
+                type: 'expired' as TransactionType,
+                amount: -expired,
+                balanceBefore: currentBalance,
+                balanceAfter: 0,
+                description: `Credits expired — ${plan.name} plan (no rollover)`,
+            })
 
-        await MessageCredit.findOneAndUpdate(
-            { tenantId },
-            {
-                $set: { balance: 0 },
-                $inc: { totalExpired: expired },
-            }
-        )
+            await MessageCredit.findOneAndUpdate(
+                { tenantId },
+                {
+                    $set: { balance: 0 },
+                    $inc: { totalExpired: expired },
+                }
+            )
 
-        currentBalance = 0
+            currentBalance = 0
+        }
 
-    } else if (rolloverMonths > 0 || rolloverMonths === -1) {
-        // Growth/Pro/Enterprise — carry forward
+    } else if (rolloverMonths === -1) {
+        // ── Enterprise: Never expire — full carry forward ──
+        rolledOver = currentBalance
+
+     } else {
+        // ── Growth (3mo) / Pro (6mo): Cap-based rollover ──
+        const maxCarryForward = rolloverMonths * plan.freeCreditsPerMonth
+
+        if (currentBalance > maxCarryForward) {
+            // Balance cap se zyada hai — excess expire karo
+            expired = currentBalance - maxCarryForward
+            currentBalance = maxCarryForward
+
+            await CreditTransaction.create({
+                tenantId,
+                type: 'expired' as TransactionType,
+                amount: -expired,
+                balanceBefore: currentBalance + expired,
+                balanceAfter: currentBalance,
+                description:
+                    `${expired} credits expired — ${plan.name} rollover cap ` +
+                    `(max carry = ${rolloverMonths}mo × ${plan.freeCreditsPerMonth} = ${maxCarryForward})`,
+            })
+
+            await MessageCredit.findOneAndUpdate(
+                { tenantId },
+                {
+                    $set: { balance: currentBalance },
+                    $inc: { totalExpired: expired },
+                }
+            )
+        }
+
         rolledOver = currentBalance
     }
 
@@ -310,12 +320,14 @@ export async function grantMonthlyCredits(
                     plan: planId,
                     creditsGiven: creditsToGrant,
                     creditsFromPrev: rolledOver,
-                    creditsExpiredAt:
-                        rolloverMonths === 0
-                            ? new Date(
-                                new Date().setMonth(new Date().getMonth() + 1)
-                            )
-                            : undefined,
+                    expired: false,
+                    ...(rolloverMonths === 0 ? {
+                        creditsExpiredAt: new Date(
+                            new Date().getFullYear(),
+                            new Date().getMonth() + 1,
+                            1
+                        ),
+                    } : {}),
                 },
             },
         }
@@ -327,20 +339,135 @@ export async function grantMonthlyCredits(
         amount: creditsToGrant,
         balanceBefore: currentBalance,
         balanceAfter: newBalance,
-        description: `Monthly ${creditsToGrant} credits granted — ${plan.name} plan`,
+        description: rolloverMonths === 0
+            ? `${creditsToGrant} credits granted — ${plan.name} (prev ${expired} expired, no rollover)`
+            : rolloverMonths === -1
+                ? `${creditsToGrant} credits granted — ${plan.name} + ${rolledOver} carried (never expire)`
+                : `${creditsToGrant} credits granted — ${plan.name} + ${rolledOver} carried ` +
+                  `(cap: ${rolloverMonths}mo × ${plan.freeCreditsPerMonth} = ${rolloverMonths * plan.freeCreditsPerMonth})`,
     })
 
-    await School.findByIdAndUpdate(tenantId, {
-        creditBalance: newBalance,
-    })
+    await School.findByIdAndUpdate(tenantId, { creditBalance: newBalance })
 
     return { granted: creditsToGrant, rolledOver, expired }
 }
 
 // ══════════════════════════════════════════════════════════
+// GRANT UPGRADE CREDITS
+//
+// FIXED LOGIC:
+//   currentBalance (existing sab kuch) + newPlanCredits = newBalance
+//
+//   Example:
+//   Starter 500 + addon 250 = 750 balance
+//   Growth upgrade → 750 + 1500 = 2250 ✅
+//
+//   Upgrade pe KUCH EXPIRE NAHI HOGA
+//   Chahe old plan Starter (rollover=0) tha
+//   Upgrade = reward, punish nahi
+//
+// NOTE: grantMonthlyCredits se ALAG hai
+//   grantMonthlyCredits = cron pe chalta hai, rollover/expire karta hai
+//   grantUpgradeCredits = upgrade pe chalta hai, sirf ADD karta hai
+// ══════════════════════════════════════════════════════════
+export async function grantUpgradeCredits(
+    tenantId: string,
+    newPlanId: PlanId,
+    oldPlanId?: PlanId,
+): Promise<{ granted: number; newBalance: number }> {
+    await connectDB()
+
+    const newPlan = PLANS[newPlanId]
+    const newPlanCredits = newPlan.freeCreditsPerMonth
+    const month = new Date().toISOString().slice(0, 7)
+
+    // Current state
+    const credit = await getOrCreateCredit(tenantId)
+    const currentBalance = credit.balance
+
+    // Is month already koi grant tha?
+    const thisMonthGrant = (credit.monthlyCredits ?? []).find(
+        (m: any) => m.month === month
+    )
+
+    // ── CORRECT MATH ──
+    // currentBalance = jo bhi hai (plan credits + purchased addon credits)
+    // newBalance = currentBalance + newPlanCredits (poore, diff nahi)
+    //
+    // WHY NOT DIFF?
+    // Diff logic galat hai:
+    //   diff = 1500 - 500 = 1000
+    //   newBalance = 750 + 1000 = 1750 ❌
+    //
+    // Sahi logic:
+    //   newBalance = 750 + 1500 = 2250 ✅
+    //   (750 already balance mein hai, usme se 500 plan ke the — koi fark nahi)
+    //   (school ko poore 1500 milne chahiye kyunki usne Growth kharida)
+    const newBalance = currentBalance + newPlanCredits
+
+    const description =
+        `Plan upgrade ${oldPlanId ?? '?'} → ${newPlanId}: ` +
+        `existing ${currentBalance} + ${newPlanCredits} new = ${newBalance}`
+
+    if (thisMonthGrant) {
+        // Is month pehle grant tha (old plan ka)
+        // Sirf plan update karo record mein, balance mein newPlanCredits add karo
+        await MessageCredit.findOneAndUpdate(
+            { tenantId, 'monthlyCredits.month': month },
+            {
+                $set: {
+                    balance: newBalance,
+                    'monthlyCredits.$.plan': newPlanId,
+                    'monthlyCredits.$.creditsGiven': newPlanCredits,
+                    'monthlyCredits.$.creditsFromPrev': currentBalance,
+                    'monthlyCredits.$.expired': false,
+                },
+                $inc: { totalEarned: newPlanCredits },
+            }
+        )
+    } else {
+        // Is month koi grant nahi tha — naya record
+        await MessageCredit.findOneAndUpdate(
+            { tenantId },
+            {
+                $set: { balance: newBalance },
+                $inc: { totalEarned: newPlanCredits },
+                $push: {
+                    monthlyCredits: {
+                        month,
+                        plan: newPlanId,
+                        creditsGiven: newPlanCredits,
+                        creditsFromPrev: currentBalance,
+                        expired: false,
+                    },
+                },
+            },
+            { upsert: true }
+        )
+    }
+
+    await CreditTransaction.create({
+        tenantId,
+        type: 'upgrade_grant' as TransactionType,
+        amount: newPlanCredits,
+        balanceBefore: currentBalance,
+        balanceAfter: newBalance,
+        description,
+    })
+
+    await School.findByIdAndUpdate(tenantId, { creditBalance: newBalance })
+
+    console.log(
+        `[grantUpgradeCredits] ${oldPlanId ?? '?'} → ${newPlanId}: ` +
+        `${currentBalance} + ${newPlanCredits} = ${newBalance}`
+    )
+
+    return { granted: newPlanCredits, newBalance }
+}
+
+// ══════════════════════════════════════════════════════════
 // GRANT TRIAL CREDITS (One-time on school registration)
 // ══════════════════════════════════════════════════════════
-
 export async function grantTrialCredits(tenantId: string): Promise<void> {
     await connectDB()
 
@@ -357,6 +484,7 @@ export async function grantTrialCredits(tenantId: string): Promise<void> {
                     plan: 'trial',
                     creditsGiven: TRIAL_CONFIG.freeCredits,
                     creditsFromPrev: 0,
+                    expired: false,
                 },
             },
         },
@@ -369,7 +497,7 @@ export async function grantTrialCredits(tenantId: string): Promise<void> {
         amount: TRIAL_CONFIG.freeCredits,
         balanceBefore: 0,
         balanceAfter: TRIAL_CONFIG.freeCredits,
-        description: `60-day trial — ${TRIAL_CONFIG.freeCredits} free credits granted`,
+        description: `60-day trial — ${TRIAL_CONFIG.freeCredits} free credits`,
     })
 
     await School.findByIdAndUpdate(tenantId, {
@@ -380,7 +508,6 @@ export async function grantTrialCredits(tenantId: string): Promise<void> {
 // ══════════════════════════════════════════════════════════
 // PURCHASE CREDIT PACK
 // ══════════════════════════════════════════════════════════
-
 export interface PackPurchaseResult {
     success: boolean
     creditsAdded: number
@@ -398,12 +525,7 @@ export async function purchaseCreditPack(
 
     const pack = CREDIT_PACKS.find(p => p.id === packId)
     if (!pack) {
-        return {
-            success: false,
-            creditsAdded: 0,
-            newBalance: 0,
-            error: 'Invalid pack ID',
-        }
+        return { success: false, creditsAdded: 0, newBalance: 0, error: 'Invalid pack ID' }
     }
 
     const { newBalance } = await addCredits(
@@ -411,25 +533,15 @@ export async function purchaseCreditPack(
         pack.credits,
         'pack_purchase',
         `Purchased ${pack.name} — ${pack.credits} credits`,
-        {
-            packId,
-            orderId,
-            razorpayPaymentId,
-            amountPaid: pack.price,
-        }
+        { packId, orderId, razorpayPaymentId, amountPaid: pack.price }
     )
 
-    return {
-        success: true,
-        creditsAdded: pack.credits,
-        newBalance,
-    }
+    return { success: true, creditsAdded: pack.credits, newBalance }
 }
 
 // ══════════════════════════════════════════════════════════
 // PURCHASE EXTRA STUDENTS ADD-ON
 // ══════════════════════════════════════════════════════════
-
 export async function purchaseExtraStudents(
     tenantId: string,
     packId: ExtraStudentPackId,
@@ -440,17 +552,16 @@ export async function purchaseExtraStudents(
     extraStudents: number
     newLimit: number
     error?: string
+    // NEW: useful for frontend
+    currentAddon?: number
+    maxAddon?: number
+    remainingAddonSlots?: number
 }> {
     await connectDB()
 
     const pack = ADDON_PRICING.extraStudents[packId]
     if (!pack) {
-        return {
-            success: false,
-            extraStudents: 0,
-            newLimit: 0,
-            error: 'Invalid student pack ID',
-        }
+        return { success: false, extraStudents: 0, newLimit: 0, error: 'Invalid student pack ID' }
     }
 
     const school = await School.findById(tenantId)
@@ -458,24 +569,51 @@ export async function purchaseExtraStudents(
         .lean() as any
 
     if (!school) {
-        return {
-            success: false,
-            extraStudents: 0,
-            newLimit: 0,
-            error: 'School not found',
-        }
+        return { success: false, extraStudents: 0, newLimit: 0, error: 'School not found' }
     }
 
     const planConfig = PLANS[school.plan as PlanId]
     const currentExtra = school.addonLimits?.extraStudents ?? 0
-    const newExtra = currentExtra + pack.students
+    const maxAddon = planConfig.maxAddonStudents
 
-    // Update School addonLimits
+    // ── ADDON CAP CHECK ──
+    if (maxAddon !== -1) {
+        const afterPurchase = currentExtra + pack.students
+
+        if (afterPurchase > maxAddon) {
+            const remainingSlots = Math.max(0, maxAddon - currentExtra)
+            const planLimit = planConfig.maxStudents
+            const nextPlanName =
+                school.plan === 'starter' ? 'Growth' :
+                    school.plan === 'growth' ? 'Pro' :
+                        school.plan === 'pro' ? 'Enterprise' : ''
+
+            return {
+                success: false,
+                extraStudents: 0,
+                newLimit: planLimit + currentExtra,
+                currentAddon: currentExtra,
+                maxAddon,
+                remainingAddonSlots: remainingSlots,
+                error: remainingSlots === 0
+                    ? `${planConfig.name} plan mein addon limit full ho gayi (max +${maxAddon} students). ` +
+                    `${nextPlanName ? `${nextPlanName} plan upgrade karein — ${nextPlanName === 'Growth' ? '1,500' : nextPlanName === 'Pro' ? '5,000' : 'unlimited'} students milenge.` : ''}`
+                    : `Is pack mein ${pack.students} students hain lekin sirf ${remainingSlots} aur add ho sakte hain. ` +
+                    `Chhota pack choose karein.`,
+            }
+        }
+    }
+
+    // ── All good — proceed ──
+    const newExtra = currentExtra + pack.students
+    const newLimit = planConfig.maxStudents === -1
+        ? -1
+        : planConfig.maxStudents + newExtra
+
     await School.findByIdAndUpdate(tenantId, {
         $inc: { 'addonLimits.extraStudents': pack.students },
     })
 
-    // Update MessageCredit
     const credit = await MessageCredit.findOneAndUpdate(
         { tenantId },
         {
@@ -493,23 +631,20 @@ export async function purchaseExtraStudents(
         { new: true, upsert: true }
     )
 
-    const newLimit =
-        planConfig.maxStudents === -1 ? -1 : planConfig.maxStudents + newExtra
-
-    // Update effectiveMaxStudents
     await MessageCredit.findOneAndUpdate(
         { tenantId },
         { $set: { effectiveMaxStudents: newLimit } }
     )
 
-    // Audit log via CreditTransaction
     await CreditTransaction.create({
         tenantId,
         type: 'addon_purchase' as TransactionType,
         amount: 0,
         balanceBefore: credit?.balance ?? 0,
         balanceAfter: credit?.balance ?? 0,
-        description: `Extra ${pack.students} students purchased — ₹${pack.price}`,
+        description:
+            `Extra ${pack.students} students purchased — ₹${pack.price} ` +
+            `(addon: ${newExtra}/${maxAddon === -1 ? '∞' : maxAddon}, total limit: ${newLimit})`,
         packId,
         orderId,
         razorpayPaymentId,
@@ -520,13 +655,14 @@ export async function purchaseExtraStudents(
         success: true,
         extraStudents: pack.students,
         newLimit,
+        currentAddon: newExtra,
+        maxAddon,
+        remainingAddonSlots: maxAddon === -1 ? -1 : maxAddon - newExtra,
     }
 }
-
 // ══════════════════════════════════════════════════════════
 // PURCHASE EXTRA TEACHERS ADD-ON
 // ══════════════════════════════════════════════════════════
-
 export async function purchaseExtraTeachers(
     tenantId: string,
     packId: ExtraTeacherPackId,
@@ -537,17 +673,15 @@ export async function purchaseExtraTeachers(
     extraTeachers: number
     newLimit: number
     error?: string
+    currentAddon?: number
+    maxAddon?: number
+    remainingAddonSlots?: number
 }> {
     await connectDB()
 
     const pack = ADDON_PRICING.extraTeachers[packId]
     if (!pack) {
-        return {
-            success: false,
-            extraTeachers: 0,
-            newLimit: 0,
-            error: 'Invalid teacher pack ID',
-        }
+        return { success: false, extraTeachers: 0, newLimit: 0, error: 'Invalid teacher pack ID' }
     }
 
     const school = await School.findById(tenantId)
@@ -555,24 +689,50 @@ export async function purchaseExtraTeachers(
         .lean() as any
 
     if (!school) {
-        return {
-            success: false,
-            extraTeachers: 0,
-            newLimit: 0,
-            error: 'School not found',
-        }
+        return { success: false, extraTeachers: 0, newLimit: 0, error: 'School not found' }
     }
 
     const planConfig = PLANS[school.plan as PlanId]
     const currentExtra = school.addonLimits?.extraTeachers ?? 0
-    const newExtra = currentExtra + pack.teachers
+    const maxAddon = planConfig.maxAddonTeachers
 
-    // Update School
+    // ── ADDON CAP CHECK ──
+    if (maxAddon !== -1) {
+        const afterPurchase = currentExtra + pack.teachers
+
+        if (afterPurchase > maxAddon) {
+            const remainingSlots = Math.max(0, maxAddon - currentExtra)
+            const nextPlanName =
+                school.plan === 'starter' ? 'Growth' :
+                    school.plan === 'growth' ? 'Pro' :
+                        school.plan === 'pro' ? 'Enterprise' : ''
+
+            return {
+                success: false,
+                extraTeachers: 0,
+                newLimit: planConfig.maxTeachers + currentExtra,
+                currentAddon: currentExtra,
+                maxAddon,
+                remainingAddonSlots: remainingSlots,
+                error: remainingSlots === 0
+                    ? `${planConfig.name} plan mein teacher addon limit full ho gayi (max +${maxAddon} staff). ` +
+                    `${nextPlanName ? `${nextPlanName} plan upgrade karein.` : ''}`
+                    : `Is pack mein ${pack.teachers} teachers hain lekin sirf ${remainingSlots} aur add ho sakte hain. ` +
+                    `Chhota pack choose karein.`,
+            }
+        }
+    }
+
+    // ── All good — proceed ──
+    const newExtra = currentExtra + pack.teachers
+    const newLimit = planConfig.maxTeachers === -1
+        ? -1
+        : planConfig.maxTeachers + newExtra
+
     await School.findByIdAndUpdate(tenantId, {
         $inc: { 'addonLimits.extraTeachers': pack.teachers },
     })
 
-    // Update MessageCredit
     const credit = await MessageCredit.findOneAndUpdate(
         { tenantId },
         {
@@ -590,23 +750,20 @@ export async function purchaseExtraTeachers(
         { new: true, upsert: true }
     )
 
-    const newLimit =
-        planConfig.maxTeachers === -1 ? -1 : planConfig.maxTeachers + newExtra
-
-    // Update effectiveMaxTeachers
     await MessageCredit.findOneAndUpdate(
         { tenantId },
         { $set: { effectiveMaxTeachers: newLimit } }
     )
 
-    // Audit via CreditTransaction
     await CreditTransaction.create({
         tenantId,
         type: 'addon_purchase' as TransactionType,
         amount: 0,
         balanceBefore: credit?.balance ?? 0,
         balanceAfter: credit?.balance ?? 0,
-        description: `Extra ${pack.teachers} teachers purchased — ₹${pack.price}`,
+        description:
+            `Extra ${pack.teachers} teachers purchased — ₹${pack.price} ` +
+            `(addon: ${newExtra}/${maxAddon === -1 ? '∞' : maxAddon}, total limit: ${newLimit})`,
         packId,
         orderId,
         razorpayPaymentId,
@@ -617,13 +774,15 @@ export async function purchaseExtraTeachers(
         success: true,
         extraTeachers: pack.teachers,
         newLimit,
+        currentAddon: newExtra,
+        maxAddon,
+        remainingAddonSlots: maxAddon === -1 ? -1 : maxAddon - newExtra,
     }
 }
 
 // ══════════════════════════════════════════════════════════
 // GET CREDIT STATS
 // ══════════════════════════════════════════════════════════
-
 export async function getCreditStats(tenantId: string) {
     await connectDB()
 
@@ -667,139 +826,4 @@ export async function getCreditStats(tenantId: string) {
         lowCreditWarning: credit.balance < 100,
         last30DaysUsage: last30Days,
     }
-}
-
-// ══════════════════════════════════════════════════════════
-// GRANT UPGRADE CREDITS
-// Normal grantMonthlyCredits se alag — upgrade specific logic
-//
-// KEY DIFFERENCES from grantMonthlyCredits:
-// 1. Same month already granted ho → sirf DIFF add karo
-// 2. Old plan no-rollover tha LEKIN upgrade pe expire nahi karo
-//    (school ne upgrade kiya = reward, punish nahi)
-// 3. New plan ke credits existing balance mein ADD honge
-// ══════════════════════════════════════════════════════════
-
-export async function grantUpgradeCredits(
-    tenantId: string,
-    newPlanId: PlanId,
-    oldPlanId?: PlanId,
-): Promise<{
-    granted: number
-    newBalance: number
-}> {
-    await connectDB()
-
-    const newPlan = PLANS[newPlanId]
-    const creditsToAdd = newPlan.freeCreditsPerMonth
-    const month = new Date().toISOString().slice(0, 7) // "2025-05"
-
-    // ── Current credit record ──
-    const credit = await getOrCreateCredit(tenantId)
-    const currentBalance = credit.balance
-
-    // ── Check: Is month already grant hua hai? ──
-    const thisMonthGrant = (credit.monthlyCredits ?? []).find(
-        (m: any) => m.month === month
-    )
-
-    let creditsToGrant: number
-    let description: string
-
-    if (thisMonthGrant) {
-        // Is month pehle se kuch credits mile hain (old plan ke)
-        const alreadyGranted: number = thisMonthGrant.creditsGiven ?? 0
-        const diff = creditsToAdd - alreadyGranted
-
-        if (diff <= 0) {
-            // New plan same ya kam credits deta hai — kuch mat karo
-            // (Unlikely — upgrade hamesha higher plan pe hoti hai)
-            console.log(
-                `[grantUpgradeCredits] Skip: already granted ${alreadyGranted},` +
-                ` new plan ${newPlanId} gives ${creditsToAdd}`
-            )
-            return { granted: 0, newBalance: currentBalance }
-        }
-
-        // Sirf difference add karo
-        creditsToGrant = diff
-        description =
-            `Plan upgrade ${oldPlanId ?? '?'} → ${newPlanId}: ` +
-            `+${diff} credits top-up (${alreadyGranted} already given this month, ` +
-            `new plan gives ${creditsToAdd}/mo)`
-
-        // Existing month record update karo
-        const newBalance = currentBalance + creditsToGrant
-
-        await MessageCredit.findOneAndUpdate(
-            { tenantId, 'monthlyCredits.month': month },
-            {
-                $set: {
-                    balance: newBalance,
-                    'monthlyCredits.$.creditsGiven': creditsToAdd, // Full amount
-                    'monthlyCredits.$.plan': newPlanId,
-                },
-                $inc: { totalEarned: creditsToGrant },
-            }
-        )
-
-        await CreditTransaction.create({
-            tenantId,
-            type: 'upgrade_grant' as TransactionType,
-            amount: creditsToGrant,
-            balanceBefore: currentBalance,
-            balanceAfter: newBalance,
-            description,
-        })
-
-        await School.findByIdAndUpdate(tenantId, {
-            creditBalance: newBalance,
-        })
-
-        return { granted: creditsToGrant, newBalance }
-
-    } else {
-        // Is month koi grant nahi hua — full amount do
-        // NOTE: Pichle balance ko expire NAHI karte (rollover reward)
-        creditsToGrant = creditsToAdd
-        description =
-            `Plan upgrade ${oldPlanId ?? '?'} → ${newPlanId}: ` +
-            `${creditsToAdd} credits granted (existing ${currentBalance} carried forward)`
-    }
-
-    // ── New balance = existing + new plan credits ──
-    // Chahe old plan starter (no rollover) tha — upgrade pe carry forward hoga
-    const newBalance = currentBalance + creditsToGrant
-
-    await MessageCredit.findOneAndUpdate(
-        { tenantId },
-        {
-            $set: { balance: newBalance },
-            $inc: { totalEarned: creditsToGrant },
-            $push: {
-                monthlyCredits: {
-                    month,
-                    plan: newPlanId,
-                    creditsGiven: creditsToAdd,
-                    creditsFromPrev: currentBalance, // Track what was carried
-                },
-            },
-        },
-        { upsert: true }
-    )
-
-    await CreditTransaction.create({
-        tenantId,
-        type: 'upgrade_grant' as TransactionType,
-        amount: creditsToGrant,
-        balanceBefore: currentBalance,
-        balanceAfter: newBalance,
-        description,
-    })
-
-    await School.findByIdAndUpdate(tenantId, {
-        creditBalance: newBalance,
-    })
-
-    return { granted: creditsToGrant, newBalance }
 }

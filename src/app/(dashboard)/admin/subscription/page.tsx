@@ -350,36 +350,60 @@ function BuyCreditsModal({
 }
 
 // ═══════════════════════════════════════
-// ADD-ON MODAL (Extra Students / Teachers)
+// ADD-ON MODAL — FIXED
+// Available packs filter + clear remaining slots info
 // ═══════════════════════════════════════
 function AddonModal({
     type,
     currentLimit,
     currentUsed,
+    addonInfo,       // ← NEW: status.addons se pass karo
     onClose,
     onSuccess,
 }: {
     type: 'students' | 'teachers'
     currentLimit: number
     currentUsed: number
+    addonInfo?: {
+        currentExtra: number
+        maxAddon: number
+        remainingSlots: number
+    }
     onClose: () => void
     onSuccess: (added: number) => void
 }) {
-    const packs = type === 'students'
+    const allPacks = type === 'students'
         ? Object.entries(ADDON_PRICING.extraStudents)
         : Object.entries(ADDON_PRICING.extraTeachers)
 
-    const [selectedPack, setSelectedPack] = useState(packs[0][0])
+    // ── Filter packs based on remaining slots ──
+    const remainingSlots = addonInfo?.remainingSlots ?? -1
+
+    const availablePacks = allPacks.filter(([, pack]) => {
+        if (remainingSlots === -1) return true  // unlimited
+        const count = (pack as any).students ?? (pack as any).teachers
+        return count <= remainingSlots
+    })
+
+    // Agar koi pack fit nahi hoti — sab dikhao but disabled
+    const packsToShow = availablePacks.length > 0 ? availablePacks : allPacks
+    const noPackAvailable = availablePacks.length === 0
+
+    const [selectedPack, setSelectedPack] = useState(
+        availablePacks.length > 0 ? availablePacks[0][0] : allPacks[0][0]
+    )
     const [buying, setBuying] = useState(false)
     const [error, setError] = useState('')
 
     const handleBuy = async () => {
+        if (noPackAvailable) return
         setBuying(true)
         setError('')
 
         try {
             const purchaseType = type === 'students' ? 'extra_students' : 'extra_teachers'
 
+            // Step 1: Create order (cap check happens HERE now)
             const res = await fetch('/api/credits/purchase', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -388,6 +412,7 @@ function AddonModal({
             const order = await res.json()
             if (!res.ok) throw new Error(order.error)
 
+            // Step 2: Razorpay
             const loaded = await loadRazorpaySDK()
             if (!loaded) throw new Error('Payment system load nahi hua')
 
@@ -399,6 +424,7 @@ function AddonModal({
                 description: order.description,
                 order_id: order.orderId,
                 handler: async (res: any) => {
+                    // Step 3: Verify
                     const vRes = await fetch('/api/credits/verify', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -412,6 +438,7 @@ function AddonModal({
                     })
                     const vData = await vRes.json()
                     if (!vRes.ok) throw new Error(vData.error)
+
                     const count = type === 'students'
                         ? (ADDON_PRICING.extraStudents as any)[selectedPack]?.students
                         : (ADDON_PRICING.extraTeachers as any)[selectedPack]?.teachers
@@ -450,9 +477,29 @@ function AddonModal({
                     {type === 'students' ? '👤' : '👨‍🏫'} Add Extra{' '}
                     {type === 'students' ? 'Students' : 'Teachers/Staff'}
                 </h3>
+
                 <p style={{ fontSize: 13, color: '#64748B', marginBottom: 8 }}>
                     Current: {currentUsed}/{currentLimit} {type}
                 </p>
+
+                {/* Addon info bar */}
+                {addonInfo && addonInfo.maxAddon !== -1 && (
+                    <div style={{
+                        background: addonInfo.remainingSlots === 0 ? '#FEF2F2' : '#EFF6FF',
+                        border: `1px solid ${addonInfo.remainingSlots === 0 ? '#FECACA' : '#BFDBFE'}`,
+                        borderRadius: 10,
+                        padding: '10px 14px',
+                        marginBottom: 12,
+                        fontSize: 12,
+                        color: addonInfo.remainingSlots === 0 ? '#DC2626' : '#1E40AF',
+                    }}>
+                        {addonInfo.remainingSlots === 0
+                            ? `⚠️ Addon limit full (${addonInfo.currentExtra}/${addonInfo.maxAddon}). Plan upgrade karein.`
+                            : `📊 ${addonInfo.currentExtra}/${addonInfo.maxAddon} addon used — ${addonInfo.remainingSlots} slots remaining`
+                        }
+                    </div>
+                )}
+
                 <div style={{
                     background: '#FEF3C7', borderRadius: 10,
                     padding: '10px 14px', marginBottom: 20, fontSize: 12, color: '#92400E',
@@ -469,34 +516,80 @@ function AddonModal({
                     </div>
                 )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-                    {packs.map(([id, pack]) => (
-                        <button
-                            key={id}
-                            onClick={() => setSelectedPack(id)}
-                            style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
-                                border: selectedPack === id ? '2px solid #7C3AED' : '1.5px solid #E2E8F0',
-                                background: selectedPack === id ? '#F5F3FF' : '#fff',
-                            }}
-                        >
-                            <div style={{ textAlign: 'left' }}>
-                                <div style={{ fontWeight: 600, fontSize: 14, color: '#0F172A' }}>
-                                    +{(pack as any).students ?? (pack as any).teachers}{' '}
-                                    {type === 'students' ? 'Students' : 'Staff'}
-                                </div>
-                                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                                    ₹{(pack as any).pricePerStudent ?? (pack as any).pricePerTeacher} per{' '}
-                                    {type === 'students' ? 'student' : 'staff'}
-                                </div>
-                            </div>
-                            <div style={{ fontWeight: 700, fontSize: 18, color: '#7C3AED' }}>
-                                ₹{(pack as any).price}
-                            </div>
-                        </button>
-                    ))}
-                </div>
+                {noPackAvailable ? (
+                    // Limit full — upgrade nudge
+                    <div style={{
+                        background: '#F8FAFC', borderRadius: 14,
+                        padding: 20, textAlign: 'center', marginBottom: 24,
+                    }}>
+                        <div style={{ fontSize: 32, marginBottom: 8 }}>🚫</div>
+                        <p style={{ fontWeight: 600, fontSize: 14, color: '#0F172A', marginBottom: 4 }}>
+                            Addon limit reached
+                        </p>
+                        <p style={{ fontSize: 12, color: '#64748B' }}>
+                            Is plan mein aur {type} add nahi ho sakte.
+                            Plan upgrade karo for more capacity.
+                        </p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+                        {packsToShow.map(([id, pack]) => {
+                            const count = (pack as any).students ?? (pack as any).teachers
+                            const fitsInSlots = remainingSlots === -1 || count <= remainingSlots
+                            const isSelected = selectedPack === id
+
+                            return (
+                                <button
+                                    key={id}
+                                    onClick={() => fitsInSlots && setSelectedPack(id)}
+                                    disabled={!fitsInSlots}
+                                    style={{
+                                        display: 'flex', alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '14px 16px', borderRadius: 14,
+                                        cursor: fitsInSlots ? 'pointer' : 'not-allowed',
+                                        border: isSelected && fitsInSlots
+                                            ? '2px solid #7C3AED'
+                                            : '1.5px solid #E2E8F0',
+                                        background: isSelected && fitsInSlots
+                                            ? '#F5F3FF'
+                                            : !fitsInSlots ? '#F8FAFC' : '#fff',
+                                        opacity: fitsInSlots ? 1 : 0.45,
+                                        textAlign: 'left',
+                                    }}
+                                >
+                                    <div>
+                                        <div style={{
+                                            fontWeight: 600, fontSize: 14,
+                                            color: fitsInSlots ? '#0F172A' : '#94A3B8',
+                                        }}>
+                                            +{count}{' '}
+                                            {type === 'students' ? 'Students' : 'Staff'}
+                                            {!fitsInSlots && (
+                                                <span style={{
+                                                    fontSize: 11, color: '#EF4444',
+                                                    marginLeft: 6,
+                                                }}>
+                                                    (limit exceed)
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                                            ₹{(pack as any).pricePerStudent ?? (pack as any).pricePerTeacher} per{' '}
+                                            {type === 'students' ? 'student' : 'staff'}
+                                        </div>
+                                    </div>
+                                    <div style={{
+                                        fontWeight: 700, fontSize: 18,
+                                        color: fitsInSlots ? '#7C3AED' : '#CBD5E1',
+                                    }}>
+                                        ₹{(pack as any).price}
+                                    </div>
+                                </button>
+                            )
+                        })}
+                    </div>
+                )}
 
                 <div style={{ display: 'flex', gap: 12 }}>
                     <button
@@ -506,20 +599,25 @@ function AddonModal({
                             border: '1.5px solid #E2E8F0', background: '#fff',
                             cursor: 'pointer', fontSize: 14, color: '#64748B',
                         }}
-                    >Cancel</button>
-                    <button
-                        onClick={handleBuy}
-                        disabled={buying}
-                        style={{
-                            flex: 2, padding: 14, borderRadius: 12,
-                            background: '#7C3AED', color: '#fff', border: 'none',
-                            cursor: buying ? 'not-allowed' : 'pointer',
-                            fontSize: 15, fontWeight: 600,
-                            opacity: buying ? 0.7 : 1,
-                        }}
                     >
-                        {buying ? 'Processing…' : `Buy Add-on →`}
+                        {noPackAvailable ? 'Close' : 'Cancel'}
                     </button>
+
+                    {!noPackAvailable && (
+                        <button
+                            onClick={handleBuy}
+                            disabled={buying}
+                            style={{
+                                flex: 2, padding: 14, borderRadius: 12,
+                                background: '#7C3AED', color: '#fff', border: 'none',
+                                cursor: buying ? 'not-allowed' : 'pointer',
+                                fontSize: 15, fontWeight: 600,
+                                opacity: buying ? 0.7 : 1,
+                            }}
+                        >
+                            {buying ? 'Processing…' : `Buy Add-on →`}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -1061,6 +1159,8 @@ function SubscriptionInner() {
                 </Portal>
             )}
 
+            // showAddon Portal mein ye change karo:
+
             {showAddon && (
                 <Portal>
                     <AddonModal
@@ -1074,6 +1174,20 @@ function SubscriptionInner() {
                             showAddon === 'students'
                                 ? status?.limits?.students?.used ?? 0
                                 : status?.limits?.teachers?.used ?? 0
+                        }
+                        // ── NEW: addonInfo pass karo ──
+                        addonInfo={
+                            showAddon === 'students'
+                                ? {
+                                    currentExtra: status?.addons?.extraStudents ?? 0,
+                                    maxAddon: status?.addons?.maxAddonStudents ?? -1,
+                                    remainingSlots: status?.addons?.remainingAddonStudents ?? -1,
+                                }
+                                : {
+                                    currentExtra: status?.addons?.extraTeachers ?? 0,
+                                    maxAddon: status?.addons?.maxAddonTeachers ?? -1,
+                                    remainingSlots: status?.addons?.remainingAddonTeachers ?? -1,
+                                }
                         }
                         onClose={() => setShowAddon(null)}
                         onSuccess={(added) => {

@@ -13,7 +13,7 @@ import {
 } from '@/lib/plans'
 import { logAudit } from '@/lib/audit'
 import type { PlanId, BillingCycle } from '@/lib/plans'
-import { grantMonthlyCredits, grantUpgradeCredits } from '@/lib/credits'
+import { grantUpgradeCredits } from '@/lib/credits'
 
 const rzp = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID!,

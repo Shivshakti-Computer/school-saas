@@ -223,8 +223,51 @@ export async function GET(req: NextRequest) {
             addons: {
                 extraStudents,
                 extraTeachers,
-                canPurchaseStudents: !isInTrial && planConfig.maxStudents !== -1,
-                canPurchaseTeachers: !isInTrial && planConfig.maxTeachers !== -1,
+
+                // Caps
+                maxAddonStudents: planConfig.maxAddonStudents,
+                maxAddonTeachers: planConfig.maxAddonTeachers,
+
+                // Remaining slots
+                remainingAddonStudents: planConfig.maxAddonStudents === -1
+                    ? -1
+                    : Math.max(0, planConfig.maxAddonStudents - extraStudents),
+                remainingAddonTeachers: planConfig.maxAddonTeachers === -1
+                    ? -1
+                    : Math.max(0, planConfig.maxAddonTeachers - extraTeachers),
+
+                // Can still purchase?
+                canPurchaseStudents: !isInTrial
+                    && planConfig.maxStudents !== -1
+                    && (planConfig.maxAddonStudents === -1
+                        || extraStudents < planConfig.maxAddonStudents),
+
+                canPurchaseTeachers: !isInTrial
+                    && planConfig.maxTeachers !== -1
+                    && (planConfig.maxAddonTeachers === -1
+                        || extraTeachers < planConfig.maxAddonTeachers),
+
+                // Limit reached flags (for upgrade nudge)
+                studentAddonLimitReached: planConfig.maxAddonStudents !== -1
+                    && extraStudents >= planConfig.maxAddonStudents,
+                teacherAddonLimitReached: planConfig.maxAddonTeachers !== -1
+                    && extraTeachers >= planConfig.maxAddonTeachers,
+
+                // Next plan info (for upgrade nudge message)
+                upgradeNudge: (() => {
+                    const planOrder: PlanId[] = ['starter', 'growth', 'pro', 'enterprise']
+                    const currentRank = planOrder.indexOf(effectivePlan)
+                    const nextPlanId = currentRank < 3 ? planOrder[currentRank + 1] : null
+                    if (!nextPlanId) return null
+                    const nextPlan = PLANS[nextPlanId]
+                    return {
+                        planId: nextPlanId,
+                        planName: nextPlan.name,
+                        studentLimit: nextPlan.maxStudents === -1 ? 'Unlimited' : nextPlan.maxStudents,
+                        teacherLimit: nextPlan.maxTeachers === -1 ? 'Unlimited' : nextPlan.maxTeachers,
+                        monthlyPrice: nextPlan.monthlyPrice,
+                    }
+                })(),
             },
         })
 

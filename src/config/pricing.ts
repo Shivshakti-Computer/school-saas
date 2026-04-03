@@ -163,6 +163,9 @@ export interface PlanConfig {
     // Internal P&L fields
     internalMonthlyCost: number      // Our cost to serve this plan
     internalMargin: number           // Revenue - Cost
+     // ── NEW: Addon caps ──
+    maxAddonStudents: number    // -1 = unlimited, else max extra students
+    maxAddonTeachers: number    // -1 = unlimited, else max extra teachers
 }
 
 export const PLANS: Record<PlanId, PlanConfig> = {
@@ -214,6 +217,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
         highlighted: false,
         internalMonthlyCost: 217,
         internalMargin: 282,
+        maxAddonStudents: 250,   // 500 → max 750 total
+        maxAddonTeachers: 10,    // 20  → max 30 total
     },
 
     // ─── GROWTH ₹999/mo ───
@@ -268,6 +273,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
         badge: 'Most Popular',
         internalMonthlyCost: 484,
         internalMargin: 515,
+        maxAddonStudents: 750,   // 1500 → max 2250 total
+        maxAddonTeachers: 25,    // 50   → max 75 total
     },
 
     // ─── PRO ₹1,999/mo ───
@@ -320,6 +327,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
         highlighted: false,
         internalMonthlyCost: 899,
         internalMargin: 1100,
+        maxAddonStudents: 2000,  // 5000 → max 7000 total
+        maxAddonTeachers: 50,    // 150  → max 200 total
     },
 
     // ─── ENTERPRISE ₹3,999/mo ───
@@ -372,6 +381,8 @@ export const PLANS: Record<PlanId, PlanConfig> = {
         badge: 'Enterprise',
         internalMonthlyCost: 1650,
         internalMargin: 2349,
+        maxAddonStudents: -1,    // unlimited
+        maxAddonTeachers: -1,    // unlimited
     },
 }
 
