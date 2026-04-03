@@ -668,3 +668,138 @@ export async function getCreditStats(tenantId: string) {
         last30DaysUsage: last30Days,
     }
 }
+
+// ══════════════════════════════════════════════════════════
+// GRANT UPGRADE CREDITS
+// Normal grantMonthlyCredits se alag — upgrade specific logic
+//
+// KEY DIFFERENCES from grantMonthlyCredits:
+// 1. Same month already granted ho → sirf DIFF add karo
+// 2. Old plan no-rollover tha LEKIN upgrade pe expire nahi karo
+//    (school ne upgrade kiya = reward, punish nahi)
+// 3. New plan ke credits existing balance mein ADD honge
+// ══════════════════════════════════════════════════════════
+
+export async function grantUpgradeCredits(
+    tenantId: string,
+    newPlanId: PlanId,
+    oldPlanId?: PlanId,
+): Promise<{
+    granted: number
+    newBalance: number
+}> {
+    await connectDB()
+
+    const newPlan = PLANS[newPlanId]
+    const creditsToAdd = newPlan.freeCreditsPerMonth
+    const month = new Date().toISOString().slice(0, 7) // "2025-05"
+
+    // ── Current credit record ──
+    const credit = await getOrCreateCredit(tenantId)
+    const currentBalance = credit.balance
+
+    // ── Check: Is month already grant hua hai? ──
+    const thisMonthGrant = (credit.monthlyCredits ?? []).find(
+        (m: any) => m.month === month
+    )
+
+    let creditsToGrant: number
+    let description: string
+
+    if (thisMonthGrant) {
+        // Is month pehle se kuch credits mile hain (old plan ke)
+        const alreadyGranted: number = thisMonthGrant.creditsGiven ?? 0
+        const diff = creditsToAdd - alreadyGranted
+
+        if (diff <= 0) {
+            // New plan same ya kam credits deta hai — kuch mat karo
+            // (Unlikely — upgrade hamesha higher plan pe hoti hai)
+            console.log(
+                `[grantUpgradeCredits] Skip: already granted ${alreadyGranted},` +
+                ` new plan ${newPlanId} gives ${creditsToAdd}`
+            )
+            return { granted: 0, newBalance: currentBalance }
+        }
+
+        // Sirf difference add karo
+        creditsToGrant = diff
+        description =
+            `Plan upgrade ${oldPlanId ?? '?'} → ${newPlanId}: ` +
+            `+${diff} credits top-up (${alreadyGranted} already given this month, ` +
+            `new plan gives ${creditsToAdd}/mo)`
+
+        // Existing month record update karo
+        const newBalance = currentBalance + creditsToGrant
+
+        await MessageCredit.findOneAndUpdate(
+            { tenantId, 'monthlyCredits.month': month },
+            {
+                $set: {
+                    balance: newBalance,
+                    'monthlyCredits.$.creditsGiven': creditsToAdd, // Full amount
+                    'monthlyCredits.$.plan': newPlanId,
+                },
+                $inc: { totalEarned: creditsToGrant },
+            }
+        )
+
+        await CreditTransaction.create({
+            tenantId,
+            type: 'upgrade_grant' as TransactionType,
+            amount: creditsToGrant,
+            balanceBefore: currentBalance,
+            balanceAfter: newBalance,
+            description,
+        })
+
+        await School.findByIdAndUpdate(tenantId, {
+            creditBalance: newBalance,
+        })
+
+        return { granted: creditsToGrant, newBalance }
+
+    } else {
+        // Is month koi grant nahi hua — full amount do
+        // NOTE: Pichle balance ko expire NAHI karte (rollover reward)
+        creditsToGrant = creditsToAdd
+        description =
+            `Plan upgrade ${oldPlanId ?? '?'} → ${newPlanId}: ` +
+            `${creditsToAdd} credits granted (existing ${currentBalance} carried forward)`
+    }
+
+    // ── New balance = existing + new plan credits ──
+    // Chahe old plan starter (no rollover) tha — upgrade pe carry forward hoga
+    const newBalance = currentBalance + creditsToGrant
+
+    await MessageCredit.findOneAndUpdate(
+        { tenantId },
+        {
+            $set: { balance: newBalance },
+            $inc: { totalEarned: creditsToGrant },
+            $push: {
+                monthlyCredits: {
+                    month,
+                    plan: newPlanId,
+                    creditsGiven: creditsToAdd,
+                    creditsFromPrev: currentBalance, // Track what was carried
+                },
+            },
+        },
+        { upsert: true }
+    )
+
+    await CreditTransaction.create({
+        tenantId,
+        type: 'upgrade_grant' as TransactionType,
+        amount: creditsToGrant,
+        balanceBefore: currentBalance,
+        balanceAfter: newBalance,
+        description,
+    })
+
+    await School.findByIdAndUpdate(tenantId, {
+        creditBalance: newBalance,
+    })
+
+    return { granted: creditsToGrant, newBalance }
+}

@@ -13,7 +13,7 @@ import {
 } from '@/lib/plans'
 import { logAudit } from '@/lib/audit'
 import type { PlanId, BillingCycle } from '@/lib/plans'
-import { grantMonthlyCredits } from '@/lib/credits'
+import { grantMonthlyCredits, grantUpgradeCredits } from '@/lib/credits'
 
 const rzp = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID!,
@@ -153,7 +153,6 @@ export async function POST(req: NextRequest) {
 }
 
 // ─── Shared helper (exported for free upgrade route) ───
-// ── applyUpgrade function mein add karo ──
 export async function applyUpgrade(
     tenantId: string,
     newPlanId: PlanId,
@@ -198,17 +197,15 @@ export async function applyUpgrade(
         upgradedFrom: currentSub?.plan,
         lastPaymentAt: paymentInfo ? now : undefined,
         paymentHistory: paymentInfo
-            ? [
-                {
-                    razorpayPaymentId: paymentInfo.razorpayPaymentId,
-                    razorpayOrderId: paymentInfo.razorpayOrderId,
-                    amount,
-                    currency: 'INR',
-                    status: 'captured' as const,
-                    paidAt: now,
-                    invoiceNumber,
-                },
-            ]
+            ? [{
+                razorpayPaymentId: paymentInfo.razorpayPaymentId,
+                razorpayOrderId: paymentInfo.razorpayOrderId,
+                amount,
+                currency: 'INR',
+                status: 'captured' as const,
+                paidAt: now,
+                invoiceNumber,
+            }]
             : [],
     })
 
@@ -218,10 +215,13 @@ export async function applyUpgrade(
         modules: plan.modules,
     })
 
-    // ── NEW: Grant credits for new plan ──
-    // Upgrade pe naye plan ke credits milenge
+    // ── FIXED: grantUpgradeCredits (grantMonthlyCredits nahi) ──
     try {
-        await grantMonthlyCredits(tenantId, newPlanId, false)
+        await grantUpgradeCredits(
+            tenantId,
+            newPlanId,
+            currentSub?.plan as PlanId | undefined
+        )
     } catch (err) {
         console.error('Credit grant on upgrade failed (non-critical):', err)
     }

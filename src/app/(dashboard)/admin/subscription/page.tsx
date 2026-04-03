@@ -10,16 +10,23 @@ import { useSearchParams } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Alert, PageHeader, Spinner } from '@/components/ui'
 import {
-    PLANS, GST_CONFIG,
-    getPlan, getPlanPriceBreakdown, getSavings,
-    type PlanId, type BillingCycle,
-} from '@/lib/plans'
-import {
-    CREDIT_PACKS, ADDON_PRICING,
+    PLANS,
+    GST_CONFIG,
+    CREDIT_PACKS,
+    ADDON_PRICING,
+    getPlan,
+    getPriceBreakdown,
+    getSavings,
+    type PlanId,
+    type BillingCycle,
     type CreditPackId,
     type ExtraStudentPackId,
     type ExtraTeacherPackId,
 } from '@/config/pricing'
+
+// ← getPlanPriceBreakdown sirf plans.ts mein hai, wahan se lo
+import { getPlanPriceBreakdown } from '@/lib/plans'
+
 import { MODULE_REGISTRY, type ModuleKey } from '@/lib/moduleRegistry'
 import { clsx } from 'clsx'
 import { Portal } from '@/components/ui/Portal'

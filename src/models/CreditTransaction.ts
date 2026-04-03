@@ -7,6 +7,7 @@ import mongoose, { Schema, Document } from 'mongoose'
 export type TransactionType =
     | 'monthly_grant'      // Free credits given each month
     | 'trial_grant'        // Trial credits
+    | 'upgrade_grant'
     | 'pack_purchase'      // School bought a credit pack
     | 'addon_purchase'     // School bought extra students/teachers
     | 'message_deduct'     // Credits used for messaging
