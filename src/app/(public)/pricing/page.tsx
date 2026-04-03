@@ -14,6 +14,7 @@ import {
 } from '@/config/pricing'
 import { MODULE_REGISTRY, type ModuleKey } from '@/lib/moduleRegistry'
 import { CTA } from '@/components/marketing/CTA'
+import { IconCheck } from '@/components/ui/icons'
 
 // ─── Icons ───────────────────────────────────────────────────
 function CheckIcon({ color = '#10B981' }: { color?: string }) {
@@ -201,7 +202,7 @@ export default function PricingPage() {
             </div>
 
             <div className="flex flex-wrap justify-center gap-2">
-              {['🛡️ No hidden fees', '✅ Cancel anytime', `🎁 ${TRIAL_CONFIG.durationDays}-day free trial`, '💳 Pay-as-you-go'].map(text => (
+              {['🛡️ No hidden fees', `${<IconCheck/>} Cancel anytime`, `🎁 ${TRIAL_CONFIG.durationDays}-day free trial`, '💳 Pay-as-you-go'].map(text => (
                 <span
                   key={text}
                   className="px-3 py-1.5 rounded-full text-xs font-medium border"
@@ -297,7 +298,7 @@ export default function PricingPage() {
                 </div>
                 <div className="text-2xl font-bold" style={{ color: 'var(--surface-300)' }}>vs</div>
                 <div className="text-center px-4 py-2 rounded-xl border-2" style={{ background: 'var(--success-light)', borderColor: 'rgba(16,185,129,0.3)' }}>
-                  <p className="text-xs font-bold" style={{ color: '#059669' }}>Skolify ✅</p>
+                  <p className="text-xs font-bold" style={{ color: '#059669' }}>Skolify <IconCheck/></p>
                   <p className="text-lg font-extrabold" style={{ color: 'var(--success)' }}>₹0.33–₹1</p>
                   <p className="text-[10px]" style={{ color: '#059669' }}>/student/month</p>
                 </div>

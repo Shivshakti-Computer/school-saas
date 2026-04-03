@@ -3,6 +3,8 @@
 import { Navbar } from '@/components/marketing/Navbar'
 import { Footer } from '@/components/marketing/Footer'
 import type { Metadata } from 'next'
+import { AnnouncementBanner } from '@/components/marketing/AnnouncementBanner'
+import { ChatWidget } from '@/components/marketing/ChatWidget'
 
 export const metadata: Metadata = {
   title: {
@@ -195,10 +197,13 @@ export default function PublicLayout({
           Skip to main content
         </a>
 
+        <AnnouncementBanner />
+
         <Navbar />
 
         <main id="main-content" className="overflow-x-hidden">
           {children}
+          <ChatWidget />
         </main>
 
         <Footer />

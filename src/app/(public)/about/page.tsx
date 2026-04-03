@@ -99,7 +99,7 @@ const values = [
   },
 ]
 
-// ✅ HONEST TIMELINE — 2025 se start, real milestones
+// HONEST TIMELINE — 2025 se start, real milestones
 const milestones = [
   {
     year: '2025 — June',
@@ -131,7 +131,7 @@ const milestones = [
   },
 ]
 
-// ✅ HONEST TECH — no fake team counts
+//  HONEST TECH — no fake team counts
 const techStack = [
   { name: 'Next.js 16+', category: 'Frontend', color: '#0F172A' },
   { name: 'TypeScript', category: 'Language', color: '#2563EB' },
@@ -271,7 +271,7 @@ export default function AboutPage() {
             <div className="flex flex-wrap justify-center gap-2">
               {[
                 { icon: '📍', label: 'Ambikapur, Chhattisgarh' },
-                // ✅ HONEST: 2025 not 2024
+                // HONEST: 2025 not 2024
                 { icon: '📅', label: 'Started 2025' },
                 { icon: '🏫', label: 'Education Technology' },
                 { icon: '🇮🇳', label: 'Made in India' },
@@ -336,7 +336,7 @@ export default function AboutPage() {
                     className="space-y-5 text-[15px] leading-relaxed"
                     style={{ color: 'var(--text-secondary)' }}
                   >
-                    {/* ✅ HONEST: Academy started June 2025 */}
+                    {/*  HONEST: Academy started June 2025 */}
                     <p>
                       In June 2025, we started{' '}
                       <strong style={{ color: 'var(--text-primary)' }}>
@@ -362,7 +362,7 @@ export default function AboutPage() {
                         not built for how Indian schools actually work.
                       </span>
                     </p>
-                    {/* ✅ HONEST: "recent months" not fake 2024 date */}
+                    {/*  HONEST: "recent months" not fake 2024 date */}
                     <p>
                       So we decided to build{' '}
                       <strong style={{ color: 'var(--brand)' }}>Skolify</strong> — a
@@ -537,7 +537,7 @@ export default function AboutPage() {
                 {[
                   {
                     icon: '🏦',
-                    // ✅ HONEST: bootstrapped
+                    // HONEST: bootstrapped
                     title: 'Bootstrapped & Independent',
                     desc: 'No investors, no external funding. Built with our own resources. This means we answer only to our users — not to VCs.',
                     color: 'var(--success)',
@@ -865,7 +865,7 @@ export default function AboutPage() {
                 className="text-2xl sm:text-3xl font-extrabold tracking-tight"
                 style={{ color: 'var(--text-primary)' }}
               >
-                {/* ✅ HONEST: Small team, no fake numbers */}
+                {/* HONEST: Small team, no fake numbers */}
                 A lean team with a focused vision
               </h2>
               <p
@@ -877,7 +877,7 @@ export default function AboutPage() {
               </p>
             </div>
 
-            {/* ✅ HONEST: Roles without fake member counts */}
+            {/* HONEST: Roles without fake member counts */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
               {[
                 {
@@ -944,7 +944,7 @@ export default function AboutPage() {
               ))}
             </div>
 
-            {/* ✅ NEW: Honest "small team advantage" callout */}
+            {/* NEW: Honest "small team advantage" callout */}
             <div
               className="rounded-2xl border p-6 mb-8 flex flex-col sm:flex-row
                 items-start gap-5"

@@ -5,6 +5,7 @@
 import Link from 'next/link'
 import { Container } from './Container'
 import { useReveal, useRevealGroup } from '@/hooks/useReveal'
+import { IconCheck } from '../ui/icons'
 
 /* ─── Trust Points ─── */
 const trustPoints = [
@@ -17,7 +18,7 @@ const trustPoints = [
 /* ─── Dashboard Stats (Demo/Sample Data) ─── */
 const dashboardStats = [
   { label: 'Students', value: '1,248', icon: '👨‍🎓', trend: '+12%', color: 'bg-blue-500' },
-  { label: 'Attendance', value: '94.2%', icon: '✅', trend: '+3%', color: 'bg-emerald-500' },
+  { label: 'Attendance', value: '94.2%', icon: <IconCheck/>, trend: '+3%', color: 'bg-emerald-500' },
   { label: 'Fee Collected', value: '₹4.2L', icon: '💰', trend: '+18%', color: 'bg-amber-500' },
   { label: 'SMS Sent', value: '2,340', icon: '📨', trend: '+8%', color: 'bg-purple-500' },
 ]

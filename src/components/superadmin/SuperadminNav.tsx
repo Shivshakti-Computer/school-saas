@@ -6,7 +6,8 @@ import { clsx } from 'clsx'
 import { useState } from 'react'
 import {
   LayoutDashboard, Building2, CreditCard, BarChart3,
-  Settings, LogOut, Menu, X, Shield
+  Settings, LogOut, Menu, X, Shield, Megaphone,
+  MailQuestion, MessageSquare
 } from 'lucide-react'
 
 const navItems = [
@@ -14,6 +15,12 @@ const navItems = [
   { href: '/superadmin/schools', label: 'Schools', icon: Building2 },
   { href: '/superadmin/subscriptions', label: 'Subscriptions', icon: CreditCard },
   { href: '/superadmin/revenue', label: 'Revenue', icon: BarChart3 },
+  
+  // New Items Added
+  { href: '/superadmin/announcements', label: 'Announcements', icon: Megaphone },
+  { href: '/superadmin/enquiries', label: 'Enquiries', icon: MailQuestion },
+  { href: '/superadmin/feedback', label: 'Feedback', icon: MessageSquare },
+
   { href: '/superadmin/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -26,7 +33,6 @@ export function SuperadminNav({ userName }: { userName: string }) {
       <header className="bg-slate-900 text-white sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
           <div className="h-14 flex items-center gap-4">
-            {/* Logo */}
             <Link href="/superadmin" className="flex items-center gap-2 flex-shrink-0">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
                 <Shield size={14} className="text-white" />
@@ -37,7 +43,6 @@ export function SuperadminNav({ userName }: { userName: string }) {
               </div>
             </Link>
 
-            {/* Desktop nav */}
             <nav className="hidden md:flex items-center gap-1 ml-6">
               {navItems.map(item => {
                 const isActive = pathname === item.href ||
@@ -60,20 +65,12 @@ export function SuperadminNav({ userName }: { userName: string }) {
               })}
             </nav>
 
-            {/* Right side */}
             <div className="ml-auto flex items-center gap-3">
               <span className="hidden sm:block text-xs text-slate-400">{userName}</span>
-              <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
-                title="Logout"
-              >
+              <button onClick={() => signOut({ callbackUrl: '/login' })} className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
                 <LogOut size={16} />
               </button>
-              <button
-                className="md:hidden text-slate-400 hover:text-white p-1.5"
-                onClick={() => setMobileOpen(true)}
-              >
+              <button className="md:hidden text-slate-400 hover:text-white p-1.5" onClick={() => setMobileOpen(true)}>
                 <Menu size={20} />
               </button>
             </div>
@@ -81,7 +78,7 @@ export function SuperadminNav({ userName }: { userName: string }) {
         </div>
       </header>
 
-      {/* Mobile menu */}
+      {/* Mobile Menu */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
@@ -92,6 +89,7 @@ export function SuperadminNav({ userName }: { userName: string }) {
                 <X size={18} />
               </button>
             </div>
+            
             <nav className="space-y-1">
               {navItems.map(item => {
                 const isActive = pathname === item.href ||
@@ -114,10 +112,8 @@ export function SuperadminNav({ userName }: { userName: string }) {
                 )
               })}
             </nav>
-            <button
-              onClick={() => signOut({ callbackUrl: '/login' })}
-              className="mt-6 flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-slate-800 rounded-lg w-full"
-            >
+
+            <button onClick={() => signOut({ callbackUrl: '/login' })} className="mt-6 flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-slate-800 rounded-lg w-full">
               <LogOut size={14} />
               Logout
             </button>
