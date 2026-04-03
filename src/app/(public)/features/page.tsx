@@ -1,4 +1,5 @@
 // FILE: src/app/(public)/features/page.tsx
+// UPDATED: Credit system + addon info added
 
 import { FeatureGrid } from '@/components/marketing/FeatureGrid'
 import { ModulesShowcase } from '@/components/marketing/ModulesShowcase'
@@ -6,6 +7,7 @@ import { CTA } from '@/components/marketing/CTA'
 import { Container } from '@/components/marketing/Container'
 import type { Metadata } from 'next'
 import { PlatformFeatures } from '@/components/marketing/PlatformFeatures'
+import { PLANS, TRIAL_CONFIG, CREDIT_COSTS } from '@/config/pricing'
 
 export const metadata: Metadata = {
   title: 'Features — All-in-One School Management Platform',
@@ -17,11 +19,13 @@ export const metadata: Metadata = {
 }
 
 export default function FeaturesPage() {
+  const starterPlan = PLANS.starter
+  const growthPlan = PLANS.growth
+
   return (
     <>
       {/* ─── Page Hero ─── */}
       <section className="relative pt-24 pb-12 overflow-hidden bg-gradient-to-b from-blue-50 via-white to-white">
-        {/* Background */}
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           <div className="absolute top-0 left-1/4 w-[500px] h-[300px] bg-blue-500/[0.08] blur-[120px] rounded-full" />
           <div className="absolute top-20 right-1/4 w-[400px] h-[300px] bg-purple-500/[0.05] blur-[100px] rounded-full" />
@@ -48,25 +52,38 @@ export default function FeaturesPage() {
               experience. 22+ modules, 4 user roles, one connected platform.
             </p>
 
-            {/* Quick stats */}
-            <div className="mt-8 flex flex-wrap justify-center gap-6">
+            {/* Quick stats — UPDATED */}
+            <div className="mt-8 flex flex-wrap justify-center gap-4">
               {[
                 { value: '22+', label: 'Modules', icon: '📦' },
                 { value: '4', label: 'User Roles', icon: '👥' },
                 { value: '₹499', label: 'Starting/mo', icon: '💰' },
-                { value: '0', label: 'Coding Needed', icon: '🎯' },
+                { value: `${TRIAL_CONFIG.durationDays}-Day`, label: 'Free Trial', icon: '🎁' },
+                { value: '1 Credit', label: '= 1 SMS/WhatsApp', icon: '💳' },
               ].map(stat => (
-                <div 
-                  key={stat.label} 
+                <div
+                  key={stat.label}
                   className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-slate-200 shadow-soft"
                 >
                   <span className="text-xl">{stat.icon}</span>
                   <div className="text-left">
-                    <span className="text-lg font-extrabold text-slate-900">{stat.value}</span>
-                    <span className="text-sm text-slate-500 ml-1">{stat.label}</span>
+                    <span className="text-base font-extrabold text-slate-900">{stat.value}</span>
+                    <span className="text-xs text-slate-500 ml-1">{stat.label}</span>
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Credit system mini callout — NEW */}
+            <div className="mt-6 inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-indigo-50 border border-indigo-100">
+              <span className="text-lg">💳</span>
+              <div className="text-left">
+                <p className="text-xs font-bold text-indigo-900">Pay-as-you-go Messaging</p>
+                <p className="text-[11px] text-indigo-700 mt-0.5">
+                  {starterPlan.freeCreditsPerMonth} free credits/mo (Starter) ·
+                  {' '}{growthPlan.freeCreditsPerMonth} (Growth) · Credits rollover in paid plans
+                </p>
+              </div>
             </div>
           </div>
         </Container>

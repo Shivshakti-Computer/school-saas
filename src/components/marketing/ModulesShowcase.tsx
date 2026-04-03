@@ -1,4 +1,5 @@
 // FILE: src/components/marketing/ModulesShowcase.tsx
+// UPDATED: ₹499 → dynamic from PLANS config
 
 'use client'
 
@@ -6,6 +7,7 @@ import { useState } from 'react'
 import { Container } from './Container'
 import { SectionTitle } from './MiniUI'
 import { useRevealGroup } from '@/hooks/useReveal'
+import { PLANS } from '@/config/pricing'
 
 /* ─── Plan Tiers ─── */
 type Tier = 'all' | 'starter' | 'growth' | 'pro' | 'enterprise'
@@ -42,12 +44,12 @@ const modules: ModuleItem[] = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>,
   },
   {
-    key: 'attendance', label: 'Attendance', desc: 'Daily attendance, auto SMS, reports & parent notifications.',
+    key: 'attendance', label: 'Attendance', desc: 'Daily attendance, auto SMS via credits, reports & parent notifications.',
     color: '#10B981', bgColor: 'bg-emerald-50', minPlan: 'starter',
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
   },
   {
-    key: 'notices', label: 'Notice Board', desc: 'Circulars, announcements, SMS blast to parents & staff.',
+    key: 'notices', label: 'Notice Board', desc: 'Circulars, announcements, SMS blast to parents & staff via credits.',
     color: '#0EA5E9', bgColor: 'bg-sky-50', minPlan: 'starter',
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>,
   },
@@ -64,12 +66,12 @@ const modules: ModuleItem[] = [
 
   // ─── GROWTH+ ───
   {
-    key: 'fees', label: 'Fee Management', desc: 'Online Razorpay payments, receipts, reminders, late fines & reports.',
+    key: 'fees', label: 'Fee Management', desc: 'Online Razorpay payments, receipts, SMS reminders via credits, late fines & reports.',
     color: '#F59E0B', bgColor: 'bg-amber-50', minPlan: 'growth',
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>,
   },
   {
-    key: 'exams', label: 'Exam & Results', desc: 'Scheduling, marks entry, grade cards, report cards & result SMS.',
+    key: 'exams', label: 'Exam & Results', desc: 'Scheduling, marks entry, grade cards, report cards & result SMS via credits.',
     color: '#EF4444', bgColor: 'bg-red-50', minPlan: 'growth',
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
   },
@@ -89,12 +91,12 @@ const modules: ModuleItem[] = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>,
   },
   {
-    key: 'reports', label: 'Reports & Analytics', desc: 'Class-wise, subject-wise reports. Attendance & fee analytics.',
+    key: 'reports', label: 'Reports & Analytics', desc: 'Class-wise, subject-wise reports. Attendance, fee & credit usage analytics.',
     color: '#10B981', bgColor: 'bg-emerald-50', minPlan: 'growth',
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>,
   },
   {
-    key: 'communication', label: 'Communication Hub', desc: 'Bulk SMS, WhatsApp messages & email campaigns to parents.',
+    key: 'communication', label: 'Communication Hub', desc: 'Bulk SMS (1 credit/SMS), WhatsApp (1 credit/WA) & email campaigns to parents.',
     color: '#22C55E', bgColor: 'bg-green-50', minPlan: 'growth',
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   },
@@ -123,7 +125,7 @@ const modules: ModuleItem[] = [
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="7" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>,
   },
   {
-    key: 'transport', label: 'Transport & GPS', desc: 'Bus routes, driver management, GPS tracking & parent alerts.',
+    key: 'transport', label: 'Transport & GPS', desc: 'Bus routes, driver management, GPS tracking & parent alerts via credits.',
     color: '#0EA5E9', bgColor: 'bg-sky-50', minPlan: 'enterprise',
     icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>,
   },
@@ -172,11 +174,14 @@ function PlanBadge({ plan }: { plan: string }) {
 }
 
 /* ═══════════════════════════════════════════════════════
-   MODULES SHOWCASE COMPONENT — Light Theme
+   MODULES SHOWCASE COMPONENT
    ═══════════════════════════════════════════════════════ */
 export function ModulesShowcase() {
   const [activeTier, setActiveTier] = useState<Tier>('all')
   const gridRef = useRevealGroup()
+
+  // ── Dynamic from PLANS config ──
+  const starterPrice = PLANS.starter.monthlyPrice
 
   const filteredModules = activeTier === 'all'
     ? modules
@@ -275,12 +280,12 @@ export function ModulesShowcase() {
           ))}
         </div>
 
-        {/* Stats strip */}
+        {/* Stats strip — ₹499 now dynamic from PLANS config */}
         <div className="mt-14 grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { value: '22+', label: 'Modules', icon: '📦', color: 'bg-blue-50 border-blue-100' },
             { value: '4', label: 'User Roles', icon: '👥', color: 'bg-purple-50 border-purple-100' },
-            { value: '₹499', label: 'Starting Price/mo', icon: '💰', color: 'bg-amber-50 border-amber-100' },
+            { value: `₹${starterPrice}`, label: 'Starting Price/mo', icon: '💰', color: 'bg-amber-50 border-amber-100' },
             { value: '99.9%', label: 'Uptime', icon: '⚡', color: 'bg-emerald-50 border-emerald-100' },
           ].map(stat => (
             <div key={stat.label} className={`text-center p-5 rounded-2xl border ${stat.color}`}>

@@ -1,4 +1,5 @@
 // FILE: src/components/marketing/PlatformFeatures.tsx
+// UPDATED: SMS credit text fix in Indian School Optimized card
 
 'use client'
 
@@ -25,7 +26,17 @@ const websiteFeatures = [
     pages: 7,
     photos: 50,
     customPages: 2,
-    features: ['All Starter +', 'Faculty Section', 'Testimonials', 'Events', 'Principal Message', 'Video Tour', 'Announcements', 'Login Button', 'WhatsApp Button'],
+    features: [
+      'All Starter +',
+      'Faculty Section',
+      'Testimonials',
+      'Events',
+      'Principal Message',
+      'Video Tour',
+      'Announcements',
+      'Login Button',
+      'WhatsApp Button',
+    ],
     color: '#2563EB',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
@@ -37,7 +48,17 @@ const websiteFeatures = [
     pages: 15,
     photos: 200,
     customPages: 5,
-    features: ['All Growth +', 'Gallery Albums', 'Achievements', 'Downloads', 'Infrastructure', 'Fee Structure', 'Live Notice Board', 'Custom Domain', 'Scroll Animations'],
+    features: [
+      'All Growth +',
+      'Gallery Albums',
+      'Achievements',
+      'Downloads',
+      'Infrastructure',
+      'Fee Structure',
+      'Live Notice Board',
+      'Custom Domain',
+      'Scroll Animations',
+    ],
     color: '#7C3AED',
     bgColor: 'bg-purple-50',
     borderColor: 'border-purple-200',
@@ -48,7 +69,15 @@ const websiteFeatures = [
     pages: '∞',
     photos: '∞',
     customPages: '∞',
-    features: ['All Pro +', 'Academic Calendar', 'Transport Routes', 'Alumni Section', 'Mandatory Disclosure', 'Remove Branding', 'Custom Everything'],
+    features: [
+      'All Pro +',
+      'Academic Calendar',
+      'Transport Routes',
+      'Alumni Section',
+      'Mandatory Disclosure',
+      'Remove Branding',
+      'Custom Everything',
+    ],
     color: '#D97706',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
@@ -60,7 +89,13 @@ const platformHighlights = [
   {
     title: 'Installable App (PWA)',
     desc: 'Students, parents & teachers install the app directly from browser. Works offline, loads fast even on 2G. No app store needed.',
-    features: ['Home screen install', 'Offline capable', 'Push notifications ready', 'Works on all devices', 'Auto updates'],
+    features: [
+      'Home screen install',
+      'Offline capable',
+      'Push notifications ready',
+      'Works on all devices',
+      'Auto updates',
+    ],
     visual: 'pwa',
     gradient: 'from-sky-500 to-blue-600',
     bgColor: 'bg-sky-50',
@@ -69,7 +104,13 @@ const platformHighlights = [
   {
     title: 'Multi-Role Portal',
     desc: 'One platform, 4 different experiences. Admin sees everything, teachers manage classes, students check results, parents track progress.',
-    features: ['Admin dashboard', 'Teacher panel', 'Student portal', 'Parent app', 'SuperAdmin (you)'],
+    features: [
+      'Admin dashboard',
+      'Teacher panel',
+      'Student portal',
+      'Parent app',
+      'SuperAdmin (you)',
+    ],
     visual: 'roles',
     gradient: 'from-blue-500 to-indigo-600',
     bgColor: 'bg-blue-50',
@@ -77,8 +118,15 @@ const platformHighlights = [
   },
   {
     title: 'Indian School Optimized',
-    desc: 'Built specifically for Indian education. Hindi + English, CBSE/ICSE/State board support, Indian payment gateway, SMS in regional languages.',
-    features: ['Razorpay payments (₹)', 'SMS in Hindi/English', 'Indian date formats', 'Board-wise structure', 'GST invoicing ready'],
+    desc: 'Built specifically for Indian education. Hindi + English, CBSE/ICSE/State board support, Indian payment gateway, SMS & WhatsApp via credit system.',
+    features: [
+      'Razorpay payments (₹)',
+      'SMS via Credits (Hindi/English)',        // ← UPDATED
+      'WhatsApp via Credits',                   // ← NEW (added for clarity)
+      'Indian date formats',
+      'Board-wise structure',
+      'GST invoicing ready',
+    ],
     visual: 'india',
     gradient: 'from-orange-500 to-amber-600',
     bgColor: 'bg-amber-50',
@@ -214,7 +262,7 @@ function RolesSVG() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   PLATFORM FEATURES COMPONENT — Light Theme
+   PLATFORM FEATURES COMPONENT
    ═══════════════════════════════════════════════════════ */
 export function PlatformFeatures() {
   const websiteRef = useReveal<HTMLDivElement>()
@@ -227,7 +275,7 @@ export function PlatformFeatures() {
       <div className="flex items-center justify-center py-8">
         <div className="relative">
           <span className="text-7xl">🇮🇳</span>
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-100 rounded-full text-[10px] font-bold text-amber-700">
+          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-100 rounded-full text-[10px] font-bold text-amber-700 whitespace-nowrap">
             Made for India
           </div>
         </div>
@@ -303,7 +351,10 @@ export function PlatformFeatures() {
                 <div className="space-y-1.5">
                   {plan.features.slice(0, 5).map(f => (
                     <p key={f} className="text-[11px] text-slate-600 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: plan.color }} />
+                      <span
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ background: plan.color }}
+                      />
                       {f}
                     </p>
                   ))}
@@ -323,7 +374,7 @@ export function PlatformFeatures() {
           <SectionTitle
             eyebrow="⚡ Platform"
             title="Built different — designed for real schools"
-            subtitle="Not just another ERP. Skolify is built ground-up for Indian schools with mobile-first design, offline support & regional language SMS."
+            subtitle="Not just another ERP. Skolify is built ground-up for Indian schools with mobile-first design, offline support & credit-based messaging system."
             center
           />
         </div>
