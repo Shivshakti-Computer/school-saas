@@ -398,7 +398,7 @@ export const DEMO_CONFIG = {
     adminPassword: 'Demo@123',
     adminName: 'Demo Admin',
     plan: 'enterprise' as PlanId,
-    trialDays: 36500,
+    trialDays: 365,
     isDemo: true,
 }
 

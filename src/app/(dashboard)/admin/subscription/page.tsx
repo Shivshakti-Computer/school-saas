@@ -557,30 +557,51 @@ function LimitBar({
                     <span
                         className={clsx(
                             'text-sm font-semibold',
-                            isHigh ? 'text-red-600' : isMid ? 'text-amber-600' : 'text-slate-700'
+                            isHigh ? 'text-red-600'
+                                : isMid ? 'text-amber-600'
+                                    : 'text-slate-700'
                         )}
                     >
                         {used.toLocaleString('en-IN')} / {limit.toLocaleString('en-IN')}
                     </span>
-                    {isHigh && onAddMore && (
+
+                    {/* ✅ FIX: Always show button if onAddMore exists */}
+                    {onAddMore && (
                         <button
                             onClick={onAddMore}
-                            className="px-2 py-0.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                            className={clsx(
+                                'px-2 py-0.5 text-xs font-semibold rounded-lg',
+                                'transition-colors whitespace-nowrap',
+                                // Color changes based on urgency
+                                isHigh
+                                    ? 'bg-red-600 text-white hover:bg-red-700'
+                                    : isMid
+                                        ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            )}
                         >
                             {addMoreLabel || '+ Add More'}
                         </button>
                     )}
                 </div>
             </div>
+
+            {/* Progress bar */}
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
                     className="h-full rounded-full transition-all"
                     style={{
                         width: `${pct}%`,
-                        background: isHigh ? '#EF4444' : isMid ? '#F59E0B' : color,
+                        background: isHigh
+                            ? '#EF4444'
+                            : isMid
+                                ? '#F59E0B'
+                                : color,
                     }}
                 />
             </div>
+
+            {/* Warning text — only on high */}
             {isHigh && (
                 <p className="text-xs text-red-600 mt-1">
                     {limit - used <= 0
@@ -1140,60 +1161,107 @@ function SubscriptionInner() {
             {/* ── Usage Limits ── */}
             {status?.limits && (
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
-                    <h3 className="font-bold text-slate-900 text-base mb-4">📊 Usage Limits</h3>
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-bold text-slate-900 text-base">
+                            📊 Usage & Limits
+                        </h3>
+
+                        {/* Add-on buttons — top right, always visible */}
+                        <div className="flex items-center gap-2">
+                            {status.addons?.canPurchaseStudents && (
+                                <button
+                                    onClick={() => setShowAddon('students')}
+                                    className={clsx(
+                                        'flex items-center gap-1.5 px-3 py-1.5',
+                                        'bg-indigo-50 border border-indigo-200',
+                                        'text-indigo-700 text-xs font-semibold',
+                                        'rounded-lg hover:bg-indigo-100 transition-colors'
+                                    )}
+                                >
+                                    👤 +Students
+                                </button>
+                            )}
+                            {status.addons?.canPurchaseTeachers && (
+                                <button
+                                    onClick={() => setShowAddon('teachers')}
+                                    className={clsx(
+                                        'flex items-center gap-1.5 px-3 py-1.5',
+                                        'bg-violet-50 border border-violet-200',
+                                        'text-violet-700 text-xs font-semibold',
+                                        'rounded-lg hover:bg-violet-100 transition-colors'
+                                    )}
+                                >
+                                    👨‍🏫 +Teachers
+                                </button>
+                            )}
+                        </div>
+                    </div>
 
                     <LimitBar
                         label="Students"
-                        used={status.limits.students.used}
-                        limit={status.limits.students.limit}
+                        used={status.limits.students?.used ?? 0}
+                        limit={status.limits.students?.limit ?? 0}
                         color="#4F46E5"
                         onAddMore={
-                            status.limits.students.addonOptions?.length > 0
+                            status.addons?.canPurchaseStudents
                                 ? () => setShowAddon('students')
                                 : undefined
                         }
-                        addMoreLabel="+ Buy Add-on"
+                        addMoreLabel="+ Add-on"
                     />
 
                     <LimitBar
                         label="Teachers & Staff"
-                        used={status.limits.teachers.used}
-                        limit={status.limits.teachers.limit}
+                        used={status.limits.teachers?.used ?? 0}
+                        limit={status.limits.teachers?.limit ?? 0}
                         color="#7C3AED"
                         onAddMore={
-                            status.limits.teachers.addonOptions?.length > 0
+                            status.addons?.canPurchaseTeachers
                                 ? () => setShowAddon('teachers')
                                 : undefined
                         }
-                        addMoreLabel="+ Buy Add-on"
+                        addMoreLabel="+ Add-on"
                     />
 
-                    {/* Add-on purchased info */}
-                    {(status.addons?.extraStudents > 0 || status.addons?.extraTeachers > 0) && (
-                        <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
-                            {status.addons.extraStudents > 0 && (
-                                <p>✅ +{status.addons.extraStudents} extra students purchased</p>
-                            )}
-                            {status.addons.extraTeachers > 0 && (
-                                <p>✅ +{status.addons.extraTeachers} extra teachers purchased</p>
-                            )}
-                        </div>
-                    )}
+                    {((Number(status.addons?.extraStudents) > 0)
+                        || (Number(status.addons?.extraTeachers) > 0)) && (
+                            <div className="mt-3 pt-3 border-t border-slate-100">
+                                <p className="text-xs font-medium text-slate-500 mb-1">
+                                    Active Add-ons:
+                                </p>
+                                <div className="flex gap-3 flex-wrap">
+                                    {Number(status.addons?.extraStudents) > 0 && (
+                                        <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
+                                            ✅ +{status.addons.extraStudents} students
+                                        </span>
+                                    )}
+                                    {Number(status.addons?.extraTeachers) > 0 && (
+                                        <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
+                                            ✅ +{status.addons.extraTeachers} teachers
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
 
-                    {/* Upgrade suggestion */}
-                    {status.nextPlan && (
-                        <div className="mt-4 pt-4 border-t border-slate-100">
-                            <p className="text-xs text-slate-500 mb-2">
-                                💡 <strong>{status.nextPlan.name}</strong> plan mein upgrade karein for more limits
-                            </p>
-                            <button
-                                onClick={() => setUpgradeModal(status.nextPlan.id)}
-                                className="text-xs font-semibold text-indigo-600 hover:underline"
-                            >
-                                Upgrade to {status.nextPlan.name} →
-                            </button>
-                        </div>
-                    )}
+                    {(() => {
+                        const nextPlan = status.nextPlan
+                        if (!nextPlan) return null
+                        return (
+                            <div className="mt-4 pt-4 border-t border-slate-100">
+                                <p className="text-xs text-slate-500 mb-2">
+                                    💡 <strong>{nextPlan.name}</strong> plan mein
+                                    upgrade karein for more limits
+                                </p>
+                                <button
+                                    onClick={() => setUpgradeModal(nextPlan.id)}
+                                    className="text-xs font-semibold text-indigo-600 hover:underline"
+                                >
+                                    Upgrade to {nextPlan.name} →
+                                </button>
+                            </div>
+                        )
+                    })()}
                 </div>
             )}
 
