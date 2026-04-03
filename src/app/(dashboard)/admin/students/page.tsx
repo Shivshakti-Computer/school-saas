@@ -10,6 +10,7 @@ import {
     Phone, MapPin, Calendar, Hash, BookOpen,
     CheckSquare, Printer, MoreVertical, Shield,
     Sparkles, IndianRupee, Info,
+    CheckIcon,
 } from 'lucide-react'
 import { Spinner, Alert } from '@/components/ui'
 import { Portal } from '@/components/ui/Portal'
@@ -307,10 +308,62 @@ export default function StudentsPage() {
                             Promote ({selectedIds.length})
                         </button>
                     )}
+                    {/* Download Template Button — Import button ke saath rakhna */}
+                    <button
+                        onClick={() => {
+                            // Filters mein jo academicYear selected hai, wahi bhejo
+                            const year = filters.academicYear || getCurrentAcademicYear()
+                            window.location.href =
+                                `/api/students/bulk-import/template?academicYear=${encodeURIComponent(year)}`
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl
+        text-[0.8125rem] font-semibold transition-all active:scale-[0.98]"
+                        style={{
+                            backgroundColor: '#EFF6FF',
+                            color: '#2563EB',
+                            border: '1px solid #BFDBFE',
+                        }}
+                        title={`Template for ${filters.academicYear || getCurrentAcademicYear()}`}
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                        >
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        <span className="hidden sm:inline">
+                            Template
+                        </span>
+                        {/* Selected year badge — user ko pata chale kaunsa year */}
+                        <span
+                            className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-[0.625rem] font-bold"
+                            style={{
+                                backgroundColor: '#DBEAFE',
+                                color: '#1D4ED8',
+                            }}
+                        >
+                            {filters.academicYear || getCurrentAcademicYear()}
+                        </span>
+                    </button>
+
+                    {/* Existing Import Excel button — same rahega */}
                     <label
                         htmlFor="excel-upload"
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[0.8125rem] font-semibold cursor-pointer transition-all active:scale-[0.98]"
-                        style={{ backgroundColor: '#FFFFFF', color: '#475569', border: '1px solid #E2E8F0' }}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[0.8125rem] font-semibold cursor-pointer transition-all
+                        active:scale-[0.98]"
+                        style={{
+                            backgroundColor: '#FFFFFF',
+                            color: '#475569',
+                            border: '1px solid #E2E8F0',
+                        }}
                     >
                         <Upload size={14} />
                         <span className="hidden sm:inline">Import Excel</span>
@@ -323,15 +376,85 @@ export default function StudentsPage() {
                         onChange={async e => {
                             const file = e.target.files?.[0]
                             if (!file) return
+
+                            // Loading state
+                            showSuccess('Importing...')  // Ya alag loading state
+
                             const fd = new FormData()
                             fd.append('file', file)
-                            const res = await fetch('/api/students/bulk-import', { method: 'POST', body: fd })
-                            const data = await res.json()
-                            if (res.ok) {
-                                showSuccess(`${data.success} students imported, ${data.failed} failed`)
+                            // ✅ UI ka selected year bhejo
+                            fd.append('academicYear', filters.academicYear || getCurrentAcademicYear())
+
+                            try {
+                                const res = await fetch('/api/students/bulk-import', {
+                                    method: 'POST',
+                                    body: fd,
+                                })
+                                const data = await res.json()
+
+                                if (!res.ok) {
+                                    showError(data.error || 'Import failed')
+                                    e.target.value = ''
+                                    return
+                                }
+
+                                // ✅ Success message — actual academicYear jo API ne use kiya
+                                if (data.success > 0) {
+                                    showSuccess(
+                                        `${CheckIcon} ${data.success} students imported for ${data.academicYear}` +
+                                        (data.failed > 0 ? ` · ${data.failed} failed` : '')
+                                    )
+                                }
+
+                                // ✅ Errors — structured format mein dikhao
+                                if (data.failed > 0 && data.errors?.length > 0) {
+                                    // Console mein detail
+                                    console.group(`[Bulk Import] ${data.failed} rows failed`)
+                                    data.errors.forEach((err: {
+                                        row: number
+                                        name: string
+                                        field: string
+                                        message: string
+                                    }) => {
+                                        console.warn(
+                                            `Row ${err.row} (${err.name}) | ${err.field}: ${err.message}`
+                                        )
+                                    })
+                                    console.groupEnd()
+
+                                    // ✅ UI mein bhi dikhao — pehle 3 errors
+                                    const preview = data.errors.slice(0, 3)
+                                    const moreCount = data.errors.length - 3
+
+                                    const errorLines = preview
+                                        .map((err: { row: number; name: string; field: string; message: string }) =>
+                                            `Row ${err.row} (${err.name}): [${err.field}] ${err.message}`
+                                        )
+                                        .join('\n')
+
+                                    const fullMsg = data.success > 0
+                                        // Partial success
+                                        ? `⚠️ ${data.failed} rows failed:\n${errorLines}` +
+                                        (moreCount > 0 ? `\n...aur ${moreCount} errors (console mein dekho)` : '')
+                                        // Complete failure
+                                        : `❌ Import failed:\n${errorLines}` +
+                                        (moreCount > 0 ? `\n...aur ${moreCount} errors (console mein dekho)` : '')
+
+                                    // Agar success bhi hua to warning, otherwise error
+                                    if (data.success > 0) {
+                                        // Dono dikhao — success pehle, then warning
+                                        setTimeout(() => showError(fullMsg), 1000)
+                                    } else {
+                                        showError(fullMsg)
+                                    }
+                                }
+
                                 fetchStudents(1)
-                            } else showError(data.error || 'Import failed')
-                            e.target.value = ''
+                            } catch (err) {
+                                showError('Network error — please try again')
+                            } finally {
+                                e.target.value = ''
+                            }
                         }}
                     />
                     <button

@@ -1,23 +1,18 @@
 // FILE: src/models/Student.ts
+
 import mongoose, { Schema, Document } from 'mongoose'
 
 export interface IStudent extends Document {
     tenantId: mongoose.Types.ObjectId
     userId: mongoose.Types.ObjectId
-    
-    // ── Admission Info ──
-    admissionNo: string          // AUTO: SCH/2024-25/0001
-    rollNo: string               // AUTO: Section-wise sequential
-    academicYear: string         // "2024-25"
+    admissionNo: string
+    rollNo: string
+    academicYear: string
     admissionDate: Date
-    admissionClass: string       // Jis class me admission hua
-    
-    // ── Current Academic Info ──
+    admissionClass: string
     class: string
     section: string
     stream?: string
-    
-    // ── Personal Info ──
     dateOfBirth: Date
     gender: 'male' | 'female' | 'other'
     bloodGroup?: string
@@ -25,40 +20,28 @@ export interface IStudent extends Document {
     religion?: string
     category: 'general' | 'obc' | 'sc' | 'st' | 'other'
     photo?: string
-    
-    // ── Family Info ──
     fatherName: string
     fatherOccupation?: string
     fatherPhone?: string
     motherName?: string
     motherOccupation?: string
     motherPhone?: string
-    parentPhone: string          // Primary contact
+    parentPhone: string
     parentEmail?: string
-    
-    // ── Address ──
     address: string
     city?: string
     state?: string
     pincode?: string
-    
-    // ── Emergency ──
     emergencyContact?: string
     emergencyName?: string
-    
-    // ── Documents ──
     documents: Array<{
         name: string
         url: string
         uploadedAt: Date
     }>
-    
-    // ── Previous School ──
     previousSchool?: string
     previousClass?: string
-    tcNumber?: string            // Transfer Certificate
-    
-    // ── Session History (for promotion) ──
+    tcNumber?: string
     sessionHistory: Array<{
         academicYear: string
         class: string
@@ -67,43 +50,64 @@ export interface IStudent extends Document {
         promotedAt?: Date
         result?: 'promoted' | 'detained' | 'transferred'
     }>
-    
-    // ── Status ──
     status: 'active' | 'inactive' | 'transferred' | 'graduated'
     leftDate?: Date
     leftReason?: string
 }
 
 const StudentSchema = new Schema<IStudent>({
-    tenantId: { type: Schema.Types.ObjectId, ref: 'School', required: true, index: true },
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    tenantId: {
+        type: Schema.Types.ObjectId,
+        ref: 'School',
+        required: true,
+        index: true,
+    },
+    userId: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+    },
 
-    // Admission Info
+    // ── Admission Info ──
     admissionNo: { type: String, required: true },
     rollNo: { type: String, required: true },
     academicYear: { type: String, required: true },
     admissionDate: { type: Date, required: true },
     admissionClass: { type: String, required: true },
 
-    // Current Academic
+    // ── Current Academic ──
     class: { type: String, required: true },
     section: { type: String, required: true },
-    stream:  { type: String, enum: ['science', 'commerce', 'arts', 'vocational', ''], default: '' }, // ✅ ADD
 
-    // Personal
+    // ✅ FIX: enum hatao — lowercase normalize karo pre-save hook mein
+    // Enum validation fail karta tha "Science" (capital) pe
+    stream: {
+        type: String,
+        default: '',
+        // Enum nahi — hook se normalize karenge
+    },
+
+    // ── Personal ──
     dateOfBirth: { type: Date, required: true },
-    gender: { type: String, enum: ['male', 'female', 'other'], required: true },
-    bloodGroup: { type: String, enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', ''] },
+    gender: {
+        type: String,
+        enum: ['male', 'female', 'other'],
+        required: true,
+    },
+    bloodGroup: {
+        type: String,
+        enum: ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-', ''],
+    },
     nationality: { type: String, default: 'Indian' },
     religion: { type: String },
-    category: { 
-        type: String, 
-        enum: ['general', 'obc', 'sc', 'st', 'other'], 
-        default: 'general' 
+    category: {
+        type: String,
+        enum: ['general', 'obc', 'sc', 'st', 'other'],
+        default: 'general',
     },
     photo: { type: String },
 
-    // Family
+    // ── Family ──
     fatherName: { type: String, required: true },
     fatherOccupation: { type: String },
     fatherPhone: { type: String },
@@ -113,53 +117,115 @@ const StudentSchema = new Schema<IStudent>({
     parentPhone: { type: String, required: true },
     parentEmail: { type: String },
 
-    // Address
+    // ── Address ──
     address: { type: String, required: true },
     city: { type: String },
     state: { type: String },
     pincode: { type: String },
 
-    // Emergency
+    // ── Emergency ──
     emergencyContact: { type: String },
     emergencyName: { type: String },
 
-    // Documents
-    documents: [{ name: String, url: String, uploadedAt: Date }],
+    // ── Documents ──
+    documents: [{
+        name: String,
+        url: String,
+        uploadedAt: Date,
+    }],
 
-    // Previous School
+    // ── Previous School ──
     previousSchool: { type: String },
     previousClass: { type: String },
     tcNumber: { type: String },
 
-    // Session History
+    // ── Session History ──
     sessionHistory: [{
         academicYear: String,
         class: String,
         section: String,
         rollNo: String,
         promotedAt: Date,
-        result: { 
-            type: String, 
-            enum: ['promoted', 'detained', 'transferred'] 
+        result: {
+            type: String,
+            enum: ['promoted', 'detained', 'transferred'],
         },
     }],
 
-    // Status
-    status: { 
-        type: String, 
-        enum: ['active', 'inactive', 'transferred', 'graduated'], 
-        default: 'active' 
+    // ── Status ──
+    status: {
+        type: String,
+        enum: ['active', 'inactive', 'transferred', 'graduated'],
+        default: 'active',
     },
     leftDate: { type: Date },
     leftReason: { type: String },
 
 }, { timestamps: true })
 
-// Indexes
+// ─────────────────────────────────────────────────────
+// ✅ Pre-save Hook — Normalize fields before saving
+// Stream: "Science" → "science", "COMMERCE" → "commerce"
+// Gender: "Male" → "male"
+// Category: "OBC" → "obc"
+// BloodGroup: "a+" → "A+"
+// ─────────────────────────────────────────────────────
+
+const VALID_STREAMS = ['science', 'commerce', 'arts', 'vocational']
+const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
+
+StudentSchema.pre('save', function() {
+    // Stream normalize
+    if (this.stream) {
+        const normalized = this.stream.toLowerCase().trim()
+        this.stream = VALID_STREAMS.includes(normalized) ? normalized : ''
+    }
+
+    // Gender normalize
+    if (this.gender) {
+        this.gender = this.gender.toLowerCase().trim() as 'male' | 'female' | 'other'
+    }
+
+    // Category normalize
+    if (this.category) {
+        this.category = this.category.toLowerCase().trim() as IStudent['category']
+    }
+
+    // Blood group normalize — "a+" → "A+", "ab+" → "AB+"
+    if (this.bloodGroup) {
+        const bg = this.bloodGroup.toUpperCase().trim()
+        this.bloodGroup = VALID_BLOOD_GROUPS.includes(bg) ? bg : ''
+    }
+})
+
+// Pre insertMany/bulkWrite ke liye — hook alag hota hai
+StudentSchema.pre('insertMany', function (next, docs) {
+    if (Array.isArray(docs)) {
+        docs.forEach((doc: any) => {
+            if (doc.stream) {
+                const normalized = doc.stream.toLowerCase().trim()
+                doc.stream = VALID_STREAMS.includes(normalized) ? normalized : ''
+            }
+            if (doc.gender) {
+                doc.gender = doc.gender.toLowerCase().trim()
+            }
+            if (doc.category) {
+                doc.category = doc.category.toLowerCase().trim()
+            }
+            if (doc.bloodGroup) {
+                const bg = doc.bloodGroup.toUpperCase().trim()
+                doc.bloodGroup = VALID_BLOOD_GROUPS.includes(bg) ? bg : ''
+            }
+        })
+    }
+    next()
+})
+
+// ── Indexes ──
 StudentSchema.index({ tenantId: 1, class: 1, section: 1 })
 StudentSchema.index({ tenantId: 1, admissionNo: 1 }, { unique: true })
 StudentSchema.index({ tenantId: 1, academicYear: 1, class: 1, section: 1, rollNo: 1 })
 StudentSchema.index({ tenantId: 1, status: 1 })
 
-export const Student = mongoose.models.Student 
+export const Student = mongoose.models.Student
     || mongoose.model<IStudent>('Student', StudentSchema)
