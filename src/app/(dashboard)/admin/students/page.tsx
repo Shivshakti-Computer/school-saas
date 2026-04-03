@@ -1500,16 +1500,18 @@ function StreamSelector({
 /* ═══════════════════════════════════════════════════════════════
    ✅ ADD STUDENT MODAL — With Stream + Fee Auto-detect
    ═══════════════════════════════════════════════════════════════ */
-// ✅ 1. Type definition fix karo
 function AddStudentModal({
     open, onClose, onSuccess,
 }: {
     open: boolean
     onClose: () => void
-    onSuccess: (msg: string, data: NewStudentData) => void  // ✅ Fixed
+    onSuccess: (msg: string, data: NewStudentData) => void
 }) {
     const initForm = () => ({
-        name: '', phone: '', email: '',
+        name: '',
+        // ✅ phone optional — chote bachhe ka nahi hota
+        phone: '',
+        email: '',
         class: '', section: 'A', stream: '',
         academicYear: getCurrentAcademicYear(),
         admissionDate: new Date().toISOString().split('T')[0],
@@ -1530,13 +1532,11 @@ function AddStudentModal({
     const [step, setStep] = useState(1)
     const totalSteps = 4
 
-    // ✅ 11th/12th check
     const isHigherSecondary = ['11', '12'].includes(form.class)
 
     const setField = useCallback((key: string, val: string) => {
         setForm(prev => {
             const updated = { ...prev, [key]: val }
-            // Auto-clear stream if class changed to non-11/12
             if (key === 'class' && !['11', '12'].includes(val)) {
                 updated.stream = ''
             }
@@ -1550,47 +1550,91 @@ function AddStudentModal({
         setError('')
     }, [])
 
+    // ── Step 1 Validation ──
     const handleNext = useCallback(() => {
         if (step === 1) {
-            if (!form.name || !form.phone || !form.class) {
-                setError('Name, Phone aur Class required hain')
+            // ✅ CHANGE 1: phone required nahi — name aur class hi required
+            if (!form.name.trim()) {
+                setError('Student ka naam required hai')
                 return
             }
+            if (!form.class) {
+                setError('Class select karna zaroori hai')
+                return
+            }
+
+            // ✅ Phone diya hai to format check karo
+            if (form.phone.trim() && !/^\d{10}$/.test(form.phone.trim())) {
+                setError('Phone number 10 digits ka hona chahiye')
+                return
+            }
+
             // 11/12 ke liye stream required
             if (isHigherSecondary && !form.stream) {
                 setError('Class 11 & 12 ke liye Stream select karna zaroori hai')
                 return
             }
         }
+
+        // Step 3 — parentPhone validate karo
+        if (step === 3) {
+            if (!form.parentPhone.trim()) {
+                setError('Parent/Guardian phone required hai')
+                return
+            }
+            if (!/^\d{10}$/.test(form.parentPhone.trim())) {
+                setError('Parent phone 10 digits ka hona chahiye')
+                return
+            }
+            // ✅ Phone diya ho to parent se alag hona chahiye
+            if (
+                form.phone.trim() &&
+                form.phone.trim() === form.parentPhone.trim()
+            ) {
+                setError('Student phone aur parent phone alag hone chahiye')
+                return
+            }
+        }
+
         setError('')
         setStep(s => s + 1)
-    }, [step, form.name, form.phone, form.class, form.stream, isHigherSecondary])
+    }, [step, form.name, form.phone, form.class, form.stream,
+        form.parentPhone, isHigherSecondary])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError('')
+
         try {
+            // ✅ CHANGE 2: phone empty ho to undefined bhejo
+            const payload = {
+                ...form,
+                phone: form.phone.trim() || undefined,
+            }
+
             const res = await fetch('/api/students', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
+                body: JSON.stringify(payload),
             })
             const data = await res.json()
-            // ✅ YE ADD KARO TEMPORARILY
-            console.log('=== API RESPONSE ===', JSON.stringify(data, null, 2))
-            console.log('optionalFees:', data.optionalFees)
-            console.log('optionalFees length:', data.optionalFees?.length)
+
             if (!res.ok) {
                 setError(data.error ?? 'Something went wrong')
                 return
             }
+
             reset()
 
-            // ✅ onSuccess ko full data bhejo
+            // ✅ CHANGE 3: Success message mein login info dikhao
+            const loginMsg = data.loginInfo?.type === 'phone'
+                ? `Login: ${data.loginInfo.username} | Pwd: ${data.loginInfo.defaultPassword}`
+                : `Login: ${data.loginInfo?.username} | Pwd: AdmNo+DOB`
+
             onSuccess(
-                `Student added! Admission No: ${data.admissionNo} | Roll No: ${data.rollNo}`,
-                data // ← full data
+                `✅ ${data.name} added! | Adm: ${data.admissionNo} | Roll: ${data.rollNo} | Password: ${data.loginInfo.student.password}`,
+                data
             )
 
         } finally {
@@ -1607,7 +1651,10 @@ function AddStudentModal({
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+            <div
+                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                onClick={handleClose}
+            />
             <div
                 className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
                 style={{ border: '1px solid #E2E8F0' }}
@@ -1618,10 +1665,16 @@ function AddStudentModal({
                     style={{ borderBottom: '1px solid #F1F5F9' }}
                 >
                     <div>
-                        <h3 className="text-base font-bold" style={{ color: '#0F172A' }}>
+                        <h3
+                            className="text-base font-bold"
+                            style={{ color: '#0F172A' }}
+                        >
                             Add New Student
                         </h3>
-                        <p className="text-xs mt-0.5" style={{ color: '#94A3B8' }}>
+                        <p
+                            className="text-xs mt-0.5"
+                            style={{ color: '#94A3B8' }}
+                        >
                             Step {step} of {totalSteps}
                         </p>
                     </div>
@@ -1637,7 +1690,10 @@ function AddStudentModal({
 
                 {/* Progress Bar */}
                 <div className="px-6 pt-3 pb-0 flex-shrink-0">
-                    <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: '#F1F5F9' }}>
+                    <div
+                        className="w-full h-1.5 rounded-full"
+                        style={{ backgroundColor: '#F1F5F9' }}
+                    >
                         <div
                             className="h-full rounded-full transition-all duration-300"
                             style={{
@@ -1647,20 +1703,27 @@ function AddStudentModal({
                         />
                     </div>
                     <div className="flex justify-between mt-1.5">
-                        {['Academic', 'Personal', 'Family', 'Address'].map((s, i) => (
-                            <span
-                                key={s}
-                                className="text-[0.625rem] font-medium"
-                                style={{ color: step > i ? '#2563EB' : '#CBD5E1' }}
-                            >
-                                {s}
-                            </span>
-                        ))}
+                        {['Academic', 'Personal', 'Family', 'Address'].map(
+                            (s, i) => (
+                                <span
+                                    key={s}
+                                    className="text-[0.625rem] font-medium"
+                                    style={{
+                                        color: step > i ? '#2563EB' : '#CBD5E1',
+                                    }}
+                                >
+                                    {s}
+                                </span>
+                            )
+                        )}
                     </div>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                <form
+                    onSubmit={handleSubmit}
+                    className="flex flex-col flex-1 min-h-0"
+                >
                     <div className="flex-1 overflow-y-auto portal-scrollbar px-6 py-4">
 
                         {/* ── Step 1: Academic Info ── */}
@@ -1673,13 +1736,26 @@ function AddStudentModal({
                                     required
                                     placeholder="Rahul Kumar"
                                 />
-                                <FormInput
-                                    label="Student Phone"
-                                    value={form.phone}
-                                    onChange={val => setField('phone', val)}
-                                    required
-                                    placeholder="9999999999"
-                                />
+
+                                {/* ✅ CHANGE 4: Phone optional — label mein (Optional) add */}
+                                <div>
+                                    <FormInput
+                                        label="Student Phone (Optional)"
+                                        value={form.phone}
+                                        onChange={val => setField('phone', val)}
+                                        placeholder="Chote bachhe ke liye blank chhod sakte hain"
+                                    />
+                                    {/* ✅ Helper text — user ko samjhao */}
+                                    <p
+                                        className="text-[0.625rem] mt-1"
+                                        style={{ color: '#94A3B8' }}
+                                    >
+                                        {form.phone.trim()
+                                            ? 'Login: Phone + Parent Phone'
+                                            : 'Login: Admission No + DOB (auto-set hoga)'}
+                                    </p>
+                                </div>
+
                                 <FormInput
                                     label="Email (Optional)"
                                     value={form.email}
@@ -1692,7 +1768,10 @@ function AddStudentModal({
                                     value={form.academicYear}
                                     onChange={val => setField('academicYear', val)}
                                     required
-                                    options={getAcademicYears().map(y => ({ value: y, label: y }))}
+                                    options={getAcademicYears().map(y => ({
+                                        value: y,
+                                        label: y,
+                                    }))}
                                 />
                                 <FormSelect
                                     label="Class"
@@ -1701,7 +1780,10 @@ function AddStudentModal({
                                     required
                                     options={[
                                         { value: '', label: 'Select Class' },
-                                        ...CLASSES.map(c => ({ value: c, label: `Class ${c}` })),
+                                        ...CLASSES.map(c => ({
+                                            value: c,
+                                            label: `Class ${c}`,
+                                        })),
                                     ]}
                                 />
                                 <FormSelect
@@ -1709,7 +1791,10 @@ function AddStudentModal({
                                     value={form.section}
                                     onChange={val => setField('section', val)}
                                     required
-                                    options={SECTIONS.map(s => ({ value: s, label: `Section ${s}` }))}
+                                    options={SECTIONS.map(s => ({
+                                        value: s,
+                                        label: `Section ${s}`,
+                                    }))}
                                 />
                                 <FormInput
                                     label="Admission Date"
@@ -1718,16 +1803,12 @@ function AddStudentModal({
                                     type="date"
                                     required
                                 />
-
-                                {/* ✅ Stream Selector — Only for 11th & 12th */}
                                 {isHigherSecondary && (
                                     <StreamSelector
                                         value={form.stream}
                                         onChange={val => setField('stream', val)}
                                     />
                                 )}
-
-                                {/* ✅ Fee Auto-detect Preview */}
                                 {form.class && (
                                     <FeePreviewCard
                                         selectedClass={form.class}
@@ -1765,7 +1846,10 @@ function AddStudentModal({
                                     onChange={val => setField('bloodGroup', val)}
                                     options={[
                                         { value: '', label: 'Not Known' },
-                                        ...BLOOD_GROUPS.map(b => ({ value: b, label: b })),
+                                        ...BLOOD_GROUPS.map(b => ({
+                                            value: b,
+                                            label: b,
+                                        })),
                                     ]}
                                 />
                                 <FormSelect
@@ -1813,18 +1897,84 @@ function AddStudentModal({
                         {/* ── Step 3: Family Info ── */}
                         {step === 3 && (
                             <div className="grid grid-cols-2 gap-4">
-                                <FormInput label="Father's Name" value={form.fatherName} onChange={val => setField('fatherName', val)} required placeholder="Ram Kumar" />
-                                <FormInput label="Father's Phone" value={form.fatherPhone} onChange={val => setField('fatherPhone', val)} placeholder="9888888888" />
-                                <FormInput label="Father's Occupation" value={form.fatherOccupation} onChange={val => setField('fatherOccupation', val)} placeholder="Farmer, Teacher, etc." />
+                                <FormInput
+                                    label="Father's Name"
+                                    value={form.fatherName}
+                                    onChange={val => setField('fatherName', val)}
+                                    required
+                                    placeholder="Ram Kumar"
+                                />
+                                <FormInput
+                                    label="Father's Phone"
+                                    value={form.fatherPhone}
+                                    onChange={val => setField('fatherPhone', val)}
+                                    placeholder="9888888888"
+                                />
+                                <FormInput
+                                    label="Father's Occupation"
+                                    value={form.fatherOccupation}
+                                    onChange={val => setField('fatherOccupation', val)}
+                                    placeholder="Farmer, Teacher, etc."
+                                />
                                 <div />
-                                <FormInput label="Mother's Name" value={form.motherName} onChange={val => setField('motherName', val)} placeholder="Sita Devi" />
-                                <FormInput label="Mother's Phone" value={form.motherPhone} onChange={val => setField('motherPhone', val)} placeholder="9777777777" />
-                                <FormInput label="Mother's Occupation" value={form.motherOccupation} onChange={val => setField('motherOccupation', val)} placeholder="Optional" />
+                                <FormInput
+                                    label="Mother's Name"
+                                    value={form.motherName}
+                                    onChange={val => setField('motherName', val)}
+                                    placeholder="Sita Devi"
+                                />
+                                <FormInput
+                                    label="Mother's Phone"
+                                    value={form.motherPhone}
+                                    onChange={val => setField('motherPhone', val)}
+                                    placeholder="9777777777"
+                                />
+                                <FormInput
+                                    label="Mother's Occupation"
+                                    value={form.motherOccupation}
+                                    onChange={val => setField('motherOccupation', val)}
+                                    placeholder="Optional"
+                                />
                                 <div />
-                                <FormInput label="Parent/Guardian Phone" value={form.parentPhone} onChange={val => setField('parentPhone', val)} required placeholder="Primary contact number" />
-                                <FormInput label="Parent Email" value={form.parentEmail} onChange={val => setField('parentEmail', val)} type="email" placeholder="parent@email.com" />
-                                <FormInput label="Emergency Contact Name" value={form.emergencyName} onChange={val => setField('emergencyName', val)} placeholder="Uncle/Relative name" />
-                                <FormInput label="Emergency Contact No." value={form.emergencyContact} onChange={val => setField('emergencyContact', val)} placeholder="9666666666" />
+
+                                {/* ✅ Parent Phone — required, aur helper text */}
+                                <div>
+                                    <FormInput
+                                        label="Parent/Guardian Phone"
+                                        value={form.parentPhone}
+                                        onChange={val => setField('parentPhone', val)}
+                                        required
+                                        placeholder="Primary contact number"
+                                    />
+                                    <p
+                                        className="text-[0.625rem] mt-1"
+                                        style={{ color: '#94A3B8' }}
+                                    >
+                                        {!form.phone.trim()
+                                            ? 'Is number se parent portal login hoga. Same parent ke 2 bachhe ho to same number use kar sakte hain.'
+                                            : 'Parent portal login + student ka default password'}
+                                    </p>
+                                </div>
+
+                                <FormInput
+                                    label="Parent Email"
+                                    value={form.parentEmail}
+                                    onChange={val => setField('parentEmail', val)}
+                                    type="email"
+                                    placeholder="parent@email.com"
+                                />
+                                <FormInput
+                                    label="Emergency Contact Name"
+                                    value={form.emergencyName}
+                                    onChange={val => setField('emergencyName', val)}
+                                    placeholder="Uncle/Relative name"
+                                />
+                                <FormInput
+                                    label="Emergency Contact No."
+                                    value={form.emergencyContact}
+                                    onChange={val => setField('emergencyContact', val)}
+                                    placeholder="9666666666"
+                                />
                             </div>
                         )}
 
@@ -1832,11 +1982,111 @@ function AddStudentModal({
                         {step === 4 && (
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
-                                    <FormInput label="Full Address" value={form.address} onChange={val => setField('address', val)} required placeholder="House No, Street, Village/Colony" />
+                                    <FormInput
+                                        label="Full Address"
+                                        value={form.address}
+                                        onChange={val => setField('address', val)}
+                                        required
+                                        placeholder="House No, Street, Village/Colony"
+                                    />
                                 </div>
-                                <FormInput label="City/Town" value={form.city} onChange={val => setField('city', val)} placeholder="Lucknow" />
-                                <FormInput label="State" value={form.state} onChange={val => setField('state', val)} placeholder="Uttar Pradesh" />
-                                <FormInput label="Pincode" value={form.pincode} onChange={val => setField('pincode', val)} placeholder="226001" />
+                                <FormInput
+                                    label="City/Town"
+                                    value={form.city}
+                                    onChange={val => setField('city', val)}
+                                    placeholder="Lucknow"
+                                />
+                                <FormInput
+                                    label="State"
+                                    value={form.state}
+                                    onChange={val => setField('state', val)}
+                                    placeholder="Uttar Pradesh"
+                                />
+                                <FormInput
+                                    label="Pincode"
+                                    value={form.pincode}
+                                    onChange={val => setField('pincode', val)}
+                                    placeholder="226001"
+                                />
+
+                                {/* ✅ Login Info Preview — submit se pehle dikhao */}
+                                <div
+                                    className="col-span-2 p-3 rounded-xl"
+                                    style={{
+                                        backgroundColor: '#F0FDF4',
+                                        border: '1px solid #BBF7D0',
+                                    }}
+                                >
+                                    <p
+                                        className="text-xs font-semibold mb-2"
+                                        style={{ color: '#166534' }}
+                                    >
+                                        🔐 Login Credentials (auto-set honge)
+                                    </p>
+
+                                    {/* Student Login */}
+                                    <div className="mb-2">
+                                        <p
+                                            className="text-[0.625rem] font-semibold uppercase mb-0.5"
+                                            style={{ color: '#15803D' }}
+                                        >
+                                            Student Login
+                                        </p>
+                                        <p className="text-xs" style={{ color: '#166534' }}>
+                                            Username:{' '}
+                                            <strong>
+                                                {form.phone.trim()
+                                                    ? form.phone
+                                                    : 'Admission No (auto)'}
+                                            </strong>
+                                            {' '}| Password:{' '}
+                                            <strong>
+                                                {form.dateOfBirth
+                                                    ? (() => {
+                                                        const d = new Date(form.dateOfBirth)
+                                                        const dd = String(d.getDate()).padStart(2, '0')
+                                                        const mm = String(d.getMonth() + 1).padStart(2, '0')
+                                                        return `${dd}${mm}${d.getFullYear()}`
+                                                    })()
+                                                    : 'DOB (DDMMYYYY)'}
+                                            </strong>
+                                        </p>
+                                    </div>
+
+                                    {/* Parent Login */}
+                                    <div
+                                        className="pt-2"
+                                        style={{ borderTop: '1px solid #BBF7D0' }}
+                                    >
+                                        <p
+                                            className="text-[0.625rem] font-semibold uppercase mb-0.5"
+                                            style={{ color: '#15803D' }}
+                                        >
+                                            Parent Login
+                                        </p>
+                                        <p className="text-xs" style={{ color: '#166534' }}>
+                                            Username: <strong>{form.parentPhone || 'Parent Phone'}</strong>
+                                            {' '}| Password:{' '}
+                                            <strong>
+                                                {form.dateOfBirth
+                                                    ? (() => {
+                                                        const d = new Date(form.dateOfBirth)
+                                                        const dd = String(d.getDate()).padStart(2, '0')
+                                                        const mm = String(d.getMonth() + 1).padStart(2, '0')
+                                                        return `${dd}${mm}${d.getFullYear()}`
+                                                    })()
+                                                    : 'DOB (DDMMYYYY)'}
+                                            </strong>
+                                        </p>
+                                        <p
+                                            className="text-[0.625rem] mt-1"
+                                            style={{ color: '#94A3B8' }}
+                                        >
+                                            Same parent ke 2 bachche hain to parent ka password
+                                            pehle bachche ka DOB rahega
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1846,7 +2096,11 @@ function AddStudentModal({
                         <div className="mx-6 mb-2">
                             <div
                                 className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
-                                style={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
+                                style={{
+                                    backgroundColor: '#FEF2F2',
+                                    color: '#DC2626',
+                                    border: '1px solid #FECACA',
+                                }}
                             >
                                 <AlertCircle size={15} />
                                 {error}
@@ -1861,11 +2115,21 @@ function AddStudentModal({
                     >
                         <button
                             type="button"
-                            onClick={step > 1 ? () => setStep(s => s - 1) : handleClose}
+                            onClick={
+                                step > 1 ? () => setStep(s => s - 1) : handleClose
+                            }
                             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                            style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}
+                            style={{
+                                backgroundColor: '#F8FAFC',
+                                color: '#475569',
+                                border: '1px solid #E2E8F0',
+                            }}
                         >
-                            {step > 1 ? <><ChevronLeft size={14} /> Back</> : 'Cancel'}
+                            {step > 1 ? (
+                                <><ChevronLeft size={14} /> Back</>
+                            ) : (
+                                'Cancel'
+                            )}
                         </button>
 
                         {step < totalSteps ? (

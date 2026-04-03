@@ -26,7 +26,20 @@ const VALID_CATEGORIES = ['general', 'obc', 'sc', 'st', 'other']
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
 
 // ─────────────────────────────────────────────
-// Normalizers — case insensitive fix
+// ✅ NEW — Password = DOB (DDMMYYYY)
+// Simple, yaad rakhne wala
+// e.g. 15 May 2008 → "15052008"
+// ─────────────────────────────────────────────
+
+function formatDOBPassword(dob: Date): string {
+  const dd = String(dob.getDate()).padStart(2, '0')
+  const mm = String(dob.getMonth() + 1).padStart(2, '0')
+  const yyyy = dob.getFullYear()
+  return `${dd}${mm}${yyyy}`
+}
+
+// ─────────────────────────────────────────────
+// Normalizers
 // ─────────────────────────────────────────────
 
 function normalizeStream(raw: string): string {
@@ -55,7 +68,6 @@ function normalizeBloodGroup(raw: string): string {
 
 function parseDOB(raw: any): Date {
   try {
-    // Excel numeric date handle karo
     if (typeof raw === 'number') {
       const excelEpoch = new Date(1900, 0, 1)
       excelEpoch.setDate(excelEpoch.getDate() + raw - 2)
@@ -68,7 +80,7 @@ function parseDOB(raw: any): Date {
 }
 
 // ─────────────────────────────────────────────
-// Multi-column name helper
+// Multi-column helper
 // ─────────────────────────────────────────────
 
 function col(row: any, ...keys: string[]): string {
@@ -124,13 +136,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
   }
 
-  // ✅ UI se academicYear lo — FormData mein bheja tha
   const rawYear = formData.get('academicYear') as string || ''
   const academicYear = isValidAcademicYear(rawYear)
     ? rawYear
     : getCurrentAcademicYear()
 
-  // ── Parse Excel ──
   const buffer = Buffer.from(await file.arrayBuffer())
   const wb = XLSX.read(buffer, { type: 'buffer' })
   const ws = wb.Sheets[wb.SheetNames[0]]
@@ -163,11 +173,9 @@ export async function POST(req: NextRequest) {
   const subdomain = school?.subdomain || 'SCH'
   const schoolCode = getSchoolCode(subdomain)
 
-  // ── Results tracker ──
   const results = {
     success: 0,
     failed: 0,
-    // ✅ Detailed errors — row number + field + reason
     errors: [] as Array<{
       row: number
       name: string
@@ -185,75 +193,109 @@ export async function POST(req: NextRequest) {
     let createdUserId: string | null = null
 
     try {
-      // ── Required field validation ──
+      // ── Required fields ──
       const name = col(row, 'Name', 'name')
-      const phone = col(row, 'Phone', 'phone')
       const className = col(row, 'Class', 'class')
       const fatherName = col(row, 'Father Name', 'father_name', 'fatherName')
       const address = col(row, 'Address', 'address')
 
-      // ✅ Har field ke liye alag error — user ko exact pata chale
       if (!name) throw { field: 'Name', message: 'Name column empty hai' }
-      if (!phone) throw { field: 'Phone', message: 'Phone column empty hai' }
-      if (!/^\d{10}$/.test(phone)) {
-        throw {
-          field: 'Phone',
-          message: `Phone invalid: "${phone}" — sirf 10 digits chahiye (bina +91)`,
-        }
-      }
       if (!className) throw { field: 'Class', message: 'Class column empty hai' }
       if (!fatherName) throw { field: 'Father Name', message: 'Father Name column empty hai' }
       if (!address) throw { field: 'Address', message: 'Address column empty hai' }
 
-      // ── Optional fields — normalize karo ──
+      // ── Optional fields ──
       const section = col(row, 'Section', 'section') || 'A'
-      const parentPhone = col(row, 'Parent Phone', 'parent_phone', 'parentPhone') || phone
 
-      // ✅ Stream normalize — "Science" → "science"
+      // ✅ Phone optional — chote bachhe ka nahi hota
+      const phoneRaw = col(row, 'Phone', 'phone')
+      const studentPhone: string | null = phoneRaw || null
+
+      // Phone diya hai to validate karo
+      if (studentPhone && !/^\d{10}$/.test(studentPhone)) {
+        throw {
+          field: 'Phone',
+          message: `Phone invalid: "${studentPhone}" — 10 digits chahiye (bina +91)`,
+        }
+      }
+
+      // ✅ Parent phone — required
+      const parentPhoneRaw = col(row, 'Parent Phone', 'parent_phone', 'parentPhone')
+      const parentPhone = parentPhoneRaw || studentPhone || ''
+
+      if (!parentPhone) {
+        throw {
+          field: 'Parent Phone',
+          message: 'Parent Phone required hai',
+        }
+      }
+      if (!/^\d{10}$/.test(parentPhone)) {
+        throw {
+          field: 'Parent Phone',
+          message: `Parent Phone invalid: "${parentPhone}" — 10 digits chahiye`,
+        }
+      }
+
+      // Student phone = parent phone nahi hona chahiye
+      if (studentPhone && studentPhone === parentPhone) {
+        throw {
+          field: 'Phone',
+          message: 'Student phone aur parent phone alag hone chahiye',
+        }
+      }
+
+      // Stream normalize
       const streamRaw = col(row, 'Stream', 'stream')
       const stream = normalizeStream(streamRaw)
 
-      // Stream validation for class 11/12
       if (['11', '12'].includes(className)) {
         if (streamRaw && !stream) {
-          // Stream value tha but invalid tha
           throw {
             field: 'Stream',
-            message: `Stream invalid: "${streamRaw}" — valid values: science, commerce, arts, vocational`,
+            message: `Stream invalid: "${streamRaw}" — valid: science, commerce, arts, vocational`,
           }
         }
         if (!streamRaw) {
           throw {
             field: 'Stream',
-            message: 'Class 11/12 ke liye Stream required hai (science/commerce/arts/vocational)',
+            message: 'Class 11/12 ke liye Stream required hai',
           }
         }
       }
 
-      // ✅ Gender normalize — "Male" → "male"
       const gender = normalizeGender(col(row, 'Gender', 'gender'))
-
-      // ✅ Category normalize — "OBC" → "obc"
       const category = normalizeCategory(col(row, 'Category', 'category'))
-
-      // ✅ Blood group normalize — "a+" → "A+"
       const bloodGroup = normalizeBloodGroup(
         col(row, 'Blood Group', 'blood_group', 'bloodGroup')
       )
-
       const dateOfBirth = parseDOB(
         col(row, 'DOB', 'dob', 'Date of Birth', 'dateOfBirth')
       )
 
-      // ── Duplicate check ──
-      const existing = await User.findOne({
-        tenantId: session.user.tenantId,
-        phone,
-      })
-      if (existing) {
-        throw {
-          field: 'Phone',
-          message: `Phone ${phone} already registered hai`,
+      // ── Duplicate phone check ──
+      if (studentPhone) {
+        const existing = await User.findOne({
+          tenantId: session.user.tenantId,
+          phone: studentPhone,
+        })
+        if (existing) {
+          throw {
+            field: 'Phone',
+            message: `Phone ${studentPhone} already registered hai`,
+          }
+        }
+
+        // Parent phone kisi student ka phone to nahi?
+        const parentAsStudent = await User.findOne({
+          tenantId: session.user.tenantId,
+          phone: parentPhone,
+          role: 'student',
+        })
+        if (parentAsStudent) {
+          throw {
+            field: 'Parent Phone',
+            message: `Parent phone ${parentPhone} ek student account pe registered hai`,
+          }
         }
       }
 
@@ -274,15 +316,20 @@ export async function POST(req: NextRequest) {
           academicYear
         ))
 
-      // ── Create User ──
-      const hashedPwd = await bcrypt.hash(parentPhone || phone, 10)
+      // ✅ Password = DOB (DDMMYYYY)
+      const dobPassword = formatDOBPassword(dateOfBirth)
+      const hashedPwd = await bcrypt.hash(dobPassword, 10)
 
+      // ── Create Student User ──
       const user = await User.create({
         tenantId: session.user.tenantId,
         name,
-        phone,
+        // ✅ null agar phone nahi diya
+        phone: studentPhone || null,
         role: 'student',
         password: hashedPwd,
+        // ✅ admissionNo store — login ke liye (phone nahi to)
+        admissionNo,
         class: className,
         section,
         isActive: true,
@@ -290,30 +337,24 @@ export async function POST(req: NextRequest) {
 
       createdUserId = user._id.toString()
 
-      // ── Create Student ──
+      // ── Create Student Record ──
       await Student.create({
         tenantId: session.user.tenantId,
         userId: user._id,
-
         admissionNo,
         rollNo,
-        // ✅ UI se aaya academicYear use karo
         academicYear,
         admissionDate: new Date(),
         admissionClass: className,
-
         class: className,
         section,
-        // ✅ Already normalized — hook bhi karega but pre-normalize better
         stream,
-
         dateOfBirth,
         gender,
         bloodGroup,
         nationality: col(row, 'Nationality', 'nationality') || 'Indian',
         religion: col(row, 'Religion', 'religion'),
         category,
-
         fatherName,
         fatherOccupation: col(row, 'Father Occupation', 'father_occupation'),
         fatherPhone: col(row, 'Father Phone', 'father_phone'),
@@ -322,29 +363,61 @@ export async function POST(req: NextRequest) {
         motherPhone: col(row, 'Mother Phone', 'mother_phone'),
         parentPhone,
         parentEmail: col(row, 'Parent Email', 'parent_email'),
-
         address,
         city: col(row, 'City', 'city'),
         state: col(row, 'State', 'state'),
         pincode: col(row, 'Pincode', 'pincode'),
-
         emergencyContact: col(row, 'Emergency Contact', 'emergency_contact'),
         emergencyName: col(row, 'Emergency Name', 'emergency_name'),
-
         previousSchool: col(row, 'Previous School', 'previous_school'),
         previousClass: col(row, 'Previous Class', 'previous_class'),
         tcNumber: col(row, 'TC Number', 'tc_number'),
-
         sessionHistory: [{
           academicYear,
           class: className,
           section,
           rollNo,
         }],
-
         status: 'active',
         documents: [],
       })
+
+        // ✅ Parent Account — Sibling Aware
+        // Fire and forget — student already saved
+        ; (async () => {
+          try {
+            const existingParent = await User.findOne({
+              tenantId: session.user.tenantId,
+              phone: parentPhone,
+              role: 'parent',
+            })
+
+            if (existingParent) {
+              // Sibling — existing parent mein add karo
+              // Password change NAHI — pehle bachche ka DOB hi rahega
+              await User.findByIdAndUpdate(existingParent._id, {
+                $addToSet: { studentRef: user._id },
+              })
+            } else {
+              // Naya parent — password = is bachche ka DOB
+              const parentHashedPwd = await bcrypt.hash(dobPassword, 10)
+              await User.create({
+                tenantId: session.user.tenantId,
+                name: `${fatherName} (Parent)`,
+                phone: parentPhone,
+                role: 'parent',
+                password: parentHashedPwd,
+                studentRef: [user._id],
+                isActive: true,
+              })
+            }
+          } catch (e: any) {
+            // 11000 = race condition duplicate — ignore
+            if (e.code !== 11000) {
+              console.error('[Parent Error]', e)
+            }
+          }
+        })()
 
       successOffset++
       results.success++
@@ -352,14 +425,12 @@ export async function POST(req: NextRequest) {
     } catch (err: any) {
       results.failed++
 
-      // ✅ Rollback
       if (createdUserId) {
         try {
           await User.findByIdAndDelete(createdUserId)
         } catch { }
       }
 
-      // ✅ Structured error — field + message alag alag
       const field = err.field || 'Unknown'
       const message = err.message || String(err)
 
@@ -375,12 +446,11 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     success: results.success,
     failed: results.failed,
-    // ✅ Structured errors array
     errors: results.errors,
-    academicYear,   // ✅ Actual year jo use hua
+    academicYear,
     schoolCode,
     message: results.success > 0
-      ? `${results.success} students successfully imported for ${academicYear}`
+      ? `${results.success} students imported for ${academicYear} | Password: DOB (DDMMYYYY)`
       : 'Koi bhi student import nahi hua',
   })
 }
