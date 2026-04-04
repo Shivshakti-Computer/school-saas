@@ -1,19 +1,287 @@
-// FILE: src/app/api/chat/route.ts
+// src/app/api/chat/route.ts
+
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import {
-  findAnswer,
-  ALL_QA,
-  FALLBACK_ANSWER,
-  type UserRole,
-} from '@/lib/chatbot/qa-database'
+
+// ══════════════════════════════════════════════
+// Config
+// ══════════════════════════════════════════════
+
+const AI_API_URL = process.env.AI_API_URL || 'http://127.0.0.1:8000'
+const AI_TIMEOUT_MS = 35000 // Render free tier cold start ke liye
+
+// ══════════════════════════════════════════════
+// Types
+// ══════════════════════════════════════════════
+
+// Aapke User model (src/models/User.ts) ke roles exactly match
+type SessionUserRole =
+  | 'admin'
+  | 'teacher'
+  | 'staff'
+  | 'student'
+  | 'parent'
+  | 'superadmin'
+  | 'guest'
+
+interface QuickReply {
+  text: string
+  action?: string
+  payload?: string
+}
+
+interface AIResponse {
+  success: boolean
+  answer: string
+  conversation_id: string
+  sources?: Array<{
+    url: string
+    page_type: string
+    score: number
+  }>
+  quickReplies?: QuickReply[]
+  canForward?: boolean
+  metadata?: {
+    llm_used: boolean
+    llm_provider: string
+    model: string
+    source: string
+    context_chunks: number
+    portal_mode?: boolean
+    tenant_id?: string
+  }
+}
+
+interface PythonChatPayload {
+  message: string
+  conversation_id: string | null
+  role: SessionUserRole
+  mode: 'public' | 'portal'
+  tenant_id?: string | null
+  user_id?: string | null
+  user_name?: string | null
+}
+
+// ══════════════════════════════════════════════
+// Role Mapper
+// staff → teacher, superadmin → admin
+// Python backend ke system prompt se match karta hai
+// ══════════════════════════════════════════════
+
+function mapRoleForAI(role: SessionUserRole): SessionUserRole {
+  const roleMap: Partial<Record<SessionUserRole, SessionUserRole>> = {
+    superadmin: 'admin',
+    staff: 'teacher',
+  }
+  return roleMap[role] ?? role
+}
+
+// ══════════════════════════════════════════════
+// Default Quick Replies
+// Sirf tab use hoti hain jab AI response mein
+// quickReplies nahi aati (rare case)
+// ══════════════════════════════════════════════
+
+function getDefaultQuickReplies(role: SessionUserRole): QuickReply[] {
+  // Logged in portal users
+  if (role !== 'guest') {
+    const portalReplies: Partial<Record<SessionUserRole, QuickReply[]>> = {
+      admin: [
+        { text: '💳 Buy Credits', payload: 'buy_credits' },
+        { text: '⬆️ Upgrade Plan', payload: 'admin_upgrade' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+      teacher: [
+        { text: '✔ Attendance', payload: 'teacher_attendance' },
+        { text: '📝 Enter Marks', payload: 'teacher_marks' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+      student: [
+        { text: '✔ My Attendance', payload: 'student_attendance_check' },
+        { text: '📊 My Results', payload: 'student_results' },
+        { text: '💰 Fee Status', payload: 'fee_status_student' },
+      ],
+      parent: [
+        { text: '✔ Attendance', payload: 'student_attendance_check' },
+        { text: '💰 Pay Fees', payload: 'fee_status_student' },
+        { text: '📊 Results', payload: 'student_results' },
+      ],
+      staff: [
+        { text: '✔ Attendance', payload: 'teacher_attendance' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+      superadmin: [
+        { text: '📊 Dashboard', payload: 'admin_dashboard' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+    }
+    return portalReplies[role] ?? [
+      { text: '📞 Support', action: 'forward' },
+    ]
+  }
+
+  // Public website visitor
+  return [
+    { text: '💰 Plans', payload: 'admin_plans_overview' },
+    { text: '🎁 Free Trial', payload: 'trial_info' },
+    { text: '📦 Features', payload: 'features_overview' },
+    { text: '📞 Talk to Us', action: 'forward' },
+  ]
+}
+
+// ══════════════════════════════════════════════
+// Static Fallback Response
+// Sirf tab use hota hai jab:
+// 1. AI server completely down ho
+// 2. Network error ho
+// ══════════════════════════════════════════════
+
+function getStaticFallback(
+  role: SessionUserRole,
+  message: string
+): { response: string; quickReplies: QuickReply[] } {
+  const msg = message.toLowerCase()
+
+  // Portal users ke liye (logged in)
+  if (role !== 'guest') {
+    return {
+      response:
+        "I'm having trouble connecting right now. 😅\n\n" +
+        'Please try again in a moment, or contact our support team ' +
+        'for immediate help.\n\n' +
+        '📧 **support@skolify.in**',
+      quickReplies: [
+        { text: '🔄 Try Again', payload: 'retry' },
+        { text: '📞 Contact Support', action: 'forward' },
+      ],
+    }
+  }
+
+  // Public visitors ke liye - thoda helpful fallback
+  const isAboutPricing = ['price', 'plan', 'cost', 'kitna', '₹'].some(
+    (kw) => msg.includes(kw)
+  )
+  const isAboutTrial = ['trial', 'free', 'demo'].some((kw) =>
+    msg.includes(kw)
+  )
+  const isAboutFeatures = ['feature', 'module', 'kya'].some((kw) =>
+    msg.includes(kw)
+  )
+
+  if (isAboutPricing) {
+    return {
+      response:
+        'Our plans start from **₹499/month**!\n\n' +
+        '• Starter: ₹499/mo (500 students)\n' +
+        '• Growth: ₹999/mo (1,500 students) ⭐\n' +
+        '• Pro: ₹1,999/mo (3,000 students)\n' +
+        '• Enterprise: ₹3,999/mo (Unlimited)\n\n' +
+        '✅ All plans include **60-day free trial**!',
+      quickReplies: getDefaultQuickReplies('guest'),
+    }
+  }
+
+  if (isAboutTrial) {
+    return {
+      response:
+        '**60-Day Free Trial** — no credit card needed! 🎁\n\n' +
+        'Start at **skolify.in/register** — setup in 15 minutes!',
+      quickReplies: getDefaultQuickReplies('guest'),
+    }
+  }
+
+  if (isAboutFeatures) {
+    return {
+      response:
+        'Skolify has **22+ modules** for complete school management!\n\n' +
+        'Attendance, Fees, Exams, Library, Transport and more.\n\n' +
+        'Visit **skolify.in/features** for the full list!',
+      quickReplies: getDefaultQuickReplies('guest'),
+    }
+  }
+
+  // Generic fallback
+  return {
+    response:
+      "I'm having a bit of trouble right now. 😅\n\n" +
+      'You can:\n' +
+      '• Visit **skolify.in** for information\n' +
+      '• Email us at **support@skolify.in**\n' +
+      '• Try asking again in a moment!',
+    quickReplies: getDefaultQuickReplies('guest'),
+  }
+}
+
+// ══════════════════════════════════════════════
+// Python AI Call
+// ══════════════════════════════════════════════
+
+async function callPythonAI(
+  payload: PythonChatPayload
+): Promise<AIResponse | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+
+  try {
+    const response = await fetch(`${AI_API_URL}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timer)
+
+    if (!response.ok) {
+      console.error(
+        `[AI] HTTP ${response.status} | Mode: ${payload.mode}`
+      )
+      return null
+    }
+
+    return (await response.json()) as AIResponse
+  } catch (error) {
+    clearTimeout(timer)
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        console.error('[AI] Timeout after', AI_TIMEOUT_MS, 'ms')
+      } else if (error.message.includes('ECONNREFUSED')) {
+        console.error('[AI] Server offline:', AI_API_URL)
+      } else {
+        console.error('[AI] Error:', error.message)
+      }
+    }
+    return null
+  }
+}
+
+// ══════════════════════════════════════════════
+// Main Handler
+// ══════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
   try {
+    // ── Auth & Session ──────────────────────
     const session = await getServerSession(authOptions)
-    const userRole = (session?.user?.role as UserRole) || 'guest'
-    const { message } = await req.json()
+
+    const userRole = (session?.user?.role as SessionUserRole) || 'guest'
+    const userId = session?.user?.id || null
+    const userName = session?.user?.name || null
+
+    // Aapke User model mein tenantId hai (school_id nahi)
+    const tenantId = (session?.user as any)?.tenantId || null
+
+    // ── Request Body ────────────────────────
+    const body = await req.json()
+    const {
+      message,
+      conversation_id,
+      // Future: portal widget se aa sakta hai
+      // Security: session ka tenantId override karta hai
+      tenant_id: bodyTenantId,
+    } = body
 
     if (!message?.trim()) {
       return NextResponse.json(
@@ -22,247 +290,128 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const msg = message.toLowerCase().trim()
+    // Session tenantId ko priority do (security)
+    const effectiveTenantId = tenantId || bodyTenantId || null
 
-    // ── Step 1: Exact ID match ──
-    const exactById = ALL_QA.find(
-      qa =>
-        qa.id === msg &&
-        (qa.roles.includes(userRole) || qa.roles.includes('guest'))
+    // Portal mode: logged in + tenantId present
+    const isPortalMode = !!(
+      session &&
+      userRole !== 'guest' &&
+      effectiveTenantId
     )
-    if (exactById) {
+    const mode: 'public' | 'portal' = isPortalMode ? 'portal' : 'public'
+
+    console.log(
+      `\n[Chat] Mode: ${mode} | Role: ${userRole} | ` +
+        `Tenant: ${effectiveTenantId?.slice(-6) || 'none'} | ` +
+        `Msg: "${message.slice(0, 50)}${message.length > 50 ? '...' : ''}"`
+    )
+
+    // ── Call Python AI ──────────────────────
+    const aiPayload: PythonChatPayload = {
+      message,
+      conversation_id: conversation_id || null,
+      role: mapRoleForAI(userRole),
+      mode,
+      tenant_id: effectiveTenantId,
+      user_id: userId,
+      user_name: userName,
+    }
+
+    const aiResult = await callPythonAI(aiPayload)
+
+    // ── AI Success ──────────────────────────
+    if (aiResult?.success) {
+      console.log(
+        `[AI] ✅ LLM: ${aiResult.metadata?.llm_used} | ` +
+          `Provider: ${aiResult.metadata?.llm_provider} | ` +
+          `Chunks: ${aiResult.metadata?.context_chunks}`
+      )
+
       return NextResponse.json({
         success: true,
-        response: exactById.answer,
-        quickReplies: exactById.quickReplies ?? [],
-        canForward: exactById.canForward ?? false,
-        matchedId: exactById.id,
+        response: aiResult.answer,
+        // AI se quickReplies aati hain, fallback sirf rare case mein
+        quickReplies:
+          aiResult.quickReplies ?? getDefaultQuickReplies(userRole),
+        canForward: aiResult.canForward ?? false,
+        conversation_id: aiResult.conversation_id,
+        source: aiResult.metadata?.source || 'ai_groq',
+        aiMetadata: aiResult.metadata,
+        // Dev mode mein debug info
+        ...(process.env.NODE_ENV === 'development' && {
+          _debug: {
+            mode,
+            role: userRole,
+            mappedRole: mapRoleForAI(userRole),
+            tenant: effectiveTenantId,
+            isPortal: isPortalMode,
+          },
+        }),
       })
     }
 
-    // ── Step 1.5: Priority topic checks ──
-    const priorityMap: Array<{ keywords: string[]; targetId: string }> = [
-      {
-        keywords: [
-          'rollover', 'carry forward', 'credit expire', 'credits expire',
-          'credits safe', 'rollover policy', 'rollover benefit',
-          'credit transfer', 'unused credits rollover',
-        ],
-        targetId: 'credit_rollover_detail',
-      },
-      {
-        keywords: ['cancel', 'refund', 'stop subscription', 'cancel plan'],
-        targetId: 'admin_cancel_policy',
-      },
-      {
-        keywords: ['what is skolify', 'about skolify', 'tell me about'],
-        targetId: 'what_is_skolify',
-      },
-      {
-        keywords: ['why skolify', 'why choose', 'different from', 'better than'],
-        targetId: 'how_different',
-      },
-      {
-        keywords: ['annual', 'yearly plan', 'year discount', '2 months free'],
-        targetId: 'annual_billing',
-      },
-      {
-        keywords: ['multiple branch', 'multi branch', 'two schools', 'chain school'],
-        targetId: 'multi_branch',
-      },
-    ]
+    // ── Static Fallback (AI down/timeout) ───
+    // qa-database nahi, static responses use karo
+    console.log('[Chat] ⚠️  AI unavailable, using static fallback')
 
-    for (const { keywords, targetId } of priorityMap) {
-      if (keywords.some(kw => msg.includes(kw))) {
-        const qa = ALL_QA.find(q => q.id === targetId)
-        if (qa && (qa.roles.includes(userRole) || userRole === 'guest')) {
-          return NextResponse.json({
-            success: true,
-            response: qa.answer,
-            quickReplies: qa.quickReplies ?? [],
-            canForward: qa.canForward ?? false,
-            matchedId: qa.id,
-          })
-        }
-      }
-    }
+    const fallback = getStaticFallback(userRole, message)
 
-    // ── Step 2: Pattern match with scoring ──
-    let matched = null
-    let highestScore = 0
-
-    for (const qa of ALL_QA) {
-      const roleAllowed =
-        qa.roles.includes(userRole) ||
-        (userRole === 'guest' && qa.roles.includes('guest'))
-      if (!roleAllowed) continue
-
-      let score = 0
-      for (const pattern of qa.patterns) {
-        if (msg === pattern) {
-          score += 10
-        } else if (msg.includes(pattern)) {
-          score += pattern.split(' ').length * 2
-        } else if (pattern.includes(msg) && msg.length > 3) {
-          score += 1
-        }
-      }
-
-      if (score > highestScore) {
-        highestScore = score
-        matched = qa
-      }
-    }
-
-    if (matched && highestScore > 0) {
-      return NextResponse.json({
-        success: true,
-        response: matched.answer,
-        quickReplies: matched.quickReplies ?? [],
-        canForward: matched.canForward ?? false,
-        matchedId: matched.id,
-      })
-    }
-
-    // ── Step 3: Keyword map (fuzzy) ──
-    const keywordMap: Record<string, string> = {
-      // Pricing
-      'price': 'admin_plans_overview',
-      'pricing': 'admin_plans_overview',
-      'cost': 'admin_plans_overview',
-      'plan': 'admin_plans_overview',
-      'plans': 'admin_plans_overview',
-      'monthly': 'admin_plans_overview',
-      'subscription': 'admin_plans_overview',
-      'rupees': 'admin_plans_overview',
-      'how much': 'admin_plans_overview',
-      'affordable': 'admin_plans_overview',
-      'annual': 'annual_billing',
-      'yearly': 'annual_billing',
-      // Credits
-      'credit': 'credit_system_overview',
-      'sms': 'credit_system_overview',
-      'whatsapp': 'credit_system_overview',
-      'messaging': 'credit_system_overview',
-      'notification': 'credit_system_overview',
-      // Rollover
-      'rollover': 'credit_rollover_detail',
-      'carry forward': 'credit_rollover_detail',
-      'credit expire': 'credit_rollover_detail',
-      'credits safe': 'credit_rollover_detail',
-      // Trial
-      'trial': 'trial_info',
-      'free': 'trial_info',
-      'demo': 'trial_info',
-      'try': 'trial_info',
-      // Features
-      'feature': 'features_overview',
-      'module': 'features_overview',
-      'what can': 'features_overview',
-      // Setup
-      'setup': 'admin_first_steps',
-      'start': 'admin_first_steps',
-      'getting started': 'admin_first_steps',
-      'how to': 'admin_first_steps',
-      // Attendance
-      'attendance': 'teacher_attendance',
-      'present': 'teacher_attendance',
-      'absent': 'teacher_attendance',
-      // Fees
-      'fee': 'fee_status_student',
-      'fees': 'fee_status_student',
-      'payment': 'fee_status_student',
-      // Results
-      'result': 'student_results',
-      'marks': 'teacher_marks',
-      'grade': 'student_results',
-      'exam': 'teacher_marks',
-      // Support
-      'support': 'support_contact',
-      'help': 'support_contact',
-      'contact': 'support_contact',
-      'problem': 'support_contact',
-      'issue': 'support_contact',
-      'not working': 'support_contact',
-      // Security
-      'security': 'security_privacy',
-      'safe': 'security_privacy',
-      'data': 'security_privacy',
-      'privacy': 'security_privacy',
-      // Website
-      'website': 'website_builder',
-      'web': 'website_builder',
-      'site': 'website_builder',
-      // App
-      'app': 'mobile_app',
-      'mobile': 'mobile_app',
-      'android': 'mobile_app',
-      'ios': 'mobile_app',
-      'pwa': 'mobile_app',
-      // Upgrade
-      'upgrade': 'admin_upgrade',
-      'change plan': 'admin_upgrade',
-      'downgrade': 'admin_downgrade',
-      // Import
-      'import': 'bulk_import',
-      'excel': 'bulk_import',
-      'csv': 'bulk_import',
-      'bulk': 'bulk_import',
-      // Cancel
-      'cancel': 'admin_cancel_policy',
-      'refund': 'admin_cancel_policy',
-      // About
-      'what is': 'what_is_skolify',
-      'about': 'what_is_skolify',
-      'skolify': 'what_is_skolify',
-      // Certificate
-      'certificate': 'certificates',
-      'tc': 'certificates',
-      'bonafide': 'certificates',
-      // Multi-branch
-      'branch': 'multi_branch',
-      // Payment methods
-      'upi': 'payment_methods',
-      'gpay': 'payment_methods',
-      'paytm': 'payment_methods',
-      'card': 'payment_methods',
-      // School size
-      'small school': 'skolify_for_school_size',
-      'large school': 'skolify_for_school_size',
-      // Login
-      'login': 'student_login',
-      'password': 'student_login',
-      'forgot': 'student_login',
-    }
-
-    for (const [keyword, targetId] of Object.entries(keywordMap)) {
-      if (msg.includes(keyword)) {
-        const target = ALL_QA.find(qa => qa.id === targetId)
-        if (target && (target.roles.includes(userRole) || userRole === 'guest')) {
-          return NextResponse.json({
-            success: true,
-            response: target.answer,
-            quickReplies: target.quickReplies ?? [],
-            canForward: target.canForward ?? false,
-            matchedId: target.id,
-          })
-        }
-      }
-    }
-
-    // ── Step 4: Fallback ──
     return NextResponse.json({
       success: true,
-      response: FALLBACK_ANSWER.answer,
-      quickReplies: FALLBACK_ANSWER.quickReplies ?? [],
-      canForward: FALLBACK_ANSWER.canForward ?? false,
-      matchedId: 'fallback',
+      response: fallback.response,
+      quickReplies: fallback.quickReplies,
+      canForward: true, // AI down hai to human se baat karne do
+      conversation_id: conversation_id || null,
+      source: 'static_fallback',
     })
   } catch (error) {
-    console.error('Chat API error:', error)
+    console.error('[Chat] ❌ Unhandled error:', error)
+
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Server error',
+        // Client ko graceful message
+        response:
+          'Something went wrong. Please try again or contact support@skolify.in',
+      },
       { status: 500 }
+    )
+  }
+}
+
+// ══════════════════════════════════════════════
+// Health Check
+// ══════════════════════════════════════════════
+
+export async function GET() {
+  try {
+    const res = await fetch(`${AI_API_URL}/api/health`, {
+      signal: AbortSignal.timeout(5000),
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      return NextResponse.json({
+        status: 'ok',
+        ai_backend: data,
+        config: {
+          ai_url: AI_API_URL,
+          timeout_ms: AI_TIMEOUT_MS,
+        },
+      })
+    }
+
+    return NextResponse.json({ status: 'backend_error' }, { status: 503 })
+  } catch {
+    return NextResponse.json(
+      {
+        status: 'backend_offline',
+        ai_url: AI_API_URL,
+        message: 'Python AI server is not reachable',
+      },
+      { status: 503 }
     )
   }
 }

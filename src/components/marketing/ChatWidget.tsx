@@ -1,14 +1,23 @@
 'use client'
 
 // FILE: src/components/chat/ChatWidget.tsx
-// ═══════════════════════════════════════════════════════════
-// Skolify AI Assistant — Animated Launcher + Chat Widget
-// Auto-show bubble · Pulse ring · Professional UX
-// ═══════════════════════════════════════════════════════════
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
-import type { UserRole } from '@/lib/chatbot/qa-database'
+
+// ══════════════════════════════════════════════
+// Types
+// ══════════════════════════════════════════════
+
+// Aapke User model ke roles (src/models/User.ts)
+type SessionUserRole =
+  | 'admin'
+  | 'teacher'
+  | 'staff'
+  | 'student'
+  | 'parent'
+  | 'superadmin'
+  | 'guest'
 
 interface QuickReply {
   text: string
@@ -23,11 +32,12 @@ interface Message {
   quickReplies?: QuickReply[]
   canForward?: boolean
   timestamp: Date
+  source?: string
 }
 
-// ══════════════════════════════════════════════════════════
-// ROTATING SUGGESTION TEXTS — Auto-animated bubble
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// Constants
+// ══════════════════════════════════════════════
 
 const SUGGESTIONS = [
   'Got a question? Ask away! 🙏',
@@ -37,9 +47,125 @@ const SUGGESTIONS = [
   'Book a Demo! 📞',
   'See all Features →',
 ]
-// ══════════════════════════════════════════════════════════
-// ICONS
-// ══════════════════════════════════════════════════════════
+
+// Thanks patterns — no API call needed
+const THANKS_PATTERNS = [
+  'thanks', 'thank you', 'thankyou', 'thank you so much',
+  'that helped', 'got it', 'understood', 'makes sense',
+  'perfect', 'great', 'awesome', 'wonderful', 'helpful',
+  'appreciate it', 'cheers', 'nice', 'cool', 'okay thanks',
+  'ok thanks', 'ok thank you', 'alright', 'sounds good',
+]
+
+const THANKS_REPLIES = [
+  `🙏 **You're welcome!**\n\nI'm always here if you have more questions. Feel free to ask anytime!\n\n**Is there anything else I can help with?**`,
+  `😊 **Glad I could help!**\n\nDon't hesitate to reach out if you need anything else.\n\n**Skolify is here for your school! 🏫**`,
+  `👍 **Happy to help!**\n\nHave a great day — and feel free to come back if you need anything!\n\n**Anything else on your mind?**`,
+]
+
+const GLOBAL_STYLES = `
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.92); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+  @keyframes chatOpen {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+  @keyframes pulseRing {
+    0%   { transform: scale(1);    opacity: 0.6; }
+    70%  { transform: scale(1.55); opacity: 0;   }
+    100% { transform: scale(1.55); opacity: 0;   }
+  }
+  @keyframes badgePop {
+    0%   { transform: scale(0); }
+    70%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+`
+
+// ══════════════════════════════════════════════
+// Welcome Messages (qa-database se independent)
+// ══════════════════════════════════════════════
+
+function getWelcomeMessage(role: SessionUserRole): Message {
+  const base = {
+    id: 'welcome',
+    role: 'bot' as const,
+    timestamp: new Date(),
+    source: 'welcome',
+  }
+
+  const content: Record<SessionUserRole, { content: string; quickReplies: QuickReply[] }> = {
+    guest: {
+      content: `**Hey there! I'm the Skolify Assistant 👋**\n\nI'm here to help you explore everything Skolify has to offer for your school.\n\n**Here's what I can help with:**\n\n• 💰 Plans & Pricing\n• 🎁 60-Day Free Trial\n• 📦 22+ Features & Modules\n• 💳 Credits & Messaging\n• 🔧 Setup & Onboarding\n\nWhat would you like to know? Just ask!`,
+      quickReplies: [
+        { text: '💰 See Plans', payload: 'pricing plans' },
+        { text: '🎁 Free Trial', payload: 'free trial info' },
+        { text: '📦 Features', payload: 'what features do you offer' },
+        { text: '📞 Talk to Us', action: 'forward' },
+      ],
+    },
+    admin: {
+      content: `**Welcome back! 👋**\n\nGood to see you in the Skolify Admin Portal.\n\n**How can I help you today?**\n\n• 💳 Credits & billing\n• ⬆️ Upgrade your plan\n• 👥 Manage students & teachers\n• 🔧 Setup & configuration`,
+      quickReplies: [
+        { text: '💳 Buy Credits', payload: 'how to buy credits' },
+        { text: '⬆️ Upgrade Plan', payload: 'upgrade plan' },
+        { text: '🚀 Setup Guide', payload: 'how to setup skolify' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+    },
+    teacher: {
+      content: `**Hello! 👋**\n\nWelcome to your Teacher Portal.\n\n**What can I help you with today?**\n\n• ✔ Mark attendance\n• 📝 Enter exam marks\n• 📚 Assign homework\n• 📊 View reports`,
+      quickReplies: [
+        { text: '✔ Attendance', payload: 'how to mark attendance' },
+        { text: '📝 Enter Marks', payload: 'how to enter exam marks' },
+        { text: '📚 Homework', payload: 'how to assign homework' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+    },
+    staff: {
+      content: `**Hello! 👋**\n\nWelcome to the Staff Portal.\n\n**What can I help you with today?**\n\n• ✔ Attendance\n• 📊 Reports\n• 🔧 Settings`,
+      quickReplies: [
+        { text: '✔ Attendance', payload: 'how to mark attendance' },
+        { text: '📊 Reports', payload: 'how to view reports' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+    },
+    student: {
+      content: `**Hey! 👋**\n\nWelcome to your Student Portal.\n\n**What would you like to check?**\n\n• ✔ Attendance record\n• 📊 Exam results\n• 📝 Assignments\n• 💰 Fee status`,
+      quickReplies: [
+        { text: '✔ My Attendance', payload: 'check my attendance' },
+        { text: '📊 My Results', payload: 'check my exam results' },
+        { text: '💰 Fee Status', payload: 'check fee status' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+    },
+    parent: {
+      content: `**Hello! 👋**\n\nWelcome to the Parent Portal.\n\n**What would you like to know about your child?**\n\n• ✔ Attendance record\n• 💰 Fee payment\n• 📊 Exam results\n• 📚 Homework status`,
+      quickReplies: [
+        { text: '✔ Attendance', payload: 'check child attendance' },
+        { text: '💰 Pay Fees', payload: 'how to pay fees' },
+        { text: '📊 Results', payload: 'check exam results' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+    },
+    superadmin: {
+      content: `**Welcome, Super Admin! 👋**\n\nYou have full access to the Skolify platform.\n\n**What would you like to do?**`,
+      quickReplies: [
+        { text: '📊 Overview', payload: 'platform overview' },
+        { text: '🏫 Schools', payload: 'manage schools' },
+        { text: '📞 Support', action: 'forward' },
+      ],
+    },
+  }
+
+  return { ...base, ...content[role] }
+}
+
+// ══════════════════════════════════════════════
+// Icons
+// ══════════════════════════════════════════════
 
 function IconClose({ size = 20 }: { size?: number }) {
   return (
@@ -107,9 +233,9 @@ function IconSpark() {
   )
 }
 
-// ══════════════════════════════════════════════════════════
-// ANIMATED LAUNCHER BUBBLE
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// Launcher Bubble
+// ══════════════════════════════════════════════
 
 function LauncherBubble({
   onOpen,
@@ -122,7 +248,6 @@ function LauncherBubble({
   const [fade, setFade] = useState(true)
   const [dismissed, setDismissed] = useState(false)
 
-  // Rotate suggestions every 3s
   useEffect(() => {
     if (!visible || dismissed) return
     const interval = setInterval(() => {
@@ -139,18 +264,10 @@ function LauncherBubble({
 
   return (
     <div
-      className="fixed bottom-[100px] right-4 sm:right-6 z-[9998]
-      flex items-end gap-2"
-      style={{
-        animation: 'bubbleIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards',
-      }}
+      className="fixed bottom-[100px] right-4 sm:right-6 z-[9998] flex items-end gap-2"
+      style={{ animation: 'bubbleIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards' }}
     >
-      {/* Suggestion card */}
-      <div
-        className="relative max-w-[220px] cursor-pointer"
-        onClick={onOpen}
-      >
-        {/* Card */}
+      <div className="relative max-w-[220px] cursor-pointer" onClick={onOpen}>
         <div
           className="px-4 py-3 rounded-2xl rounded-br-sm select-none"
           style={{
@@ -162,23 +279,16 @@ function LauncherBubble({
             ].join(','),
           }}
         >
-          {/* Header row */}
           <div className="flex items-center gap-1.5 mb-1.5">
-            <span style={{ color: '#2563EB' }}>
-              <IconSpark />
-            </span>
-            <span
-              className="text-[10px] font-bold uppercase tracking-widest"
-              style={{ color: '#2563EB' }}
-            >
+            <span style={{ color: '#2563EB' }}><IconSpark /></span>
+            <span className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: '#2563EB' }}>
               Skolify Assistant
             </span>
           </div>
 
-          {/* Animated suggestion text */}
           <p
-            className="text-[13px] font-semibold leading-snug transition-all
-            duration-300"
+            className="text-[13px] font-semibold leading-snug transition-all duration-300"
             style={{
               color: '#0F172A',
               opacity: fade ? 1 : 0,
@@ -188,7 +298,6 @@ function LauncherBubble({
             {SUGGESTIONS[suggIdx]}
           </p>
 
-          {/* Dots indicator */}
           <div className="flex gap-1 mt-2">
             {SUGGESTIONS.map((_, i) => (
               <span
@@ -208,8 +317,7 @@ function LauncherBubble({
         <div
           className="absolute bottom-0 right-[-6px]"
           style={{
-            width: 0,
-            height: 0,
+            width: 0, height: 0,
             borderStyle: 'solid',
             borderWidth: '0 0 10px 10px',
             borderColor: 'transparent transparent #FFFFFF transparent',
@@ -218,19 +326,12 @@ function LauncherBubble({
         />
       </div>
 
-      {/* Dismiss button */}
       <button
-        onClick={e => {
-          e.stopPropagation()
-          setDismissed(true)
-        }}
+        onClick={e => { e.stopPropagation(); setDismissed(true) }}
         className="mb-1 w-5 h-5 rounded-full flex items-center justify-center
         transition-all hover:scale-110 active:scale-90"
-        style={{
-          background: 'rgba(100,116,139,0.15)',
-          color: '#64748B',
-        }}
-        aria-label="बंद करें"
+        style={{ background: 'rgba(100,116,139,0.15)', color: '#64748B' }}
+        aria-label="Dismiss"
       >
         <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" strokeWidth="3" strokeLinecap="round">
@@ -241,9 +342,21 @@ function LauncherBubble({
   )
 }
 
-// ══════════════════════════════════════════════════════════
-// MARKDOWN RENDERER
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// Markdown Renderer
+// ══════════════════════════════════════════════
+
+function renderInline(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g,
+      '<strong class="text-slate-900 font-semibold">$1</strong>')
+    .replace(/\*(.*?)\*/g,
+      '<em class="text-slate-800 italic">$1</em>')
+    .replace(/\[(.*?)\]\((.*?)\)/g,
+      '<a href="$2" class="text-blue-600 underline font-medium hover:text-blue-700 transition-colors" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/`(.*?)`/g,
+      '<code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">$1</code>')
+}
 
 function MarkdownRenderer({ text }: { text: string }) {
   const lines = text.split('\n')
@@ -255,9 +368,7 @@ function MarkdownRenderer({ text }: { text: string }) {
 
         if (line.startsWith('## ')) {
           return (
-            <p key={idx}
-              className="font-bold text-[15px] text-slate-900 mt-3 mb-1.5
-              pb-1.5 border-b border-slate-100">
+            <p key={idx} className="font-bold text-[15px] text-slate-900 mt-3 mb-1.5 pb-1.5 border-b border-slate-100">
               {line.replace('## ', '')}
             </p>
           )
@@ -265,16 +376,16 @@ function MarkdownRenderer({ text }: { text: string }) {
 
         if (line.startsWith('### ')) {
           return (
-            <p key={idx}
-              className="font-semibold text-[12px] text-slate-600 mt-2 mb-1
-              uppercase tracking-wider">
+            <p key={idx} className="font-semibold text-[12px] text-slate-600 mt-2 mb-1 uppercase tracking-wider">
               {line.replace('### ', '')}
             </p>
           )
         }
 
+        // Table separator — skip
         if (line.trim().match(/^\|?[-:\s|]+\|?$/)) return null
 
+        // Table row
         if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
           const cells = line.split('|').map(c => c.trim()).filter(c => c.length > 0)
           if (cells.length === 0) return null
@@ -286,13 +397,13 @@ function MarkdownRenderer({ text }: { text: string }) {
             <div key={idx} className="flex gap-1.5 text-[11px] flex-wrap">
               {cells.map((cell, i) => (
                 <span key={i}
-                  className={`flex-1 min-w-[50px] px-2 py-1.5 rounded-lg
-                  text-center border ${isHeader
+                  className={`flex-1 min-w-[50px] px-2 py-1.5 rounded-lg text-center border ${
+                    isHeader
                       ? 'bg-blue-50 text-blue-900 font-bold border-blue-200'
                       : i === 0
                         ? 'bg-slate-100 text-slate-800 font-semibold border-slate-200'
                         : 'bg-white text-slate-700 border-slate-200'
-                    }`}>
+                  }`}>
                   {cell.replace(/\*\*/g, '')}
                 </span>
               ))}
@@ -300,6 +411,7 @@ function MarkdownRenderer({ text }: { text: string }) {
           )
         }
 
+        // Bullet
         if (line.trim().match(/^[•*\-]\s/)) {
           const content = line.replace(/^[•*\-]\s+/, '')
           return (
@@ -311,6 +423,7 @@ function MarkdownRenderer({ text }: { text: string }) {
           )
         }
 
+        // Numbered list
         if (line.trim().match(/^\d+\./)) {
           const content = line.replace(/^\d+\.\s*/, '')
           const num = line.match(/^(\d+)\./)?.[1]
@@ -335,21 +448,9 @@ function MarkdownRenderer({ text }: { text: string }) {
   )
 }
 
-function renderInline(text: string): string {
-  return text
-    .replace(/\*\*(.*?)\*\*/g,
-      '<strong class="text-slate-900 font-semibold">$1</strong>')
-    .replace(/\*(.*?)\*/g,
-      '<em class="text-slate-800 italic">$1</em>')
-    .replace(/\[(.*?)\]\((.*?)\)/g,
-      '<a href="$2" class="text-blue-600 underline font-medium hover:text-blue-700 transition-colors" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/`(.*?)`/g,
-      '<code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">$1</code>')
-}
-
-// ══════════════════════════════════════════════════════════
-// TIMESTAMP
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// Timestamp
+// ══════════════════════════════════════════════
 
 function TimeStamp({ date }: { date: Date }) {
   const time = date.toLocaleTimeString('hi-IN', {
@@ -358,70 +459,34 @@ function TimeStamp({ date }: { date: Date }) {
   return <span className="text-[10px] text-slate-400 select-none">{time}</span>
 }
 
-// ══════════════════════════════════════════════════════════
-// WELCOME MESSAGES
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// Typing Indicator
+// ══════════════════════════════════════════════
 
-function getWelcomeMessage(role: UserRole | 'guest'): Message {
-  const base = { id: 'welcome', role: 'bot' as const, timestamp: new Date() }
-
-  const content: Record<UserRole | 'guest', {
-    content: string
-    quickReplies: QuickReply[]
-  }> = {
-    guest: {
-      content: `**Hey there! I'm the Skolify Assistant 👋**\n\nI'm here to help you explore everything Skolify has to offer for your school.\n\n**Here's what I can help with:**\n\n• 💰 Plans & Pricing\n• 🎁 60-Day Free Trial\n• 📦 22+ Features & Modules\n• 💳 Credits & Messaging\n• 🔧 Setup & Onboarding\n\nWhat would you like to know? Just ask!`,
-      quickReplies: [
-        { text: '💰 See Plans', payload: 'admin_plans_overview' },
-        { text: '🎁 Free Trial', payload: 'trial_info' },
-        { text: '📦 Features', payload: 'features_overview' },
-        { text: '📞 Talk to Us', action: 'forward' },
-      ],
-    },
-    admin: {
-      content: `**Welcome back! 👋**\n\nGood to see you in the Skolify Admin Portal.\n\n**How can I help you today?**\n\n• 💳 Credits & billing\n• ⬆️ Upgrade your plan\n• 👥 Increase student/teacher limits\n• 🔧 Setup & configuration`,
-      quickReplies: [
-        { text: '💳 Buy Credits', payload: 'buy_credits' },
-        { text: '⬆️ Upgrade Plan', payload: 'admin_upgrade' },
-        { text: '🚀 Setup Guide', payload: 'admin_first_steps' },
-        { text: '📞 Support', action: 'forward' },
-      ],
-    },
-    teacher: {
-      content: `**Hello! 👋**\n\nWelcome to your Teacher Portal.\n\n**What can I help you with today?**\n\n• ✔ Mark attendance\n• 📝 Enter exam marks\n• 📚 Assign homework\n• 📊 View reports`,
-      quickReplies: [
-        { text: '✔ Attendance', payload: 'teacher_attendance' },
-        { text: '📝 Enter Marks', payload: 'teacher_marks' },
-        { text: '📚 Homework', payload: 'teacher_homework' },
-        { text: '📞 Support', action: 'forward' },
-      ],
-    },
-    student: {
-      content: `**Hey! 👋**\n\nWelcome to your Student Portal.\n\n**What would you like to check?**\n\n• ✔ Attendance record\n• 📊 Exam results\n• 📝 Assignments\n• 💰 Fee status`,
-      quickReplies: [
-        { text: '✔ My Attendance', payload: 'student_attendance_check' },
-        { text: '📊 My Results', payload: 'student_results' },
-        { text: '💰 Fee Status', payload: 'fee_status_student' },
-        { text: '📞 Support', action: 'forward' },
-      ],
-    },
-    parent: {
-      content: `**Hello! 👋**\n\nWelcome to the Parent Portal.\n\n**What would you like to know about your child?**\n\n• ✔ Attendance record\n• 💰 Fee payment\n• 📊 Exam results\n• 📚 Homework status`,
-      quickReplies: [
-        { text: '✔ Attendance', payload: 'student_attendance_check' },
-        { text: '💰 Pay Fees', payload: 'fee_status_student' },
-        { text: '📊 Results', payload: 'student_results' },
-        { text: '📞 Support', action: 'forward' },
-      ],
-    },
-  }
-
-  return { ...base, ...content[role] }
+function TypingIndicator() {
+  return (
+    <div className="flex gap-2.5 items-end">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
+        style={{ background: '#2563EB' }}>
+        <IconBot />
+      </div>
+      <div className="rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5 items-center
+        bg-white border-2 border-slate-200 shadow-sm">
+        <span className="text-[11px] text-slate-500 mr-1">Typing</span>
+        {[0, 1, 2].map(i => (
+          <div key={i}
+            className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+            style={{ animationDelay: `${i * 0.18}s` }}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
-// ══════════════════════════════════════════════════════════
-// FORWARD FORM
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// Forward Form
+// ══════════════════════════════════════════════
 
 function ForwardForm({
   onSubmit,
@@ -437,61 +502,55 @@ function ForwardForm({
   return (
     <div className="rounded-2xl overflow-hidden shadow-lg border-2 border-blue-200"
       style={{ background: '#F0F7FF' }}>
-      <div className="px-4 py-3 flex items-center gap-2"
-        style={{ background: '#2563EB' }}>
+      <div className="px-4 py-3 flex items-center gap-2" style={{ background: '#2563EB' }}>
         <span className="text-white text-sm">💬</span>
         <p className="text-white font-bold text-sm">Talk to our real team</p>
       </div>
       <div className="p-4 space-y-3">
         <input
-          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2
-          border-slate-200 bg-white focus:border-blue-500
-          focus:ring-4 focus:ring-blue-100 outline-none transition-all
-          text-slate-900 placeholder:text-slate-400 font-medium"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
+          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
+          transition-all text-slate-900 placeholder:text-slate-400 font-medium"
           placeholder="Your name (optional)"
           value={name}
           onChange={e => setName(e.target.value)}
         />
         <input
-          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2
-          border-slate-200 bg-white focus:border-blue-500
-          focus:ring-4 focus:ring-blue-100 outline-none transition-all
-          text-slate-900 placeholder:text-slate-400 font-medium"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
+          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
+          transition-all text-slate-900 placeholder:text-slate-400 font-medium"
           placeholder="WhatsApp Number *"
           type="tel"
           value={phone}
           onChange={e => setPhone(e.target.value)}
-          required
         />
         <textarea
-          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2
-          border-slate-200 bg-white focus:border-blue-500
-          focus:ring-4 focus:ring-blue-100 outline-none transition-all
-          resize-none text-slate-900 placeholder:text-slate-400 font-medium"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
+          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
+          transition-all resize-none text-slate-900 placeholder:text-slate-400 font-medium"
           rows={3}
-          placeholder="Describe your question in detail  *"
+          placeholder="Describe your question in detail *"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          required
         />
         <div className="flex gap-2.5">
           <button
             onClick={onCancel}
-            className="flex-1 py-2.5 text-sm rounded-xl font-semibold
-            border-2 border-slate-300 bg-white text-slate-700
-            hover:bg-slate-50 transition-all active:scale-95">
-            cancel
+            className="flex-1 py-2.5 text-sm rounded-xl font-semibold border-2
+            border-slate-300 bg-white text-slate-700 hover:bg-slate-50
+            transition-all active:scale-95">
+            Cancel
           </button>
           <button
             onClick={() => {
               if (!phone.trim() || !query.trim()) {
-                alert('Please give your whatsapp number and questions')
+                alert('Please provide your WhatsApp number and question')
                 return
               }
               onSubmit({ name, phone, query })
             }}
-            className="flex-1 py-2.5 text-sm rounded-xl font-bold
-            text-white transition-all active:scale-95 shadow-md"
+            className="flex-1 py-2.5 text-sm rounded-xl font-bold text-white
+            transition-all active:scale-95 shadow-md"
             style={{ background: '#2563EB' }}>
             Send →
           </button>
@@ -501,85 +560,47 @@ function ForwardForm({
   )
 }
 
-// ══════════════════════════════════════════════════════════
-// TYPING INDICATOR
-// ══════════════════════════════════════════════════════════
-
-function TypingIndicator() {
-  return (
-    <div className="flex gap-2.5 items-end">
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center
-        flex-shrink-0 text-white" style={{ background: '#2563EB' }}>
-        <IconBot />
-      </div>
-      <div className="rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5
-        items-center bg-white border-2 border-slate-200 shadow-sm">
-        <span className="text-[11px] text-slate-500 mr-1">Typing...</span>
-        {[0, 1, 2].map(i => (
-          <div key={i}
-            className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-            style={{ animationDelay: `${i * 0.18}s` }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════════════════
-// GLOBAL KEYFRAMES (injected once)
-// ══════════════════════════════════════════════════════════
-
-const GLOBAL_STYLES = `
-  @keyframes bubbleIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.92); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);    }
-  }
-  @keyframes chatOpen {
-    from { opacity: 0; transform: translateY(20px) scale(0.95); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);    }
-  }
-  @keyframes pulseRing {
-    0%   { transform: scale(1);    opacity: 0.6; }
-    70%  { transform: scale(1.55); opacity: 0;   }
-    100% { transform: scale(1.55); opacity: 0;   }
-  }
-  @keyframes badgePop {
-    0%   { transform: scale(0); }
-    70%  { transform: scale(1.2); }
-    100% { transform: scale(1); }
-  }
-`
-
-// ══════════════════════════════════════════════════════════
-// MAIN CHAT WIDGET
-// ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// Main ChatWidget
+// ══════════════════════════════════════════════
 
 export function ChatWidget() {
   const { data: session } = useSession()
-  const userRole = (session?.user?.role as UserRole) || 'guest'
 
+  // Session se role aur tenantId lo
+  const userRole = (session?.user?.role as SessionUserRole) || 'guest'
+  const tenantId = (session?.user as any)?.tenantId || null
+
+  // State
   const [isOpen, setIsOpen] = useState(false)
   const [showBubble, setShowBubble] = useState(false)
   const [unreadCount, setUnreadCount] = useState(1)
-  const [messages, setMessages] = useState<Message[]>([
+  const [messages, setMessages] = useState<Message[]>(() => [
     getWelcomeMessage(userRole),
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showForwardForm, setShowForwardForm] = useState(false)
   const [forwarded, setForwarded] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(null)
 
+  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Show bubble after 3 seconds
+  // Role change hone par welcome message update karo
+  // (jab session load hoti hai)
+  useEffect(() => {
+    setMessages([getWelcomeMessage(userRole)])
+  }, [userRole])
+
+  // Show bubble after 3s
   useEffect(() => {
     const timer = setTimeout(() => setShowBubble(true), 3000)
     return () => clearTimeout(timer)
   }, [])
 
-  // Hide bubble when chat opens; clear unread
+  // Clear unread when opened
   useEffect(() => {
     if (isOpen) {
       setShowBubble(false)
@@ -600,11 +621,12 @@ export function ChatWidget() {
     }
   }, [isOpen, messages, scrollToBottom])
 
-  // ── Send message ──
+  // ── Send Message ──────────────────────────
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return
 
+    // User message add karo
     setMessages(prev => [...prev, {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -615,54 +637,55 @@ export function ChatWidget() {
     setLoading(true)
     setShowForwardForm(false)
 
-    // ── Thanks detection (API call nahi hoga) ──
-    const thanksPatterns = [
-      'thanks', 'thank you', 'thankyou', 'thank you so much',
-      'that helped', 'got it', 'understood', 'makes sense',
-      'perfect', 'great', 'awesome', 'wonderful', 'helpful',
-      'appreciate it', 'cheers', 'nice', 'cool', 'okay thanks',
-      'ok thanks', 'ok thank you', 'alright', 'sounds good',
-    ]
-
+    // Thanks detection — no API call
     const msgLower = trimmed.toLowerCase()
-    const isThanks = thanksPatterns.some(p => msgLower.includes(p))
+    const isThanks = THANKS_PATTERNS.some(p => msgLower.includes(p))
 
     if (isThanks) {
-      const thanksReplies = [
-        `🙏 **You're welcome!**\n\nI'm always here if you have more questions. Feel free to ask anytime!\n\n**Is there anything else I can help with?**`,
-        `😊 **Glad I could help!**\n\nDon't hesitate to reach out if you need anything else.\n\n**Skolify is here for your school! 🏫**`,
-        `👍 **Happy to help!**\n\nHave a great day — and feel free to come back if you need anything!\n\n**Anything else on your mind?**`,
-      ]
-      const reply = thanksReplies[Math.floor(Math.random() * thanksReplies.length)]
-
+      const reply = THANKS_REPLIES[Math.floor(Math.random() * THANKS_REPLIES.length)]
       setTimeout(() => {
         setMessages(prev => [...prev, {
           id: `bot_${Date.now()}`,
           role: 'bot',
           content: reply,
           quickReplies: [
-            { text: '💰 View Plans', payload: 'admin_plans_overview' },
-            { text: '📦 Services', payload: 'features_overview' },
+            { text: '💰 View Plans', payload: 'pricing plans' },
+            { text: '📦 Features', payload: 'what features do you offer' },
             { text: '📞 Support', action: 'forward' },
           ],
           canForward: false,
           timestamp: new Date(),
+          source: 'local',
         }])
         setLoading(false)
-      }, 600) // typing feel ke liye thoda delay
+      }, 600)
       return
     }
 
+    // API call
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, role: userRole }),
+        body: JSON.stringify({
+          message: trimmed,
+          conversation_id: conversationId,
+          // route.ts session se tenantId padhta hai
+          // yahan sirf backup ke liye bhej rahe hain
+          tenant_id: tenantId,
+        }),
       })
+
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
       const data = await res.json()
 
       if (data.success) {
+        // conversation_id track karo for memory
+        if (data.conversation_id) {
+          setConversationId(data.conversation_id)
+        }
+
         setMessages(prev => [...prev, {
           id: `bot_${Date.now()}`,
           role: 'bot',
@@ -670,21 +693,28 @@ export function ChatWidget() {
           quickReplies: data.quickReplies ?? [],
           canForward: data.canForward ?? false,
           timestamp: new Date(),
+          source: data.source,
         }])
-      } else throw new Error(data.error || 'Server error')
-    } catch {
+      } else {
+        throw new Error(data.error || 'Unknown error')
+      }
+
+    } catch (err) {
+      console.error('[ChatWidget] Error:', err)
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`,
         role: 'bot',
-        content: '😔 **Sorry about that!** Something went wrong on our end.\n\nPlease try again in a moment, or reach out to our support team.',
+        content: '😔 **Sorry about that!** Something went wrong.\n\nPlease try again, or reach out to our support team.',
         canForward: true,
         timestamp: new Date(),
+        source: 'error',
       }])
     } finally {
       setLoading(false)
     }
-  }, [loading, userRole])
+  }, [loading, conversationId, tenantId])
 
+  // ── Quick Reply Handler ───────────────────
   const handleQuickReply = useCallback((qr: QuickReply) => {
     if (qr.action === 'navigate' && qr.payload) {
       window.location.href = qr.payload
@@ -692,10 +722,13 @@ export function ChatWidget() {
       setShowForwardForm(true)
       scrollToBottom()
     } else {
+      // payload ko natural message ki tarah send karo
+      // AI isko samjhega
       sendMessage(qr.payload || qr.text)
     }
   }, [sendMessage, scrollToBottom])
 
+  // ── Forward Form Submit ───────────────────
   const handleForwardSubmit = useCallback(async (data: {
     name: string; phone: string; query: string
   }) => {
@@ -716,38 +749,35 @@ export function ChatWidget() {
       setMessages(prev => [...prev, {
         id: `fwd_${Date.now()}`,
         role: 'bot',
-        content: '✔ **Your message has been sent successfully!**\n\nOur team will reach out to you on WhatsApp within **2–4 hours**.\n\nThank you! 🙏',
+        content: '✔ **Message sent successfully!**\n\nOur team will reach out on WhatsApp within **2–4 hours**.\n\nThank you! 🙏',
         timestamp: new Date(),
+        source: 'system',
       }])
     } catch {
-      alert('An error occurred. Please use the enquiry form.')
+      alert('An error occurred. Please use the enquiry form directly.')
     }
   }, [])
 
+  // ── Computed ──────────────────────────────
   const lastBotMsg = [...messages].reverse().find(m => m.role === 'bot')
   const hasQuickReplies = !!(lastBotMsg?.quickReplies?.length)
 
+  // ── Render ────────────────────────────────
   return (
     <>
-      {/* ── Global keyframe styles ── */}
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLES }} />
 
-      {/* ══════════════════════════════════════════════════
-          ANIMATED LAUNCHER BUBBLE
-      ══════════════════════════════════════════════════ */}
+      {/* Launcher Bubble */}
       <LauncherBubble
         visible={showBubble && !isOpen}
         onOpen={() => setIsOpen(true)}
       />
 
-      {/* ══════════════════════════════════════════════════
-          CHAT WINDOW
-      ══════════════════════════════════════════════════ */}
+      {/* Chat Window */}
       {isOpen && (
         <div
           className="fixed bottom-[88px] right-4 sm:right-6 z-[9999]
-          w-[min(420px,calc(100vw-2rem))] flex flex-col rounded-2xl
-          overflow-hidden"
+          w-[min(420px,calc(100vw-2rem))] flex flex-col rounded-2xl overflow-hidden"
           style={{
             height: 'min(640px, calc(100vh - 120px))',
             background: '#FFFFFF',
@@ -760,7 +790,7 @@ export function ChatWidget() {
             animation: 'chatOpen 0.4s cubic-bezier(0.16,1,0.3,1) forwards',
           }}
         >
-          {/* ── HEADER ── */}
+          {/* Header */}
           <div
             className="flex-shrink-0 flex items-center gap-3 px-5 py-4"
             style={{
@@ -768,9 +798,7 @@ export function ChatWidget() {
               borderBottom: '1.5px solid rgba(255,255,255,0.15)',
             }}
           >
-            {/* Avatar with pulse */}
             <div className="relative flex-shrink-0">
-              {/* Pulse rings */}
               <span className="absolute inset-0 rounded-xl"
                 style={{
                   background: 'rgba(255,255,255,0.3)',
@@ -778,8 +806,8 @@ export function ChatWidget() {
                 }}
               />
               <div
-                className="w-10 h-10 rounded-xl flex items-center
-                justify-center relative z-10 text-white"
+                className="w-10 h-10 rounded-xl flex items-center justify-center
+                relative z-10 text-white"
                 style={{
                   background: 'rgba(255,255,255,0.18)',
                   border: '1.5px solid rgba(255,255,255,0.35)',
@@ -789,28 +817,24 @@ export function ChatWidget() {
               </div>
             </div>
 
-            {/* Title */}
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-[15px] leading-tight"
-                style={{ color: '#FFFFFF' }}>
+              <p className="font-bold text-[15px] leading-tight" style={{ color: '#FFFFFF' }}>
                 Skolify Assistant
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-2 h-2 rounded-full bg-green-400"
                   style={{ animation: 'pulseRing 2s ease-out infinite' }}
                 />
-                <p className="text-[11px] font-medium"
-                  style={{ color: 'rgba(255,255,255,0.9)' }}>
+                <p className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
                   Online · Replies instantly
                 </p>
               </div>
             </div>
 
-            {/* Close */}
             <button
               onClick={() => setIsOpen(false)}
-              className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center
-              justify-center transition-all active:scale-90 hover:bg-white/20"
+              className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center
+              transition-all active:scale-90 hover:bg-white/20"
               style={{
                 color: 'rgba(255,255,255,0.9)',
                 background: 'rgba(255,255,255,0.12)',
@@ -822,26 +846,26 @@ export function ChatWidget() {
             </button>
           </div>
 
-          {/* ── MESSAGES ── */}
+          {/* Messages */}
           <div
-            className="flex-1 overflow-y-auto px-4 py-5 space-y-4
-            portal-scrollbar"
+            className="flex-1 overflow-y-auto px-4 py-5 space-y-4"
             style={{ background: '#F1F5F9' }}
           >
             {messages.map((msg, idx) => (
               <div key={msg.id}>
-                <div className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-end'
-                  }`}>
+                <div className={`flex gap-2.5 ${
+                  msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-end'
+                }`}>
                   {/* Avatar */}
                   {msg.role === 'bot' ? (
-                    <div className="w-8 h-8 rounded-xl flex items-center
-                      justify-center flex-shrink-0 self-end mb-1 text-white"
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center
+                      flex-shrink-0 self-end mb-1 text-white"
                       style={{ background: '#2563EB' }}>
                       <IconBot />
                     </div>
                   ) : (
-                    <div className="w-8 h-8 rounded-xl flex items-center
-                      justify-center flex-shrink-0 self-end mb-1 text-white"
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center
+                      flex-shrink-0 self-end mb-1 text-white"
                       style={{ background: '#64748B' }}>
                       <IconUser />
                     </div>
@@ -849,8 +873,9 @@ export function ChatWidget() {
 
                   {/* Bubble */}
                   <div
-                    className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'
-                      }`}
+                    className={`flex flex-col gap-1 ${
+                      msg.role === 'user' ? 'items-end' : 'items-start'
+                    }`}
                     style={{ maxWidth: '82%' }}
                   >
                     <div
@@ -859,15 +884,15 @@ export function ChatWidget() {
                         : 'rounded-2xl rounded-bl-md px-4 py-3'}
                       style={msg.role === 'user'
                         ? {
-                          background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-                          color: '#FFFFFF',
-                          boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
-                        }
+                            background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                            color: '#FFFFFF',
+                            boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
+                          }
                         : {
-                          background: '#FFFFFF',
-                          border: '1.5px solid #E2E8F0',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                        }}
+                            background: '#FFFFFF',
+                            border: '1.5px solid #E2E8F0',
+                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                          }}
                     >
                       {msg.role === 'user' ? (
                         <p className="text-sm leading-relaxed font-medium"
@@ -878,11 +903,35 @@ export function ChatWidget() {
                         <MarkdownRenderer text={msg.content} />
                       )}
                     </div>
+
+                    {/* AI Badge */}
+                    {msg.role === 'bot' &&
+                      msg.source &&
+                      (msg.source.includes('ai') || msg.source.includes('groq')) && (
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
+                          style={{
+                            background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
+                            color: '#1E40AF',
+                            border: '1px solid #93C5FD',
+                          }}
+                        >
+                          ✨ AI
+                        </span>
+                        {process.env.NODE_ENV === 'development' && (
+                          <span className="text-[8px] text-slate-400">
+                            ({msg.source})
+                          </span>
+                        )}
+                      </div>
+                    )}
+
                     <TimeStamp date={msg.timestamp} />
                   </div>
                 </div>
 
-                {/* Quick replies — last bot message only */}
+                {/* Quick replies — only last bot message */}
                 {msg.role === 'bot' && idx === messages.length - 1 && (
                   <div className="mt-3 ml-10 space-y-2.5">
                     {msg.quickReplies && msg.quickReplies.length > 0 && (
@@ -891,9 +940,8 @@ export function ChatWidget() {
                           <button
                             key={qr.text}
                             onClick={() => handleQuickReply(qr)}
-                            className="text-xs px-3.5 py-2 rounded-full
-                            font-semibold transition-all active:scale-95
-                            hover:shadow-md"
+                            className="text-xs px-3.5 py-2 rounded-full font-semibold
+                            transition-all active:scale-95 hover:shadow-md"
                             style={{
                               background: '#FFFFFF',
                               border: '2px solid #2563EB',
@@ -920,9 +968,7 @@ export function ChatWidget() {
                         className="flex items-center gap-2 text-xs px-4 py-2.5
                         rounded-full font-bold transition-all active:scale-95
                         text-white shadow-md"
-                        style={{
-                          background: 'linear-gradient(135deg, #059669, #047857)',
-                        }}
+                        style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
                       >
                         <IconForward />
                         Talk to a real person
@@ -946,15 +992,11 @@ export function ChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* ── STICKY QUICK CHIPS ── */}
+          {/* Sticky Quick Chips */}
           {hasQuickReplies && !loading && !showForwardForm && (
             <div
-              className="px-4 py-2.5 flex gap-2 flex-wrap flex-shrink-0
-              overflow-x-auto"
-              style={{
-                background: '#F8FAFC',
-                borderTop: '1.5px solid #E2E8F0',
-              }}
+              className="px-4 py-2.5 flex gap-2 flex-wrap flex-shrink-0 overflow-x-auto"
+              style={{ background: '#F8FAFC', borderTop: '1.5px solid #E2E8F0' }}
             >
               {lastBotMsg!.quickReplies!.map(qr => (
                 <button
@@ -974,13 +1016,10 @@ export function ChatWidget() {
             </div>
           )}
 
-          {/* ── INPUT ── */}
+          {/* Input */}
           <div
             className="flex-shrink-0 px-4 py-3.5 flex gap-2.5 items-center"
-            style={{
-              background: '#FFFFFF',
-              borderTop: '1.5px solid #E2E8F0',
-            }}
+            style={{ background: '#FFFFFF', borderTop: '1.5px solid #E2E8F0' }}
           >
             <input
               ref={inputRef}
@@ -1032,31 +1071,21 @@ export function ChatWidget() {
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════
-          FLOATING TOGGLE BUTTON — with pulse ring + badge
-      ══════════════════════════════════════════════════ */}
+      {/* Toggle Button */}
       <div className="fixed bottom-6 right-4 sm:right-6 z-[9999]">
-        {/* Pulse ring — only when closed */}
         {!isOpen && (
           <>
             <span
               className="absolute inset-0 rounded-2xl"
-              style={{
-                background: '#2563EB',
-                animation: 'pulseRing 2s ease-out infinite',
-              }}
+              style={{ background: '#2563EB', animation: 'pulseRing 2s ease-out infinite' }}
             />
             <span
               className="absolute inset-0 rounded-2xl"
-              style={{
-                background: '#2563EB',
-                animation: 'pulseRing 2s ease-out 0.6s infinite',
-              }}
+              style={{ background: '#2563EB', animation: 'pulseRing 2s ease-out 0.6s infinite' }}
             />
           </>
         )}
 
-        {/* Main button */}
         <button
           onClick={() => setIsOpen(p => !p)}
           className="relative w-16 h-16 rounded-2xl text-white flex items-center
@@ -1085,7 +1114,6 @@ export function ChatWidget() {
           )}
         </button>
 
-        {/* Unread badge */}
         {!isOpen && unreadCount > 0 && (
           <span
             className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
