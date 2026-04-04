@@ -30,14 +30,13 @@ interface Message {
 // ══════════════════════════════════════════════════════════
 
 const SUGGESTIONS = [
-  'कोई प्रश्न है? पूछें! 🙏',
-  'Plans & Pricing जानें →',
-  '60-दिन Free Trial! 🎁',
-  'Setup में सहायता लें →',
-  'अभी Demo लें! 📞',
-  'Features देखें →',
+  'Got a question? Ask away! 🙏',
+  'Plans & Pricing →',
+  '60-Day Free Trial! 🎁',
+  'Need setup help? →',
+  'Book a Demo! 📞',
+  'See all Features →',
 ]
-
 // ══════════════════════════════════════════════════════════
 // ICONS
 // ══════════════════════════════════════════════════════════
@@ -371,47 +370,47 @@ function getWelcomeMessage(role: UserRole | 'guest'): Message {
     quickReplies: QuickReply[]
   }> = {
     guest: {
-      content: `**नमस्कार! मैं Skolify Assistant हूँ 🙏**\n\nआपके विद्यालय को digital बनाने में सहायता करना मेरा उद्देश्य है।\n\n**मैं इन विषयों में सहायता कर सकता हूँ:**\n\n• 💰 योजनाएँ एवं मूल्य निर्धारण\n• 🎁 60-दिवस निःशुल्क परीक्षण\n• 📦 22+ सुविधाएँ एवं modules\n• 💳 Credits एवं messaging\n• 🔧 Setup एवं onboarding\n\nकृपया बताएं, आप क्या जानना चाहेंगे?`,
+      content: `**Hey there! I'm the Skolify Assistant 👋**\n\nI'm here to help you explore everything Skolify has to offer for your school.\n\n**Here's what I can help with:**\n\n• 💰 Plans & Pricing\n• 🎁 60-Day Free Trial\n• 📦 22+ Features & Modules\n• 💳 Credits & Messaging\n• 🔧 Setup & Onboarding\n\nWhat would you like to know? Just ask!`,
       quickReplies: [
-        { text: '💰 योजनाएँ देखें', payload: 'admin_plans_overview' },
+        { text: '💰 See Plans', payload: 'admin_plans_overview' },
         { text: '🎁 Free Trial', payload: 'trial_info' },
-        { text: '📦 सुविधाएँ', payload: 'features_overview' },
-        { text: '📞 Demo लें', action: 'forward' },
+        { text: '📦 Features', payload: 'features_overview' },
+        { text: '📞 Talk to Us', action: 'forward' },
       ],
     },
     admin: {
-      content: `**स्वागत है! 🙏**\n\nSkolify Admin Portal में आपका पुनः स्वागत है।\n\n**आज मैं किस विषय में सहायता करूँ?**\n\n• 💳 Credits एवं billing प्रबंधन\n• ⬆️ योजना upgrade करें\n• 👥 छात्र/शिक्षक सीमा बढ़ाएँ\n• 🔧 Setup एवं configuration`,
+      content: `**Welcome back! 👋**\n\nGood to see you in the Skolify Admin Portal.\n\n**How can I help you today?**\n\n• 💳 Credits & billing\n• ⬆️ Upgrade your plan\n• 👥 Increase student/teacher limits\n• 🔧 Setup & configuration`,
       quickReplies: [
-        { text: '💳 Credits खरीदें', payload: 'buy_credits' },
-        { text: '⬆️ Upgrade करें', payload: 'admin_upgrade' },
-        { text: '🚀 Setup गाइड', payload: 'admin_first_steps' },
+        { text: '💳 Buy Credits', payload: 'buy_credits' },
+        { text: '⬆️ Upgrade Plan', payload: 'admin_upgrade' },
+        { text: '🚀 Setup Guide', payload: 'admin_first_steps' },
         { text: '📞 Support', action: 'forward' },
       ],
     },
     teacher: {
-      content: `**नमस्कार! 🙏**\n\nTeacher Portal में आपका स्वागत है।\n\n**मैं आपकी कैसे सहायता करूँ?**\n\n• ✔ उपस्थिति अंकन\n• 📝 अंक प्रविष्टि\n• 📚 गृहकार्य प्रबंधन\n• 📊 Reports देखें`,
+      content: `**Hello! 👋**\n\nWelcome to your Teacher Portal.\n\n**What can I help you with today?**\n\n• ✔ Mark attendance\n• 📝 Enter exam marks\n• 📚 Assign homework\n• 📊 View reports`,
       quickReplies: [
-        { text: '✔ उपस्थिति', payload: 'teacher_attendance' },
-        { text: '📝 अंक दर्ज', payload: 'teacher_marks' },
-        { text: '📚 गृहकार्य', payload: 'teacher_homework' },
+        { text: '✔ Attendance', payload: 'teacher_attendance' },
+        { text: '📝 Enter Marks', payload: 'teacher_marks' },
+        { text: '📚 Homework', payload: 'teacher_homework' },
         { text: '📞 Support', action: 'forward' },
       ],
     },
     student: {
-      content: `**नमस्कार! 🙏**\n\nStudent Portal में आपका स्वागत है।\n\n**आप क्या देखना चाहते हैं?**\n\n• ✔ उपस्थिति रिकॉर्ड\n• 📊 परीक्षा परिणाम\n• 📝 Assignments\n• 💰 शुल्क स्थिति`,
+      content: `**Hey! 👋**\n\nWelcome to your Student Portal.\n\n**What would you like to check?**\n\n• ✔ Attendance record\n• 📊 Exam results\n• 📝 Assignments\n• 💰 Fee status`,
       quickReplies: [
-        { text: '✔ उपस्थिति', payload: 'student_attendance_check' },
-        { text: '📊 परिणाम', payload: 'student_results' },
-        { text: '💰 शुल्क', payload: 'fee_status_student' },
+        { text: '✔ My Attendance', payload: 'student_attendance_check' },
+        { text: '📊 My Results', payload: 'student_results' },
+        { text: '💰 Fee Status', payload: 'fee_status_student' },
         { text: '📞 Support', action: 'forward' },
       ],
     },
     parent: {
-      content: `**नमस्कार! 🙏**\n\nParent Portal में आपका स्वागत है।\n\n**अपने बच्चे के बारे में क्या जानना चाहते हैं?**\n\n• ✔ उपस्थिति रिकॉर्ड\n• 💰 शुल्क भुगतान\n• 📊 परीक्षा परिणाम\n• 📚 गृहकार्य स्थिति`,
+      content: `**Hello! 👋**\n\nWelcome to the Parent Portal.\n\n**What would you like to know about your child?**\n\n• ✔ Attendance record\n• 💰 Fee payment\n• 📊 Exam results\n• 📚 Homework status`,
       quickReplies: [
-        { text: '✔ उपस्थिति', payload: 'student_attendance_check' },
-        { text: '💰 शुल्क भुगतान', payload: 'fee_status_student' },
-        { text: '📊 परिणाम', payload: 'student_results' },
+        { text: '✔ Attendance', payload: 'student_attendance_check' },
+        { text: '💰 Pay Fees', payload: 'fee_status_student' },
+        { text: '📊 Results', payload: 'student_results' },
         { text: '📞 Support', action: 'forward' },
       ],
     },
@@ -441,7 +440,7 @@ function ForwardForm({
       <div className="px-4 py-3 flex items-center gap-2"
         style={{ background: '#2563EB' }}>
         <span className="text-white text-sm">💬</span>
-        <p className="text-white font-bold text-sm">मानव टीम से संपर्क करें</p>
+        <p className="text-white font-bold text-sm">Talk to our real team</p>
       </div>
       <div className="p-4 space-y-3">
         <input
@@ -449,7 +448,7 @@ function ForwardForm({
           border-slate-200 bg-white focus:border-blue-500
           focus:ring-4 focus:ring-blue-100 outline-none transition-all
           text-slate-900 placeholder:text-slate-400 font-medium"
-          placeholder="आपका नाम (वैकल्पिक)"
+          placeholder="Your name (optional)"
           value={name}
           onChange={e => setName(e.target.value)}
         />
@@ -458,7 +457,7 @@ function ForwardForm({
           border-slate-200 bg-white focus:border-blue-500
           focus:ring-4 focus:ring-blue-100 outline-none transition-all
           text-slate-900 placeholder:text-slate-400 font-medium"
-          placeholder="WhatsApp नंबर *"
+          placeholder="WhatsApp Number *"
           type="tel"
           value={phone}
           onChange={e => setPhone(e.target.value)}
@@ -470,7 +469,7 @@ function ForwardForm({
           focus:ring-4 focus:ring-blue-100 outline-none transition-all
           resize-none text-slate-900 placeholder:text-slate-400 font-medium"
           rows={3}
-          placeholder="आपका प्रश्न विस्तार से लिखें *"
+          placeholder="Describe your question in detail  *"
           value={query}
           onChange={e => setQuery(e.target.value)}
           required
@@ -481,12 +480,12 @@ function ForwardForm({
             className="flex-1 py-2.5 text-sm rounded-xl font-semibold
             border-2 border-slate-300 bg-white text-slate-700
             hover:bg-slate-50 transition-all active:scale-95">
-            रद्द करें
+            cancel
           </button>
           <button
             onClick={() => {
               if (!phone.trim() || !query.trim()) {
-                alert('कृपया WhatsApp नंबर और प्रश्न अवश्य दर्ज करें।')
+                alert('Please give your whatsapp number and questions')
                 return
               }
               onSubmit({ name, phone, query })
@@ -494,7 +493,7 @@ function ForwardForm({
             className="flex-1 py-2.5 text-sm rounded-xl font-bold
             text-white transition-all active:scale-95 shadow-md"
             style={{ background: '#2563EB' }}>
-            भेजें →
+            Send →
           </button>
         </div>
       </div>
@@ -515,7 +514,7 @@ function TypingIndicator() {
       </div>
       <div className="rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5
         items-center bg-white border-2 border-slate-200 shadow-sm">
-        <span className="text-[11px] text-slate-500 mr-1">उत्तर दे रहे हैं</span>
+        <span className="text-[11px] text-slate-500 mr-1">Typing...</span>
         {[0, 1, 2].map(i => (
           <div key={i}
             className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
@@ -618,14 +617,11 @@ export function ChatWidget() {
 
     // ── Thanks detection (API call nahi hoga) ──
     const thanksPatterns = [
-      'thanks', 'thank you', 'thankyou', 'thank',
-      'dhanyawad', 'dhanyavaad', 'shukriya', 'shukriyaa',
-      'bahut achha', 'bahut acha', 'bahut accha',
-      'bilkul sahi', 'samajh gaya', 'samajh gayi',
-      'theek hai', 'thik hai', 'theek h', 'thik h',
-      'ok thanks', 'ok thank', 'accha', 'acha',
-      'धन्यवाद', 'शुक्रिया', 'बहुत अच्छा', 'समझ गया',
-      'समझ गई', 'ठीक है', 'बिल्कुल सही', 'अच्छा',
+      'thanks', 'thank you', 'thankyou', 'thank you so much',
+      'that helped', 'got it', 'understood', 'makes sense',
+      'perfect', 'great', 'awesome', 'wonderful', 'helpful',
+      'appreciate it', 'cheers', 'nice', 'cool', 'okay thanks',
+      'ok thanks', 'ok thank you', 'alright', 'sounds good',
     ]
 
     const msgLower = trimmed.toLowerCase()
@@ -633,9 +629,9 @@ export function ChatWidget() {
 
     if (isThanks) {
       const thanksReplies = [
-        '🙏 **आपका स्वागत है!**\n\nSkolify Assistant हमेशा आपकी सेवा में उपस्थित है।\n\n**क्या कोई और जानकारी चाहिए?**',
-        '😊 **खुशी हुई सहायता करके!**\n\nकोई भी प्रश्न हो, बेझिझक पूछें।\n\n**Skolify आपके विद्यालय के साथ है!** 🏫',
-        '🙏 **धन्यवाद आपका भी!**\n\nआपका दिन शुभ हो।\n\n**कोई और सहायता चाहिए?**',
+        `🙏 **You're welcome!**\n\nI'm always here if you have more questions. Feel free to ask anytime!\n\n**Is there anything else I can help with?**`,
+        `😊 **Glad I could help!**\n\nDon't hesitate to reach out if you need anything else.\n\n**Skolify is here for your school! 🏫**`,
+        `👍 **Happy to help!**\n\nHave a great day — and feel free to come back if you need anything!\n\n**Anything else on your mind?**`,
       ]
       const reply = thanksReplies[Math.floor(Math.random() * thanksReplies.length)]
 
@@ -645,8 +641,8 @@ export function ChatWidget() {
           role: 'bot',
           content: reply,
           quickReplies: [
-            { text: '💰 योजनाएँ देखें', payload: 'admin_plans_overview' },
-            { text: '📦 सुविधाएँ', payload: 'features_overview' },
+            { text: '💰 View Plans', payload: 'admin_plans_overview' },
+            { text: '📦 Services', payload: 'features_overview' },
             { text: '📞 Support', action: 'forward' },
           ],
           canForward: false,
@@ -680,7 +676,7 @@ export function ChatWidget() {
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`,
         role: 'bot',
-        content: '😔 **क्षमा करें**, तकनीकी समस्या उत्पन्न हुई है।\n\nकृपया कुछ समय बाद पुनः प्रयास करें।',
+        content: '😔 **Sorry about that!** Something went wrong on our end.\n\nPlease try again in a moment, or reach out to our support team.',
         canForward: true,
         timestamp: new Date(),
       }])
@@ -720,11 +716,11 @@ export function ChatWidget() {
       setMessages(prev => [...prev, {
         id: `fwd_${Date.now()}`,
         role: 'bot',
-        content: '✔ **आपका संदेश सफलतापूर्वक भेज दिया गया है!**\n\nहमारी टीम **2-4 घंटे** में आपसे WhatsApp पर संपर्क करेगी।\n\nधन्यवाद! 🙏',
+        content: '✔ **Your message has been sent successfully!**\n\nOur team will reach out to you on WhatsApp within **2–4 hours**.\n\nThank you! 🙏',
         timestamp: new Date(),
       }])
     } catch {
-      alert('कुछ समस्या हुई। कृपया enquiry form का उपयोग करें।')
+      alert('An error occurred. Please use the enquiry form.')
     }
   }, [])
 
@@ -805,7 +801,7 @@ export function ChatWidget() {
                 />
                 <p className="text-[11px] font-medium"
                   style={{ color: 'rgba(255,255,255,0.9)' }}>
-                  Online · तुरंत उत्तर मिलेगा
+                  Online · Replies instantly
                 </p>
               </div>
             </div>
@@ -820,7 +816,7 @@ export function ChatWidget() {
                 background: 'rgba(255,255,255,0.12)',
                 border: '1px solid rgba(255,255,255,0.2)',
               }}
-              aria-label="चैट बंद करें"
+              aria-label="Close chat"
             >
               <IconClose />
             </button>
@@ -929,7 +925,7 @@ export function ChatWidget() {
                         }}
                       >
                         <IconForward />
-                        मानव टीम से बात करें
+                        Talk to a real person
                       </button>
                     )}
                   </div>
@@ -995,7 +991,7 @@ export function ChatWidget() {
                 border: '2px solid #E2E8F0',
                 color: '#0F172A',
               }}
-              placeholder="संदेश लिखें..."
+              placeholder="Type your message..."
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => {
@@ -1028,7 +1024,7 @@ export function ChatWidget() {
                   ? 'none'
                   : '0 4px 14px rgba(37,99,235,0.4)',
               }}
-              aria-label="संदेश भेजें"
+              aria-label="Send"
             >
               <IconSend />
             </button>
@@ -1076,7 +1072,7 @@ export function ChatWidget() {
             ].join(','),
             border: '2.5px solid rgba(255,255,255,0.9)',
           }}
-          aria-label={isOpen ? 'चैट बंद करें' : 'चैट खोलें'}
+          aria-label={isOpen ? 'Close chat' : 'Open chat'}
         >
           {isOpen ? (
             <IconClose size={22} />

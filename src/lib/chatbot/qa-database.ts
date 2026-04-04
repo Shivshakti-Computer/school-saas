@@ -1,7 +1,6 @@
-// FILE: src/lib/chatbot/qa-database.ts
 // ═══════════════════════════════════════════════════════════
-// Skolify AI Assistant — Knowledge Base
-// Formal · Respectful · Professional Indian Tone
+// Skolify AI Assistant — Knowledge Base v2.0
+// Professional English · Human-like Tone · Role-Based
 // Pure TypeScript — No JSX
 // ═══════════════════════════════════════════════════════════
 
@@ -46,91 +45,288 @@ export const GREETING_QA: ChatAnswer[] = [
   {
     id: 'greeting_welcome',
     patterns: [
-      'hello',
-      'hi',
-      'hey',
-      'namaste',
-      'namaskar',
-      'helo',
-      'hii',
-      'start',
-      'help',
+      'hello', 'hi', 'hey', 'namaste', 'namaskar', 'helo', 'hii',
+      'start', 'help', 'good morning', 'good afternoon', 'good evening',
+      'yo', 'sup', 'howdy', 'greetings',
     ],
-    answer: `नमस्कार! 🙏 मैं **Skolify Assistant** हूँ।\n\nमैं आपकी निम्न विषयों में सहायता कर सकता हूँ:\n\n• 📦 **योजनाएँ एवं मूल्य निर्धारण** — शुल्क संरचना\n• 🎁 **निःशुल्क परीक्षण** — 60 दिवस का निःशुल्क अनुभव\n• 💳 **Credits प्रणाली** — संदेश प्रबंधन\n• 🏫 **सुविधाएँ** — उपलब्ध modules\n• 🔧 **Setup सहायता** — प्रारंभ कैसे करें\n• 💰 **Billing** — भुगतान एवं नीतियाँ\n\nकृपया बताएं, आप किस विषय में जानकारी चाहते हैं?`,
+    answer: `Hey there! 👋 I'm the **Skolify Assistant** — happy to help you out!
+
+Whether you're a school admin, teacher, student, or parent, I've got answers ready for you.
+
+**Here's what I can help with:**
+
+• 💰 **Plans & Pricing** — find the right plan for your school
+• 🎁 **Free Trial** — 60 days, no credit card needed
+• 💳 **Credits System** — SMS, WhatsApp & email messaging
+• 📦 **Features** — 22+ modules available
+• 🔧 **Setup Help** — get your school running in 15 minutes
+• 🔒 **Security & Privacy** — how we protect your data
+
+What would you like to know? Go ahead and ask — I don't bite! 😄`,
     category: 'general',
     roles: ['admin', 'teacher', 'student', 'parent', 'guest'],
     quickReplies: [
-      { text: 'योजनाएँ देखें', payload: 'admin_plans_overview' },
-      { text: 'निःशुल्क परीक्षण', payload: 'trial_info' },
-      { text: 'सुविधाएँ', payload: 'features_overview' },
-      { text: 'Support', action: 'forward' },
+      { text: '💰 See Plans', payload: 'admin_plans_overview' },
+      { text: '🎁 Free Trial', payload: 'trial_info' },
+      { text: '📦 Features', payload: 'features_overview' },
+      { text: '📞 Talk to Us', action: 'forward' },
     ],
+  },
+
+  {
+    id: 'what_is_skolify',
+    patterns: [
+      'what is skolify', 'what is this', 'tell me about skolify',
+      'about skolify', 'skolify kya hai', 'what does skolify do',
+      'explain skolify', 'skolify platform', 'is this a school software',
+      'school management', 'school erp',
+    ],
+    answer: `Great question! Let me give you the quick version 😊
+
+**Skolify** is a complete **School Management SaaS Platform** built specifically for Indian schools.
+
+Think of it as your school's digital backbone — everything in one place.
+
+**What it handles:**
+• 👥 Student & teacher management
+• ✅ Daily attendance with auto SMS to parents
+• 💰 Fee collection (online payments via Razorpay)
+• 📝 Exams, results & grade cards
+• 📚 Homework & assignments
+• 🌐 Your school's own website (no coding!)
+• 📱 Works on any phone — no app download needed
+
+**Who uses it?**
+Admins, teachers, students, and parents — each gets their own dashboard.
+
+**Pricing starts at just ₹499/month** with a **60-day free trial**.
+
+Want to know more about any specific part?`,
+    category: 'general',
+    roles: ['admin', 'teacher', 'student', 'parent', 'guest'],
+    quickReplies: [
+      { text: '📦 All Features', payload: 'features_overview' },
+      { text: '💰 Pricing', payload: 'admin_plans_overview' },
+      { text: '🎁 Try for Free', payload: 'trial_info' },
+    ],
+  },
+
+  {
+    id: 'how_different',
+    patterns: [
+      'why skolify', 'why choose skolify', 'what makes you different',
+      'better than others', 'competitor', 'vs other software',
+      'unique feature', 'why not other erp', 'what is special',
+      'advantages', 'benefits of skolify',
+    ],
+    answer: `Honestly? Here's what sets Skolify apart from the usual school ERP tools:
+
+**1. 🚀 You're live in 15 minutes**
+Most ERPs take weeks to set up. Skolify? Upload your student list, invite teachers, and you're running. Seriously — 15 minutes.
+
+**2. 💸 Pricing that makes sense**
+Starting at ₹499/month for 500 students. No hidden charges, no per-feature costs, no annual lock-in surprises.
+
+**3. 📱 Works on a ₹5,000 phone**
+Our PWA (Progressive Web App) runs smoothly on low-end Android phones. No fancy hardware required.
+
+**4. 🇮🇳 Built for Indian schools**
+Razorpay payments, Indian date formats, regional school workflows — we thought of all of it.
+
+**5. 🧑‍💼 You talk to real people**
+No ticket queues. Direct WhatsApp support. Fast responses.
+
+**6. 60-day free trial**
+No credit card. No sales pressure. Just try it out.
+
+Want a quick demo instead? I can connect you with our team!`,
+    category: 'general',
+    roles: ['admin', 'guest'],
+    quickReplies: [
+      { text: '🎁 Start Free Trial', payload: 'trial_info' },
+      { text: '💰 See Pricing', payload: 'admin_plans_overview' },
+      { text: '📞 Request Demo', action: 'forward' },
+    ],
+    canForward: true,
   },
 ]
 
 // ══════════════════════════════════════════════════════════
-// ADMIN: BILLING & CREDITS
+// ADMIN: BILLING & PLANS
 // ══════════════════════════════════════════════════════════
 
 export const ADMIN_BILLING_QA: ChatAnswer[] = [
   {
     id: 'admin_plans_overview',
     patterns: [
-      'plan',
-      'plans',
-      'pricing',
-      'price',
-      'cost',
-      'kitna',
-      'monthly',
-      'yearly',
-      'subscription',
+      'plan', 'plans', 'pricing', 'price', 'cost', 'monthly',
+      'yearly', 'subscription', 'rupees', 'how much', 'fees',
+      'affordable', 'cheap', 'expensive', 'rate', 'charges',
     ],
-    answer: `## 💰 Skolify की योजनाएँ\n\n| योजना | मासिक शुल्क | छात्र सीमा | शिक्षक सीमा | निःशुल्क Credits |\n|------|----------|----------|----------|-------------|\n| **Starter** | ₹499 | 500 | 20 | 500 |\n| **Growth** | ₹999 | 1,500 | 50 | 1,500 |\n| **Pro** | ₹1,999 | 5,000 | 150 | 3,000 |\n| **Enterprise** | ₹3,999 | असीमित | असीमित | 10,000 |\n\n### ✨ मुख्य विशेषताएँ:\n\n✔ **वार्षिक बिलिंग = 2 माह निःशुल्क**\n✔ **60 दिवस का निःशुल्क परीक्षण** — कोई credit card आवश्यक नहीं\n✔ **किसी भी समय upgrade** — Pro-rata billing\n✔ **किसी भी समय रद्द करें** — कोई छिपी हुई फीस नहीं\n\n### 🎯 कौनसी योजना चुनें?\n\n**100-300 छात्र** → Starter (₹17/दिन)\n**300-1000 छात्र** → Growth (सर्वाधिक लोकप्रिय)\n**1000-3000 छात्र** → Pro\n**3000+ या शाखा विद्यालय** → Enterprise\n\n[विस्तृत तुलना देखें →](/pricing)`,
+    answer: `Here's a clear breakdown of Skolify's plans 👇
+
+| Plan | Monthly | Students | Teachers | Free Credits |
+|------|---------|----------|----------|--------------|
+| **Starter** | ₹499 | 500 | 20 | 500 |
+| **Growth** | ₹999 | 1,500 | 50 | 1,500 |
+| **Pro** | ₹1,999 | 5,000 | 150 | 3,000 |
+| **Enterprise** | ₹3,999 | Unlimited | Unlimited | 10,000 |
+
+### ✨ Good to know:
+
+✔ **Annual billing = 2 months FREE**
+✔ **60-day free trial** — zero credit card required
+✔ **Upgrade anytime** — pro-rata billing, pay only the difference
+✔ **Cancel anytime** — no hidden fees, no guilt trips
+
+### 🤔 Which plan is right for you?
+
+**Under 300 students** → Starter (just ₹17/day!)
+**300–1,000 students** → Growth *(most popular)*
+**1,000–3,000 students** → Pro
+**3,000+ or multi-branch** → Enterprise
+
+[Compare all plans in detail →](/pricing)`,
     category: 'billing',
     roles: ['admin', 'guest'],
     quickReplies: [
-      { text: 'Upgrade प्रक्रिया', payload: 'admin_upgrade' },
-      { text: 'Credit प्रणाली', payload: 'credit_system_overview' },
-      { text: 'परीक्षण प्रारंभ करें', payload: 'trial_info' },
+      { text: '⬆️ How to Upgrade', payload: 'admin_upgrade' },
+      { text: '💳 Credits System', payload: 'credit_system_overview' },
+      { text: '🎁 Start Free Trial', payload: 'trial_info' },
     ],
     relatedQuestions: ['admin_upgrade', 'credit_system_overview'],
   },
 
   {
+    id: 'annual_billing',
+    patterns: [
+      'annual', 'yearly plan', 'yearly billing', 'annual discount',
+      'year plan', 'save money', 'annual offer', '2 months free',
+      'yearly price', 'annual pricing',
+    ],
+    answer: `Great thinking — annual billing saves you a solid chunk of money! 💰
+
+### Annual Plan Pricing:
+
+| Plan | Monthly | Annual (pay once) | You Save |
+|------|---------|-------------------|----------|
+| **Starter** | ₹499 | ₹4,990 | ₹1,000 (2 months free!) |
+| **Growth** | ₹999 | ₹9,990 | ₹1,998 |
+| **Pro** | ₹1,999 | ₹19,990 | ₹3,998 |
+| **Enterprise** | ₹3,999 | ₹39,990 | ₹7,998 |
+
+### How it works:
+- Pay once for the whole year
+- Automatic renewal (you'll get a reminder before)
+- **30-day refund policy** if you cancel early (pro-rata)
+
+### Is annual worth it?
+If you're confident about using Skolify long-term — absolutely yes. The savings are equivalent to getting **2 free months**.
+
+Want to switch to annual? It's easy from your admin panel.`,
+    category: 'billing',
+    roles: ['admin', 'guest'],
+    quickReplies: [
+      { text: '💰 All Plans', payload: 'admin_plans_overview' },
+      { text: '⬆️ Upgrade Now', payload: 'admin_upgrade' },
+      { text: '❌ Cancellation Policy', payload: 'admin_cancel_policy' },
+    ],
+  },
+
+  {
     id: 'credit_system_overview',
     patterns: [
-      'credit',
-      'sms',
-      'whatsapp',
-      'message',
-      'messaging',
-      'notification',
+      'credit', 'sms', 'whatsapp', 'message', 'messaging',
+      'notification', 'alerts', 'how credits work', 'what are credits',
+      'messaging system',
     ],
-    answer: `## 💳 Credit प्रणाली क्या है?\n\n**Pay-as-you-go संदेश प्रणाली!**\n\n### Credit मूल्य:\n\n| कार्रवाई | Credits | मूल्य |\n|--------|---------|------|\n| 1 SMS | 1 | ₹1 |\n| 1 WhatsApp | 1 | ₹1 |\n| 10 Emails | 1 | ₹0.10/email |\n\n### मासिक निःशुल्क Credits:\n\n**Starter** → 500 credits\n**Growth** → 1,500 credits\n**Pro** → 3,000 credits\n**Enterprise** → 10,000 credits\n\n### उदाहरण:\n\n500 छात्रों का विद्यालय:\n• दैनिक उपस्थिति SMS = 500 credits/माह\n• शुल्क अनुस्मारक = 200 credits\n• सूचनाएँ = 100 credits\n**कुल आवश्यकता: 800 credits**\n\n✔ Starter निःशुल्क: 500\n✔ अतिरिक्त आवश्यक: 300 (₹300)\n\n### Rollover नीति:\n\n**Starter** → ❌ कोई rollover नहीं\n**Growth** → ✔ 3 माह तक मान्य\n**Pro** → ✔ 6 माह तक मान्य\n**Enterprise** → ✔ कभी समाप्त नहीं होते\n\n[Credit packs खरीदें →](Admin panel)`,
+    answer: `Let me explain the credits system — it's pretty simple! 😊
+
+**Credits = your messaging budget.** Each plan includes free credits monthly, and you can buy more if needed.
+
+### Credit Usage:
+
+| Action | Credits Used |
+|--------|-------------|
+| 1 SMS | 1 credit |
+| 1 WhatsApp message | 1 credit |
+| 10 Emails | 1 credit |
+
+### Monthly Free Credits by Plan:
+
+| Plan | Free Credits | Value |
+|------|-------------|-------|
+| Starter | 500 | ₹500 worth |
+| Growth | 1,500 | ₹1,500 worth |
+| Pro | 3,000 | ₹3,000 worth |
+| Enterprise | 10,000 | ₹10,000 worth |
+
+### Real-world example:
+A 500-student school typically uses:
+- Daily attendance SMS → ~500 credits/month
+- Fee reminders → ~200 credits
+- General announcements → ~100 credits
+- **Total: ~800 credits/month**
+
+On Starter (500 free), you'd need ~300 extra credits = ₹300/month.
+
+### Rollover Policy:
+
+| Plan | Unused Credits |
+|------|---------------|
+| Starter | ❌ Expire monthly |
+| Growth | ✔ Valid for 3 months |
+| Pro | ✔ Valid for 6 months |
+| Enterprise | ✔ Never expire |
+
+Need more credits? You can buy top-up packs anytime!`,
     category: 'credits',
     roles: ['admin'],
     quickReplies: [
-      { text: 'Credit packs', payload: 'buy_credits' },
-      { text: 'Rollover विवरण', payload: 'credit_expiry' },
-      { text: 'योजना upgrade', payload: 'admin_upgrade' },
+      { text: '🛒 Buy Credit Packs', payload: 'buy_credits' },
+      { text: '♻️ Rollover Details', payload: 'credit_rollover_detail' },
+      { text: '⬆️ Upgrade Plan', payload: 'admin_upgrade' },
     ],
   },
 
   {
     id: 'buy_credits',
     patterns: [
-      'buy credit',
-      'credit pack',
-      'purchase credit',
-      'extra credit',
+      'buy credit', 'credit pack', 'purchase credit', 'extra credit',
+      'top up', 'topup', 'recharge credits', 'add credits',
+      'credit recharge', 'need more credits',
     ],
-    answer: `## 💳 Credit Packs खरीदें\n\n| Pack | Credits | मूल्य | ₹/Credit | बचत |\n|------|---------|-------|----------|--------|\n| Small | 250 | ₹199 | ₹0.80 | 0% |\n| **Medium** | 700 | ₹499 | ₹0.71 | 29% |\n| Large | 1,500 | ₹999 | ₹0.67 | 33% |\n| Bulk | 3,500 | ₹1,999 | ₹0.57 | 43% |\n\n### खरीद प्रक्रिया:\n\n**Admin Panel → Subscription → Credit Packs**\n\n1. Pack चुनें\n2. "Buy Now" पर क्लिक करें\n3. Razorpay payment (UPI/Card/Net Banking)\n4. Credits तुरंत जुड़ जाएंगे ✔\n\n### भुगतान विधियाँ:\n\n✔ UPI (PhonePe, GPay, Paytm)\n✔ Debit/Credit Card\n✔ Net Banking\n✔ Wallets\n\n**सुरक्षित एवं विश्वसनीय** — Razorpay (PCI DSS certified)\n\n[अभी खरीदें →](Admin dashboard)`,
+    answer: `Running low on credits? No worries — top-up packs are available anytime! 👇
+
+### Credit Pack Options:
+
+| Pack | Credits | Price | Per Credit | Savings |
+|------|---------|-------|-----------|---------|
+| Small | 250 | ₹199 | ₹0.80 | — |
+| **Medium** | 700 | ₹499 | ₹0.71 | 11% off |
+| Large | 1,500 | ₹999 | ₹0.67 | 16% off |
+| Bulk | 3,500 | ₹1,999 | ₹0.57 | **29% off** |
+
+💡 *The Bulk pack is the best value if you send a lot of messages.*
+
+### How to Buy:
+**Admin Panel → Subscription → Credit Packs → Choose → Pay**
+
+Payment via UPI, card, net banking, or wallets through Razorpay.
+Credits are added **instantly** after payment ✅
+
+### Which pack should you pick?
+- Light usage (reminders only) → **Small or Medium**
+- Active communication school → **Large**
+- High-volume or multi-class school → **Bulk**
+
+Any confusion? I can help you figure out what you need!`,
     category: 'credits',
     roles: ['admin'],
     quickReplies: [
-      { text: 'सर्वोत्तम pack?', payload: 'credit_pack_recommendation' },
-      { text: 'भुगतान समस्या', action: 'forward' },
+      { text: '♻️ Rollover Policy', payload: 'credit_rollover_detail' },
+      { text: '💳 Credit Overview', payload: 'credit_system_overview' },
+      { text: '📞 Need Help?', action: 'forward' },
     ],
     canForward: true,
   },
@@ -138,67 +334,211 @@ export const ADMIN_BILLING_QA: ChatAnswer[] = [
   {
     id: 'credit_expiry',
     patterns: [
-      'expire',
-      'expiry',
-      'rollover',
-      'lapse',
-      'carry forward',
-      'unused',
+      'expire', 'expiry', 'lapse', 'unused credits', 'credits waste',
+      'do credits expire', 'when do credits expire',
     ],
-    answer: `## ♻️ Credit Rollover एवं समाप्ति\n\n| योजना | Rollover नीति |\n|------|----------------|\n| **Starter** | ❌ प्रतिमाह समाप्त |\n| **Growth** | ✔ 3 माह मान्य |\n| **Pro** | ✔ 6 माह मान्य |\n| **Enterprise** | ✔ कभी समाप्त नहीं |\n\n### उदाहरण (Growth Plan):\n\n**जनवरी:** 500 निःशुल्क + 200 खरीदे = 700\n→ उपयोग 600 → **शेष: 100**\n\n**फरवरी:** नए 500 + 100 carry = 600\n→ उपयोग 400 → **शेष: 200**\n\n**मार्च:** नए 500 + 200 carry = 700\n→ उपयोग 500 → **शेष: 200**\n\n**अप्रैल:** नए 500 + 200 carry = 700\n→ **जनवरी के 100 समाप्त** (3 माह पुराने)\n\n### सुझाव:\n\n✔ Growth/Pro upgrade → rollover स्वचालित\n✔ Enterprise → कभी समाप्त नहीं\n✔ उपयोग ट्रैकिंग → Admin panel में देखें\n\n**Upgrade करने पर credits सुरक्षित रहते हैं!**`,
+    answer: `Good question — here's exactly how credit expiry works:
+
+### Expiry by Plan:
+
+| Plan | Policy |
+|------|--------|
+| **Starter** | ❌ Credits reset every month |
+| **Growth** | ✔ Carry forward for 3 months |
+| **Pro** | ✔ Carry forward for 6 months |
+| **Enterprise** | ✔ Never expire |
+
+### Example (Growth Plan):
+
+**January:** Get 1,500 → Use 900 → **600 left (carries to Feb)**
+**February:** Get 1,500 + 600 = 2,100 → Use 1,200 → **900 left**
+**March:** Get 1,500 + 900 = 2,400 → Use 800 → **1,600 left**
+**April:** January's 600 expire (3 months old) ⚠️
+
+### Tips to avoid wasting credits:
+✔ Enable automated reminders — they use credits well
+✔ If you're on Starter and losing credits monthly → upgrade to Growth
+✔ Track your usage in **Admin Panel → Subscription → Credit History**
+
+Want to know about the rollover policy in more detail?`,
     category: 'credits',
     roles: ['admin'],
     quickReplies: [
-      { text: 'योजना upgrade', payload: 'admin_upgrade' },
-      { text: 'उपयोग statistics', payload: 'usage_stats' },
+      { text: '♻️ Rollover Details', payload: 'credit_rollover_detail' },
+      { text: '⬆️ Upgrade Plan', payload: 'admin_upgrade' },
     ],
   },
 
   {
     id: 'credit_rollover_detail',
     patterns: [
-      'rollover kya hai',
-      'rollover kaise kaam karta hai',
-      'credit rollover',
-      'rollover policy',
-      'rollover upgrade',
-      'credits safe',
-      'credits bachenge',
-      'purane credit',
-      'credit transfer',
-      'rollover benefit',
+      'rollover', 'carry forward', 'credit expire', 'credits expire',
+      'credits safe', 'rollover policy', 'rollover benefit',
+      'credit transfer', 'unused credits rollover', 'old credits',
+      'credits carry', 'rollover kya hai', 'rollover kaise',
     ],
-    answer: `## ♻️ Credit Rollover — सम्पूर्ण जानकारी\n\n**Rollover का अर्थ है — अप्रयुक्त credits अगले माह carry forward होना।**\n\n### योजना-वार Rollover:\n\n| योजना | Rollover | वैधता | विशेष |\n|------|----------|-------|-------|\n| **Starter** | ❌ नहीं | — | माह अंत में समाप्त |\n| **Growth** | ✔ हाँ | 3 माह | Auto carry forward |\n| **Pro** | ✔ हाँ | 6 माह | Auto carry forward |\n| **Enterprise** | ✔ हाँ | कभी नहीं | Permanent |\n\n### Rollover कैसे काम करता है?\n\n**Growth Plan उदाहरण (1,500 credits/माह):**\n\n**जनवरी:**\n• मिले: 1,500\n• उपयोग: 900\n• शेष: 600 → अगले माह carry ✔\n\n**फरवरी:**\n• नए: 1,500 + carry 600 = **2,100**\n• उपयोग: 1,200\n• शेष: 900 → carry ✔\n\n**मार्च:**\n• नए: 1,500 + carry 900 = **2,400**\n• उपयोग: 800\n• शेष: 1,600 → carry ✔\n\n**अप्रैल:**\n• जनवरी के 600 की 3 माह वैधता समाप्त\n• केवल फरवरी + मार्च के credits carry होंगे\n\n### Purchased Credits का Rollover:\n\n✔ खरीदे गए credit packs पर भी rollover लागू\n✔ Plan के अनुसार वैधता मिलती है\n✔ Enterprise में purchased credits कभी expire नहीं\n\n### Upgrade करने पर:\n\n**Starter → Growth:**\n• Starter के unused credits — ❌ expire (rollover नहीं था)\n• Growth से नया rollover प्रारंभ ✔\n\n**Growth → Pro:**\n• Growth के सभी rollover credits — ✔ safe रहते हैं\n• Pro की 6 माह वैधता लागू होती है\n\n**Pro → Enterprise:**\n• सभी credits — ✔ permanent हो जाते हैं\n• कभी expire नहीं होंगे\n\n### Credit उपयोग का क्रम:\n\n**FIFO (First In, First Out):**\n• सबसे पुराने credits पहले उपयोग होते हैं\n• यह स्वचालित है — मैन्युअल नहीं करना\n\n### Track कैसे करें?\n\n**Admin Panel → Subscription → Credit History**\n\n✔ कब मिले\n✔ कितने उपयोग हुए\n✔ कब expire होंगे\n✔ Balance summary\n\n### सुझाव:\n\n• **Starter** पर हैं और credits waste हो रहे हैं → Growth upgrade करें\n• **Growth** पर हैं और 3 माह से ज़्यादा बचाना है → Pro लें\n• **बड़ा credit pack** खरीद रहे हैं → Enterprise सबसे किफ़ायती`,
+    answer: `Let me walk you through the rollover system properly 👇
+
+**Rollover = your unused credits automatically carry over to the next month** (based on your plan).
+
+### Plan-wise Rollover:
+
+| Plan | Rollover? | Valid For | Notes |
+|------|-----------|-----------|-------|
+| **Starter** | ❌ No | — | Resets every month |
+| **Growth** | ✔ Yes | 3 months | Auto carry-forward |
+| **Pro** | ✔ Yes | 6 months | Auto carry-forward |
+| **Enterprise** | ✔ Yes | Never expires | Permanent |
+
+### How it works step by step (Growth, 1,500 credits/month):
+
+**January:**
+- Received: 1,500
+- Used: 900
+- Carried forward: **600** ✅
+
+**February:**
+- New credits: 1,500 + 600 (from Jan) = **2,100**
+- Used: 1,200 → Remaining: **900**
+
+**March:**
+- New credits: 1,500 + 900 = **2,400**
+- Used: 800 → Remaining: **1,600**
+
+**April:**
+- January's 600 credits expire (they're now 3 months old) ⚠️
+- Only Feb + March carry-over continues
+
+### What happens when you upgrade?
+
+**Starter → Growth:**
+- Starter credits expire (they had no rollover) ❌
+- Fresh rollover begins from Growth plan ✅
+
+**Growth → Pro:**
+- All rollover credits are safe ✅
+- Pro's 6-month validity applies going forward
+
+**Pro → Enterprise:**
+- All credits become permanent — they never expire ✅
+
+### Credit usage order:
+Credits are used **FIFO (oldest first)** — automatically handled, nothing you need to do manually.
+
+### Track your credits:
+**Admin Panel → Subscription → Credit History**
+You'll see when credits were added, used, and when they expire.
+
+**Bottom line:** If you're wasting credits on Starter, Growth/Pro is worth the upgrade — the savings on messaging more than cover the price difference.`,
     category: 'credits',
     roles: ['admin'],
     quickReplies: [
-      { text: 'Credit history देखें', payload: 'usage_stats' },
-      { text: 'Growth upgrade', payload: 'admin_upgrade' },
-      { text: 'Credit pack खरीदें', payload: 'buy_credits' },
+      { text: '📊 Credit History', payload: 'usage_stats' },
+      { text: '⬆️ Upgrade Plan', payload: 'admin_upgrade' },
+      { text: '🛒 Buy Credits', payload: 'buy_credits' },
     ],
     relatedQuestions: ['credit_expiry', 'admin_upgrade', 'buy_credits'],
-    metadata: {
-      priority: 8,
-      lastUpdated: '2025-01',
-    },
+    metadata: { priority: 8, lastUpdated: '2025-01' },
   },
 
   {
     id: 'admin_upgrade',
     patterns: [
-      'upgrade',
-      'change plan',
-      'higher plan',
-      'switch plan',
-      'better plan',
+      'upgrade', 'change plan', 'higher plan', 'switch plan',
+      'better plan', 'move to growth', 'move to pro', 'upgrade plan',
+      'want more features', 'need more students',
     ],
-    answer: `## ⬆️ योजना Upgrade कैसे करें?\n\n### प्रक्रिया:\n\n**Admin Portal → Settings → Subscription → Choose Plan → Pay**\n\n### क्या होगा:\n\n✔ **Pro-rated Billing**\n• शेष दिनों का credit मिलेगा\n• नई योजना के शुल्क से घटाया जाएगा\n• केवल अंतर का भुगतान करें\n\n✔ **तुरंत सक्रियण**\n• नए modules unlock हो जाएंगे\n• नई सीमाएँ लागू होंगी\n• शून्य downtime\n\n✔ **डेटा 100% सुरक्षित**\n• सभी records यथावत\n• छात्र, शिक्षक, अभिलेख\n\n### उदाहरण:\n\n**Starter → Growth** (15 दिन शेष)\n\nStarter: ₹499/माह = ₹16.63/दिन\n15 दिन = ₹250 credit\n\nGrowth: ₹999\n**केवल भुगतान: ₹999 - ₹250 = ₹749**\n\n### Upgrade के बाद लाभ:\n\n📈 **नई सुविधाएँ**\n• Online शुल्क संग्रहण\n• परीक्षा एवं परिणाम\n• गृहकार्य प्रणाली\n• उन्नत रिपोर्ट्स\n• अधिक credits (1,500 vs 500)\n\n[अभी upgrade करें →](Admin panel)`,
+    answer: `Upgrading is super easy — and you only pay the difference, not the full amount! 🎉
+
+### How to Upgrade:
+**Admin Portal → Settings → Subscription → Choose Plan → Pay**
+
+### What happens when you upgrade:
+
+✔ **Pro-rated billing** — you get credit for unused days on your current plan, and pay only the difference for the new one
+
+✔ **Instant activation** — new modules unlock immediately, new limits apply right away, zero downtime
+
+✔ **Your data stays safe** — students, teachers, records, everything intact
+
+### Example:
+You're on Starter (₹499/month) with 15 days remaining.
+
+Starter = ₹499 ÷ 30 = ₹16.63/day
+15 days remaining = ₹249 credit
+
+Growth = ₹999
+**You pay: ₹999 − ₹249 = ₹750** (not the full ₹999!)
+
+### What unlocks after upgrading:
+
+**Starter → Growth:**
+- ✅ Online fee collection
+- ✅ Exam & results module
+- ✅ Homework system
+- ✅ Timetable
+- ✅ Certificates (TC, CC, Bonafide)
+- ✅ Advanced reports
+- ✅ 1,500 credits/month (3x more!)
+- ✅ Credit rollover (3 months)
+
+**Growth → Pro:**
+- ✅ Library management
+- ✅ Online classes (LMS)
+- ✅ Custom certificates
+- ✅ 3,000 credits/month
+
+**Pro → Enterprise:**
+- ✅ HR & Payroll
+- ✅ Transport management
+- ✅ Hostel module
+- ✅ 10,000 credits (never expire!)
+
+[Upgrade now →](Admin Panel)`,
     category: 'billing',
     roles: ['admin'],
     quickReplies: [
-      { text: 'छात्र सीमा', payload: 'student_addon' },
-      { text: 'शिक्षक सीमा', payload: 'teacher_addon' },
-      { text: 'Downgrade', payload: 'admin_downgrade' },
+      { text: '👤 Add More Students', payload: 'student_addon' },
+      { text: '👨‍🏫 Add More Teachers', payload: 'teacher_addon' },
+      { text: '⬇️ Downgrade?', payload: 'admin_downgrade' },
+    ],
+    canForward: true,
+  },
+
+  {
+    id: 'admin_downgrade',
+    patterns: [
+      'downgrade', 'lower plan', 'cheaper plan', 'reduce plan',
+      'switch to starter', 'want basic plan', 'downgrade plan',
+    ],
+    answer: `Yes, you can downgrade — though there are a few things to keep in mind first.
+
+### How to Downgrade:
+**Admin Panel → Settings → Subscription → Change Plan**
+
+### Important things to check:
+
+⚠️ **Student limit** — if you have 800 students on Growth and downgrade to Starter (500 limit), you won't be able to add new students until you're under the limit
+
+⚠️ **Feature access** — features like online fees, exams, homework (Growth+) will be locked
+
+⚠️ **Credits** — any rollover credits may be adjusted based on the new plan's policy
+
+### Billing on downgrade:
+- Downgrade takes effect at the **end of your current billing cycle**
+- You keep full access until then
+- No immediate refund for the remaining period (monthly plan)
+
+### Honestly?
+If cost is the concern, it might be worth talking to our team first — sometimes there are options we can work out. We'd rather help you stay than lose you! 😊
+
+Want me to connect you with the team?`,
+    category: 'billing',
+    roles: ['admin'],
+    quickReplies: [
+      { text: '💰 See All Plans', payload: 'admin_plans_overview' },
+      { text: '📞 Talk to Team', action: 'forward' },
+      { text: '❌ Cancel Instead?', payload: 'admin_cancel_policy' },
     ],
     canForward: true,
   },
@@ -206,58 +546,174 @@ export const ADMIN_BILLING_QA: ChatAnswer[] = [
   {
     id: 'student_addon',
     patterns: [
-      'student limit',
-      'extra student',
-      'add student',
-      'more student',
-      'student addon',
+      'student limit', 'extra student', 'add student', 'more student',
+      'student addon', 'exceed limit', 'student capacity',
+      'increase student', 'student full',
     ],
-    answer: `## 👤 छात्र सीमा बढ़ाना\n\n### 2 विकल्प:\n\n### विकल्प 1: Add-on (त्वरित)\n\n| Pack | छात्र | मूल्य |\n|------|----------|-------|\n| +50 | 50 | ₹99 |\n| +100 | 100 | ₹179 |\n| +250 | 250 | ₹399 |\n| +500 | 500 | ₹699 |\n\n**Admin → Subscription → Student Add-on**\n\n✔ तुरंत सक्रियण\n✔ Razorpay payment\n✔ 2 मिनट में पूर्ण\n\n### विकल्प 2: योजना Upgrade\n\n| वर्तमान | नई योजना | सीमा वृद्धि |\n|---------|----------|----------------|\n| Starter (500) | Growth | +1,000 (कुल 1,500) |\n| Growth (1,500) | Pro | +3,500 (कुल 5,000) |\n| Pro (5,000) | Enterprise | असीमित |\n\n✔ अधिक सुविधाएँ + उच्च सीमा\n✔ बढ़ते विद्यालयों के लिए बेहतर मूल्य\n\n### Add-on सीमाएँ:\n\n| योजना | अधिकतम अतिरिक्त |\n|------|----------|\n| Starter | +250 (कुल 750) |\n| Growth | +750 (कुल 2,250) |\n| Pro | +2,000 (कुल 7,000) |\n| Enterprise | असीमित |\n\n**सुझाव:**\n200-500 छात्र → Add-on लें\n500-1000 छात्र → Growth plan\n1000+ छात्र → Pro/Enterprise`,
+    answer: `Hit the student limit? No problem — here are your two options:
+
+### Option 1: Buy a Student Add-on (Quick Fix)
+
+| Pack | Students | Price |
+|------|----------|-------|
+| +50 students | 50 | ₹99 |
+| +100 students | 100 | ₹179 |
+| +250 students | 250 | ₹399 |
+| +500 students | 500 | ₹699 |
+
+**Admin → Subscription → Student Add-on → Buy**
+Activates instantly via Razorpay. Done in 2 minutes ✅
+
+### Option 2: Upgrade Your Plan (Better Long-Term)
+
+| Current Plan | Upgrade To | New Limit |
+|-------------|-----------|-----------|
+| Starter (500) | Growth | 1,500 students |
+| Growth (1,500) | Pro | 5,000 students |
+| Pro (5,000) | Enterprise | Unlimited |
+
+Upgrading also gets you more credits, more features, and better rollover.
+
+### Add-on Caps (max you can add per plan):
+
+| Plan | Max Add-on | Total Max |
+|------|-----------|-----------|
+| Starter | +250 | 750 |
+| Growth | +750 | 2,250 |
+| Pro | +2,000 | 7,000 |
+| Enterprise | Unlimited | — |
+
+**Quick tip:** If you need more than 250 extra students, upgrading is usually better value than buying add-ons.`,
     category: 'limits',
     roles: ['admin'],
     quickReplies: [
-      { text: 'Add-on खरीदें', payload: 'buy_student_addon' },
-      { text: 'Upgrade बेहतर है?', payload: 'admin_upgrade' },
-      { text: 'शिक्षक add-on', payload: 'teacher_addon' },
+      { text: '⬆️ Upgrade Instead', payload: 'admin_upgrade' },
+      { text: '👨‍🏫 Teacher Add-on', payload: 'teacher_addon' },
+      { text: '💰 Compare Plans', payload: 'admin_plans_overview' },
     ],
   },
 
   {
     id: 'teacher_addon',
     patterns: [
-      'teacher limit',
-      'extra teacher',
-      'staff limit',
-      'add teacher',
-      'more teacher',
+      'teacher limit', 'extra teacher', 'staff limit', 'add teacher',
+      'more teacher', 'teacher capacity', 'increase teacher limit',
     ],
-    answer: `## 👨‍🏫 शिक्षक सीमा बढ़ाना\n\n### वर्तमान सीमाएँ:\n\n| योजना | निःशुल्क | अधिकतम Add-on | कुल अधिकतम |\n|------|------|-----------|----------|\n| Starter | 20 | +10 | 30 |\n| Growth | 50 | +25 | 75 |\n| Pro | 150 | +50 | 200 |\n| Enterprise | असीमित | असीमित | असीमित |\n\n### Add-on Packs:\n\n| Pack | शिक्षक | मूल्य |\n|------|----------|-------|\n| +5 | 5 | ₹99 |\n| +10 | 10 | ₹179 |\n| +25 | 25 | ₹399 |\n\n**Admin → Subscription → Teacher Add-on → Buy**\n\n✔ तुरंत सक्रियण\n✔ Razorpay payment\n✔ 2 मिनट में पूर्ण\n\n### कब Upgrade करें?\n\n**20-30 शिक्षक** → Add-on (₹99)\n**50-75 शिक्षक** → Growth विचार करें\n**150+ शिक्षक** → Pro योजना`,
+    answer: `Need more teacher slots? Here's how to handle it:
+
+### Current Teacher Limits by Plan:
+
+| Plan | Included | Max with Add-on |
+|------|----------|----------------|
+| Starter | 20 | 30 |
+| Growth | 50 | 75 |
+| Pro | 150 | 200 |
+| Enterprise | Unlimited | — |
+
+### Teacher Add-on Packs:
+
+| Pack | Teachers | Price |
+|------|----------|-------|
+| +5 teachers | 5 | ₹99 |
+| +10 teachers | 10 | ₹179 |
+| +25 teachers | 25 | ₹399 |
+
+**Admin → Subscription → Teacher Add-on → Buy**
+Instant activation, 2 minutes tops ✅
+
+### When to upgrade instead:
+- **20–30 teachers** → Add-on works fine (₹99)
+- **50–75 teachers** → Consider Growth plan
+- **150+ teachers** → You need Pro
+
+Upgrading gives you more teachers AND more students AND more features for a better overall price.`,
     category: 'limits',
     roles: ['admin'],
     quickReplies: [
-      { text: 'Add-on खरीदें', payload: 'buy_teacher_addon' },
-      { text: 'योजना upgrade', payload: 'admin_upgrade' },
-      { text: 'छात्र add-on', payload: 'student_addon' },
+      { text: '⬆️ Upgrade Plan', payload: 'admin_upgrade' },
+      { text: '👤 Student Add-on', payload: 'student_addon' },
     ],
   },
 
   {
     id: 'admin_cancel_policy',
     patterns: [
-      'cancel',
-      'stop',
-      'band',
-      'downgrade',
-      'delete account',
-      'exit',
+      'cancel', 'stop', 'band', 'delete account', 'exit', 'quit',
+      'stop subscription', 'cancel plan', 'refund', 'money back',
+      'cancel subscription',
     ],
-    answer: `## ❌ रद्दीकरण एवं वापसी नीति\n\n### रद्द कैसे करें:\n\n**Admin Panel → Settings → Subscription → Cancel**\n\n### क्या होगा:\n\n✔ **अवधि समाप्ति तक उपयोग**\n• आज रद्द करें = माह के अंत तक उपयोग करें\n• अगली billing नहीं होगी\n\n❌ **समाप्ति के बाद सुविधाएँ बंद**\n• Modules lock हो जाएंगे\n• केवल subscription page दिखेगा\n\n✔ **डेटा 90 दिन सुरक्षित**\n• किसी भी समय पुनः सक्रिय करें\n• पूर्ण पुनर्स्थापना\n\n### वापसी नीति:\n\n**मासिक योजना:**\n❌ कोई वापसी नहीं\n✔ शेष अवधि तक उपयोग\n\n**वार्षिक योजना:**\n✔ 30 दिन के भीतर = Pro-rata वापसी\n❌ 30 दिन के बाद = कोई वापसी नहीं\n\n### उदाहरण (वार्षिक):\n\n1 जनवरी: ₹9,999 वार्षिक भुगतान\n15 जनवरी: रद्द (14 दिन)\n**वापसी: ~₹9,200** (346 दिन अप्रयुक्त)\n\n### डेटा विलोपन:\n\n**स्थायी रूप से हटाना है?**\n• Support से संपर्क करें\n• 7 दिन की प्रक्रिया\n• पूर्ण विलोपन\n\n[रद्द करें →](Admin settings) | [Support →](/enquiry)`,
+    answer: `We're sorry to see you go — but here's exactly what happens if you cancel:
+
+### How to Cancel:
+**Admin Panel → Settings → Subscription → Cancel Subscription**
+
+### What happens next:
+
+✔ **You keep access until the end of your current billing period**
+— Cancel today, still use it through month-end. No immediate shutdown.
+
+✔ **Your data is safe for 90 days**
+— If you change your mind, just reactivate and everything is restored.
+
+❌ **After billing period ends:**
+— Modules lock, only the subscription page shows
+
+### Refund Policy:
+
+**Monthly Plan:**
+- No refund for the current month
+- Full access until period ends ✅
+
+**Annual Plan:**
+- Cancel within 30 days → pro-rata refund for unused days ✅
+- Cancel after 30 days → no refund ❌
+
+### Example (Annual Refund):
+
+Paid ₹9,999 on Jan 1st. Cancel on Jan 15th (14 days used).
+14 days × ₹27.4/day = ₹384 used
+**Refund: ₹9,999 − ₹384 = ~₹9,615**
+
+### Want your data permanently deleted?
+Contact our support team. We'll process it within 7 business days.
+
+**Before you cancel** — is there a specific problem we can fix? Our team would genuinely love to help. 🙏`,
     category: 'billing',
     roles: ['admin'],
     quickReplies: [
-      { text: 'वापसी जांचें', action: 'forward' },
-      { text: 'डेटा export', payload: 'data_export' },
-      { text: 'Support', action: 'forward' },
+      { text: '📥 Export Data First', payload: 'data_export' },
+      { text: '📞 Talk to Us First', action: 'forward' },
+    ],
+    canForward: true,
+  },
+
+  {
+    id: 'payment_methods',
+    patterns: [
+      'payment method', 'how to pay', 'upi', 'credit card', 'debit card',
+      'net banking', 'gpay', 'phonepe', 'paytm', 'razorpay',
+      'payment options', 'how can i pay',
+    ],
+    answer: `We accept all major payment methods through **Razorpay** (India's most trusted payment gateway) 🔐
+
+### Accepted Payments:
+
+✅ **UPI** — PhonePe, Google Pay, Paytm, BHIM, any UPI app
+✅ **Debit Cards** — Visa, Mastercard, RuPay
+✅ **Credit Cards** — Visa, Mastercard, Amex
+✅ **Net Banking** — All major banks
+✅ **Wallets** — Paytm, Mobikwik, etc.
+
+### Is it safe?
+Absolutely. Razorpay is **PCI DSS certified** — the gold standard for payment security. We never store your card details.
+
+### Any issues with payment?
+If a payment fails or gets stuck, don't worry — it auto-reverses within 5-7 business days. For help, just contact our support team and we'll sort it out quickly.`,
+    category: 'billing',
+    roles: ['admin', 'student', 'parent', 'guest'],
+    quickReplies: [
+      { text: '💰 See Plans', payload: 'admin_plans_overview' },
+      { text: '📞 Payment Issue?', action: 'forward' },
     ],
     canForward: true,
   },
@@ -271,33 +727,108 @@ export const ADMIN_FEATURES_QA: ChatAnswer[] = [
   {
     id: 'features_overview',
     patterns: [
-      'feature',
-      'module',
-      'kya hai',
-      'kya kya',
-      'available',
-      'modules',
+      'feature', 'module', 'what is available', 'modules', 'available',
+      'what can skolify do', 'all features', 'list of features',
+      'what do i get', 'included features',
     ],
-    answer: `## 📦 Skolify की 22+ सुविधाएँ\n\n### ✔ मूल सुविधाएँ (सभी योजनाओं में):\n\n• **छात्र प्रबंधन** — Bulk import, ID cards\n• **उपस्थिति** — दैनिक अंकन, रिपोर्ट, SMS\n• **सूचना बोर्ड** — तत्काल सूचनाएँ\n• **विद्यालय Website** — Professional site builder\n• **Gallery** — फोटो albums\n\n### 📈 Growth+ (₹999+):\n\n• **शुल्क संग्रहण** — Online payments (Razorpay)\n• **परीक्षा एवं परिणाम** — अंक प्रविष्टि, grade cards\n• **गृहकार्य** — Assignments, submissions\n• **समय-सारणी** — कक्षा schedules\n• **प्रमाणपत्र** — TC, CC, Bonafide स्वचालित\n• **रिपोर्ट** — Analytics dashboard\n• **संचार** — Bulk SMS/WhatsApp/Email\n\n### 🎓 Pro+ (₹1,999+):\n\n• **पुस्तकालय** — पुस्तक सूची, issue tracking\n• **प्रमाणपत्र** — Custom generation\n• **Online Classes (LMS)** — Video lessons, quizzes\n\n### 🏢 Enterprise (₹3,999+):\n\n• **HR एवं वेतन** — Salary, leaves, payslips\n• **परिवहन** — Routes, GPS tracking\n• **छात्रावास** — कक्ष आवंटन, भोजन\n• **इन्वेंटरी** — संपत्ति tracking\n• **आगंतुक प्रबंधन** — Gate pass, logs\n• **स्वास्थ्य रिकॉर्ड** — चिकित्सा इतिहास\n• **पूर्व छात्र नेटवर्क** — Directory, events\n\n### 📱 विशेष:\n\n✔ **PWA** — मोबाइल पर install करें\n✔ **Multi-role** — Admin/Teacher/Student/Parent\n✔ **सुरक्षा** — HTTPS, role-based access\n\n[सभी सुविधाएँ देखें →](/features)`,
+    answer: `Here's everything Skolify offers — 22+ modules across all plans:
+
+### ✅ Core Features (All Plans — Starting Starter):
+
+• **Student Management** — bulk import, ID cards, profiles
+• **Attendance** — daily marking, auto SMS to parents, reports
+• **Notice Board** — instant announcements to all users
+• **School Website** — build your school's site (no coding!)
+• **Photo Gallery** — organized albums, auto-synced
+• **Mobile App (PWA)** — works on any Android or iPhone
+
+### 📈 Growth Plan (₹999+) adds:
+
+• **Online Fee Collection** — Razorpay payments, auto receipts
+• **Exams & Results** — marks entry, grade cards, report cards
+• **Homework** — assignments, submissions, grading
+• **Timetable** — class schedules for teachers & students
+• **Certificates** — TC, CC, Bonafide — auto-generated
+• **Reports & Analytics** — attendance, fees, performance
+• **Bulk Messaging** — SMS, WhatsApp, email campaigns
+
+### 🎓 Pro Plan (₹1,999+) adds:
+
+• **Library Management** — book catalog, issue tracking
+• **Online Classes (LMS)** — video lessons, quizzes
+• **Custom Certificates** — fully branded design
+
+### 🏢 Enterprise Plan (₹3,999) adds:
+
+• **HR & Payroll** — salary, leaves, payslips
+• **Transport** — routes, stops, GPS tracking
+• **Hostel** — room allocation, meals
+• **Inventory** — asset tracking
+• **Visitor Management** — gate pass, logs
+• **Health Records** — medical history per student
+• **Alumni Network** — directory, events
+
+### 📱 Works everywhere:
+PWA app for mobile, full portal on desktop. All roles have their own dashboard.
+
+[See all features →](/features)`,
     category: 'modules',
     roles: ['admin', 'guest'],
     quickReplies: [
-      { text: 'Website builder', payload: 'website_builder' },
-      { text: 'Mobile app', payload: 'mobile_app' },
-      { text: 'शुल्क संग्रहण', payload: 'fee_setup' },
+      { text: '🌐 Website Builder', payload: 'website_builder' },
+      { text: '📱 Mobile App', payload: 'mobile_app' },
+      { text: '💰 Fee Collection', payload: 'fee_setup' },
     ],
   },
 
   {
     id: 'website_builder',
-    patterns: ['website', 'web', 'site', 'school website', 'builder'],
-    answer: `## 🌐 विद्यालय Website Builder\n\n**बिना coding के Professional website!**\n\n### सुविधाएँ:\n\n✔ **10+ Templates**\n• पूर्व-डिज़ाइन किए गए professional\n• Mobile responsive\n• SEO optimized\n\n✔ **अनुभाग:**\n• Home with hero image\n• विद्यालय परिचय\n• शिक्षक निर्देशिका\n• समाचार एवं अपडेट\n• Gallery (स्वचालित sync)\n• प्रवेश फॉर्म (सीधा)\n• शुल्क संरचना (स्वचालित)\n• संपर्क फॉर्म\n\n✔ **Domain:**\n• निःशुल्क: myschool.skolify.in\n• Custom: myschool.com (₹299/वर्ष)\n\n✔ **एकीकरण:**\n• Events from calendar\n• Gallery स्वचालित sync\n• शुल्क संरचना admin से\n\n### Setup (15 मिनट):\n\n**Admin → Website Builder**\n\n1. Template चुनें\n2. रंग, जानकारी customize करें\n3. Logo upload करें\n4. सामग्री जोड़ें\n5. Publish करें ✔\n\n**Starter योजना से उपलब्ध!**\n\n[अभी setup करें →](Admin panel)`,
+    patterns: [
+      'website', 'web', 'site', 'school website', 'builder',
+      'create website', 'make website', 'own website', 'website feature',
+      'online presence',
+    ],
+    answer: `Yes — every Skolify school gets its own professional website! 🌐
+
+**No coding. No designers needed. Seriously.**
+
+### What you get:
+
+✔ **10+ Beautiful Templates**
+Pre-designed, mobile-responsive, SEO-friendly
+
+✔ **All the sections you need:**
+- Home page with hero banner
+- About the school
+- Teacher directory
+- News & updates
+- Photo gallery (auto-syncs from your admin panel!)
+- Online admission form
+- Fee structure (pulls from your system)
+- Contact form & map
+
+
+✔ **Auto-updates:**
+Events, gallery, news — update once in admin, reflects on website instantly
+
+### How to set it up:
+
+1. Admin Panel → Website Builder
+2. Pick a template
+3. Add your school colors, logo, info
+4. Add your sections & content
+5. Hit Publish ✅
+
+**Setup time: ~15 minutes**
+
+Available from the Starter plan onwards!
+
+[Set it up now →](Admin Panel)`,
     category: 'modules',
     roles: ['admin'],
     quickReplies: [
-      { text: 'Custom domain', payload: 'custom_domain' },
-      { text: 'उदाहरण देखें', payload: '/website-examples' },
-      { text: 'Setup सहायता', action: 'forward' },
+      { text: '🌐 Custom Domain', payload: 'custom_domain' },
+      { text: '📞 Setup Help', action: 'forward' },
     ],
     canForward: true,
   },
@@ -305,22 +836,136 @@ export const ADMIN_FEATURES_QA: ChatAnswer[] = [
   {
     id: 'mobile_app',
     patterns: [
-      'app',
-      'mobile',
-      'android',
-      'ios',
-      'phone',
-      'pwa',
-      'download',
-      'install',
+      'app', 'mobile', 'android', 'ios', 'phone', 'pwa',
+      'download', 'install', 'mobile app', 'phone app',
+      'app download', 'play store', 'app store',
     ],
-    answer: `## 📱 Mobile App (PWA)\n\n**Native app की आवश्यकता नहीं!**\n\nSkolify = **Progressive Web App**\n\n### यह क्या है?\n\n✔ Web app जैसा install होता है\n✔ Native app जैसी performance\n✔ App store की आवश्यकता नहीं\n✔ Browser से स्वचालित\n\n### Installation:\n\n**Android:**\n1. Portal खोलें (Chrome में)\n2. Menu → "Install app"\n3. Home screen पर icon आ जाएगा ✔\n\n**iPhone:**\n1. Safari में खोलें\n2. Share → "Add to Home Screen"\n3. पूर्ण ✔\n\n### लाभ:\n\n✔ **Offline कार्य**\n• उपस्थिति mark करें → बाद में sync\n• ₹5,000 के मोबाइल में चलेगा\n\n✔ **तीव्र loading**\n• Native जैसी गति\n• Push notifications\n\n✔ **सदैव अद्यतन**\n• मैन्युअल updates नहीं\n• नवीनतम सुविधाएँ स्वचालित\n\n### भूमिकाओं के लिए:\n\n**शिक्षक:**\n📱 कक्षा में उपस्थिति mark करें\n📱 चलते-फिरते अंक दर्ज करें\n📱 सूचनाएँ जांचें\n\n**अभिभावक:**\n📱 उपस्थिति देखें\n📱 शुल्क भुगतान करें\n📱 सूचनाएँ प्राप्त करें\n\n**छात्र:**\n📱 उपस्थिति देखें\n📱 Assignments जमा करें\n📱 परिणाम जांचें`,
+    answer: `Good news — you don't need to download anything from the Play Store or App Store! 🎉
+
+Skolify is a **Progressive Web App (PWA)** — it works like a native app but runs through your browser.
+
+### What does that mean for you?
+✔ No Play Store / App Store needed
+✔ Works on any Android or iPhone
+✔ Installs in seconds
+✔ Auto-updates — always the latest version
+✔ Works even on budget ₹5,000 phones
+
+### How to Install:
+
+**Android (Chrome):**
+1. Open Skolify portal in Chrome
+2. Tap Menu → "Install App" or "Add to Home Screen"
+3. Done — icon appears on your home screen ✅
+
+**iPhone (Safari):**
+1. Open in Safari
+2. Tap Share → "Add to Home Screen"
+3. Done ✅
+
+### What you can do on mobile:
+
+**Teachers:** Mark attendance, enter marks, post homework — all from the classroom
+**Parents:** Check attendance, pay fees, view results — anywhere, anytime
+**Students:** View assignments, check results, see timetable
+**Admins:** Monitor dashboards, approve things on the go
+
+### Offline support:
+The app works offline for core actions (like marking attendance) and syncs when you're back online. Perfect for schools with spotty internet.`,
     category: 'modules',
     roles: ['admin', 'teacher', 'student', 'parent'],
     quickReplies: [
-      { text: 'Offline सुविधाएँ', payload: 'offline_features' },
-      { text: 'App size', payload: 'app_size' },
-      { text: 'Install समस्या', action: 'forward' },
+      { text: '🔌 Offline Features', payload: 'offline_features' },
+      { text: '📞 Install Help', action: 'forward' },
+    ],
+  },
+
+  {
+    id: 'attendance_feature',
+    patterns: [
+      'attendance feature', 'attendance module', 'attendance system',
+      'track attendance', 'parent sms attendance', 'auto sms',
+      'attendance notification',
+    ],
+    answer: `The attendance module is one of Skolify's most-used features — and for good reason! Here's everything it does:
+
+### For Teachers:
+✔ Mark attendance in under 2 minutes per class
+✔ Works on mobile (even offline!)
+✔ Bulk mark all present, then just update absents
+✔ Add remarks for individual students
+✔ View and edit history
+
+### For Parents:
+✔ Automatic SMS/WhatsApp when child is absent
+✔ Monthly attendance report in parent portal
+✔ Visual calendar view (green = present, red = absent)
+
+### For Admins:
+✔ Class-wise and school-wide reports
+✔ Low-attendance alerts (below 75%)
+✔ Holiday & exam day management
+✔ Export attendance data to Excel
+
+### Attendance Report Colors:
+🟢 **Above 75%** — Good
+🟡 **70–75%** — Warning (parent notified)
+🔴 **Below 70%** — Critical (admin alerted)
+
+### Time Limit:
+Teachers can mark attendance until 2 PM. After that, it requires admin approval to make changes.
+
+Available from Starter plan.`,
+    category: 'features',
+    roles: ['admin', 'teacher'],
+    quickReplies: [
+      { text: '✔ How to Mark Attendance', payload: 'teacher_attendance' },
+      { text: '📊 Attendance Reports', payload: 'attendance_reports' },
+    ],
+  },
+
+  {
+    id: 'fee_collection_feature',
+    patterns: [
+      'online fee', 'fee collection', 'collect fees online',
+      'fee module', 'fee management', 'fee system',
+      'payment collection', 'school fees online',
+    ],
+    answer: `Online fee collection is a game-changer for schools. Here's how it works on Skolify:
+
+### For Parents:
+✔ Pay fees from phone — UPI, card, net banking
+✔ Get instant digital receipt
+✔ View complete payment history
+✔ Auto-reminders before due date
+
+### For Admins:
+✔ Set up fee structure class-wise (once!)
+✔ Assign fees in bulk or individually
+✔ Set due dates and late fee rules
+✔ Track paid / pending / overdue — real-time dashboard
+✔ Download fee reports (Excel, PDF)
+✔ Give fee concessions to specific students
+
+### How payment flows:
+Parent opens app → Fees → Pay Now → Razorpay (UPI/Card) → Instant receipt → Admin gets notified ✅
+
+### Payment gateway:
+Powered by **Razorpay** (PCI DSS certified, fully secure)
+
+**Razorpay charges: 2% + GST per transaction**
+Example: Parent pays ₹5,000 → School receives ₹4,882
+
+### Auto-reminders:
+Set up fee reminder SMS/WhatsApp — they go out automatically X days before due date. Reduces follow-up calls significantly!
+
+Available from **Growth plan** onwards.`,
+    category: 'features',
+    roles: ['admin'],
+    quickReplies: [
+      { text: '🔧 Setup Fees', payload: 'fee_setup' },
+      { text: '📊 Fee Reports', payload: 'fee_reports' },
+      { text: '🎟️ Fee Concessions', payload: 'fee_concessions' },
     ],
   },
 ]
@@ -333,21 +978,53 @@ export const ADMIN_SETUP_QA: ChatAnswer[] = [
   {
     id: 'admin_first_steps',
     patterns: [
-      'setup',
-      'start',
-      'begin',
-      'shuru',
-      'kaise',
-      'how to',
-      'getting started',
+      'setup', 'start', 'begin', 'how to start', 'getting started',
+      'first steps', 'how to use', 'how to setup', 'onboarding',
+      'new user', 'just registered', 'just signed up',
     ],
-    answer: `## ⚡ Setup — 5 सरल चरण\n\n### चरण 1: पंजीकरण (1 मिनट)\n\n[Register करें →](/register)\n• विद्यालय नाम, फोन, शहर\n• ✔ परीक्षण प्रारंभ!\n\n### चरण 2: विद्यालय विवरण (2 मिनट)\n\n**Settings → School Info**\n• पता, फोन\n• Logo upload\n• प्राचार्य का नाम\n\n### चरण 3: छात्र जोड़ें (5 मिनट)\n\n**Students → Import**\n• Excel template download करें\n• डेटा भरें\n• Upload करें\n• **500 छात्र 5 मिनट में!**\n\n### चरण 4: शिक्षक जोड़ें (3 मिनट)\n\n**Teachers → Add**\n• नाम, फोन, email\n• विषय, कक्षा\n• उन्हें login मिल जाएगा ✔\n\n### चरण 5: Modules सेटअप करें\n\n**Settings → Modules**\n• शुल्क संग्रहण सक्षम करें\n• Website setup करें\n• सूचनाएँ configure करें\n\n**कुल: 15 मिनट!** ⚡\n\n### सहायता:\n\n💬 Live chat\n📞 WhatsApp\n📧 Email\n📹 Video call setup\n\n[प्रारंभ करें →](Admin panel)`,
+    answer: `Welcome aboard! Let's get your school up and running — it's easier than you think 🚀
+
+### Step 1: Register (1 minute)
+Go to [/register](/register) → Enter school name, phone, city → Done. Trial starts instantly!
+
+### Step 2: Fill School Details (2 minutes)
+**Settings → School Info**
+- School address, phone
+- Upload your logo
+- Principal's name and contact
+
+### Step 3: Add Students (5 minutes)
+**Students → Import → Download Template**
+
+Fill the Excel file:
+- Roll Number, Name, Class, Parent Phone (required)
+- Email, DOB, Address (optional)
+
+Upload it back → **500 students added in 5 minutes!** ⚡
+
+### Step 4: Add Teachers (3 minutes)
+**Teachers → Add Teacher**
+
+Enter name, phone, email, subject, class. They get login credentials automatically ✅
+
+### Step 5: Configure Modules
+**Settings → Modules**
+- Enable fee collection
+- Set up your school website
+- Configure notification preferences
+
+**Total time: ~15 minutes for a fully working school system.**
+
+### Need help at any step?
+💬 Live chat in the portal
+📞 WhatsApp support
+📹 We offer free video call onboarding — just ask!`,
     category: 'setup',
     roles: ['admin'],
     quickReplies: [
-      { text: 'Bulk import', payload: 'bulk_import' },
-      { text: 'शुल्क setup', payload: 'fee_setup' },
-      { text: 'Support', action: 'forward' },
+      { text: '📥 Bulk Import', payload: 'bulk_import' },
+      { text: '💰 Fee Setup', payload: 'fee_setup' },
+      { text: '📞 Onboarding Help', action: 'forward' },
     ],
     canForward: true,
   },
@@ -355,20 +1032,57 @@ export const ADMIN_SETUP_QA: ChatAnswer[] = [
   {
     id: 'bulk_import',
     patterns: [
-      'bulk import',
-      'import student',
-      'csv',
-      'excel',
-      'batch',
-      'upload',
+      'bulk import', 'import student', 'csv', 'excel', 'batch',
+      'upload students', 'import data', 'excel upload',
+      'bulk upload', 'mass import',
     ],
-    answer: `## 📥 Bulk छात्र Import\n\n**500+ छात्र 5 मिनट में!**\n\n### प्रक्रिया:\n\n**1. Template Download करें**\n\nStudents → Import → Download\n\n**2. Excel भरें**\n\n| Column | आवश्यक |\n|--------|----------|\n| Roll No | ✔ |\n| Name | ✔ |\n| Class | ✔ |\n| Parent Phone | ✔ |\n| Email | ❌ |\n| DOB | ❌ |\n| Address | ❌ |\n\n**3. Upload करें**\n\nStudents → Import → Choose File → Upload\n\n**4. सत्यापित करें**\n\nत्रुटियाँ दिखेंगी (यदि कोई हो) → सुधारें → पुनः प्रयास\n\n**5. पूर्ण!**\n\n500 छात्र जुड़ गए ✔\n\n### सुझाव:\n\n✔ CSV format बेहतर है\n✔ Phone: 10 अंक (बिना +91)\n✔ Class names सुसंगत रखें\n✔ Duplicate roll numbers नहीं\n✔ UTF-8 encoding\n\n### त्रुटियाँ:\n\n**"Invalid roll"** → रिक्त स्थान जांचें\n**"Class not found"** → पहले class जोड़ें\n**"Phone format"** → ठीक 10 अंक\n\n[अभी import करें →](Admin panel)`,
+    answer: `Bulk import is the fastest way to get your students into Skolify — here's how:
+
+### The Process:
+
+**1. Download the Template**
+Students → Import → Download Template
+
+**2. Fill it in Excel:**
+
+| Column | Required? |
+|--------|-----------|
+| Roll Number | ✅ Yes |
+| Full Name | ✅ Yes |
+| Class | ✅ Yes |
+| Parent Phone | ✅ Yes |
+| Email | ❌ Optional |
+| Date of Birth | ❌ Optional |
+| Address | ❌ Optional |
+
+**3. Upload the File**
+Students → Import → Choose File → Upload
+
+**4. Review Errors (if any)**
+Any issues show up clearly — fix them and re-upload
+
+**5. Done!** ✅
+500 students added in about 5 minutes
+
+### Pro Tips:
+✔ CSV format works best
+✔ Phone numbers: 10 digits only (no +91)
+✔ Class names must match exactly what you've created in the system
+✔ No duplicate roll numbers
+✔ Use UTF-8 encoding (default in most Excel apps)
+
+### Common Errors:
+
+**"Invalid roll number"** → Check for spaces or special characters
+**"Class not found"** → Create the class first, then import
+**"Invalid phone format"** → Must be exactly 10 digits
+
+Need the template? Go to: Admin Panel → Students → Import → Download Template`,
     category: 'setup',
     roles: ['admin'],
     quickReplies: [
-      { text: 'Class setup', payload: 'class_setup' },
-      { text: 'शिक्षक assignment', payload: 'teacher_assignment' },
-      { text: 'सहायता', action: 'forward' },
+      { text: '🏫 Class Setup', payload: 'class_setup' },
+      { text: '📞 Import Help', action: 'forward' },
     ],
     canForward: true,
   },
@@ -376,20 +1090,96 @@ export const ADMIN_SETUP_QA: ChatAnswer[] = [
   {
     id: 'fee_setup',
     patterns: [
-      'fee',
-      'fees',
-      'fee collection',
-      'online payment',
-      'razorpay',
+      'fee setup', 'setup fees', 'configure fees', 'fee structure',
+      'set up payment', 'online payment setup', 'razorpay setup',
+      'fee configuration',
     ],
-    answer: `## 💰 Online शुल्क संग्रहण Setup\n\n### क्यों Online?\n\n✔ अभिभावकों को कार्यालय नहीं आना होगा\n✔ स्वचालित रसीदें\n✔ स्वचालित अनुस्मारक\n✔ विलंब भुगतान सूचनाएँ\n✔ 100% पारदर्शिता\n✔ Razorpay सुरक्षित\n\n### Setup:\n\n**चरण 1: शुल्क संरचना**\n\nFees → Structure → कक्षा-वार निर्धारित करें\n• ट्यूशन, परिवहन, आदि\n• उदाहरण: कक्षा 5 = ₹5,000/माह\n\n**चरण 2: कैलेंडर**\n\n• मासिक/त्रैमासिक/वार्षिक\n• देय तिथियाँ\n• विलंब शुल्क नियम\n\n**चरण 3: आवंटन**\n\n• Bulk assign (कक्षा-वार)\n• या व्यक्तिगत\n\n**चरण 4: अभिभावक Portal**\n\n• अभिभावकों को login मिलता है\n• वे online भुगतान करते हैं\n• सीधे Razorpay\n\n**चरण 5: सूचनाएँ**\n\n• स्वचालित SMS/WhatsApp\n• देय तिथि से पहले\n• लंबित सूचनाएँ\n\n### भुगतान प्रवाह:\n\nअभिभावक App → Fees → Pay\n→ Razorpay (UPI/Card/Net Banking)\n→ Payment\n→ तुरंत रसीद\n→ Admin सूचना\n\n### कमीशन:\n\n**Razorpay: 2% + GST**\n\nउदाहरण:\nअभिभावक भुगतान: ₹5,000\nRazorpay शुल्क: ₹118\n**विद्यालय को मिलता है: ₹4,882**\n\n[Setup करें →](Admin panel)`,
+    answer: `Setting up online fee collection takes about 10 minutes — here's the full walkthrough:
+
+### Step 1: Create Fee Structure
+**Fees → Structure → Add Fee Type**
+- Set fees class-wise (e.g., Class 5 = ₹5,000/month)
+- Include categories: Tuition, Transport, etc.
+
+### Step 2: Set the Calendar
+- Monthly / Quarterly / Annual
+- Due dates for each period
+- Late fee rules (e.g., ₹50 after due date)
+
+### Step 3: Assign Fees
+- Bulk assign by class (fastest)
+- Or assign individually
+
+### Step 4: Parents Can Pay
+Parents get login → open Fees → click Pay → Razorpay → done
+**Instant receipt generated ✅**
+
+### Step 5: Set Auto-Reminders
+- SMS/WhatsApp goes out X days before due date
+- Separate reminder for overdue fees
+- Uses credits from your plan
+
+### Payment Flow:
+Parent App → Fees → Pay Now → Razorpay → Receipt
+↓
+School gets notified
+Dashboard updates
+
+
+### Razorpay Commission:
+**2% + GST per transaction**
+Example: ₹5,000 payment → ₹118 fee → **School receives ₹4,882**
+
+Razorpay settles to your bank account within **2-3 business days**.
+
+### Available from: Growth plan (₹999/month)`,
     category: 'setup',
     roles: ['admin'],
     quickReplies: [
-      { text: 'शुल्क छूट', payload: 'fee_concessions' },
-      { text: 'रिपोर्ट', payload: 'fee_reports' },
-      { text: 'अभिभावक portal', payload: 'parent_portal' },
+      { text: '🎟️ Fee Concessions', payload: 'fee_concessions' },
+      { text: '📊 Fee Reports', payload: 'fee_reports' },
+      { text: '📞 Setup Help', action: 'forward' },
     ],
+    canForward: true,
+  },
+
+  {
+    id: 'data_export',
+    patterns: [
+      'export data', 'download data', 'backup', 'export students',
+      'data export', 'get my data', 'download records',
+    ],
+    answer: `You own your data — and you can export it anytime. Here's how:
+
+### What you can export:
+
+✔ **Student records** — complete profiles + history
+✔ **Attendance data** — class-wise, date-wise
+✔ **Fee records** — payments, pending, receipts
+✔ **Exam results** — all terms, all subjects
+✔ **Teacher records** — staff information
+
+### How to Export:
+Most sections have a **Download** or **Export to Excel** button.
+
+**Admin Panel → [Section] → Export → Choose Format (Excel/PDF/CSV)**
+
+### For complete school data backup:
+**Admin Panel → Settings → Data Export → Full Backup**
+
+This generates a ZIP file with all your data.
+
+### If you're leaving Skolify:
+Export everything before canceling. Your data stays accessible for **90 days after cancellation**, but it's best to download a backup before.
+
+Need help exporting? Our support team can assist.`,
+    category: 'technical',
+    roles: ['admin'],
+    quickReplies: [
+      { text: '❌ Cancel Account', payload: 'admin_cancel_policy' },
+      { text: '📞 Export Help', action: 'forward' },
+    ],
+    canForward: true,
   },
 ]
 
@@ -401,45 +1191,220 @@ export const TEACHER_QA: ChatAnswer[] = [
   {
     id: 'teacher_attendance',
     patterns: [
-      'attendance',
-      'mark attendance',
-      'present',
-      'absent',
-      'roll call',
+      'attendance', 'mark attendance', 'present', 'absent',
+      'roll call', 'take attendance', 'daily attendance',
     ],
-    answer: `## ✔ उपस्थिति कैसे अंकित करें?\n\n### Desktop:\n\n**Teacher Portal → Attendance → Class**\n\n1. Class चुनें\n2. तिथि (आज default)\n3. छात्र सूची\n4. ✔ = उपस्थित, ❌ = अनुपस्थित\n5. टिप्पणी (वैकल्पिक)\n6. Save करें ✔\n\n### Mobile (PWA):\n\n1. App खोलें\n2. Attendance\n3. Class स्वचालित चयन\n4. Quick swipe\n5. Submit करें\n6. **Offline काम करता है!**\n\n### सुविधाएँ:\n\n✔ स्वचालित % गणना\n✔ Bulk mark (सभी उपस्थित)\n✔ इतिहास संपादन\n✔ अवकाश प्रबंधन\n✔ अभिभावक SMS स्वचालित\n\n### समय-सीमा:\n\n❌ 2 बजे के बाद अंकित नहीं कर सकते\n✔ Admin अपवाद उपलब्ध\n\n### रिपोर्ट:\n\nAttendance → Reports\n• छात्र-वार %\n• अनुपस्थिति तिथियाँ\n• कम उपस्थिति सूचनाएँ\n\n[अभी mark करें →](Teacher portal)`,
+    answer: `Here's how to mark attendance quickly and easily:
+
+### On Desktop:
+**Teacher Portal → Attendance → Select Class**
+
+1. Choose your class
+2. Today's date is pre-selected
+3. Student list loads automatically
+4. Tap ✔ for present, ✗ for absent
+5. Add a remark if needed (optional)
+6. Click **Save** ✅
+
+### On Mobile (PWA):
+1. Open the app
+2. Tap Attendance
+3. Your class auto-loads
+4. Quick swipe or tap
+5. Submit — even works offline!
+
+### Useful Features:
+✔ **Bulk mark** — hit "All Present" first, then just mark absents (faster!)
+✔ **Edit history** — you can correct past records
+✔ **Holiday marking** — mark class-wide holidays
+✔ **Auto SMS** — parents get notified when child is absent (uses credits)
+✔ **Automatic % calculation** — no manual math
+
+### Time Limit:
+You can mark attendance until **2 PM**. After that, contact your admin for an exception.
+
+### Reports:
+**Attendance → Reports** — see per-student percentages, absence trends, and more.`,
     category: 'features',
     roles: ['teacher'],
     quickReplies: [
-      { text: 'रिपोर्ट', payload: 'attendance_reports' },
-      { text: 'Bulk mark', payload: 'bulk_mark' },
-      { text: 'अभिभावक सूचनाएँ', payload: 'parent_alerts' },
+      { text: '📊 View Reports', payload: 'attendance_reports' },
+      { text: '📞 Help', action: 'forward' },
     ],
   },
 
   {
     id: 'teacher_marks',
-    patterns: ['marks', 'mark entry', 'exam', 'result', 'score', 'grades'],
-    answer: `## 📝 अंक प्रविष्टि कैसे करें?\n\n### प्रक्रिया:\n\n**Teacher Portal → Exams → परीक्षा चुनें**\n\n1. परीक्षा चुनें (उदा., "Final - Math")\n2. Class चुनें (उदा., "8A")\n3. छात्र सूची\n4. अंक दर्ज करें\n5. स्वचालित % एवं grade गणना\n6. Save करें ✔\n\n### सुविधाएँ:\n\n✔ अधिकतम अंक सत्यापन\n✔ स्वचालित grades (A, B, C)\n✔ टिप्पणी अनुभाग\n✔ उपस्थिति लिंकिंग\n✔ Bulk import (Excel)\n\n### Bulk Import:\n\nExams → Import\n• Template download करें\n• अंक भरें\n• Upload करें\n• सत्यापित करें\n• पूर्ण!\n\n### Grade Cards:\n\n✔ स्वचालित PDF generation\n✔ अभिभावकों को email\n✔ छात्र portal में view\n✔ Print-ready\n\n### संपादन:\n\n❌ Publish के बाद = locked\n✔ Publish से पहले = असीमित संपादन\n✔ परिवर्तनों के लिए admin से संपर्क करें\n\n[अंक दर्ज करें →](Teacher portal)`,
+    patterns: [
+      'marks', 'mark entry', 'exam', 'result', 'score', 'grades',
+      'enter marks', 'add marks', 'marks entry',
+    ],
+    answer: `Entering exam marks is straightforward — here's how:
+
+### Steps:
+**Teacher Portal → Exams → Select Exam**
+
+1. Choose the exam (e.g., "Final - Math")
+2. Select your class (e.g., "8A")
+3. Student list loads with a marks column
+4. Enter marks for each student
+5. Grades (A, B, C, etc.) calculate automatically
+6. Click **Save** ✅
+
+### Handy Features:
+✔ **Max marks validation** — can't accidentally enter more than max
+✔ **Auto grade calculation** — A, B, C, D, F based on your grade rules
+✔ **Remarks section** — add performance notes per student
+✔ **Bulk import via Excel** — for large classes
+
+### Bulk Import (for big classes):
+Exams → Import → Download Template → Fill marks → Upload → Review → Done
+
+### Grade Cards:
+Once published:
+✔ Auto-generated PDF grade cards
+✔ Emailed to parents (uses credits)
+✔ Visible in student/parent portal
+✔ Print-ready format with school letterhead
+
+### Important:
+❌ Once you **Publish** results, marks are locked
+✔ Before publishing — unlimited edits
+✔ Need to change after publishing? Contact admin
+
+[Enter marks now →](Teacher Portal)`,
     category: 'features',
     roles: ['teacher'],
     quickReplies: [
-      { text: 'Grade cards', payload: 'grade_cards' },
-      { text: 'Performance', payload: 'performance' },
-      { text: 'सहायता', action: 'forward' },
+      { text: '📋 Grade Cards', payload: 'grade_cards' },
+      { text: '📊 Performance View', payload: 'performance' },
+      { text: '📞 Help', action: 'forward' },
     ],
   },
 
   {
     id: 'teacher_homework',
-    patterns: ['homework', 'assignment', 'submit', 'deadline'],
-    answer: `## 📚 गृहकार्य कैसे आवंटित करें?\n\n### चरण:\n\n**Teacher Portal → Homework → Create**\n\n1. शीर्षक — "अध्याय 5 अभ्यास"\n2. विषय — स्वचालित चयन\n3. Class — 8A\n4. विवरण — निर्देश\n5. Attachment — PDF/image/video\n6. देय तिथि — 3 दिन\n7. Publish → छात्रों को सूचित!\n\n### छात्र पक्ष:\n\n• Portal में गृहकार्य दृश्यमान\n• Attachments download करें\n• देय तिथि देखें\n• Assignment जमा करें\n\n### Grading:\n\nदेय तिथि के बाद:\n• Submissions दिखेंगे\n• कार्य खोलें\n• 10/20/100 में से अंक दें\n• टिप्पणी जोड़ें\n• Publish करें → छात्र को सूचित\n\n### सुविधाएँ:\n\n✔ देय तिथि विस्तार\n✔ आंशिक submission स्वीकार करें\n✔ पुनः-submission अनुमति\n✔ कक्षा-व्यापी या व्यक्तिगत\n✔ Rubric-based grading\n\n### अभिभावक सूचना:\n\n✔ आवंटन पर माता/पिता को सूचना\n✔ प्रगति अपडेट\n✔ Grades स्वचालित सूचित\n\n[आवंटित करें →](Teacher portal)`,
+    patterns: [
+      'homework', 'assignment', 'submit', 'deadline', 'create homework',
+      'give homework', 'homework assignment',
+    ],
+    answer: `Creating and managing homework is simple — here's the full flow:
+
+### Creating Homework:
+**Teacher Portal → Homework → Create**
+
+Fill in:
+- **Title** — e.g., "Chapter 5 Practice Problems"
+- **Subject** — auto-filled based on your assignment
+- **Class** — e.g., 8A
+- **Description** — instructions for students
+- **Attachment** — PDF, image, or video (optional)
+- **Due Date** — e.g., 3 days from now
+- **Publish** → Students get notified immediately!
+
+### What Students See:
+- Homework listed in their portal
+- Can download attachments
+- Can see due date clearly
+- Can submit their work online
+
+### Grading After Due Date:
+1. Homework → View Submissions
+2. Open each student's submission
+3. Enter marks (e.g., out of 20)
+4. Add comments
+5. Publish → student gets notified with their grade
+
+### Other Options:
+✔ Extend due date if needed
+✔ Accept late submissions (toggle on/off)
+✔ Allow resubmission
+✔ Assign to whole class OR specific students
+✔ Set rubric-based grading
+
+### Parent Notification:
+When you publish homework → parents get notified too (great for younger classes!)
+When grades are published → parents see their child's marks instantly`,
     category: 'features',
     roles: ['teacher'],
     quickReplies: [
-      { text: 'Submission tracking', payload: 'submission_tracking' },
-      { text: 'Rubrics', payload: 'rubrics' },
-      { text: 'अभिभावक सूचनाएँ', payload: 'parent_homework' },
+      { text: '📊 Track Submissions', payload: 'submission_tracking' },
+      { text: '👨‍👩‍👧 Parent Alerts', payload: 'parent_homework' },
+    ],
+  },
+
+  {
+    id: 'teacher_timetable',
+    patterns: [
+      'timetable', 'schedule', 'class schedule', 'period', 'time table',
+      'class timing', 'my schedule',
+    ],
+    answer: `Your timetable is right there in the portal — here's where to find it:
+
+### For Teachers:
+**Teacher Portal → Timetable**
+
+You'll see:
+- Your classes for each day of the week
+- Subject, class, period timing
+- Room number (if set by admin)
+
+### For the week view:
+Click "Week View" to see your full weekly schedule at a glance.
+
+### Managing Timetable (Admin's job):
+Only admins can create and edit the timetable:
+**Admin → Timetable → Set Schedule → Assign Teacher + Subject + Class + Period**
+
+### Substitution:
+If a teacher is absent, admin can set up a substitute teacher for that day — it shows on the timetable automatically.
+
+### Students see it too:
+Students and parents can view the class timetable from their portal.
+
+Need to change your timetable? That goes through your admin.`,
+    category: 'features',
+    roles: ['teacher'],
+    quickReplies: [
+      { text: '📝 Mark Attendance', payload: 'teacher_attendance' },
+      { text: '📚 Homework', payload: 'teacher_homework' },
+    ],
+  },
+
+  {
+    id: 'teacher_communication',
+    patterns: [
+      'send message', 'notify parents', 'message parents', 'bulk message',
+      'communication', 'notify students', 'send sms', 'send notification',
+    ],
+    answer: `Need to reach parents or students quickly? Here's how:
+
+### Quick Announcement (Notice Board):
+**Teacher Portal → Notices → Create**
+
+- Post text, image, or PDF
+- Visible to all students & parents in your class immediately
+- No credits used for this
+
+### Direct Message / SMS (uses credits):
+**Teacher Portal → Communication → Send Message**
+
+- Choose audience: whole class, specific students
+- Choose channel: SMS, WhatsApp, or in-app notification
+- Type your message → Send
+
+Each SMS or WhatsApp message uses 1 credit from your school's credit balance.
+
+### For urgent alerts (attendance SMS):
+When you mark a student absent → parent gets an automatic SMS if your admin has this enabled. You don't need to do anything extra.
+
+### Can't send messages?
+You might not have messaging permission — ask your admin to enable it for your account.`,
+    category: 'features',
+    roles: ['teacher'],
+    quickReplies: [
+      { text: '💳 Credits', payload: 'credit_system_overview' },
+      { text: '📢 Notice Board', payload: 'notice_board' },
     ],
   },
 ]
@@ -452,59 +1417,271 @@ export const STUDENT_PARENT_QA: ChatAnswer[] = [
   {
     id: 'student_attendance_check',
     patterns: [
-      'attendance',
-      'present absent',
-      'percentage',
-      'how many days',
+      'my attendance', 'check attendance', 'attendance percentage',
+      'how many days absent', 'present absent', 'attendance record',
+      'see attendance', 'view attendance',
     ],
-    answer: `## ✔ उपस्थिति कैसे देखें?\n\n### Student/Parent Portal:\n\n**Dashboard → My Attendance**\n\n### विवरण:\n\n✔ कुल प्रतिशत\n✔ उपस्थित/अनुपस्थित संख्या\n✔ लिए गए अवकाश\n✔ चिकित्सा प्रमाणपत्र\n✔ प्रवृत्ति विश्लेषण\n\n### रंग कोड:\n\n🟢 **>75%** = अच्छा\n🟡 **70-75%** = चेतावनी\n🔴 **<70%** = गंभीर\n\n### महत्वपूर्ण:\n\n⚠️ **75% न्यूनतम** आवश्यक\n✔ कम होने पर अभिभावक सूचना\n❌ 70% से कम = परिणाम प्रभावित हो सकते हैं\n\n### मासिक दृश्य:\n\n• कैलेंडर दृश्य\n• उपस्थित दिन (हरा)\n• अनुपस्थित दिन (लाल)\n• अवकाश (ग्रे)\n\n[अभी जांचें →](Portal)`,
+    answer: `Checking your attendance is easy — here's where to find it:
+
+### Student / Parent Portal:
+**Dashboard → My Attendance** (or just look at the dashboard summary)
+
+### What you'll see:
+✔ Your overall attendance percentage
+✔ Total days present / absent
+✔ Medical leave count
+✔ Month-by-month calendar view
+✔ Trend analysis
+
+### Color Guide:
+🟢 **Above 75%** — You're good!
+🟡 **70–75%** — Getting low, be careful
+🔴 **Below 70%** — Critical — talk to your school admin
+
+### Why 75% matters:
+Most schools require **75% minimum attendance**. Below 70% can affect your exam eligibility. Your school will notify parents if attendance gets low.
+
+### Calendar View:
+Switch to calendar mode to see:
+- 🟢 Green = Present
+- 🔴 Red = Absent
+- ⚫ Grey = Holiday or no school
+
+Something looks wrong? Contact your class teacher or admin to review.`,
     category: 'general',
     roles: ['student', 'parent'],
     quickReplies: [
-      { text: 'परिणाम', payload: 'student_results' },
-      { text: 'Assignments', payload: 'student_assignments' },
-      { text: 'शुल्क', payload: 'fee_status_student' },
+      { text: '📊 My Results', payload: 'student_results' },
+      { text: '📚 Assignments', payload: 'student_assignments' },
+      { text: '💰 Fee Status', payload: 'fee_status_student' },
     ],
   },
 
   {
     id: 'student_results',
     patterns: [
-      'results',
-      'exam result',
-      'marks',
-      'performance',
-      'grade',
-      'report card',
+      'results', 'exam result', 'my marks', 'performance',
+      'grade', 'report card', 'check results', 'see marks',
+      'my scores', 'how did i do',
     ],
-    answer: `## 📊 परिणाम कैसे देखें?\n\n### Portal:\n\n**Dashboard → My Exams/Results**\n\n### विवरण:\n\n✔ सभी परीक्षा परिणाम\n✔ विषय-वार अंक\n✔ Grade (A, B, C)\n✔ कक्षा रैंक (यदि प्रकाशित)\n✔ औसत से तुलना\n✔ Grade card PDF download\n\n### सुविधाएँ:\n\n📈 प्रवृत्ति विश्लेषण\n🎯 विषय शक्तियाँ\n⚠️ सुधार क्षेत्र\n📊 कक्षा तुलना\n\n### Grade Card:\n\n✔ तुरंत डिजिटल\n✔ PDF download\n✔ साझा करने योग्य\n✔ आधिकारिक letterhead\n\n### संबंधित:\n\n✔ गृहकार्य लिंक\n✔ अभ्यास सामग्री\n✔ अध्ययन संसाधन\n\n[परिणाम जांचें →](Portal)`,
+    answer: `Here's how to check your exam results:
+
+### Student / Parent Portal:
+**Dashboard → Exams / Results**
+
+### What you'll see:
+✔ All published exam results
+✔ Subject-wise marks
+✔ Grade (A, B, C, D, F)
+✔ Class rank (if your school shares it)
+✔ Class average for comparison
+✔ Download grade card as PDF
+
+### Performance Analysis:
+📈 Subject-wise trend across exams
+🎯 Your strong subjects highlighted
+⚠️ Areas needing improvement
+📊 Compared to class average
+
+### Download Grade Card:
+Results → Select Exam → Download PDF
+
+This is the official grade card with your school's letterhead — usable for records or applications.
+
+### Results not showing?
+Your teacher may not have published them yet. Published results appear instantly. Check back or ask your teacher!
+
+### Parent view:
+Parents see the same information — your marks are not hidden from them! 😄`,
     category: 'general',
     roles: ['student', 'parent'],
     quickReplies: [
-      { text: 'उपस्थिति', payload: 'student_attendance_check' },
-      { text: 'लंबित assignments', payload: 'student_assignments' },
-      { text: 'शिक्षक से संपर्क', payload: 'contact_teacher' },
+      { text: '✅ My Attendance', payload: 'student_attendance_check' },
+      { text: '📚 Pending Assignments', payload: 'student_assignments' },
+      { text: '📞 Contact Teacher', payload: 'contact_teacher' },
     ],
   },
 
   {
     id: 'fee_status_student',
     patterns: [
-      'fee',
-      'fees',
-      'fee status',
-      'fee payment',
-      'pending fee',
-      'due',
+      'fee', 'fees', 'fee status', 'fee payment', 'pending fee',
+      'due fee', 'pay fee', 'fee due', 'outstanding fee',
+      'fee receipt', 'pay online',
     ],
-    answer: `## 💰 शुल्क स्थिति एवं भुगतान\n\n### Portal:\n\n**Dashboard → Fees**\n\n### विवरण:\n\n✔ शुल्क संरचना\n✔ मासिक विवरण\n✔ भुगतान रसीदें\n✔ लंबित राशि\n✔ देय तिथि\n✔ विलंब शुल्क (यदि कोई हो)\n\n### रंग कोड:\n\n🟢 **भुगतान किया गया** ✔\n🟡 **शीघ्र देय**\n🔴 **अतिदेय**\n\n### Online भुगतान:\n\n**यदि लंबित है:**\n\n1. "Pay Now" पर क्लिक करें\n2. राशि की पुष्टि करें\n3. विधि चुनें (UPI/Card/Net Banking)\n4. Razorpay payment\n5. पूर्ण करें\n6. तुरंत रसीद मिलेगी ✔\n\n### भुगतान विधियाँ:\n\n✔ UPI (PhonePe, GPay)\n✔ Debit/Credit Card\n✔ Net Banking\n✔ Wallets\n\n### रसीद:\n\n✔ तुरंत PDF\n✔ Email भेजा गया\n✔ Downloadable\n✔ आधिकारिक header\n\n### छूट:\n\nवित्तीय समस्या?\n• Admin से संपर्क करें\n• छूट के लिए आवेदन करें\n• भुगतान योजना उपलब्ध\n\n[शुल्क भुगतान करें →](Portal)`,
+    answer: `Here's how to check and pay your school fees online:
+
+### Parent / Student Portal:
+**Dashboard → Fees**
+
+### What you'll see:
+✔ Complete fee structure
+✔ Month-by-month breakdown
+✔ Payment history with receipts
+✔ Pending amount
+✔ Due date clearly shown
+✔ Late fee (if any)
+
+### Status Colors:
+🟢 **Paid** — all clear!
+🟡 **Due soon** — pay before due date
+🔴 **Overdue** — late fee may apply
+
+### How to Pay Online:
+1. Click **"Pay Now"** next to the pending amount
+2. Confirm the amount
+3. Choose payment method (UPI, Card, Net Banking)
+4. Complete Razorpay payment
+5. **Instant receipt generated** ✅
+
+### Payment Methods Accepted:
+✔ UPI — PhonePe, Google Pay, Paytm
+✔ Debit / Credit Card
+✔ Net Banking
+✔ Wallets
+
+### Receipt:
+- Auto-generated PDF after payment
+- Emailed to your registered email
+- Always downloadable from the portal
+- Official format with school letterhead
+
+### Need a concession or installment?
+Contact your school admin directly — they can adjust fees or set up a payment plan for you.`,
     category: 'general',
     roles: ['student', 'parent'],
     quickReplies: [
-      { text: 'भुगतान इतिहास', payload: 'payment_history' },
-      { text: 'छूट आवेदन', payload: 'fee_concession' },
-      { text: 'रसीद download', payload: 'receipt_download' },
+      { text: '📜 Payment History', payload: 'payment_history' },
+      { text: '🎟️ Fee Concession', payload: 'fee_concession' },
+      { text: '🧾 Download Receipt', payload: 'receipt_download' },
     ],
+  },
+
+  {
+    id: 'student_assignments',
+    patterns: [
+      'homework', 'assignment', 'my homework', 'pending homework',
+      'submit assignment', 'assignment due', 'due homework',
+    ],
+    answer: `Here's how to view and submit your assignments:
+
+### Student Portal:
+**Dashboard → Homework / Assignments**
+
+### What you'll see:
+✔ All assigned homework
+✔ Subject and teacher name
+✔ Due date and time
+✔ Attachments from teacher (if any)
+✔ Status: Pending / Submitted / Graded
+
+### Submitting an Assignment:
+1. Click on the assignment
+2. Read the instructions
+3. Upload your work (PDF, image, doc)
+4. Click **Submit**
+5. Done — teacher gets notified ✅
+
+### After Grading:
+Once your teacher grades it, you'll see:
+- Marks scored
+- Teacher's comments
+- Feedback
+
+You'll get a notification when grades are out.
+
+### Late Submission?
+Check if the teacher allows late submissions — some do, some don't. If the submit button is gone, deadline has passed and late submission is not allowed.
+
+Talk to your teacher if you need an extension.`,
+    category: 'general',
+    roles: ['student', 'parent'],
+    quickReplies: [
+      { text: '📊 My Results', payload: 'student_results' },
+      { text: '✅ My Attendance', payload: 'student_attendance_check' },
+    ],
+  },
+
+  {
+    id: 'parent_portal',
+    patterns: [
+      'parent portal', 'parent login', 'parent access', 'parent account',
+      'how parents login', 'parent dashboard',
+    ],
+    answer: `As a parent, you get your own dedicated dashboard to stay updated on your child's school life!
+
+### How to Access:
+Your login credentials are set up by the school admin. You'll receive them via SMS or WhatsApp.
+
+**URL:** Same as your school's Skolify portal
+**Role:** Select "Parent" when logging in
+
+### What You Can See:
+
+✔ **Attendance** — daily record, percentage, calendar
+✔ **Fees** — pending amount, pay online, download receipts
+✔ **Results** — all published exam results
+✔ **Homework** — what's assigned, what's submitted, grades
+✔ **Timetable** — your child's class schedule
+✔ **Notices** — school announcements
+✔ **Certificates** — TC, Bonafide (if issued)
+
+### Notifications:
+You'll get automatic SMS/WhatsApp for:
+- Child marked absent
+- Fee due reminders
+- Results published
+- Important announcements
+
+### Multiple Children?
+If you have more than one child in the same school, you can switch between their profiles from the same login.
+
+Didn't receive login credentials? Contact your school's admin.`,
+    category: 'general',
+    roles: ['parent'],
+    quickReplies: [
+      { text: '✅ Check Attendance', payload: 'student_attendance_check' },
+      { text: '💰 Pay Fees', payload: 'fee_status_student' },
+      { text: '📊 View Results', payload: 'student_results' },
+    ],
+  },
+
+  {
+    id: 'student_login',
+    patterns: [
+      'student login', 'how to login', 'login problem', 'cant login',
+      'forgot password', 'password reset', 'login issue', 'access portal',
+    ],
+    answer: `Having trouble logging in? Let me help you sort it out.
+
+### Normal Login:
+**Go to your school's Skolify portal URL**
+→ Enter your Roll Number (or email)
+→ Enter password
+→ Select role: Student
+→ Login ✅
+
+### Forgot Password?
+Click **"Forgot Password"** on the login page → Enter your registered phone/email → You'll get a reset link via SMS or email.
+
+### First Time Login?
+Your school admin would have given you a temporary password via SMS. Use that to log in first, then change it.
+
+### Still can't log in?
+A few things to check:
+- Are you using the correct portal URL? (Ask your school for the link)
+- Is your roll number entered correctly? (No spaces)
+- Did your admin activate your account?
+
+If none of that works, contact your class teacher or school admin — they can reset your access directly.
+
+Need more help? I can connect you with our support team too.`,
+    category: 'technical',
+    roles: ['student', 'parent'],
+    quickReplies: [
+      { text: '📞 Support', action: 'forward' },
+    ],
+    canForward: true,
   },
 ]
 
@@ -516,56 +1693,298 @@ export const SUPPORT_QA: ChatAnswer[] = [
   {
     id: 'support_contact',
     patterns: [
-      'support',
-      'help',
-      'contact',
-      'problem',
-      'issue',
-      'error',
-      'technical',
+      'support', 'help', 'contact', 'problem', 'issue', 'error',
+      'technical', 'need help', 'something wrong', 'not working',
+      'bug', 'report issue',
     ],
-    answer: `## 🤝 सहायता एवं संपर्क\n\n### संपर्क:\n\n**Email:**\n📧 support@skolify.in\nप्रतिक्रिया: उसी दिन\n\n**WhatsApp:**\n💬 सीधे founder से\nप्रतिक्रिया: 1-2 घंटे\n\n**Call:**\n📞 व्यावसायिक समय\nव्यक्तिगत सहायता\n\n**Live Chat:**\n💻 Portal में — तुरंत\n\n### समय:\n\n⏰ **सोम-शनि:** सुबह 9 - शाम 6\n⏰ **रविवार:** बंद\n⏰ **आपातकाल:** Premium support\n\n### समस्या रिपोर्ट करें:\n\n1. विशिष्ट बताएं\n2. त्रुटि का screenshot\n3. आपकी भूमिका\n4. पुनः उत्पन्न करने के चरण\n5. कब प्रारंभ हुआ\n\n### प्रतिक्रिया समय:\n\n🟢 **गंभीर** (साइट बंद) → 30 मिनट\n🟡 **उच्च** (सुविधाएँ बंद) → 2 घंटे\n🔵 **मध्यम** (वैकल्पिक उपाय) → 24 घंटे\n⚪ **कम** (सौंदर्य) → 48 घंटे\n\n[टिकट जमा करें →](/enquiry)`,
+    answer: `Happy to help! Here's how you can reach us:
+
+### 📧 Email:
+**support@skolify.in**
+Response time: Same business day
+
+### 💬 WhatsApp:
+Direct message to our founder team
+Response time: 1–2 hours (business hours)
+
+### 📞 Phone:
+Available during business hours for urgent issues
+
+### 💻 Live Chat:
+Right here in the portal — fastest way to get answers
+
+### Support Hours:
+⏰ **Monday–Saturday:** 9 AM – 6 PM
+⏰ **Sunday:** Closed
+⏰ **Emergencies:** Premium support available for critical issues
+
+### Response Times by Priority:
+
+🔴 **Critical** (system down) → 30 minutes
+🟡 **High** (major feature broken) → 2 hours
+🔵 **Medium** (workaround available) → 24 hours
+⚪ **Low** (cosmetic/minor) → 48 hours
+
+### Before Contacting:
+It helps to have ready:
+- What exactly happened
+- Screenshot of the error (if any)
+- Your role (admin/teacher/student/parent)
+- Steps to reproduce the issue
+
+[Submit a support ticket →](/enquiry)`,
     category: 'support',
     roles: ['admin', 'teacher', 'student', 'parent', 'guest'],
     quickReplies: [
-      { text: 'Bug रिपोर्ट', action: 'forward' },
-      { text: 'Feature request', action: 'forward' },
-      { text: 'Account समस्या', action: 'forward' },
+      { text: '🐛 Report a Bug', action: 'forward' },
+      { text: '💡 Feature Request', action: 'forward' },
+      { text: '🔑 Account Issue', action: 'forward' },
     ],
     canForward: true,
   },
 
   {
     id: 'trial_info',
-    patterns: ['trial', 'free', 'try', 'demo', 'test', 'muft'],
-    answer: `## 🎁 60-दिवस निःशुल्क परीक्षण\n\n### यह क्या है?\n\n✔ **60 दिन पूर्णतः निःशुल्क**\n✔ **कोई credit card आवश्यक नहीं**\n✔ **पूर्ण पहुँच**\n✔ **सभी सुविधाएँ**\n✔ **व्यक्तिगत onboarding**\n\n### सम्मिलित:\n\n✔ 500 messaging credits\n✔ असीमित छात्र प्रबंधन\n✔ सभी मूल modules\n✔ Website builder\n✔ Mobile app (PWA)\n✔ Email support\n\n### सम्मिलित नहीं:\n\n❌ उन्नत modules (LMS, Payroll)\n❌ Custom domain\n❌ समर्पित प्रबंधक\n\n### परीक्षण के बाद:\n\n**जब 60 दिन समाप्त होंगे:**\n\n✔ डेटा 90 दिन सुरक्षित\n✔ कोई भी योजना चुनें\n✔ Pro-rata billing\n✔ किसी भी समय upgrade करें\n\n### प्रारंभ करें:\n\n[अभी पंजीकरण करें →](/register)\n\n• फोन\n• विद्यालय नाम\n• शहर\n• पूर्ण! ⚡\n\n**कोई प्रतिबद्धता नहीं, कोई जोखिम नहीं!**`,
+    patterns: [
+      'trial', 'free', 'try', 'demo', 'test', 'free trial',
+      'no credit card', 'try for free', 'free plan',
+    ],
+    answer: `Yes — we offer a **60-day free trial**. No credit card, no commitment. Just try it out! 🎁
+
+### What's Included in the Trial:
+
+✅ 500 messaging credits
+✅ Unlimited student management
+✅ All core modules (attendance, notices, website, gallery)
+✅ Mobile app (PWA)
+✅ Email support
+✅ Free onboarding call (just ask!)
+
+### What's Not Included:
+❌ Advanced modules (LMS, Payroll, Transport)
+❌ Custom domain
+❌ Dedicated account manager
+
+### After the 60 Days:
+- Your data stays safe for 90 days
+- Pick any plan that fits your school
+- Everything carries over — no data loss
+
+### How to Start:
+[Register here →](/register)
+
+Just enter:
+- School name
+- Your phone number
+- City
+
+That's it — you're in! ⚡
+
+**No sales pressure. No surprise charges. If you don't upgrade, we don't charge you — ever.**`,
     category: 'general',
     roles: ['guest', 'admin'],
     quickReplies: [
-      { text: 'परीक्षण के बाद योजनाएँ', payload: 'admin_plans_overview' },
-      { text: 'पंजीकरण करें', payload: '/register' },
-      { text: 'Demo', action: 'forward' },
+      { text: '💰 Plans After Trial', payload: 'admin_plans_overview' },
+      { text: '✍️ Register Now', payload: '/register' },
+      { text: '📞 Request Demo', action: 'forward' },
     ],
   },
 
   {
     id: 'security_privacy',
     patterns: [
-      'security',
-      'safe',
-      'data',
-      'privacy',
-      'secure',
-      'breach',
-      'hack',
+      'security', 'safe', 'data', 'privacy', 'secure', 'breach',
+      'hack', 'data safe', 'is my data safe', 'privacy policy',
+      'gdpr', 'data protection',
     ],
-    answer: `## 🔒 सुरक्षा एवं गोपनीयता\n\n### डेटा सुरक्षा:\n\n✔ **HTTPS encryption** — संपूर्ण\n✔ **End-to-end** — browser से database तक\n✔ **कोई तृतीय-पक्ष साझाकरण नहीं**\n✔ **भूमिका-आधारित पहुँच** — सख्त\n✔ **Audit logs** — ट्रैक किए गए\n\n### Infrastructure:\n\n✔ MongoDB Atlas (AWS)\n✔ Vercel hosting (99.9% uptime)\n✔ दैनिक स्वचालित बैकअप\n✔ विश्राम पर encryption\n✔ भौगोलिक redundancy\n\n### अनुपालन:\n\n✔ GDPR-प्रेरित\n✔ कोई spam नहीं\n✔ भुगतान: Razorpay (PCI DSS)\n✔ डेटा प्रतिधारण: 90 दिन grace\n\n### आपके अधिकार:\n\n✔ किसी भी समय डेटा export करें\n✔ स्थायी रूप से हटाएं\n✔ गोपनीयता नियंत्रण\n✔ सहमति-आधारित\n\n[गोपनीयता नीति →](/privacy)\n[सुरक्षा विवरण →](/security)`,
+    answer: `Your data security is something we take very seriously. Here's what we do to protect it:
+
+### 🔐 Data Security:
+
+✔ **Full HTTPS encryption** — all data in transit is encrypted
+✔ **End-to-end** — from your browser to our database
+✔ **No third-party data sharing** — your school's data stays yours
+✔ **Role-based access** — strict permissions, teachers can't see what admins see
+✔ **Audit logs** — every action is tracked
+
+### 🏗️ Infrastructure:
+
+✔ **MongoDB Atlas** on AWS (enterprise-grade hosting)
+✔ **Vercel** hosting — 99.9% uptime SLA
+✔ **Daily automated backups**
+✔ **Encryption at rest**
+✔ **Geographic redundancy**
+
+### 💳 Payments:
+
+✔ Powered by **Razorpay** — PCI DSS Level 1 certified
+✔ We never store card details
+✔ 3D Secure for card transactions
+
+### 🇮🇳 Compliance:
+
+✔ GDPR-inspired data practices
+✔ No spam or unsolicited marketing
+✔ Consent-based data collection
+
+### Your Rights:
+
+✔ Export your data anytime
+✔ Request permanent deletion
+✔ Full control over your data
+
+[Privacy Policy →](/privacy) | [Security Details →](/security)`,
     category: 'support',
     roles: ['admin', 'teacher', 'student', 'parent', 'guest'],
     quickReplies: [
-      { text: 'डेटा विलोपन', action: 'forward' },
-      { text: 'गोपनीयता नीति', payload: '/privacy' },
-      { text: 'सुरक्षा पृष्ठ', payload: '/security' },
+      { text: '🗑️ Delete My Data', action: 'forward' },
+      { text: '📜 Privacy Policy', payload: '/privacy' },
+    ],
+  },
+
+  {
+    id: 'skolify_for_school_size',
+    patterns: [
+      'small school', 'large school', 'how many students', 'school size',
+      'single teacher school', 'big school', '100 students', '500 students',
+      '1000 students', 'suits my school',
+    ],
+    answer: `Skolify works for schools of all sizes — here's a quick guide:
+
+### Very Small Schools (under 100 students):
+**Starter plan (₹499/month)** is perfect.
+Even at ₹17/day, you get attendance, fee management, website, and parent communication.
+
+### Small-Medium Schools (100–500 students):
+**Starter** works well. Upgrade to **Growth** if you want online fee collection and exam management.
+
+### Medium Schools (500–1,500 students):
+**Growth plan (₹999/month)** — the most popular choice.
+Great balance of features and price.
+
+### Large Schools (1,500–5,000 students):
+**Pro plan (₹1,999/month)** — handles high volume with LMS, library, and advanced reports.
+
+### Multi-Branch or 5,000+ students:
+**Enterprise (₹3,999/month)** — unlimited everything, plus HR, payroll, transport, and hostel.
+
+Not sure which fits you? Tell me how many students your school has and I'll suggest the right plan! 😊`,
+    category: 'general',
+    roles: ['admin', 'guest'],
+    quickReplies: [
+      { text: '💰 See All Plans', payload: 'admin_plans_overview' },
+      { text: '🎁 Start Free Trial', payload: 'trial_info' },
+      { text: '📞 Ask Us', action: 'forward' },
+    ],
+    canForward: true,
+  },
+
+  {
+    id: 'multi_branch',
+    patterns: [
+      'multiple branch', 'multi branch', 'two schools', 'chain school',
+      'sister school', 'branch school', 'franchise', 'multiple schools',
+    ],
+    answer: `Running multiple branches? Skolify's **Enterprise plan** is designed for exactly that.
+
+### What Enterprise Offers for Multi-Branch Schools:
+
+✔ **Separate portals** for each branch with their own data
+✔ **Unified dashboard** — see all branches from one admin view
+✔ **Centralized reporting** — compare performance across branches
+✔ **Shared resource management** — unified staff directory
+✔ **Unlimited students, teachers, and storage**
+✔ **10,000 credits/month** (never expire)
+✔ **Dedicated account manager**
+
+### Pricing:
+₹3,999/month per portal, OR custom enterprise pricing for many branches.
+
+For 3+ branches, we often work out custom pricing. Let's talk!
+
+**Want a call to discuss your specific setup?**`,
+    category: 'billing',
+    roles: ['admin', 'guest'],
+    quickReplies: [
+      { text: '📞 Discuss Pricing', action: 'forward' },
+      { text: '💰 Enterprise Plan', payload: 'admin_plans_overview' },
+    ],
+    canForward: true,
+  },
+
+  {
+    id: 'usage_stats',
+    patterns: [
+      'usage', 'how many credits used', 'credit history', 'credit usage',
+      'how much left', 'remaining credits', 'credit balance',
+    ],
+    answer: `Want to track your credit usage? Here's where to find everything:
+
+### Admin Panel → Subscription → Credit History
+
+### What you'll see:
+✔ **Current balance** — credits remaining
+✔ **Credits received** — monthly free + purchased
+✔ **Credits used** — with date and action type
+✔ **Upcoming expiry** — when old credits will expire
+✔ **Usage breakdown** — SMS vs WhatsApp vs Email
+
+### Usage Tips:
+- Set up a **credit alert** in settings — get notified when balance drops below X
+- Review which module uses the most credits (usually attendance SMS)
+- Consider bulk credit packs if you're regularly running low
+
+### Quick Balance Check:
+Your credit balance also shows right on the **main admin dashboard** — top right area of the subscription section.`,
+    category: 'credits',
+    roles: ['admin'],
+    quickReplies: [
+      { text: '🛒 Buy More Credits', payload: 'buy_credits' },
+      { text: '♻️ Rollover Policy', payload: 'credit_rollover_detail' },
+    ],
+  },
+
+  {
+    id: 'certificates',
+    patterns: [
+      'certificate', 'tc', 'transfer certificate', 'bonafide', 'cc',
+      'character certificate', 'generate certificate', 'issue certificate',
+    ],
+    answer: `Skolify automates certificate generation — no more manual typing!
+
+### Available Certificates:
+
+✔ **Transfer Certificate (TC)**
+✔ **Character Certificate (CC)**
+✔ **Bonafide Certificate**
+✔ **Custom certificates** (Pro plan+)
+
+### How to Generate (Admin/Teacher):
+**Admin Panel → Certificates → Select Type → Select Student → Generate**
+
+The certificate is auto-filled with:
+- Student's name, class, DOB
+- Enrollment date, leaving date
+- School name, principal's signature
+- Official school letterhead
+
+### Output:
+✔ Instant PDF generation
+✔ Download immediately
+✔ Print-ready format
+✔ Shareable digital copy
+✔ Record saved in student's profile
+
+### Who can generate?
+- Admins can generate all certificates
+- Teachers can generate based on permissions set by admin
+
+### Available from: Growth plan onwards`,
+    category: 'features',
+    roles: ['admin', 'teacher'],
+    quickReplies: [
+      { text: '⬆️ Upgrade to Growth', payload: 'admin_upgrade' },
+      { text: '📞 Help', action: 'forward' },
     ],
   },
 ]
@@ -577,14 +1996,27 @@ export const SUPPORT_QA: ChatAnswer[] = [
 export const FALLBACK_ANSWER: ChatAnswer = {
   id: 'fallback_default',
   patterns: ['__default__'],
-  answer: `क्षमा करें, मैं यह समझ नहीं पाया... 🤔\n\nमैं निम्न विषयों में आपकी सहायता कर सकता हूँ:\n\n• **योजनाएँ एवं मूल्य** — शुल्क संरचना\n• **निःशुल्क परीक्षण** — 60 दिवस निःशुल्क\n• **सुविधाएँ** — क्या उपलब्ध है\n• **Credits** — संदेश प्रणाली\n• **Setup** — कैसे प्रारंभ करें\n• **Support** — सीधी सहायता\n\nया सीधे **मानव टीम से बात करें** 👇`,
+  answer: `Hmm, I'm not quite sure about that one! 🤔
+
+**Here's what I can definitely help with:**
+
+• 💰 **Plans & Pricing** — which plan fits your school
+• 🎁 **Free Trial** — 60 days, no credit card
+• 📦 **Features** — what's included in each plan
+• 💳 **Credits** — SMS, WhatsApp, email messaging
+• 🔧 **Setup** — how to get started
+• 📞 **Support** — talk to our team
+
+Or just **type your question naturally** — I'll do my best! 😊
+
+If I still can't help, I can connect you with a real person from our team right away.`,
   category: 'general',
   roles: ['admin', 'teacher', 'student', 'parent', 'guest'],
   quickReplies: [
-    { text: 'योजनाएँ देखें', payload: 'admin_plans_overview' },
-    { text: 'निःशुल्क परीक्षण', payload: 'trial_info' },
-    { text: 'सुविधाएँ', payload: 'features_overview' },
-    { text: 'Support', action: 'forward' },
+    { text: '💰 See Plans', payload: 'admin_plans_overview' },
+    { text: '🎁 Free Trial', payload: 'trial_info' },
+    { text: '📦 Features', payload: 'features_overview' },
+    { text: '📞 Talk to Team', action: 'forward' },
   ],
   canForward: true,
 }
@@ -613,13 +2045,11 @@ export function findAnswer(
 ): ChatAnswer | null {
   const msg = userMessage.toLowerCase().trim()
 
-  // Exact ID match
   const exactMatch = ALL_QA.find(
     qa => qa.id === msg && qa.roles.includes(userRole)
   )
   if (exactMatch) return exactMatch
 
-  // Pattern match
   for (const qa of ALL_QA) {
     if (!qa.roles.includes(userRole)) continue
     if (qa.patterns.some(pattern => msg.includes(pattern))) {
@@ -627,7 +2057,6 @@ export function findAnswer(
     }
   }
 
-  // Return fallback if allowed for this role
   if (FALLBACK_ANSWER.roles.includes(userRole)) {
     return FALLBACK_ANSWER
   }
@@ -656,6 +2085,7 @@ export function getRelatedQuestions(
   if (!question || !question.relatedQuestions) return []
 
   return ALL_QA.filter(
-    qa => question.relatedQuestions!.includes(qa.id) && qa.roles.includes(role)
+    qa =>
+      question.relatedQuestions!.includes(qa.id) && qa.roles.includes(role)
   )
 }

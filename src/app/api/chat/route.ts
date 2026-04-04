@@ -1,5 +1,4 @@
 // FILE: src/app/api/chat/route.ts
-
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -41,28 +40,35 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // ── Step 1.5: Priority topic checks (conflict prevention) ──
+    // ── Step 1.5: Priority topic checks ──
     const priorityMap: Array<{ keywords: string[]; targetId: string }> = [
       {
-        // Rollover — must win over credit_expiry
         keywords: [
-          'rollover',
-          'carry forward',
-          'credit expire',
-          'credits expire',
-          'credits safe',
-          'credits bachenge',
-          'purane credit',
-          'rollover policy',
-          'rollover benefit',
-          'credit transfer',
+          'rollover', 'carry forward', 'credit expire', 'credits expire',
+          'credits safe', 'rollover policy', 'rollover benefit',
+          'credit transfer', 'unused credits rollover',
         ],
         targetId: 'credit_rollover_detail',
       },
       {
-        // Cancel/refund — must win over stop/band
-        keywords: ['cancel', 'refund', 'band karna', 'subscription band'],
+        keywords: ['cancel', 'refund', 'stop subscription', 'cancel plan'],
         targetId: 'admin_cancel_policy',
+      },
+      {
+        keywords: ['what is skolify', 'about skolify', 'tell me about'],
+        targetId: 'what_is_skolify',
+      },
+      {
+        keywords: ['why skolify', 'why choose', 'different from', 'better than'],
+        targetId: 'how_different',
+      },
+      {
+        keywords: ['annual', 'yearly plan', 'year discount', '2 months free'],
+        targetId: 'annual_billing',
+      },
+      {
+        keywords: ['multiple branch', 'multi branch', 'two schools', 'chain school'],
+        targetId: 'multi_branch',
       },
     ]
 
@@ -120,69 +126,54 @@ export async function POST(req: NextRequest) {
 
     // ── Step 3: Keyword map (fuzzy) ──
     const keywordMap: Record<string, string> = {
-      // Billing
-      'kitna': 'admin_plans_overview',
+      // Pricing
       'price': 'admin_plans_overview',
       'pricing': 'admin_plans_overview',
       'cost': 'admin_plans_overview',
       'plan': 'admin_plans_overview',
       'plans': 'admin_plans_overview',
       'monthly': 'admin_plans_overview',
-      'yearly': 'admin_plans_overview',
       'subscription': 'admin_plans_overview',
       'rupees': 'admin_plans_overview',
-      'rupay': 'admin_plans_overview',
+      'how much': 'admin_plans_overview',
+      'affordable': 'admin_plans_overview',
+      'annual': 'annual_billing',
+      'yearly': 'annual_billing',
       // Credits
       'credit': 'credit_system_overview',
       'sms': 'credit_system_overview',
       'whatsapp': 'credit_system_overview',
-      'message': 'credit_system_overview',
-      'notification': 'credit_system_overview',
       'messaging': 'credit_system_overview',
-      // Rollover — explicit entries
+      'notification': 'credit_system_overview',
+      // Rollover
       'rollover': 'credit_rollover_detail',
-      'rollover kya': 'credit_rollover_detail',
-      'rollover kaise': 'credit_rollover_detail',
-      'rollover policy': 'credit_rollover_detail',
-      'rollover benefit': 'credit_rollover_detail',
-      'credit rollover': 'credit_rollover_detail',
-      'credits safe': 'credit_rollover_detail',
-      'credits bachenge': 'credit_rollover_detail',
-      'purane credit': 'credit_rollover_detail',
-      'credit expire': 'credit_rollover_detail',
-      'credits expire': 'credit_rollover_detail',
       'carry forward': 'credit_rollover_detail',
+      'credit expire': 'credit_rollover_detail',
+      'credits safe': 'credit_rollover_detail',
       // Trial
       'trial': 'trial_info',
       'free': 'trial_info',
       'demo': 'trial_info',
-      'muft': 'trial_info',
       'try': 'trial_info',
       // Features
       'feature': 'features_overview',
       'module': 'features_overview',
-      'modules': 'features_overview',
-      'kya hai': 'features_overview',
-      'kya kya': 'features_overview',
+      'what can': 'features_overview',
       // Setup
       'setup': 'admin_first_steps',
-      'shuru': 'admin_first_steps',
       'start': 'admin_first_steps',
-      'kaise': 'admin_first_steps',
       'getting started': 'admin_first_steps',
+      'how to': 'admin_first_steps',
       // Attendance
       'attendance': 'teacher_attendance',
       'present': 'teacher_attendance',
       'absent': 'teacher_attendance',
-      'upasthiti': 'student_attendance_check',
       // Fees
       'fee': 'fee_status_student',
       'fees': 'fee_status_student',
       'payment': 'fee_status_student',
-      'shulk': 'fee_status_student',
       // Results
       'result': 'student_results',
-      'results': 'student_results',
       'marks': 'teacher_marks',
       'grade': 'student_results',
       'exam': 'teacher_marks',
@@ -192,6 +183,7 @@ export async function POST(req: NextRequest) {
       'contact': 'support_contact',
       'problem': 'support_contact',
       'issue': 'support_contact',
+      'not working': 'support_contact',
       // Security
       'security': 'security_privacy',
       'safe': 'security_privacy',
@@ -210,7 +202,8 @@ export async function POST(req: NextRequest) {
       // Upgrade
       'upgrade': 'admin_upgrade',
       'change plan': 'admin_upgrade',
-      // Bulk
+      'downgrade': 'admin_downgrade',
+      // Import
       'import': 'bulk_import',
       'excel': 'bulk_import',
       'csv': 'bulk_import',
@@ -218,13 +211,34 @@ export async function POST(req: NextRequest) {
       // Cancel
       'cancel': 'admin_cancel_policy',
       'refund': 'admin_cancel_policy',
-      'stop': 'admin_cancel_policy',
+      // About
+      'what is': 'what_is_skolify',
+      'about': 'what_is_skolify',
+      'skolify': 'what_is_skolify',
+      // Certificate
+      'certificate': 'certificates',
+      'tc': 'certificates',
+      'bonafide': 'certificates',
+      // Multi-branch
+      'branch': 'multi_branch',
+      // Payment methods
+      'upi': 'payment_methods',
+      'gpay': 'payment_methods',
+      'paytm': 'payment_methods',
+      'card': 'payment_methods',
+      // School size
+      'small school': 'skolify_for_school_size',
+      'large school': 'skolify_for_school_size',
+      // Login
+      'login': 'student_login',
+      'password': 'student_login',
+      'forgot': 'student_login',
     }
 
     for (const [keyword, targetId] of Object.entries(keywordMap)) {
       if (msg.includes(keyword)) {
         const target = ALL_QA.find(qa => qa.id === targetId)
-        if (target) {
+        if (target && (target.roles.includes(userRole) || userRole === 'guest')) {
           return NextResponse.json({
             success: true,
             response: target.answer,
@@ -244,7 +258,6 @@ export async function POST(req: NextRequest) {
       canForward: FALLBACK_ANSWER.canForward ?? false,
       matchedId: 'fallback',
     })
-
   } catch (error) {
     console.error('Chat API error:', error)
     return NextResponse.json(
