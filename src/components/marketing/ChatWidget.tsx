@@ -397,13 +397,12 @@ function MarkdownRenderer({ text }: { text: string }) {
             <div key={idx} className="flex gap-1.5 text-[11px] flex-wrap">
               {cells.map((cell, i) => (
                 <span key={i}
-                  className={`flex-1 min-w-[50px] px-2 py-1.5 rounded-lg text-center border ${
-                    isHeader
+                  className={`flex-1 min-w-[50px] px-2 py-1.5 rounded-lg text-center border ${isHeader
                       ? 'bg-blue-50 text-blue-900 font-bold border-blue-200'
                       : i === 0
                         ? 'bg-slate-100 text-slate-800 font-semibold border-slate-200'
                         : 'bg-white text-slate-700 border-slate-200'
-                  }`}>
+                    }`}>
                   {cell.replace(/\*\*/g, '')}
                 </span>
               ))}
@@ -564,6 +563,7 @@ function ForwardForm({
 // Main ChatWidget
 // ══════════════════════════════════════════════
 
+
 export function ChatWidget() {
   const { data: session } = useSession()
 
@@ -588,19 +588,15 @@ export function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Role change hone par welcome message update karo
-  // (jab session load hoti hai)
   useEffect(() => {
     setMessages([getWelcomeMessage(userRole)])
   }, [userRole])
 
-  // Show bubble after 3s
   useEffect(() => {
     const timer = setTimeout(() => setShowBubble(true), 3000)
     return () => clearTimeout(timer)
   }, [])
 
-  // Clear unread when opened
   useEffect(() => {
     if (isOpen) {
       setShowBubble(false)
@@ -621,12 +617,11 @@ export function ChatWidget() {
     }
   }, [isOpen, messages, scrollToBottom])
 
-  // ── Send Message ──────────────────────────
+  // ── Updated sendMessage ───────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return
 
-    // User message add karo
     setMessages(prev => [...prev, {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -637,7 +632,7 @@ export function ChatWidget() {
     setLoading(true)
     setShowForwardForm(false)
 
-    // Thanks detection — no API call
+    // Thanks detection
     const msgLower = trimmed.toLowerCase()
     const isThanks = THANKS_PATTERNS.some(p => msgLower.includes(p))
 
@@ -663,15 +658,22 @@ export function ChatWidget() {
     }
 
     // API call
+    // ✅ Smart endpoint selection based on role
+    const endpoint = (() => {
+      if (userRole === 'superadmin') return '/api/chat/superadmin'
+      if (userRole !== 'guest' && tenantId) return '/api/chat/portal'
+      return '/api/chat'
+    })()
+
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: trimmed,
           conversation_id: conversationId,
-          // route.ts session se tenantId padhta hai
-          // yahan sirf backup ke liye bhej rahe hain
+          // Portal route session se tenantId khud lega
+          // Ye sirf public route ke liye backup hai
           tenant_id: tenantId,
         }),
       })
@@ -681,7 +683,6 @@ export function ChatWidget() {
       const data = await res.json()
 
       if (data.success) {
-        // conversation_id track karo for memory
         if (data.conversation_id) {
           setConversationId(data.conversation_id)
         }
@@ -689,6 +690,7 @@ export function ChatWidget() {
         setMessages(prev => [...prev, {
           id: `bot_${Date.now()}`,
           role: 'bot',
+          // ✅ data.response (route.ts "response" field bhejta hai)
           content: data.response,
           quickReplies: data.quickReplies ?? [],
           canForward: data.canForward ?? false,
@@ -712,7 +714,7 @@ export function ChatWidget() {
     } finally {
       setLoading(false)
     }
-  }, [loading, conversationId, tenantId])
+  }, [loading, conversationId, tenantId, userRole])
 
   // ── Quick Reply Handler ───────────────────
   const handleQuickReply = useCallback((qr: QuickReply) => {
@@ -853,9 +855,8 @@ export function ChatWidget() {
           >
             {messages.map((msg, idx) => (
               <div key={msg.id}>
-                <div className={`flex gap-2.5 ${
-                  msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-end'
-                }`}>
+                <div className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-end'
+                  }`}>
                   {/* Avatar */}
                   {msg.role === 'bot' ? (
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center
@@ -873,9 +874,8 @@ export function ChatWidget() {
 
                   {/* Bubble */}
                   <div
-                    className={`flex flex-col gap-1 ${
-                      msg.role === 'user' ? 'items-end' : 'items-start'
-                    }`}
+                    className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'
+                      }`}
                     style={{ maxWidth: '82%' }}
                   >
                     <div
@@ -884,15 +884,15 @@ export function ChatWidget() {
                         : 'rounded-2xl rounded-bl-md px-4 py-3'}
                       style={msg.role === 'user'
                         ? {
-                            background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-                            color: '#FFFFFF',
-                            boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
-                          }
+                          background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                          color: '#FFFFFF',
+                          boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
+                        }
                         : {
-                            background: '#FFFFFF',
-                            border: '1.5px solid #E2E8F0',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                          }}
+                          background: '#FFFFFF',
+                          border: '1.5px solid #E2E8F0',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                        }}
                     >
                       {msg.role === 'user' ? (
                         <p className="text-sm leading-relaxed font-medium"
@@ -908,24 +908,24 @@ export function ChatWidget() {
                     {msg.role === 'bot' &&
                       msg.source &&
                       (msg.source.includes('ai') || msg.source.includes('groq')) && (
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
-                          style={{
-                            background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
-                            color: '#1E40AF',
-                            border: '1px solid #93C5FD',
-                          }}
-                        >
-                          ✨ AI
-                        </span>
-                        {process.env.NODE_ENV === 'development' && (
-                          <span className="text-[8px] text-slate-400">
-                            ({msg.source})
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
+                            style={{
+                              background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
+                              color: '#1E40AF',
+                              border: '1px solid #93C5FD',
+                            }}
+                          >
+                            ✨ AI
                           </span>
-                        )}
-                      </div>
-                    )}
+                          {process.env.NODE_ENV === 'development' && (
+                            <span className="text-[8px] text-slate-400">
+                              ({msg.source})
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                     <TimeStamp date={msg.timestamp} />
                   </div>

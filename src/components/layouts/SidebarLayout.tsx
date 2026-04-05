@@ -25,6 +25,7 @@ import type { ModuleKey, Plan, Role } from '@/lib/moduleRegistry'
 import { clsx } from 'clsx'
 import { TrialBanner } from '@/components/ui/TrialBanner'
 import { PWAInstallPrompt } from '../pwa/PWAInstallPrompt'
+import { ChatWidget } from '../marketing/ChatWidget'
 
 /* ── Icon Map ── */
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
@@ -693,6 +694,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           <div className="p-4 md:p-6 portal-content-enter">
             {children}
           </div>
+          <ChatWidget/>
         </main>
       </div>
 
