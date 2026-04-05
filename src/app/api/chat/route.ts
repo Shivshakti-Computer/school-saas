@@ -8,7 +8,7 @@ import { authOptions } from '@/lib/auth'
 // Config
 // ══════════════════════════════════════════════
 
-const AI_API_URL = process.env.AI_API_URL || 'http://127.0.0.1:8000'
+const AI_API_URL = process.env.AI_API_URL || 'http://127.0.0.1:7860'
 const AI_TIMEOUT_MS = 35000 // Render free tier cold start ke liye
 
 // ══════════════════════════════════════════════
