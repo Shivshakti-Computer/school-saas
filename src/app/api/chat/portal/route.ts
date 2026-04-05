@@ -1,4 +1,5 @@
 // src/app/api/chat/portal/route.ts
+// UPDATE: Session cookie Python ko pass karo tool calling ke liye
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -11,21 +12,20 @@ import {
 } from '@/lib/chat-helpers'
 import { SessionUserRole, PythonChatPayload } from '@/types/chat'
 
+const AI_BACKEND_URL = process.env.AI_API_URL || 'http://127.0.0.1:7860'
+
 export async function POST(req: NextRequest) {
     try {
-        // ── Auth Check ───────────────────────────────────────
         const session = await getServerSession(authOptions)
 
         if (!session?.user) {
             return NextResponse.json(
-                { success: false, error: 'Unauthorized - Login required' },
+                { success: false, error: 'Unauthorized' },
                 { status: 401 }
             )
         }
 
         const userRole = (session.user.role as SessionUserRole) || 'guest'
-
-        // Guest portal access nahi kar sakta
         if (userRole === 'guest') {
             return NextResponse.json(
                 { success: false, error: 'Portal access requires login' },
@@ -35,18 +35,16 @@ export async function POST(req: NextRequest) {
 
         const userId = session.user.id || null
         const userName = session.user.name || null
+        const tenantId = (session.user as any)?.tenantId || null
+        const schoolName = (session.user as any)?.schoolName || null
 
-        // ✅ Session se tenantId lo - body se override nahi hoga (security)
-        const sessionTenantId = (session.user as any)?.tenantId || null
-
-        if (!sessionTenantId) {
+        if (!tenantId) {
             return NextResponse.json(
-                { success: false, error: 'No school associated with account' },
+                { success: false, error: 'No school associated' },
                 { status: 400 }
             )
         }
 
-        // ── Request Body ─────────────────────────────────────
         const body = await req.json()
         const { message, conversation_id } = body
 
@@ -57,34 +55,55 @@ export async function POST(req: NextRequest) {
             )
         }
 
+        // ✅ Session cookie extract karo tool calling ke liye
+        const sessionCookie = req.headers.get('cookie') || ''
+
         console.log(
             `\n[Portal Chat] Role: ${userRole} | ` +
-            `Tenant: ${sessionTenantId.slice(-6)} | ` +
+            `Tenant: ${tenantId.slice(-6)} | ` +
             `Msg: "${message.slice(0, 50)}"`
         )
 
-        // ── Python AI Call ───────────────────────────────────
-        const aiPayload: PythonChatPayload = {
-            message,
-            conversation_id: conversation_id || null,
-            role: mapRoleForAI(userRole),
-            mode: 'portal',
-            // ✅ Always session ka tenantId use karo
-            tenant_id: sessionTenantId,
-            user_id: userId,
-            user_name: userName,
+        // ── Python Backend Call ────────────────────────────
+        const controller = new AbortController()
+        setTimeout(() => controller.abort(), 35000)
+
+        const backendRes = await fetch(
+            `${AI_BACKEND_URL}/api/portal-chat`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message,
+                    conversation_id: conversation_id || null,
+                    tenant_id: tenantId,
+                    user_role: userRole,
+                    user_id: userId,
+                    user_name: userName,
+                    school_name: schoolName,
+                    // ✅ Session cookie pass karo
+                    session_cookie: sessionCookie,
+                }),
+                signal: controller.signal,
+            }
+        )
+
+        if (!backendRes.ok) {
+            throw new Error(`Backend error: ${backendRes.status}`)
         }
 
-        const aiResult = await callPythonAI(aiPayload)
+        const data = await backendRes.json()
 
-        if (aiResult?.success) {
+        if (data.success) {
             return NextResponse.json({
                 success: true,
-                response: aiResult.answer,
-                quickReplies: aiResult.quickReplies ?? getDefaultQuickReplies(userRole),
-                canForward: aiResult.canForward ?? false,
-                conversation_id: aiResult.conversation_id,
-                source: aiResult.metadata?.source || 'ai_portal',
+                response: data.answer,
+                quickReplies: data.quickReplies ?? getDefaultQuickReplies(userRole),
+                canForward: data.canForward ?? false,
+                conversation_id: data.conversation_id,
+                source: data.metadata?.source || 'ai_portal',
+                tool_used: data.metadata?.tool_used || false,
+                tool_name: data.metadata?.tool_name || null,
             })
         }
 
