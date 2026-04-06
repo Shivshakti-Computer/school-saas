@@ -1,4 +1,7 @@
 // src/app/api/chat/tools/parent/route.ts
+// UPDATED: 2026-04-06
+// - Fixed parent→student relationship (User.studentRef array)
+// - Fixed date handling
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -9,21 +12,25 @@ import { Attendance } from '@/models/Attendance'
 import { Fee } from '@/models/Fee'
 import { Notice } from '@/models/Notice'
 import { connectDB } from '@/lib/db'
+import { getTodayDateString, getDateRange } from '@/lib/date-helpers'
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
 
     if (!session?.user || session.user.role !== 'parent') {
-      return NextResponse.json({ success: false, error: 'Parent access required' }, { status: 403 })
+      return NextResponse.json(
+        { success: false, error: 'Parent access required' },
+        { status: 403 }
+      )
     }
 
-    const tenantId    = (session.user as any)?.tenantId
+    const tenantId = (session.user as any)?.tenantId
     const parentUserId = session.user.id
 
     await connectDB()
 
-    // ✅ Parent User se studentRef lo (array)
+    // ✅ FIX: Get studentRef array from User
     const parentUser = await User.findById(parentUserId)
       .select('studentRef name')
       .lean() as any
@@ -35,7 +42,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // ✅ Pehla child lo (future mein multiple support kar sakte hain)
+    // ✅ FIX: Get first child (support for multiple later)
     const child = await Student.findOne({
       tenantId,
       _id: parentUser.studentRef[0],
@@ -52,59 +59,57 @@ export async function POST(req: NextRequest) {
 
     const childName = child.userId?.name || 'Your child'
 
-    const body   = await req.json()
+    const body = await req.json()
     const { tool } = body
 
     switch (tool) {
 
+      // ── Child Attendance ──────────────────────────────────
       case 'get_child_attendance': {
-        // ✅ String date
-        const today     = new Date()
-        const thirtyAgo = new Date()
-        thirtyAgo.setDate(thirtyAgo.getDate() - 30)
-        const todayStr  = today.toISOString().split('T')[0]
-        const startStr  = thirtyAgo.toISOString().split('T')[0]
+        // ✅ FIX: STRING dates
+        const todayStr = getTodayDateString()
+        const { start, end } = getDateRange(30)
 
         const [present, absent, late, todayRecord] = await Promise.all([
           Attendance.countDocuments({
             tenantId,
             studentId: child._id,
-            date: { $gte: startStr, $lte: todayStr },
+            date: { $gte: start, $lte: end },
             status: 'present',
           }),
           Attendance.countDocuments({
             tenantId,
             studentId: child._id,
-            date: { $gte: startStr, $lte: todayStr },
+            date: { $gte: start, $lte: end },
             status: 'absent',
           }),
           Attendance.countDocuments({
             tenantId,
             studentId: child._id,
-            date: { $gte: startStr, $lte: todayStr },
+            date: { $gte: start, $lte: end },
             status: 'late',
           }),
           Attendance.findOne({
             tenantId,
             studentId: child._id,
-            date:      todayStr,
+            date: todayStr,
           }).lean(),
         ])
 
-        const total      = present + absent + late
+        const total = present + absent + late
         const percentage = total > 0 ? Math.round((present / total) * 100) : 0
 
         return NextResponse.json({
           success: true,
           data: {
-            child_name:  childName,
-            class:       `${child.class} ${child.section}`,
-            today:       (todayRecord as any)?.status || 'Not marked yet',
-            period:      'Last 30 days',
+            child_name: childName,
+            class: `${child.class} ${child.section}`,
+            today: (todayRecord as any)?.status || 'Not marked yet',
+            period: 'Last 30 days',
             present,
             absent,
             late,
-            percentage:  `${percentage}%`,
+            percentage: `${percentage}%`,
             message:
               percentage >= 75
                 ? `✅ ${childName} has good attendance!`
@@ -113,12 +118,13 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      // ── Child Fees ────────────────────────────────────────
       case 'get_child_fees': {
         const [pendingFees, paidFees] = await Promise.all([
           Fee.find({
             tenantId,
             studentId: child._id,
-            status:    { $in: ['pending', 'partial'] },
+            status: { $in: ['pending', 'partial'] },
           })
             .sort({ dueDate: 1 })
             .select('finalAmount paidAmount dueDate status')
@@ -126,7 +132,7 @@ export async function POST(req: NextRequest) {
           Fee.find({
             tenantId,
             studentId: child._id,
-            status:    'paid',
+            status: 'paid',
           })
             .sort({ paidAt: -1 })
             .limit(3)
@@ -143,19 +149,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           data: {
-            child_name:     childName,
+            child_name: childName,
             pending_amount: `₹${totalPending.toLocaleString('en-IN')}`,
-            pending_count:  pendingFees.length,
-            pending_fees:   pendingFees.map((f: any) => ({
+            pending_count: pendingFees.length,
+            pending_fees: pendingFees.map((f: any) => ({
               amount: `₹${((f.finalAmount || 0) - (f.paidAmount || 0)).toLocaleString('en-IN')}`,
-              due:    f.dueDate
+              due: f.dueDate
                 ? new Date(f.dueDate).toLocaleDateString('en-IN')
                 : 'N/A',
               status: f.status,
             })),
             recent_payments: paidFees.map((f: any) => ({
               amount: `₹${(f.paidAmount || 0).toLocaleString('en-IN')}`,
-              paid:   f.paidAt
+              paid: f.paidAt
                 ? new Date(f.paidAt).toLocaleDateString('en-IN')
                 : 'N/A',
             })),
@@ -166,6 +172,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
+      // ── Child Notices ─────────────────────────────────────
       case 'get_child_notices': {
         const notices = await Notice.find({
           tenantId,
@@ -183,25 +190,26 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           data: {
-            count:   notices.length,
+            count: notices.length,
             notices: notices.map((n: any) => ({
-              title:   n.title,
+              title: n.title,
               preview: n.message?.slice(0, 100) || '',
-              date:    new Date(n.createdAt).toLocaleDateString('en-IN'),
+              date: new Date(n.createdAt).toLocaleDateString('en-IN'),
             })),
           },
         })
       }
 
+      // ── Child Profile ─────────────────────────────────────
       case 'get_child_profile': {
         return NextResponse.json({
           success: true,
           data: {
-            name:             childName,
-            class:            `${child.class} ${child.section}`,
-            roll_number:      child.rollNo,       // ✅ rollNo
-            admission_number: child.admissionNo,  // ✅ admissionNo
-            academic_year:    child.academicYear,
+            name: childName,
+            class: `${child.class} ${child.section}`,
+            roll_number: child.rollNo,
+            admission_number: child.admissionNo,
+            academic_year: child.academicYear,
           },
         })
       }
