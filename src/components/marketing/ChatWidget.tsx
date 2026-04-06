@@ -992,30 +992,7 @@ export function ChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Sticky Quick Chips */}
-          {hasQuickReplies && !loading && !showForwardForm && (
-            <div
-              className="px-4 py-2.5 flex gap-2 flex-wrap flex-shrink-0 overflow-x-auto"
-              style={{ background: '#F8FAFC', borderTop: '1.5px solid #E2E8F0' }}
-            >
-              {lastBotMsg!.quickReplies!.map(qr => (
-                <button
-                  key={qr.text}
-                  onClick={() => handleQuickReply(qr)}
-                  className="text-[11px] px-3 py-1.5 rounded-full font-semibold
-                  whitespace-nowrap transition-all active:scale-95 flex-shrink-0"
-                  style={{
-                    background: '#EFF6FF',
-                    border: '1.5px solid #93C5FD',
-                    color: '#1D4ED8',
-                  }}
-                >
-                  {qr.text}
-                </button>
-              ))}
-            </div>
-          )}
-
+          
           {/* Input */}
           <div
             className="flex-shrink-0 px-4 py-3.5 flex gap-2.5 items-center"
