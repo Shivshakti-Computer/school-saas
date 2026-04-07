@@ -1,5 +1,3 @@
-// FILE: src/app/(public)/layout.tsx
-
 import { Navbar } from '@/components/marketing/Navbar'
 import { Footer } from '@/components/marketing/Footer'
 import type { Metadata } from 'next'
@@ -8,33 +6,34 @@ import { ChatWidget } from '@/components/marketing/ChatWidget'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Skolify — Modern School Management Software | Shivshakti Computer Academy',
+    default: 'Skolify — AI-Powered School Management | Early Access Open',
     template: '%s | Skolify',
   },
   description:
-    'Complete school management platform by Shivshakti Computer Academy. Admissions, attendance, fees, exams, website builder, parent portals & 20+ modules. Built for Indian schools.',
+    'India\'s first school management platform with built-in AI assistant supporting all Indian languages. Smart automation for admissions, fees, attendance, exams & parent communication. By Shivshakti Computer Academy.',
   keywords: [
-    'school management software',
     'school management software India',
-    'school ERP India',
+    'AI school management',
+    'school ERP with AI',
+    'multilingual school software',
+    'Hindi school management',
+    'school software India',
     'Skolify',
     'Shivshakti Computer Academy',
-    'school management system',
-    'school website builder',
     'student management system',
     'fee management software',
-    'attendance tracking app',
-    'exam results software',
-    'parent portal school',
+    'attendance tracking',
+    'parent portal',
     'teacher portal',
-    'school app India',
-    'SaaS school software',
-    'best school software India',
-    'school admin software',
-    'online school management',
-    'school ERP free trial',
-    'affordable school software',
-    'school management platform',
+    'school automation',
+    'AI fee reminder',
+    'automated report cards',
+    'school management early access',
+    'affordable school ERP',
+    'Indian school software',
+    'CBSE school management',
+    'smart school platform',
+    'AI assistant for schools',
   ],
   authors: [
     { name: 'Shivshakti Computer Academy', url: 'https://shivshakticomputer.in' },
@@ -47,24 +46,24 @@ export const metadata: Metadata = {
     locale: 'en_IN',
     url: 'https://skolify.in',
     siteName: 'Skolify',
-    title: 'Skolify — Modern School Management Software for Indian Schools',
+    title: 'Skolify — AI-Powered School Management for Indian Schools',
     description:
-      'Admissions, attendance, fees, exams, notices, website builder, parent & student portals. Affordable plans starting ₹499/month. Trusted by 150+ schools.',
+      'Early access now open! AI assistant in Hindi, English & regional languages. Smart fee reminders, automated tasks, parent communication & 20+ modules. Starting ₹499/month.',
     images: [
       {
         url: 'https://skolify.in/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Skolify — School Management Platform by Shivshakti Computer Academy',
+        alt: 'Skolify — AI-Powered School Management by Shivshakti Computer Academy',
       },
     ],
   },
 
   twitter: {
     card: 'summary_large_image',
-    title: 'Skolify — Modern School Management Software',
+    title: 'Skolify — AI-Powered School Management',
     description:
-      'Complete school management platform built for Indian schools by Shivshakti Computer Academy. Start free trial today.',
+      'India\'s first school ERP with built-in AI assistant. Get early access to smart automation, multilingual support & 20+ modules.',
     images: ['https://skolify.in/og-image.png'],
     creator: '@Skolify',
   },
@@ -92,7 +91,7 @@ export const metadata: Metadata = {
   category: 'Education Technology',
 }
 
-/* ─── JSON-LD Structured Data (Enhanced SEO) ─── */
+/* ─── JSON-LD Structured Data (Honest) ─── */
 function JsonLd() {
   const softwareData = {
     '@context': 'https://schema.org',
@@ -102,11 +101,11 @@ function JsonLd() {
     applicationSubCategory: 'School Management Software',
     operatingSystem: 'Web, Android, iOS',
     description:
-      'Complete school management platform with admissions, attendance, fees, exams, website builder and parent portals. Built for Indian schools.',
+      'AI-powered school management platform with built-in multilingual assistant. Manages admissions, fees, attendance, exams, and parent communication for Indian schools.',
     url: 'https://skolify.in',
     screenshot: 'https://skolify.in/og-image.png',
     featureList:
-      'Student Management, Fee Collection, Attendance Tracking, Exam Management, Website Builder, Parent Portal, Teacher Portal, SMS & WhatsApp Notifications, Report Cards, Timetable Management',
+      'AI Assistant (All Indian Languages), Student Management, Fee Collection with Smart Reminders, Attendance Tracking, Exam Management, Automated Report Generation, Parent Portal, Teacher Portal, SMS & WhatsApp Notifications, Report Cards, Timetable Management, Student Promotion, Message Templates',
     author: {
       '@type': 'Organization',
       name: 'Shivshakti Computer Academy',
@@ -119,15 +118,11 @@ function JsonLd() {
       highPrice: '3999',
       priceCurrency: 'INR',
       offerCount: '4',
-      availability: 'https://schema.org/InStock',
+      availability: 'https://schema.org/PreOrder', // Honest: Early Access
+      priceValidUntil: '2025-12-31',
     },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '4.8',
-      bestRating: '5',
-      worstRating: '1',
-      reviewCount: '150',
-    },
+    softwareVersion: '1.0-beta',
+    releaseNotes: 'Early access version with AI assistant integration',
   }
 
   const organizationData = {
@@ -136,7 +131,7 @@ function JsonLd() {
     name: 'Skolify',
     url: 'https://skolify.in',
     logo: 'https://skolify.in/icons/icon-192x192.png',
-    description: 'Modern school management software for Indian schools.',
+    description: 'AI-powered school management software for Indian schools. Built by educators with years of experience in education technology.',
     founder: {
       '@type': 'Organization',
       name: 'Shivshakti Computer Academy',
@@ -144,9 +139,41 @@ function JsonLd() {
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'customer support',
-      availableLanguage: ['English', 'Hindi'],
+      availableLanguage: ['English', 'Hindi', 'Marathi', 'Tamil', 'Telugu', 'Gujarati', 'Bengali'],
+      email: 'support@skolify.in',
     },
     sameAs: [],
+  }
+
+  const faqData = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: [
+      {
+        '@type': 'Question',
+        name: 'What is Skolify\'s AI Assistant?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Skolify includes a built-in AI assistant that helps admins, teachers, parents and students in all Indian languages. It can send fee reminders, generate reports, answer queries, and automate routine tasks.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Which languages does the AI support?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'The AI assistant supports Hindi, English, Marathi, Tamil, Telugu, Gujarati, Bengali, Kannada, Malayalam, Punjabi, and other major Indian languages.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Is Skolify currently available?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Skolify is currently in early access beta. Schools can register now to get priority access and special launch pricing starting at ₹499/month.',
+        },
+      },
+    ],
   }
 
   const breadcrumbData = {
@@ -174,6 +201,10 @@ function JsonLd() {
       />
       <script
         type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqData) }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData) }}
       />
     </>
@@ -189,7 +220,7 @@ export default function PublicLayout({
     <>
       <JsonLd />
       <div className="min-h-screen bg-white text-slate-700 font-sans selection:bg-blue-100 selection:text-blue-800">
-        {/* Skip to content — Accessibility */}
+        {/* Skip to content */}
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-600 focus:text-white focus:rounded-lg focus:shadow-lg"
@@ -198,7 +229,6 @@ export default function PublicLayout({
         </a>
 
         <AnnouncementBanner />
-
         <Navbar />
 
         <main id="main-content" className="overflow-x-hidden">

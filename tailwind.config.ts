@@ -1,5 +1,3 @@
-// FILE: tailwind.config.ts
-
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
@@ -62,40 +60,49 @@ const config: Config = {
         sans: ['var(--font-geist-sans)', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'monospace'],
       },
+      
+      // ✨ NEW: Optimized Animations (Notion-style - subtle & fast)
       animation: {
-        'fade-in': 'fadeIn 0.5s ease-out forwards',
-        'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'slide-down': 'slideDown 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'scale-in': 'scaleIn 0.3s ease-out forwards',
+        'fade-in': 'fadeIn 0.2s ease-out forwards',
+        'slide-up': 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'slide-down': 'slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'scale-in': 'scaleIn 0.15s ease-out forwards',
         'float': 'float 6s ease-in-out infinite',
         'gradient-x': 'gradientX 8s ease infinite',
         'bounce-slow': 'bounceSlow 2s ease-in-out infinite',
         'shimmer': 'shimmer 2s linear infinite',
-        // New portal animations
-        'sidebar-in': 'sidebarIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'sidebar-out': 'sidebarOut 0.2s ease-in forwards',
-        'overlay-in': 'overlayIn 0.3s ease forwards',
-        'overlay-out': 'overlayOut 0.2s ease forwards',
-        'tooltip': 'tooltipIn 0.15s ease-out forwards',
-        'dropdown': 'dropdownIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        
+        // Portal animations (faster)
+        'sidebar-in': 'sidebarIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'sidebar-out': 'sidebarOut 0.15s ease-out forwards',
+        'overlay-in': 'overlayIn 0.2s ease forwards',
+        'overlay-out': 'overlayOut 0.15s ease forwards',
+        'tooltip': 'tooltipIn 0.1s ease-out forwards',
+        'dropdown': 'dropdownIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
-        'count-up': 'countUp 0.6s ease-out forwards',
+        'count-up': 'countUp 0.4s ease-out forwards',
+        
+        // ✨ NEW: Notion-style micro-interactions
+        'press': 'press 0.1s ease-out',
+        'pop': 'pop 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        'skeleton': 'skeleton 1.5s ease-in-out infinite',
       },
+      
       keyframes: {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
         },
         slideUp: {
-          '0%': { transform: 'translateY(20px)', opacity: '0' },
+          '0%': { transform: 'translateY(12px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         slideDown: {
-          '0%': { transform: 'translateY(-10px)', opacity: '0' },
+          '0%': { transform: 'translateY(-8px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
         scaleIn: {
-          '0%': { transform: 'scale(0.95)', opacity: '0' },
+          '0%': { transform: 'scale(0.97)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
         float: {
@@ -114,7 +121,6 @@ const config: Config = {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
-        // New portal keyframes
         sidebarIn: {
           '0%': { transform: 'translateX(-100%)', opacity: '0' },
           '100%': { transform: 'translateX(0)', opacity: '1' },
@@ -147,48 +153,79 @@ const config: Config = {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        
+        // ✨ NEW Keyframes
+        press: {
+          '0%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(0.98)' },
+          '100%': { transform: 'scale(1)' },
+        },
+        pop: {
+          '0%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.05)' },
+          '100%': { transform: 'scale(1)' },
+        },
+        skeleton: {
+          '0%': { backgroundPosition: '200% 0' },
+          '100%': { backgroundPosition: '-200% 0' },
+        },
       },
+      
       boxShadow: {
-        'soft': '0 2px 8px -2px rgba(0, 0, 0, 0.05), 0 4px 16px -4px rgba(0, 0, 0, 0.08)',
-        'medium': '0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 8px 24px -4px rgba(0, 0, 0, 0.1)',
-        'elevated': '0 8px 24px -4px rgba(0, 0, 0, 0.1), 0 16px 48px -8px rgba(0, 0, 0, 0.1)',
-        'brand': '0 4px 16px -2px rgba(37, 99, 235, 0.25)',
-        'brand-lg': '0 8px 32px -4px rgba(37, 99, 235, 0.3)',
-        // New portal shadows
-        'sidebar': '4px 0 24px -4px rgba(0, 0, 0, 0.08)',
-        'header': '0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px -2px rgba(0, 0, 0, 0.03)',
-        'card-hover': '0 8px 25px -5px rgba(0, 0, 0, 0.08), 0 4px 10px -4px rgba(0, 0, 0, 0.04)',
+        'soft': '0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06)',
+        'medium': '0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)',
+        'elevated': '0 8px 24px -4px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.06)',
+        'brand': '0 4px 16px -2px rgba(37, 99, 235, 0.2)',
+        'brand-lg': '0 8px 32px -4px rgba(37, 99, 235, 0.25)',
+        
+        // Portal shadows (lighter)
+        'sidebar': '2px 0 12px rgba(0, 0, 0, 0.04)',
+        'header': '0 1px 2px rgba(0, 0, 0, 0.04)',
+        'card-hover': '0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04)',
         'nav-active': 'inset 3px 0 0 0 #2563EB',
-        'inner-soft': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.04)',
+        'inner-soft': 'inset 0 1px 2px 0 rgba(0, 0, 0, 0.04)',
+        
+        // ✨ NEW: Notion-style subtle shadows
+        'none': 'none',
+        'xs': '0 1px 2px rgba(0, 0, 0, 0.05)',
+        'focus': '0 0 0 3px rgba(37, 99, 235, 0.08)',
       },
+      
       borderRadius: {
         '2xl': '1rem',
         '3xl': '1.25rem',
         '4xl': '1.5rem',
       },
-      // Smooth transitions for portal
+      
+      // Optimized transitions
       transitionDuration: {
+        '100': '100ms',
+        '150': '150ms',
+        '200': '200ms',
         '250': '250ms',
         '350': '350ms',
         '400': '400ms',
       },
+      
       transitionTimingFunction: {
         'smooth': 'cubic-bezier(0.16, 1, 0.3, 1)',
         'bounce-in': 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
+        'swift': 'cubic-bezier(0.4, 0, 0.2, 1)',
       },
-      // Better spacing for portal
+      
       spacing: {
         '4.5': '1.125rem',
         '13': '3.25rem',
         '15': '3.75rem',
         '17': '4.25rem',
         '18': '4.5rem',
-        'sidebar': '16.5rem', // 264px - perfect sidebar width
-        'sidebar-collapsed': '4.5rem', // 72px
+        'sidebar': '16rem', // Slightly narrower
+        'sidebar-collapsed': '4rem',
       },
+      
       width: {
-        'sidebar': '16.5rem',
-        'sidebar-collapsed': '4.5rem',
+        'sidebar': '16rem',
+        'sidebar-collapsed': '4rem',
       },
     },
   },
