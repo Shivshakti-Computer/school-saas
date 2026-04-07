@@ -1,5 +1,7 @@
 'use client'
 
+// FILE: src/components/chat/ChatWidget.tsx
+
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 
@@ -7,6 +9,7 @@ import { useSession } from 'next-auth/react'
 // Types
 // ══════════════════════════════════════════════
 
+// Aapke User model ke roles (src/models/User.ts)
 type SessionUserRole =
   | 'admin'
   | 'teacher'
@@ -45,37 +48,44 @@ const SUGGESTIONS = [
   'See all Features →',
 ]
 
+// Thanks patterns — no API call needed
 const THANKS_PATTERNS = [
   'thanks', 'thank you', 'thankyou', 'thank you so much',
   'that helped', 'got it', 'understood', 'makes sense',
   'perfect', 'great', 'awesome', 'wonderful', 'helpful',
   'appreciate it', 'cheers', 'nice', 'cool', 'okay thanks',
+  'ok thanks', 'ok thank you', 'alright', 'sounds good',
 ]
 
 const THANKS_REPLIES = [
-  `🙏 **You're welcome!**\n\nI'm always here if you have more questions.\n\n**Is there anything else I can help with?**`,
-  `😊 **Glad I could help!**\n\nFeel free to reach out anytime.\n\n**Skolify is here for your school! 🏫**`,
-  `👍 **Happy to help!**\n\nCome back if you need anything!\n\n**Anything else on your mind?**`,
+  `🙏 **You're welcome!**\n\nI'm always here if you have more questions. Feel free to ask anytime!\n\n**Is there anything else I can help with?**`,
+  `😊 **Glad I could help!**\n\nDon't hesitate to reach out if you need anything else.\n\n**Skolify is here for your school! 🏫**`,
+  `👍 **Happy to help!**\n\nHave a great day — and feel free to come back if you need anything!\n\n**Anything else on your mind?**`,
 ]
 
-// ✨ Minimal Animations
 const GLOBAL_STYLES = `
-  @keyframes slideUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+  @keyframes bubbleIn {
+    from { opacity: 0; transform: translateY(16px) scale(0.92); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
   }
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to   { opacity: 1; }
+  @keyframes chatOpen {
+    from { opacity: 0; transform: translateY(20px) scale(0.95); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
   }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+  @keyframes pulseRing {
+    0%   { transform: scale(1);    opacity: 0.6; }
+    70%  { transform: scale(1.55); opacity: 0;   }
+    100% { transform: scale(1.55); opacity: 0;   }
+  }
+  @keyframes badgePop {
+    0%   { transform: scale(0); }
+    70%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
   }
 `
 
 // ══════════════════════════════════════════════
-// Welcome Messages
+// Welcome Messages (qa-database se independent)
 // ══════════════════════════════════════════════
 
 function getWelcomeMessage(role: SessionUserRole): Message {
@@ -88,7 +98,7 @@ function getWelcomeMessage(role: SessionUserRole): Message {
 
   const content: Record<SessionUserRole, { content: string; quickReplies: QuickReply[] }> = {
     guest: {
-      content: `**Hey there! I'm the Skolify Assistant 👋**\n\nI'm here to help you explore Skolify.\n\n**What I can help with:**\n\n• 💰 Plans & Pricing\n• 🎁 60-Day Free Trial\n• 📦 Features & Modules\n• 💳 Credits & Messaging\n• 🔧 Setup Help\n\nWhat would you like to know?`,
+      content: `**Hey there! I'm the Skolify Assistant 👋**\n\nI'm here to help you explore everything Skolify has to offer for your school.\n\n**Here's what I can help with:**\n\n• 💰 Plans & Pricing\n• 🎁 60-Day Free Trial\n• 📦 22+ Features & Modules\n• 💳 Credits & Messaging\n• 🔧 Setup & Onboarding\n\nWhat would you like to know? Just ask!`,
       quickReplies: [
         { text: '💰 See Plans', payload: 'pricing plans' },
         { text: '🎁 Free Trial', payload: 'free trial info' },
@@ -97,25 +107,25 @@ function getWelcomeMessage(role: SessionUserRole): Message {
       ],
     },
     admin: {
-      content: `**Welcome back! 👋**\n\nHow can I help you today?\n\n• 💳 Credits & billing\n• ⬆️ Upgrade plan\n• 👥 Manage users\n• 🔧 Setup help`,
+      content: `**Welcome back! 👋**\n\nGood to see you in the Skolify Admin Portal.\n\n**How can I help you today?**\n\n• 💳 Credits & billing\n• ⬆️ Upgrade your plan\n• 👥 Manage students & teachers\n• 🔧 Setup & configuration`,
       quickReplies: [
         { text: '💳 Buy Credits', payload: 'how to buy credits' },
-        { text: '⬆️ Upgrade', payload: 'upgrade plan' },
-        { text: '🚀 Setup', payload: 'how to setup skolify' },
+        { text: '⬆️ Upgrade Plan', payload: 'upgrade plan' },
+        { text: '🚀 Setup Guide', payload: 'how to setup skolify' },
         { text: '📞 Support', action: 'forward' },
       ],
     },
     teacher: {
-      content: `**Hello! 👋**\n\nWhat can I help with?\n\n• ✔ Attendance\n• 📝 Exam marks\n• 📚 Homework\n• 📊 Reports`,
+      content: `**Hello! 👋**\n\nWelcome to your Teacher Portal.\n\n**What can I help you with today?**\n\n• ✔ Mark attendance\n• 📝 Enter exam marks\n• 📚 Assign homework\n• 📊 View reports`,
       quickReplies: [
         { text: '✔ Attendance', payload: 'how to mark attendance' },
-        { text: '📝 Marks', payload: 'how to enter exam marks' },
+        { text: '📝 Enter Marks', payload: 'how to enter exam marks' },
         { text: '📚 Homework', payload: 'how to assign homework' },
         { text: '📞 Support', action: 'forward' },
       ],
     },
     staff: {
-      content: `**Hello! 👋**\n\nHow can I assist you?\n\n• ✔ Attendance\n• 📊 Reports\n• 🔧 Settings`,
+      content: `**Hello! 👋**\n\nWelcome to the Staff Portal.\n\n**What can I help you with today?**\n\n• ✔ Attendance\n• 📊 Reports\n• 🔧 Settings`,
       quickReplies: [
         { text: '✔ Attendance', payload: 'how to mark attendance' },
         { text: '📊 Reports', payload: 'how to view reports' },
@@ -123,16 +133,16 @@ function getWelcomeMessage(role: SessionUserRole): Message {
       ],
     },
     student: {
-      content: `**Hey! 👋**\n\nWhat would you like to check?\n\n• ✔ Attendance\n• 📊 Results\n• 📝 Assignments\n• 💰 Fees`,
+      content: `**Hey! 👋**\n\nWelcome to your Student Portal.\n\n**What would you like to check?**\n\n• ✔ Attendance record\n• 📊 Exam results\n• 📝 Assignments\n• 💰 Fee status`,
       quickReplies: [
-        { text: '✔ Attendance', payload: 'check my attendance' },
-        { text: '📊 Results', payload: 'check my exam results' },
-        { text: '💰 Fees', payload: 'check fee status' },
+        { text: '✔ My Attendance', payload: 'check my attendance' },
+        { text: '📊 My Results', payload: 'check my exam results' },
+        { text: '💰 Fee Status', payload: 'check fee status' },
         { text: '📞 Support', action: 'forward' },
       ],
     },
     parent: {
-      content: `**Hello! 👋**\n\nWhat would you like to know?\n\n• ✔ Attendance\n• 💰 Fee payment\n• 📊 Results\n• 📚 Homework`,
+      content: `**Hello! 👋**\n\nWelcome to the Parent Portal.\n\n**What would you like to know about your child?**\n\n• ✔ Attendance record\n• 💰 Fee payment\n• 📊 Exam results\n• 📚 Homework status`,
       quickReplies: [
         { text: '✔ Attendance', payload: 'check child attendance' },
         { text: '💰 Pay Fees', payload: 'how to pay fees' },
@@ -141,7 +151,7 @@ function getWelcomeMessage(role: SessionUserRole): Message {
       ],
     },
     superadmin: {
-      content: `**Welcome, Super Admin! 👋**\n\nFull platform access.\n\n**What would you like to do?**`,
+      content: `**Welcome, Super Admin! 👋**\n\nYou have full access to the Skolify platform.\n\n**What would you like to do?**`,
       quickReplies: [
         { text: '📊 Overview', payload: 'platform overview' },
         { text: '🏫 Schools', payload: 'manage schools' },
@@ -154,13 +164,13 @@ function getWelcomeMessage(role: SessionUserRole): Message {
 }
 
 // ══════════════════════════════════════════════
-// Icons — Minimal
+// Icons
 // ══════════════════════════════════════════════
 
-function IconClose({ size = 18 }: { size?: number }) {
+function IconClose({ size = 20 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   )
@@ -168,47 +178,72 @@ function IconClose({ size = 18 }: { size?: number }) {
 
 function IconSend() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+      strokeLinejoin="round">
       <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
     </svg>
   )
 }
 
-function IconBot({ size = 16 }: { size?: number }) {
+function IconBot({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round">
       <rect x="3" y="11" width="18" height="10" rx="2" />
       <circle cx="12" cy="5" r="2" />
-      <path d="M12 7v4M8 16h.01M16 16h.01" />
+      <path d="M12 7v4" />
+      <line x1="8" y1="15" x2="8" y2="15.01" strokeWidth="3" />
+      <line x1="16" y1="15" x2="16" y2="15.01" strokeWidth="3" />
     </svg>
   )
 }
 
 function IconUser() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+      strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
       <circle cx="12" cy="7" r="4" />
     </svg>
   )
 }
 
-function IconSparkles() {
+function IconForward() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2l2 7h7l-6 4 2 7-6-4-6 4 2-7-6-4h7l2-7z" />
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5
+        19.5 0 013.07 8.8 19.79 19.79 0 01-.001 .17A2 2 0 012 0h3a2 2 0 012
+        1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0
+        006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0
+        0122 14.9v2z" />
+    </svg>
+  )
+}
+
+function IconSpark() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3
+        2.4-7.4L2 9.4h7.6L12 2z" />
     </svg>
   )
 }
 
 // ══════════════════════════════════════════════
-// Launcher Bubble — Minimal
+// Launcher Bubble
 // ══════════════════════════════════════════════
 
-function LauncherBubble({ onOpen, visible }: { onOpen: () => void; visible: boolean }) {
+function LauncherBubble({
+  onOpen,
+  visible,
+}: {
+  onOpen: () => void
+  visible: boolean
+}) {
   const [suggIdx, setSuggIdx] = useState(0)
   const [fade, setFade] = useState(true)
   const [dismissed, setDismissed] = useState(false)
@@ -220,7 +255,7 @@ function LauncherBubble({ onOpen, visible }: { onOpen: () => void; visible: bool
       setTimeout(() => {
         setSuggIdx(i => (i + 1) % SUGGESTIONS.length)
         setFade(true)
-      }, 200)
+      }, 300)
     }, 3000)
     return () => clearInterval(interval)
   }, [visible, dismissed])
@@ -229,62 +264,96 @@ function LauncherBubble({ onOpen, visible }: { onOpen: () => void; visible: bool
 
   return (
     <div
-      className="fixed bottom-[92px] right-4 z-[9998] flex items-end gap-2"
-      style={{ animation: 'slideUp 0.3s ease-out forwards' }}
+      className="fixed bottom-[100px] right-4 sm:right-6 z-[9998] flex items-end gap-2"
+      style={{ animation: 'bubbleIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards' }}
     >
-      <div className="relative max-w-[200px] cursor-pointer" onClick={onOpen}>
-        <div className="px-3.5 py-2.5 rounded-xl bg-white border border-slate-200">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-blue-600"><IconSparkles /></span>
-            <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600">
-              Skolify AI
+      <div className="relative max-w-[220px] cursor-pointer" onClick={onOpen}>
+        <div
+          className="px-4 py-3 rounded-2xl rounded-br-sm select-none"
+          style={{
+            background: '#FFFFFF',
+            boxShadow: [
+              '0 0 0 1px rgba(37,99,235,0.1)',
+              '0 8px 32px rgba(37,99,235,0.18)',
+              '0 2px 8px rgba(0,0,0,0.08)',
+            ].join(','),
+          }}
+        >
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span style={{ color: '#2563EB' }}><IconSpark /></span>
+            <span className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: '#2563EB' }}>
+              Skolify Assistant
             </span>
           </div>
 
           <p
-            className="text-xs font-medium text-slate-900 leading-snug transition-all duration-200"
-            style={{ opacity: fade ? 1 : 0 }}
+            className="text-[13px] font-semibold leading-snug transition-all duration-300"
+            style={{
+              color: '#0F172A',
+              opacity: fade ? 1 : 0,
+              transform: fade ? 'translateY(0)' : 'translateY(4px)',
+            }}
           >
             {SUGGESTIONS[suggIdx]}
           </p>
 
-          <div className="flex gap-1 mt-1.5">
+          <div className="flex gap-1 mt-2">
             {SUGGESTIONS.map((_, i) => (
               <span
                 key={i}
-                className="rounded-full transition-all duration-200"
+                className="rounded-full transition-all duration-300"
                 style={{
-                  width: i === suggIdx ? '12px' : '4px',
-                  height: '4px',
+                  width: i === suggIdx ? '16px' : '5px',
+                  height: '5px',
                   background: i === suggIdx ? '#2563EB' : '#CBD5E1',
                 }}
               />
             ))}
           </div>
         </div>
+
+        {/* Tail */}
+        <div
+          className="absolute bottom-0 right-[-6px]"
+          style={{
+            width: 0, height: 0,
+            borderStyle: 'solid',
+            borderWidth: '0 0 10px 10px',
+            borderColor: 'transparent transparent #FFFFFF transparent',
+            filter: 'drop-shadow(1px 1px 1px rgba(0,0,0,0.05))',
+          }}
+        />
       </div>
 
       <button
         onClick={e => { e.stopPropagation(); setDismissed(true) }}
-        className="w-5 h-5 rounded-full flex items-center justify-center bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+        className="mb-1 w-5 h-5 rounded-full flex items-center justify-center
+        transition-all hover:scale-110 active:scale-90"
+        style={{ background: 'rgba(100,116,139,0.15)', color: '#64748B' }}
         aria-label="Dismiss"
       >
-        <IconClose size={10} />
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
       </button>
     </div>
   )
 }
 
 // ══════════════════════════════════════════════
-// Markdown Renderer — Clean
+// Markdown Renderer
 // ══════════════════════════════════════════════
 
 function renderInline(text: string): string {
   return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 font-semibold">$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em class="text-slate-700 italic">$1</em>')
+    .replace(/\*\*(.*?)\*\*/g,
+      '<strong class="text-slate-900 font-semibold">$1</strong>')
+    .replace(/\*(.*?)\*/g,
+      '<em class="text-slate-800 italic">$1</em>')
     .replace(/\[(.*?)\]\((.*?)\)/g,
-      '<a href="$2" class="text-blue-600 underline hover:text-blue-700 transition-colors" target="_blank">$1</a>')
+      '<a href="$2" class="text-blue-600 underline font-medium hover:text-blue-700 transition-colors" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/`(.*?)`/g,
       '<code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">$1</code>')
 }
@@ -293,13 +362,13 @@ function MarkdownRenderer({ text }: { text: string }) {
   const lines = text.split('\n')
 
   return (
-    <div className="space-y-2 text-[13px] leading-relaxed text-slate-700">
+    <div className="space-y-2 text-[13.5px] leading-relaxed">
       {lines.map((line, idx) => {
-        if (!line.trim()) return <div key={idx} className="h-1" />
+        if (!line.trim()) return <div key={idx} className="h-1.5" />
 
         if (line.startsWith('## ')) {
           return (
-            <p key={idx} className="font-bold text-sm text-slate-900 mt-2 mb-1 pb-1 border-b border-slate-100">
+            <p key={idx} className="font-bold text-[15px] text-slate-900 mt-3 mb-1.5 pb-1.5 border-b border-slate-100">
               {line.replace('## ', '')}
             </p>
           )
@@ -307,14 +376,16 @@ function MarkdownRenderer({ text }: { text: string }) {
 
         if (line.startsWith('### ')) {
           return (
-            <p key={idx} className="font-semibold text-[11px] text-slate-600 mt-2 uppercase tracking-wide">
+            <p key={idx} className="font-semibold text-[12px] text-slate-600 mt-2 mb-1 uppercase tracking-wider">
               {line.replace('### ', '')}
             </p>
           )
         }
 
+        // Table separator — skip
         if (line.trim().match(/^\|?[-:\s|]+\|?$/)) return null
 
+        // Table row
         if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
           const cells = line.split('|').map(c => c.trim()).filter(c => c.length > 0)
           if (cells.length === 0) return null
@@ -323,16 +394,15 @@ function MarkdownRenderer({ text }: { text: string }) {
             lines[idx + 1]?.trim().match(/^\|?[-:\s|]+\|?$/)
 
           return (
-            <div key={idx} className="flex gap-1 text-[10px] flex-wrap">
+            <div key={idx} className="flex gap-1.5 text-[11px] flex-wrap">
               {cells.map((cell, i) => (
                 <span key={i}
-                  className={`flex-1 min-w-[40px] px-2 py-1 rounded text-center border ${
-                    isHeader
+                  className={`flex-1 min-w-[50px] px-2 py-1.5 rounded-lg text-center border ${isHeader
                       ? 'bg-blue-50 text-blue-900 font-bold border-blue-200'
                       : i === 0
-                        ? 'bg-slate-50 text-slate-800 font-medium border-slate-200'
+                        ? 'bg-slate-100 text-slate-800 font-semibold border-slate-200'
                         : 'bg-white text-slate-700 border-slate-200'
-                  }`}>
+                    }`}>
                   {cell.replace(/\*\*/g, '')}
                 </span>
               ))}
@@ -340,30 +410,38 @@ function MarkdownRenderer({ text }: { text: string }) {
           )
         }
 
+        // Bullet
         if (line.trim().match(/^[•*\-]\s/)) {
           const content = line.replace(/^[•*\-]\s+/, '')
           return (
             <div key={idx} className="flex gap-2 items-start">
-              <span className="text-blue-600 font-bold mt-0.5">•</span>
-              <span dangerouslySetInnerHTML={{ __html: renderInline(content) }} />
+              <span className="text-blue-500 flex-shrink-0 font-bold mt-0.5">•</span>
+              <span className="text-slate-700 flex-1"
+                dangerouslySetInnerHTML={{ __html: renderInline(content) }} />
             </div>
           )
         }
 
+        // Numbered list
         if (line.trim().match(/^\d+\./)) {
           const content = line.replace(/^\d+\.\s*/, '')
           const num = line.match(/^(\d+)\./)?.[1]
           return (
-            <div key={idx} className="flex gap-2 items-start">
-              <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 text-[9px] font-bold flex items-center justify-center mt-0.5">
+            <div key={idx} className="flex gap-2.5 items-start">
+              <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700
+                text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                 {num}
               </span>
-              <span dangerouslySetInnerHTML={{ __html: renderInline(content) }} />
+              <span className="text-slate-700 flex-1"
+                dangerouslySetInnerHTML={{ __html: renderInline(content) }} />
             </div>
           )
         }
 
-        return <p key={idx} dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
+        return (
+          <p key={idx} className="text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
+        )
       })}
     </div>
   )
@@ -374,26 +452,30 @@ function MarkdownRenderer({ text }: { text: string }) {
 // ══════════════════════════════════════════════
 
 function TimeStamp({ date }: { date: Date }) {
-  const time = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-  return <span className="text-[9px] text-slate-400">{time}</span>
+  const time = date.toLocaleTimeString('hi-IN', {
+    hour: '2-digit', minute: '2-digit',
+  })
+  return <span className="text-[10px] text-slate-400 select-none">{time}</span>
 }
 
 // ══════════════════════════════════════════════
-// Typing Indicator — Minimal
+// Typing Indicator
 // ══════════════════════════════════════════════
 
 function TypingIndicator() {
   return (
-    <div className="flex gap-2 items-end">
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-600 text-white">
+    <div className="flex gap-2.5 items-end">
+      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
+        style={{ background: '#2563EB' }}>
         <IconBot />
       </div>
-      <div className="rounded-xl bg-white border border-slate-200 px-3 py-2 flex gap-1 items-center">
-        <span className="text-[10px] text-slate-500 mr-1">Typing</span>
+      <div className="rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5 items-center
+        bg-white border-2 border-slate-200 shadow-sm">
+        <span className="text-[11px] text-slate-500 mr-1">Typing</span>
         {[0, 1, 2].map(i => (
           <div key={i}
-            className="w-1.5 h-1.5 rounded-full bg-blue-500"
-            style={{ animation: `pulse 1s ease-in-out ${i * 0.15}s infinite` }}
+            className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
+            style={{ animationDelay: `${i * 0.18}s` }}
           />
         ))}
       </div>
@@ -402,7 +484,7 @@ function TypingIndicator() {
 }
 
 // ══════════════════════════════════════════════
-// Forward Form — Clean
+// Forward Form
 // ══════════════════════════════════════════════
 
 function ForwardForm({
@@ -417,36 +499,45 @@ function ForwardForm({
   const [query, setQuery] = useState('')
 
   return (
-    <div className="rounded-xl overflow-hidden bg-blue-50 border border-blue-200">
-      <div className="px-4 py-2.5 bg-blue-600 flex items-center gap-2">
-        <span className="text-white">💬</span>
-        <p className="text-white font-semibold text-sm">Talk to our team</p>
+    <div className="rounded-2xl overflow-hidden shadow-lg border-2 border-blue-200"
+      style={{ background: '#F0F7FF' }}>
+      <div className="px-4 py-3 flex items-center gap-2" style={{ background: '#2563EB' }}>
+        <span className="text-white text-sm">💬</span>
+        <p className="text-white font-bold text-sm">Talk to our real team</p>
       </div>
-      <div className="p-4 space-y-2.5">
+      <div className="p-4 space-y-3">
         <input
-          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
+          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
+          transition-all text-slate-900 placeholder:text-slate-400 font-medium"
           placeholder="Your name (optional)"
           value={name}
           onChange={e => setName(e.target.value)}
         />
         <input
-          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
+          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
+          transition-all text-slate-900 placeholder:text-slate-400 font-medium"
           placeholder="WhatsApp Number *"
           type="tel"
           value={phone}
           onChange={e => setPhone(e.target.value)}
         />
         <textarea
-          className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none resize-none transition-all"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
+          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
+          transition-all resize-none text-slate-900 placeholder:text-slate-400 font-medium"
           rows={3}
-          placeholder="Your question *"
+          placeholder="Describe your question in detail *"
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
-        <div className="flex gap-2">
+        <div className="flex gap-2.5">
           <button
             onClick={onCancel}
-            className="flex-1 py-2 text-sm rounded-lg font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors">
+            className="flex-1 py-2.5 text-sm rounded-xl font-semibold border-2
+            border-slate-300 bg-white text-slate-700 hover:bg-slate-50
+            transition-all active:scale-95">
             Cancel
           </button>
           <button
@@ -457,7 +548,9 @@ function ForwardForm({
               }
               onSubmit({ name, phone, query })
             }}
-            className="flex-1 py-2 text-sm rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+            className="flex-1 py-2.5 text-sm rounded-xl font-bold text-white
+            transition-all active:scale-95 shadow-md"
+            style={{ background: '#2563EB' }}>
             Send →
           </button>
         </div>
@@ -467,25 +560,31 @@ function ForwardForm({
 }
 
 // ══════════════════════════════════════════════
-// Main ChatWidget — Ultra Minimal
+// Main ChatWidget
 // ══════════════════════════════════════════════
+
 
 export function ChatWidget() {
   const { data: session } = useSession()
 
+  // Session se role aur tenantId lo
   const userRole = (session?.user?.role as SessionUserRole) || 'guest'
   const tenantId = (session?.user as any)?.tenantId || null
 
+  // State
   const [isOpen, setIsOpen] = useState(false)
   const [showBubble, setShowBubble] = useState(false)
   const [unreadCount, setUnreadCount] = useState(1)
-  const [messages, setMessages] = useState<Message[]>(() => [getWelcomeMessage(userRole)])
+  const [messages, setMessages] = useState<Message[]>(() => [
+    getWelcomeMessage(userRole),
+  ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showForwardForm, setShowForwardForm] = useState(false)
   const [forwarded, setForwarded] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
 
+  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -508,7 +607,7 @@ export function ChatWidget() {
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, 100)
+    }, 80)
   }, [])
 
   useEffect(() => {
@@ -518,6 +617,7 @@ export function ChatWidget() {
     }
   }, [isOpen, messages, scrollToBottom])
 
+  // ── Updated sendMessage ───────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return
@@ -532,6 +632,7 @@ export function ChatWidget() {
     setLoading(true)
     setShowForwardForm(false)
 
+    // Thanks detection
     const msgLower = trimmed.toLowerCase()
     const isThanks = THANKS_PATTERNS.some(p => msgLower.includes(p))
 
@@ -543,18 +644,21 @@ export function ChatWidget() {
           role: 'bot',
           content: reply,
           quickReplies: [
-            { text: '💰 Plans', payload: 'pricing plans' },
+            { text: '💰 View Plans', payload: 'pricing plans' },
             { text: '📦 Features', payload: 'what features do you offer' },
             { text: '📞 Support', action: 'forward' },
           ],
+          canForward: false,
           timestamp: new Date(),
           source: 'local',
         }])
         setLoading(false)
-      }, 500)
+      }, 600)
       return
     }
 
+    // API call
+    // ✅ Smart endpoint selection based on role
     const endpoint = (() => {
       if (userRole === 'superadmin') return '/api/chat/superadmin'
       if (userRole !== 'guest' && tenantId) return '/api/chat/portal'
@@ -568,6 +672,8 @@ export function ChatWidget() {
         body: JSON.stringify({
           message: trimmed,
           conversation_id: conversationId,
+          // Portal route session se tenantId khud lega
+          // Ye sirf public route ke liye backup hai
           tenant_id: tenantId,
         }),
       })
@@ -577,11 +683,14 @@ export function ChatWidget() {
       const data = await res.json()
 
       if (data.success) {
-        if (data.conversation_id) setConversationId(data.conversation_id)
+        if (data.conversation_id) {
+          setConversationId(data.conversation_id)
+        }
 
         setMessages(prev => [...prev, {
           id: `bot_${Date.now()}`,
           role: 'bot',
+          // ✅ data.response (route.ts "response" field bhejta hai)
           content: data.response,
           quickReplies: data.quickReplies ?? [],
           canForward: data.canForward ?? false,
@@ -597,7 +706,7 @@ export function ChatWidget() {
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`,
         role: 'bot',
-        content: '😔 **Sorry!** Something went wrong.\n\nPlease try again or contact support.',
+        content: '😔 **Sorry about that!** Something went wrong.\n\nPlease try again, or reach out to our support team.',
         canForward: true,
         timestamp: new Date(),
         source: 'error',
@@ -607,6 +716,7 @@ export function ChatWidget() {
     }
   }, [loading, conversationId, tenantId, userRole])
 
+  // ── Quick Reply Handler ───────────────────
   const handleQuickReply = useCallback((qr: QuickReply) => {
     if (qr.action === 'navigate' && qr.payload) {
       window.location.href = qr.payload
@@ -614,10 +724,13 @@ export function ChatWidget() {
       setShowForwardForm(true)
       scrollToBottom()
     } else {
+      // payload ko natural message ki tarah send karo
+      // AI isko samjhega
       sendMessage(qr.payload || qr.text)
     }
   }, [sendMessage, scrollToBottom])
 
+  // ── Forward Form Submit ───────────────────
   const handleForwardSubmit = useCallback(async (data: {
     name: string; phone: string; query: string
   }) => {
@@ -638,102 +751,210 @@ export function ChatWidget() {
       setMessages(prev => [...prev, {
         id: `fwd_${Date.now()}`,
         role: 'bot',
-        content: '✔ **Message sent!**\n\nOur team will reach out on WhatsApp within 2–4 hours.\n\nThank you! 🙏',
+        content: '✔ **Message sent successfully!**\n\nOur team will reach out on WhatsApp within **2–4 hours**.\n\nThank you! 🙏',
         timestamp: new Date(),
         source: 'system',
       }])
     } catch {
-      alert('Error occurred. Please try again.')
+      alert('An error occurred. Please use the enquiry form directly.')
     }
   }, [])
 
+  // ── Computed ──────────────────────────────
   const lastBotMsg = [...messages].reverse().find(m => m.role === 'bot')
+  const hasQuickReplies = !!(lastBotMsg?.quickReplies?.length)
 
+  // ── Render ────────────────────────────────
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLES }} />
 
-      <LauncherBubble visible={showBubble && !isOpen} onOpen={() => setIsOpen(true)} />
+      {/* Launcher Bubble */}
+      <LauncherBubble
+        visible={showBubble && !isOpen}
+        onOpen={() => setIsOpen(true)}
+      />
 
+      {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-[84px] right-4 z-[9999] w-[min(400px,calc(100vw-2rem))] flex flex-col rounded-2xl overflow-hidden bg-white border border-slate-200"
+          className="fixed bottom-[88px] right-4 sm:right-6 z-[9999]
+          w-[min(420px,calc(100vw-2rem))] flex flex-col rounded-2xl overflow-hidden"
           style={{
-            height: 'min(600px, calc(100vh - 110px))',
-            animation: 'slideUp 0.3s ease-out forwards',
+            height: 'min(640px, calc(100vh - 120px))',
+            background: '#FFFFFF',
+            boxShadow: [
+              '0 0 0 1px rgba(0,0,0,0.06)',
+              '0 4px 6px -1px rgba(0,0,0,0.07)',
+              '0 24px 48px -8px rgba(0,0,0,0.22)',
+              '0 48px 80px -12px rgba(37,99,235,0.12)',
+            ].join(','),
+            animation: 'chatOpen 0.4s cubic-bezier(0.16,1,0.3,1) forwards',
           }}
         >
-          {/* Header — Minimal */}
-          <div className="flex-shrink-0 flex items-center gap-2.5 px-4 py-3 bg-blue-600 border-b border-blue-700">
-            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center text-white">
-              <IconBot />
+          {/* Header */}
+          <div
+            className="flex-shrink-0 flex items-center gap-3 px-5 py-4"
+            style={{
+              background: 'linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)',
+              borderBottom: '1.5px solid rgba(255,255,255,0.15)',
+            }}
+          >
+            <div className="relative flex-shrink-0">
+              <span className="absolute inset-0 rounded-xl"
+                style={{
+                  background: 'rgba(255,255,255,0.3)',
+                  animation: 'pulseRing 2s ease-out infinite',
+                }}
+              />
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center
+                relative z-10 text-white"
+                style={{
+                  background: 'rgba(255,255,255,0.18)',
+                  border: '1.5px solid rgba(255,255,255,0.35)',
+                }}
+              >
+                <IconBot size={20} />
+              </div>
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="" style={{color: 'white'}}>Skolify Assistant</p>
+              <p className="font-bold text-[15px] leading-tight" style={{ color: '#FFFFFF' }}>
+                Skolify Assistant
+              </p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                <p className="text-[10px]" style={{color: 'white'}}>Online</p>
+                <span className="w-2 h-2 rounded-full bg-green-400"
+                  style={{ animation: 'pulseRing 2s ease-out infinite' }}
+                />
+                <p className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                  Online · Replies instantly
+                </p>
               </div>
             </div>
 
             <button
               onClick={() => setIsOpen(false)}
-              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-white/10 text-white transition-colors"
-              aria-label="Close"
+              className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center
+              transition-all active:scale-90 hover:bg-white/20"
+              style={{
+                color: 'rgba(255,255,255,0.9)',
+                background: 'rgba(255,255,255,0.12)',
+                border: '1px solid rgba(255,255,255,0.2)',
+              }}
+              aria-label="Close chat"
             >
               <IconClose />
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-slate-50">
+          <div
+            className="flex-1 overflow-y-auto px-4 py-5 space-y-4"
+            style={{ background: '#F1F5F9' }}
+          >
             {messages.map((msg, idx) => (
               <div key={msg.id}>
-                <div className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'items-end'}`}>
+                <div className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-end'
+                  }`}>
+                  {/* Avatar */}
                   {msg.role === 'bot' ? (
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-600 text-white flex-shrink-0 self-end">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center
+                      flex-shrink-0 self-end mb-1 text-white"
+                      style={{ background: '#2563EB' }}>
                       <IconBot />
                     </div>
                   ) : (
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-400 text-white flex-shrink-0 self-end">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center
+                      flex-shrink-0 self-end mb-1 text-white"
+                      style={{ background: '#64748B' }}>
                       <IconUser />
                     </div>
                   )}
 
-                  <div className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-                    style={{ maxWidth: '80%' }}>
+                  {/* Bubble */}
+                  <div
+                    className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'
+                      }`}
+                    style={{ maxWidth: '82%' }}
+                  >
                     <div
                       className={msg.role === 'user'
-                        ? 'rounded-xl rounded-br-sm px-3.5 py-2.5 bg-blue-600 text-white'
-                        : 'rounded-xl rounded-bl-sm px-3.5 py-2.5 bg-white border border-slate-200'}
+                        ? 'rounded-2xl rounded-br-md px-4 py-3'
+                        : 'rounded-2xl rounded-bl-md px-4 py-3'}
+                      style={msg.role === 'user'
+                        ? {
+                          background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                          color: '#FFFFFF',
+                          boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
+                        }
+                        : {
+                          background: '#FFFFFF',
+                          border: '1.5px solid #E2E8F0',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+                        }}
                     >
                       {msg.role === 'user' ? (
-                        <p className="text-sm leading-relaxed font-medium" style={{color: 'white'}}>{msg.content}</p>
+                        <p className="text-sm leading-relaxed font-medium"
+                          style={{ color: '#FFFFFF' }}>
+                          {msg.content}
+                        </p>
                       ) : (
                         <MarkdownRenderer text={msg.content} />
                       )}
                     </div>
 
-                    {msg.role === 'bot' && msg.source?.includes('ai') && (
-                      <span className="text-[8px] px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 font-semibold uppercase tracking-wide">
-                        ✨ AI
-                      </span>
-                    )}
+                    {/* AI Badge */}
+                    {msg.role === 'bot' &&
+                      msg.source &&
+                      (msg.source.includes('ai') || msg.source.includes('groq')) && (
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
+                            style={{
+                              background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
+                              color: '#1E40AF',
+                              border: '1px solid #93C5FD',
+                            }}
+                          >
+                            ✨ AI
+                          </span>
+                          {process.env.NODE_ENV === 'development' && (
+                            <span className="text-[8px] text-slate-400">
+                              ({msg.source})
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                     <TimeStamp date={msg.timestamp} />
                   </div>
                 </div>
 
+                {/* Quick replies — only last bot message */}
                 {msg.role === 'bot' && idx === messages.length - 1 && (
-                  <div className="mt-2.5 ml-9 space-y-2">
+                  <div className="mt-3 ml-10 space-y-2.5">
                     {msg.quickReplies && msg.quickReplies.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-2">
                         {msg.quickReplies.map(qr => (
                           <button
                             key={qr.text}
                             onClick={() => handleQuickReply(qr)}
-                            className="text-xs px-3 py-1.5 rounded-full font-medium bg-white border border-blue-600 text-blue-700 hover:bg-blue-600 hover:text-white transition-colors"
+                            className="text-xs px-3.5 py-2 rounded-full font-semibold
+                            transition-all active:scale-95 hover:shadow-md"
+                            style={{
+                              background: '#FFFFFF',
+                              border: '2px solid #2563EB',
+                              color: '#1E40AF',
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = '#2563EB'
+                              e.currentTarget.style.color = '#FFFFFF'
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#FFFFFF'
+                              e.currentTarget.style.color = '#1E40AF'
+                            }}
                           >
                             {qr.text}
                           </button>
@@ -744,9 +965,13 @@ export function ChatWidget() {
                     {msg.canForward && !forwarded && (
                       <button
                         onClick={() => setShowForwardForm(p => !p)}
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                        className="flex items-center gap-2 text-xs px-4 py-2.5
+                        rounded-full font-bold transition-all active:scale-95
+                        text-white shadow-md"
+                        style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
                       >
-                        💬 Talk to real person
+                        <IconForward />
+                        Talk to a real person
                       </button>
                     )}
                   </div>
@@ -755,8 +980,11 @@ export function ChatWidget() {
             ))}
 
             {showForwardForm && (
-              <div className="ml-9">
-                <ForwardForm onSubmit={handleForwardSubmit} onCancel={() => setShowForwardForm(false)} />
+              <div className="ml-10">
+                <ForwardForm
+                  onSubmit={handleForwardSubmit}
+                  onCancel={() => setShowForwardForm(false)}
+                />
               </div>
             )}
 
@@ -764,11 +992,21 @@ export function ChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input — Clean */}
-          <div className="flex-shrink-0 px-4 py-3 flex gap-2 items-center bg-white border-t border-slate-200">
+          
+          {/* Input */}
+          <div
+            className="flex-shrink-0 px-4 py-3.5 flex gap-2.5 items-center"
+            style={{ background: '#FFFFFF', borderTop: '1.5px solid #E2E8F0' }}
+          >
             <input
               ref={inputRef}
-              className="flex-1 px-3 py-2 text-sm rounded-lg bg-slate-50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+              className="flex-1 px-4 py-3 text-sm rounded-xl outline-none
+              transition-all disabled:opacity-50 font-medium"
+              style={{
+                background: '#F8FAFC',
+                border: '2px solid #E2E8F0',
+                color: '#0F172A',
+              }}
               placeholder="Type your message..."
               value={input}
               onChange={e => setInput(e.target.value)}
@@ -778,12 +1016,30 @@ export function ChatWidget() {
                   sendMessage(input)
                 }
               }}
+              onFocus={e => {
+                e.currentTarget.style.borderColor = '#2563EB'
+                e.currentTarget.style.background = '#FFFFFF'
+              }}
+              onBlur={e => {
+                e.currentTarget.style.borderColor = '#E2E8F0'
+                e.currentTarget.style.background = '#F8FAFC'
+              }}
               disabled={loading}
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || loading}
-              className="w-10 h-10 rounded-lg flex items-center justify-center text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="w-11 h-11 rounded-xl flex items-center justify-center
+              text-white transition-all flex-shrink-0
+              disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
+              style={{
+                background: !input.trim() || loading
+                  ? '#94A3B8'
+                  : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+                boxShadow: !input.trim() || loading
+                  ? 'none'
+                  : '0 4px 14px rgba(37,99,235,0.4)',
+              }}
               aria-label="Send"
             >
               <IconSend />
@@ -792,21 +1048,44 @@ export function ChatWidget() {
         </div>
       )}
 
-      {/* Toggle Button — Minimal */}
-      <div className="fixed bottom-4 right-4 z-[9999]">
+      {/* Toggle Button */}
+      <div className="fixed bottom-6 right-4 sm:right-6 z-[9999]">
+        {!isOpen && (
+          <>
+            <span
+              className="absolute inset-0 rounded-2xl"
+              style={{ background: '#2563EB', animation: 'pulseRing 2s ease-out infinite' }}
+            />
+            <span
+              className="absolute inset-0 rounded-2xl"
+              style={{ background: '#2563EB', animation: 'pulseRing 2s ease-out 0.6s infinite' }}
+            />
+          </>
+        )}
+
         <button
           onClick={() => setIsOpen(p => !p)}
-          className="relative w-14 h-14 rounded-2xl text-white flex items-center justify-center border-2 border-white hover:scale-105 transition-transform"
+          className="relative w-16 h-16 rounded-2xl text-white flex items-center
+          justify-center transition-all hover:scale-110 active:scale-95"
           style={{
-            background: isOpen ? '#475569' : '#2563EB',
-            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+            background: isOpen
+              ? 'linear-gradient(135deg, #475569, #334155)'
+              : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
+            boxShadow: [
+              '0 0 0 3px rgba(37,99,235,0.15)',
+              '0 8px 24px rgba(37,99,235,0.45)',
+              '0 2px 6px rgba(0,0,0,0.15)',
+            ].join(','),
+            border: '2.5px solid rgba(255,255,255,0.9)',
           }}
           aria-label={isOpen ? 'Close chat' : 'Open chat'}
         >
           {isOpen ? (
-            <IconClose size={20} />
+            <IconClose size={22} />
           ) : (
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              strokeLinejoin="round">
               <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
             </svg>
           )}
@@ -814,8 +1093,13 @@ export function ChatWidget() {
 
         {!isOpen && unreadCount > 0 && (
           <span
-            className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white bg-red-500 border-2 border-white"
-            style={{ animation: 'slideUp 0.3s ease-out forwards' }}
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
+            flex items-center justify-center text-[10px] font-bold text-white"
+            style={{
+              background: '#EF4444',
+              boxShadow: '0 0 0 2px #FFFFFF',
+              animation: 'badgePop 0.4s cubic-bezier(0.16,1,0.3,1) forwards',
+            }}
           >
             {unreadCount}
           </span>
