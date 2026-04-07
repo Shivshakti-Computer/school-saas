@@ -1,8 +1,11 @@
 // FILE: src/components/marketing/FAQSection.tsx
+// FULLY CONVERTED TO LOCKED DESIGN PATTERN
+// ═══════════════════════════════════════════════════════════
 
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Container } from './Container'
 import { SectionTitle } from './MiniUI'
 import { useReveal, useRevealGroup } from '@/hooks/useReveal'
@@ -30,7 +33,7 @@ const faqs = [
   },
   {
     q: 'Is our school data secure?',
-    a: 'Yes. We use HTTPS encryption, role-based access control, tenant isolation (each school\'s data is completely separate), and bcrypt password hashing. Your data is safe.',
+    a: "Yes. We use HTTPS encryption, role-based access control, tenant isolation (each school's data is completely separate), and bcrypt password hashing. Your data is safe.",
   },
   {
     q: 'What happens after the trial ends?',
@@ -41,13 +44,17 @@ const faqs = [
 /* ─── Chevron Icon ─── */
 function ChevronIcon({ open }: { open: boolean }) {
   return (
-    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${open ? 'bg-blue-100 rotate-180' : 'bg-slate-100'}`}>
+    <div
+      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
+        open ? 'bg-primary-100 rotate-180' : 'bg-muted'
+      }`}
+    >
       <svg
         width="16"
         height="16"
         viewBox="0 0 24 24"
         fill="none"
-        className={`transition-colors ${open ? 'text-blue-600' : 'text-slate-500'}`}
+        className={`transition-colors ${open ? 'text-primary-600' : 'text-muted'}`}
       >
         <path
           d="M6 9l6 6 6-6"
@@ -64,7 +71,11 @@ function ChevronIcon({ open }: { open: boolean }) {
 /* ─── Number Badge ─── */
 function NumberBadge({ number, isOpen }: { number: number; isOpen: boolean }) {
   return (
-    <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300 ${isOpen ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+    <span
+      className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-display font-bold flex-shrink-0 transition-all duration-300 ${
+        isOpen ? 'bg-primary-600 text-white' : 'bg-muted text-muted'
+      }`}
+    >
       {number}
     </span>
   )
@@ -85,10 +96,11 @@ function FAQItem({
   return (
     <div
       className={`
-        bg-white rounded-2xl border overflow-hidden transition-all duration-300
-        ${isOpen
-          ? 'border-blue-200 shadow-medium ring-1 ring-blue-100'
-          : 'border-slate-200 shadow-soft hover:shadow-medium hover:border-slate-300'
+        card rounded-2xl border overflow-hidden transition-all duration-300
+        ${
+          isOpen
+            ? 'border-primary-300 shadow-md ring-2 ring-primary-100'
+            : 'border-default shadow-card hover:shadow-card-hover hover:border-primary-200'
         }
       `}
     >
@@ -99,7 +111,11 @@ function FAQItem({
       >
         <div className="flex items-center gap-3 flex-1">
           <NumberBadge number={index + 1} isOpen={isOpen} />
-          <span className={`text-sm font-semibold transition-colors ${isOpen ? 'text-blue-700' : 'text-slate-900'}`}>
+          <span
+            className={`text-sm font-display font-semibold transition-colors ${
+              isOpen ? 'text-primary-700' : 'text-primary'
+            }`}
+          >
             {faq.q}
           </span>
         </div>
@@ -108,18 +124,13 @@ function FAQItem({
 
       <div
         className={`
-          transition-all duration-300 ease-out
-          ${isOpen
-            ? 'max-h-[500px] opacity-100'
-            : 'max-h-0 opacity-0 overflow-hidden'
-          }
+          transition-all duration-300 ease-expo
+          ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}
         `}
       >
         <div className="px-5 pb-5">
-          <div className="h-px bg-slate-100 mb-4" />
-          <p className="text-[13px] text-slate-600 leading-relaxed pl-10">
-            {faq.a}
-          </p>
+          <div className="h-px bg-border mb-4" />
+          <p className="text-sm text-secondary leading-relaxed pl-10">{faq.a}</p>
         </div>
       </div>
     </div>
@@ -132,14 +143,21 @@ export function FAQSection() {
   const listRef = useRevealGroup()
 
   return (
-    <section id="faq" className="section-padding relative bg-white">
-      {/* Background */}
+    <section id="faq" className="section-padding relative bg-card overflow-hidden">
+      {/* Background Decorations */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-0 right-1/4 w-[400px] h-[300px] bg-blue-500/[0.04] blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 left-1/4 w-[400px] h-[200px] bg-purple-500/[0.03] blur-[100px] rounded-full" />
+        <div
+          className="blob-bg top-0 right-1/4 w-[400px] h-[300px]"
+          style={{ background: 'var(--primary-500)' }}
+        />
+        <div
+          className="blob-bg bottom-0 left-1/4 w-[400px] h-[200px]"
+          style={{ background: 'var(--violet-500)' }}
+        />
       </div>
 
       <Container>
+        {/* Section Header */}
         <div ref={headerRef} className="reveal">
           <SectionTitle
             eyebrow="❓ FAQ"
@@ -148,7 +166,11 @@ export function FAQSection() {
           />
         </div>
 
-        <div ref={listRef} className="mt-10 max-w-3xl mx-auto space-y-3 reveal-stagger">
+        {/* FAQ List */}
+        <div
+          ref={listRef}
+          className="mt-10 max-w-3xl mx-auto space-y-3 reveal-stagger"
+        >
           {faqs.map((faq, i) => (
             <div key={faq.q} className="reveal">
               <FAQItem
@@ -162,26 +184,32 @@ export function FAQSection() {
         </div>
 
         {/* Contact CTA */}
-        <div className="mt-12 max-w-3xl mx-auto">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div className="mt-12 max-w-3xl mx-auto animate-fade-in">
+          <div className="card rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-violet-50 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 shadow-card">
             <div>
-              <h3 className="text-base font-bold text-slate-900 mb-1.5 flex items-center gap-2">
+              <h3 className="font-display text-base font-bold text-primary mb-1.5 flex items-center gap-2">
                 <span className="text-xl">💬</span>
                 Still have questions?
               </h3>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-secondary">
                 WhatsApp or email — we typically respond within a few hours.
               </p>
             </div>
-            <a
+            <Link
               href="/contact"
-              className="btn-primary !text-[13px] !px-6 !py-3 flex-shrink-0"
+              className="btn-primary text-sm px-6 py-3 flex-shrink-0 flex items-center gap-2"
             >
               Contact Us
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path
+                  d="M3 8h10M9 4l4 4-4 4"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
-            </a>
+            </Link>
           </div>
         </div>
       </Container>

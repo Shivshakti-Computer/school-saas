@@ -1,3 +1,7 @@
+// FILE: src/components/marketing/SectionHeader.tsx
+// FULLY CONVERTED TO LOCKED DESIGN PATTERN
+// ═══════════════════════════════════════════════════════════
+
 'use client'
 
 import { useReveal } from '@/hooks/useReveal'
@@ -22,18 +26,22 @@ export function SectionHeader({
       ref={ref}
       className={`reveal max-w-2xl ${align === 'center' ? 'mx-auto text-center' : ''}`}
     >
+      {/* Eyebrow Badge */}
       <div
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-xs font-medium text-blue-700 mb-3 ${
-          align === 'center' ? 'mx-auto' : ''
-        }`}
+        className={`badge badge-brand inline-flex items-center gap-1.5 mb-4 ${align === 'center' ? 'mx-auto' : ''
+          }`}
       >
         {eyebrow}
       </div>
-      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 tracking-tight leading-tight">
+
+      {/* Title */}
+      <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-extrabold text-primary tracking-tight leading-tight">
         {title}
       </h2>
+
+      {/* Subtitle */}
       {subtitle && (
-        <p className="mt-3 text-base text-slate-600 leading-relaxed">
+        <p className="mt-4 text-base sm:text-lg text-secondary leading-relaxed">
           {subtitle}
         </p>
       )}

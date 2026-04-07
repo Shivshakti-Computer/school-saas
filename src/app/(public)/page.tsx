@@ -1,4 +1,5 @@
 import { Hero } from '@/components/marketing/Hero'
+import { AIFeatureShowcase } from '@/components/marketing/AIFeatureShowcase'
 import { FeatureGrid } from '@/components/marketing/FeatureGrid'
 import { PricingSection } from '@/components/marketing/PricingSection'
 import { Testimonials } from '@/components/marketing/Testimonials'
@@ -7,53 +8,87 @@ import { CTA } from '@/components/marketing/CTA'
 import type { Metadata } from 'next'
 import { AIAssistantBanner } from '@/components/marketing/AIAssitantBanner'
 
+/* ─────────────────────────────────────────────────────────────
+   PAGE METADATA
+   ───────────────────────────────────────────────────────────── */
+
 export const metadata: Metadata = {
-  title: 'Skolify — AI-Powered School Management Software | Early Access',
+  title: 'Skolify — AI-Powered School Management Software',
   description:
-    'Modern school management platform with built-in AI assistant in all Indian languages. Admissions, fees, attendance, exams, parent portals & 20+ modules. Early access starting ₹499/month.',
-  alternates: {
-    canonical: '/',
-  },
+    'School management platform with built-in AI assistant. Automate fee reminders, generate message templates, manage student promotions & get contextual help. 20+ modules with intelligent automation.',
+  alternates: { canonical: '/' },
   openGraph: {
-    title: 'Skolify — AI-Powered School Management for Indian Schools',
-    description:
-      'Get early access to India\'s first AI-powered school ERP. Smart fee reminders, automated reports, multilingual AI help & 20+ modules. Built by educators for educators.',
+    title: 'Skolify — AI Assistant Built Into School Management',
+    description: 'Never work alone. AI helps automate fee reminders, create messages, manage promotions & provides instant guidance across all portals.',
     url: 'https://skolify.in',
+    images: [{
+      url: 'https://skolify.in/og-image.png',
+      width: 1200,
+      height: 630,
+      alt: 'Skolify AI-Powered School Management',
+    }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Skolify — AI-Powered School Management',
+    description: 'Built-in AI automates tasks, generates templates & provides instant help. Available 24/7.',
+    images: ['https://skolify.in/og-image.png'],
   },
 }
+
+/* ─────────────────────────────────────────────────────────────
+   HOME PAGE
+   Section order: Hero → AI Showcase → Features → 
+                  Pricing → Testimonials → FAQ → CTA
+   ───────────────────────────────────────────────────────────── */
 
 export default function HomePage() {
   return (
     <>
-      {/* Hero — White bg with blue accent */}
+      {/* ── Hero ── */}
       <Hero />
 
-      {/* ✨ NEW: AI Assistant Highlight Banner */}
-      <section className="section-white">
-        <AIAssistantBanner />
+      {/* ── AI Feature Showcase ── */}
+      <section
+        aria-labelledby="ai-features-heading">
+        <AIFeatureShowcase />
       </section>
 
-      {/* Features — Light gray bg */}
-      <section className="section-light">
+      <AIAssistantBanner/>
+
+      {/* ── Core Features Grid ── */}
+      <section
+        aria-labelledby="features-heading"
+        style={{ background: 'var(--bg-card)' }}
+      >
         <FeatureGrid />
       </section>
 
-      {/* Pricing — White bg */}
-      <section className="section-white">
+      {/* ── Pricing ── */}
+      <section
+        aria-labelledby="pricing-heading"
+        style={{ background: 'var(--bg-muted)' }}
+      >
         <PricingSection />
       </section>
 
-      {/* Testimonials — Light blue tint */}
-      <section className="section-brand-light">
+      {/* ── Testimonials ── */}
+      <section
+        aria-labelledby="testimonials-heading"
+        style={{ background: 'var(--bg-card)' }}
+      >
         <Testimonials />
       </section>
 
-      {/* FAQ — White bg */}
-      <section className="section-white">
+      {/* ── FAQ ── */}
+      <section
+        aria-labelledby="faq-heading"
+        style={{ background: 'var(--bg-muted)' }}
+      >
         <FAQSection />
       </section>
 
-      {/* CTA — Gradient bg */}
+      {/* ── CTA ── */}
       <CTA />
     </>
   )

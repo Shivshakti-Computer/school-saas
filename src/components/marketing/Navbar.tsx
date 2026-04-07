@@ -6,17 +6,25 @@ import { Container } from './Container'
 import { useState, useEffect, useCallback } from 'react'
 import { clsx } from 'clsx'
 
+/* ─────────────────────────────────────────────────────────────
+   TYPES
+   ───────────────────────────────────────────────────────────── */
+
 type NavItem = {
-  href: string
-  label: string
+  href:         string
+  label:        string
   description?: string
-  icon?: React.ReactNode
+  icon?:        React.ReactNode
 }
+
+/* ─────────────────────────────────────────────────────────────
+   NAV DATA
+   ───────────────────────────────────────────────────────────── */
 
 const primaryNav: NavItem[] = [
   { href: '/features', label: 'Features' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/about', label: 'About' },
+  { href: '/pricing',  label: 'Pricing'  },
+  { href: '/about',    label: 'About'    },
 ]
 
 const productMenu: NavItem[] = [
@@ -25,11 +33,12 @@ const productMenu: NavItem[] = [
     label: 'Platform Overview',
     description: 'See everything Skolify offers',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
       </svg>
     ),
   },
@@ -38,7 +47,8 @@ const productMenu: NavItem[] = [
     label: 'All Modules',
     description: '20+ powerful school modules',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
       </svg>
     ),
@@ -46,9 +56,10 @@ const productMenu: NavItem[] = [
   {
     href: '/security',
     label: 'Security',
-    description: 'Enterprise-grade protection',
+    description: 'Enterprise-grade data protection',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </svg>
     ),
@@ -56,9 +67,10 @@ const productMenu: NavItem[] = [
   {
     href: '/faq',
     label: 'FAQ',
-    description: 'Common questions',
+    description: 'Common questions answered',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <circle cx="12" cy="12" r="10" />
         <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
         <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -71,9 +83,10 @@ const communityMenu: NavItem[] = [
   {
     href: '/reviews',
     label: 'Reviews',
-    description: 'What schools say',
+    description: 'What schools say about us',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
       </svg>
     ),
@@ -81,9 +94,10 @@ const communityMenu: NavItem[] = [
   {
     href: '/updates',
     label: 'Updates',
-    description: 'Latest features',
+    description: 'Latest features & changelog',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
       </svg>
     ),
@@ -91,9 +105,10 @@ const communityMenu: NavItem[] = [
   {
     href: '/enquiry',
     label: 'Enquiry',
-    description: 'Send us a query',
+    description: 'Send us your query',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
@@ -104,9 +119,10 @@ const companyMenu: NavItem[] = [
   {
     href: '/contact',
     label: 'Contact Us',
-    description: 'Get in touch',
+    description: 'Get in touch with our team',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
       </svg>
     ),
@@ -114,9 +130,10 @@ const companyMenu: NavItem[] = [
   {
     href: '/privacy',
     label: 'Privacy Policy',
-    description: 'Data handling',
+    description: 'How we handle your data',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <rect x="3" y="11" width="18" height="11" rx="2" />
         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
       </svg>
@@ -127,7 +144,8 @@ const companyMenu: NavItem[] = [
     label: 'Terms of Service',
     description: 'Terms & conditions',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <polyline points="14,2 14,8 20,8" />
       </svg>
@@ -136,9 +154,10 @@ const companyMenu: NavItem[] = [
   {
     href: '/refund',
     label: 'Refund Policy',
-    description: 'Refund process',
+    description: 'Our refund process',
     icon: (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <polyline points="23,4 23,10 17,10" />
         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
       </svg>
@@ -146,72 +165,160 @@ const companyMenu: NavItem[] = [
   },
 ]
 
+/* ─────────────────────────────────────────────────────────────
+   HELPERS
+   ───────────────────────────────────────────────────────────── */
+
 function isActivePath(pathname: string, href: string) {
   if (href === '/') return pathname === '/'
   return pathname === href || pathname.startsWith(href + '/')
 }
 
-/* ─── Logo — Minimal ─── */
+/* ─────────────────────────────────────────────────────────────
+   LOGO
+   ───────────────────────────────────────────────────────────── */
+
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2 group">
-      <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center transition-transform group-hover:scale-105">
-        <span className="text-white font-bold text-sm">SF</span>
+    <Link
+      href="/"
+      className="flex items-center gap-2.5 group flex-shrink-0"
+      aria-label="Skolify — Home"
+    >
+      {/* Icon mark */}
+      <div
+        className="w-8 h-8 rounded-[10px] flex items-center justify-center
+                   transition-transform duration-200 group-hover:scale-105"
+        style={{
+          background: 'linear-gradient(135deg, var(--primary-500) 0%, var(--primary-700) 100%)',
+          boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
+        }}
+      >
+        {/* Graduation cap mark */}
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 3L2 8.5l10 5.5 10-5.5L12 3z"
+            fill="white" fillOpacity="0.95" />
+          <path d="M7 11.5v4.5c0 2 2.2 3.5 5 3.5s5-1.5 5-3.5v-4.5"
+            stroke="white" strokeWidth="1.8"
+            strokeLinecap="round" fill="none" />
+          <line x1="22" y1="8.5" x2="22" y2="14"
+            stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="22" cy="14.5" r="1" fill="white" />
+        </svg>
       </div>
-      <div className="leading-tight">
-        <div className="text-sm font-bold text-slate-900">Skolify</div>
-        <div className="text-[9px] text-slate-500 font-medium">by Shivshakti CA</div>
+
+      {/* Wordmark */}
+      <div className="leading-none">
+        <div
+          className="text-[15px] font-bold tracking-tight font-display"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Skolify
+        </div>
+        <div
+          className="text-[9px] font-medium mt-0.5 tracking-wide"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          by Shivshakti Computer Academy
+        </div>
       </div>
     </Link>
   )
 }
 
-/* ─── Nav Link — Minimal ─── */
-function NavLink({ href, label, isActive }: { href: string; label: string; isActive: boolean }) {
+/* ─────────────────────────────────────────────────────────────
+   NAV LINK
+   ───────────────────────────────────────────────────────────── */
+
+function NavLink({
+  href,
+  label,
+  isActive,
+}: {
+  href:     string
+  label:    string
+  isActive: boolean
+}) {
   return (
     <Link
       href={href}
       className={clsx(
-        'relative text-sm font-medium py-1 transition-colors',
-        isActive ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
+        'relative text-sm font-medium py-1 transition-colors duration-150 font-body',
+        'whitespace-nowrap'
       )}
+      style={{
+        color: isActive ? 'var(--primary-600)' : 'var(--text-secondary)',
+      }}
+      onMouseEnter={e => {
+        if (!isActive)
+          (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)'
+      }}
+      onMouseLeave={e => {
+        if (!isActive)
+          (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)'
+      }}
     >
       {label}
+
+      {/* Active underline */}
       {isActive && (
-        <span className="absolute -bottom-px left-0 right-0 h-0.5 rounded-full bg-blue-600" />
+        <span
+          className="absolute -bottom-px left-0 right-0 h-[2px] rounded-full"
+          style={{ background: 'var(--primary-500)' }}
+        />
       )}
     </Link>
   )
 }
 
-/* ─── Hamburger Icon — Minimal ─── */
+/* ─────────────────────────────────────────────────────────────
+   HAMBURGER ICON
+   ───────────────────────────────────────────────────────────── */
+
 function MenuIcon({ open }: { open: boolean }) {
   return (
-    <div className="w-5 h-4 relative flex flex-col justify-between">
+    <div className="w-5 h-[14px] relative flex flex-col justify-between">
       <span
-        className={clsx(
-          'block h-0.5 w-5 bg-slate-700 rounded-full transition-all duration-200',
-          open && 'rotate-45 translate-y-[7px]'
-        )}
+        className="block h-[2px] rounded-full transition-all duration-200"
+        style={{
+          background:  'var(--text-primary)',
+          transform:    open ? 'rotate(45deg) translateY(6px)' : 'none',
+          width:        '20px',
+        }}
       />
       <span
-        className={clsx(
-          'block h-0.5 w-5 bg-slate-700 rounded-full transition-all duration-200',
-          open && 'opacity-0'
-        )}
+        className="block h-[2px] rounded-full transition-all duration-200"
+        style={{
+          background: 'var(--text-primary)',
+          opacity:     open ? 0 : 1,
+          width:       '20px',
+        }}
       />
       <span
-        className={clsx(
-          'block h-0.5 w-5 bg-slate-700 rounded-full transition-all duration-200',
-          open && '-rotate-45 -translate-y-[7px]'
-        )}
+        className="block h-[2px] rounded-full transition-all duration-200"
+        style={{
+          background: 'var(--text-primary)',
+          transform:   open ? 'rotate(-45deg) translateY(-6px)' : 'none',
+          width:       '20px',
+        }}
       />
     </div>
   )
 }
 
-/* ─── Dropdown Menu — Minimal ─── */
-function Dropdown({ label, items, pathname }: { label: string; items: NavItem[]; pathname: string }) {
+/* ─────────────────────────────────────────────────────────────
+   DROPDOWN
+   ───────────────────────────────────────────────────────────── */
+
+function Dropdown({
+  label,
+  items,
+  pathname,
+}: {
+  label:    string
+  items:    NavItem[]
+  pathname: string
+}) {
   const [open, setOpen] = useState(false)
   const hasActive = items.some(item => isActivePath(pathname, item.href))
 
@@ -221,130 +328,260 @@ function Dropdown({ label, items, pathname }: { label: string; items: NavItem[];
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
+      {/* Trigger */}
       <button
         type="button"
-        className={clsx(
-          'relative text-sm font-medium py-1 transition-colors inline-flex items-center gap-1',
-          hasActive ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900'
-        )}
+        className="relative inline-flex items-center gap-1 text-sm font-medium
+                   py-1 transition-colors duration-150 font-body whitespace-nowrap"
+        style={{ color: hasActive ? 'var(--primary-600)' : 'var(--text-secondary)' }}
+        aria-haspopup="true"
+        aria-expanded={open}
       >
         {label}
+
+        {/* Chevron */}
         <svg
-          width="12"
-          height="12"
-          viewBox="0 0 16 16"
-          fill="none"
-          className={clsx('transition-transform duration-150', open && 'rotate-180')}
+          width="11" height="11" viewBox="0 0 16 16" fill="none"
+          className="transition-transform duration-150"
+          style={{ transform: open ? 'rotate(180deg)' : 'none' }}
         >
-          <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <path
+            d="M4 6l4 4 4-4"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
         </svg>
+
+        {/* Active underline */}
         {hasActive && (
-          <span className="absolute -bottom-px left-0 right-0 h-0.5 rounded-full bg-blue-600" />
+          <span
+            className="absolute -bottom-px left-0 right-0 h-[2px] rounded-full"
+            style={{ background: 'var(--primary-500)' }}
+          />
         )}
       </button>
 
-      {/* Dropdown Panel — Minimal */}
+      {/* Panel */}
       <div
-        className={clsx(
-          'absolute left-1/2 -translate-x-1/2 top-full w-64 pt-2 transition-all duration-150',
-          open
-            ? 'opacity-100 visible translate-y-0'
-            : 'opacity-0 invisible -translate-y-1 pointer-events-none'
-        )}
+        className="absolute left-1/2 -translate-x-1/2 top-full pt-3 w-60"
+        style={{
+          pointerEvents: open ? 'auto' : 'none',
+          opacity:       open ? 1 : 0,
+          transform:     `translateX(-50%) translateY(${open ? '0px' : '-6px'})`,
+          transition:    'opacity 150ms ease, transform 150ms ease',
+          visibility:    open ? 'visible' : 'hidden',
+        }}
       >
-        <div className="rounded-xl border border-slate-200 bg-white p-1.5">
-          {items.map(item => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={clsx(
-                'flex items-start gap-2.5 rounded-lg px-3 py-2 transition-colors group',
-                isActivePath(pathname, item.href)
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-slate-700 hover:bg-slate-50'
-              )}
-            >
-              {item.icon && (
-                <span
-                  className={clsx(
-                    'mt-0.5 shrink-0 transition-colors',
-                    isActivePath(pathname, item.href)
-                      ? 'text-blue-600'
-                      : 'text-slate-400 group-hover:text-blue-500'
-                  )}
+        {/* Arrow */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 top-[6px] w-3 h-3 rotate-45"
+          style={{
+            background:  'var(--bg-card)',
+            border:      '1px solid var(--border)',
+            borderBottom:'none',
+            borderRight: 'none',
+          }}
+        />
+
+        {/* Menu box */}
+        <div
+          className="rounded-[var(--radius-lg)] overflow-hidden"
+          style={{
+            background: 'var(--bg-card)',
+            border:     '1px solid var(--border)',
+            boxShadow:  'var(--shadow-lg)',
+          }}
+        >
+          <div className="p-1.5">
+            {items.map(item => {
+              const active = isActivePath(pathname, item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="flex items-start gap-2.5 rounded-[var(--radius-md)]
+                             px-3 py-2.5 transition-colors duration-150 group"
+                  style={{
+                    background: active ? 'var(--primary-50)' : 'transparent',
+                    color:      active ? 'var(--primary-700)' : 'var(--text-primary)',
+                  }}
+                  onMouseEnter={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.background = 'var(--bg-muted)'
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!active) {
+                      (e.currentTarget as HTMLElement).style.background = 'transparent'
+                    }
+                  }}
                 >
-                  {item.icon}
-                </span>
-              )}
-              <div>
-                <span className="text-sm font-medium block">{item.label}</span>
-                {item.description && (
-                  <span className="text-xs text-slate-500 mt-0.5 block">{item.description}</span>
-                )}
-              </div>
-            </Link>
-          ))}
+                  {/* Icon */}
+                  {item.icon && (
+                    <span
+                      className="mt-0.5 flex-shrink-0 transition-colors duration-150"
+                      style={{
+                        color: active
+                          ? 'var(--primary-500)'
+                          : 'var(--text-muted)',
+                      }}
+                    >
+                      {item.icon}
+                    </span>
+                  )}
+
+                  {/* Text */}
+                  <div className="min-w-0">
+                    <span
+                      className="text-sm font-medium block font-body"
+                      style={{ color: 'inherit' }}
+                    >
+                      {item.label}
+                    </span>
+                    {item.description && (
+                      <span
+                        className="text-xs mt-0.5 block leading-relaxed"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        {item.description}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════════
-   NAVBAR COMPONENT — Minimal
-   ═══════════════════════════════════════════════════════ */
+/* ─────────────────────────────────────────────────────────────
+   MOBILE NAV SECTION
+   ───────────────────────────────────────────────────────────── */
+
+function MobileSection({
+  title,
+  items,
+  pathname,
+  onClose,
+}: {
+  title:    string
+  items:    NavItem[]
+  pathname: string
+  onClose:  () => void
+}) {
+  return (
+    <div>
+      {/* Section label */}
+      <p
+        className="text-[10px] font-bold uppercase tracking-widest px-3 pt-4 pb-1.5"
+        style={{ color: 'var(--text-muted)' }}
+      >
+        {title}
+      </p>
+
+      {items.map(item => {
+        const active = isActivePath(pathname, item.href)
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onClose}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-[var(--radius-md)]
+                       text-sm font-medium transition-colors duration-150 font-body mx-1"
+            style={{
+              background: active ? 'var(--primary-50)'  : 'transparent',
+              color:      active ? 'var(--primary-700)' : 'var(--text-secondary)',
+            }}
+          >
+            {item.icon && (
+              <span style={{ color: active ? 'var(--primary-500)' : 'var(--text-muted)' }}>
+                {item.icon}
+              </span>
+            )}
+            {item.label}
+          </Link>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NAVBAR — Main
+   ───────────────────────────────────────────────────────────── */
+
 export function Navbar() {
   const pathname = usePathname()
+
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-  const [mounted, setMounted] = useState(false)
+  const [scrolled,   setScrolled]   = useState(false)
+  const [mounted,    setMounted]     = useState(false)
 
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  /* Mount guard — SSR safe */
+  useEffect(() => { setMounted(true) }, [])
 
+  /* Scroll detection */
   useEffect(() => {
     if (!mounted) return
-    const onScroll = () => setScrolled(window.scrollY > 10)
+    const onScroll = () => setScrolled(window.scrollY > 12)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [mounted])
 
+  /* Body scroll lock when mobile open */
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
-    return () => {
-      document.body.style.overflow = ''
-    }
+    return () => { document.body.style.overflow = '' }
   }, [mobileOpen])
 
+  /* Close on Escape */
   const closeMobile = useCallback(() => setMobileOpen(false), [])
-
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeMobile()
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeMobile() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [closeMobile])
 
-  const headerClasses = clsx(
-    'sticky top-0 z-50 transition-all duration-200',
-    mounted && scrolled
-      ? 'bg-white/95 backdrop-blur-sm border-b border-slate-200'
-      : 'bg-white border-b border-transparent'
-  )
-
   return (
     <>
-      <header className={headerClasses}>
+      {/* ── Header ── */}
+      <header
+        className="sticky top-0 z-50 transition-all duration-200"
+        style={{
+          background:   mounted && scrolled
+            ? 'rgba(248,247,255,0.92)'
+            : 'rgba(248,247,255,0.75)',
+          backdropFilter:         'blur(20px) saturate(180%)',
+          WebkitBackdropFilter:   'blur(20px) saturate(180%)',
+          borderBottom:  mounted && scrolled
+            ? '1px solid var(--border)'
+            : '1px solid transparent',
+          boxShadow: mounted && scrolled
+            ? '0 2px 12px rgba(99,102,241,0.07)'
+            : 'none',
+        }}
+      >
         <Container>
-          <div className="h-14 flex items-center justify-between gap-6">
+          <div className="h-[60px] flex items-center justify-between gap-6">
+
+            {/* Logo */}
             <Logo />
 
-            {/* Desktop Navigation — Minimal */}
-            <nav className="hidden lg:flex items-center gap-6">
-              <NavLink href="/" label="Home" isActive={pathname === '/'} />
+            {/* Desktop Nav */}
+            <nav
+              className="hidden lg:flex items-center gap-6"
+              aria-label="Main navigation"
+            >
+              <NavLink
+                href="/"
+                label="Home"
+                isActive={pathname === '/'}
+              />
 
               {primaryNav.map(item => (
                 <NavLink
@@ -355,226 +592,252 @@ export function Navbar() {
                 />
               ))}
 
-              <Dropdown label="Product" items={productMenu} pathname={pathname} />
+              <Dropdown label="Product"   items={productMenu}   pathname={pathname} />
               <Dropdown label="Community" items={communityMenu} pathname={pathname} />
-              <Dropdown label="More" items={companyMenu} pathname={pathname} />
+              <Dropdown label="More"      items={companyMenu}   pathname={pathname} />
             </nav>
 
-            {/* Desktop CTA Buttons — Minimal */}
-            <div className="hidden lg:flex items-center gap-2">
+            {/* Desktop CTA */}
+            <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
               <Link
                 href="/login"
-                className="text-sm font-medium text-slate-600 hover:text-blue-600 px-3 py-1.5 rounded-lg transition-colors"
+                className="text-sm font-medium px-3.5 py-2 rounded-[var(--radius-md)]
+                           transition-colors duration-150 font-body"
+                style={{ color: 'var(--text-secondary)' }}
+                onMouseEnter={e =>
+                  (e.currentTarget.style.background = 'var(--bg-muted)')
+                }
+                onMouseLeave={e =>
+                  (e.currentTarget.style.background = 'transparent')
+                }
               >
                 Log in
               </Link>
+
               <Link
                 href="/register"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold
+                           text-white px-4 py-2 rounded-[var(--radius-md)]
+                           transition-all duration-150 font-display"
+                style={{
+                  background: 'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
+                  boxShadow:  '0 1px 3px rgba(99,102,241,0.25)',
+                  color: 'white'
+                }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLElement
+                  el.style.background  = 'linear-gradient(135deg, var(--primary-600), var(--primary-700))'
+                  el.style.boxShadow   = '0 4px 12px rgba(99,102,241,0.35)'
+                  el.style.transform   = 'translateY(-1px)'
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLElement
+                  el.style.background  = 'linear-gradient(135deg, var(--primary-500), var(--primary-600))'
+                  el.style.boxShadow   = '0 1px 3px rgba(99,102,241,0.25)'
+                  el.style.transform   = 'translateY(0)'
+                }}
               >
                 Start Free Trial
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <path
-                    d="M3 8h10M9 4l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
+                  <path d="M3 8h10M9 4l4 4-4 4"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
               </Link>
             </div>
 
-            {/* Mobile Menu Button */}
+            {/* Mobile hamburger */}
             <button
-              className="lg:hidden p-2 -mr-2 rounded-lg hover:bg-slate-100 transition-colors"
-              onClick={() => setMobileOpen(!mobileOpen)}
+              className="lg:hidden p-2 -mr-2 rounded-[var(--radius-md)]
+                         transition-colors duration-150"
+              onClick={() => setMobileOpen(prev => !prev)}
               aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileOpen}
+              style={{ background: mobileOpen ? 'var(--bg-muted)' : 'transparent' }}
             >
               <MenuIcon open={mobileOpen} />
             </button>
+
           </div>
         </Container>
       </header>
 
-      {/* ─── Mobile Menu — Minimal ─── */}
+      {/* ── Mobile Menu ── */}
       {mobileOpen && (
         <div className="fixed inset-0 z-[60] lg:hidden">
-          {/* Overlay */}
+
+          {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm"
-            style={{ animation: 'fadeIn 0.2s ease forwards' }}
+            className="absolute inset-0"
+            style={{
+              background:           'rgba(30,27,75,0.4)',
+              backdropFilter:       'blur(4px)',
+              WebkitBackdropFilter: 'blur(4px)',
+              animation:            'overlayIn 0.25s ease forwards',
+            }}
             onClick={closeMobile}
+            aria-hidden="true"
           />
 
-          {/* Slide Panel */}
+          {/* Slide-in panel — from right */}
           <div
-            className="absolute top-0 right-0 h-full w-[85%] max-w-sm bg-white border-l border-slate-200 flex flex-col"
-            style={{ animation: 'slideUp 0.3s ease-out forwards' }}
+            className="absolute top-0 right-0 h-full flex flex-col"
+            style={{
+              width:      'min(85vw, 320px)',
+              background: 'var(--bg-card)',
+              borderLeft: '1px solid var(--border)',
+              boxShadow:  '-4px 0 32px rgba(30,27,75,0.15)',
+              animation:  'mobileMenuIn 0.3s cubic-bezier(0.16,1,0.3,1) forwards',
+            }}
           >
-            {/* Header */}
-            <div className="h-14 flex items-center justify-between px-4 border-b border-slate-100">
+            {/* Mobile header */}
+            <div
+              className="h-[60px] flex items-center justify-between px-4 flex-shrink-0"
+              style={{ borderBottom: '1px solid var(--border)' }}
+            >
               <Logo />
               <button
                 onClick={closeMobile}
-                className="p-2 -mr-2 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-2 -mr-2 rounded-[var(--radius-md)]
+                           transition-colors duration-150"
                 aria-label="Close menu"
+                style={{ color: 'var(--text-muted)' }}
+                onMouseEnter={e =>
+                  (e.currentTarget.style.background = 'var(--bg-muted)')
+                }
+                onMouseLeave={e =>
+                  (e.currentTarget.style.background = 'transparent')
+                }
               >
-                <MenuIcon open={true} />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
               </button>
             </div>
 
-            {/* Navigation Links */}
-            <nav className="flex-1 overflow-y-auto px-3 py-3">
-              <div className="space-y-0.5">
+            {/* Nav links */}
+            <nav
+              className="flex-1 overflow-y-auto py-3 portal-scrollbar"
+              aria-label="Mobile navigation"
+            >
+              <div className="px-1 space-y-0.5">
+
                 {/* Home */}
                 <Link
                   href="/"
                   onClick={closeMobile}
-                  className={clsx(
-                    'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    pathname === '/'
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  )}
+                  className="flex items-center gap-2.5 px-3 py-2
+                             rounded-[var(--radius-md)] text-sm font-medium
+                             transition-colors duration-150 font-body mx-1"
+                  style={{
+                    background: pathname === '/' ? 'var(--primary-50)'  : 'transparent',
+                    color:      pathname === '/' ? 'var(--primary-700)' : 'var(--text-secondary)',
+                  }}
                 >
                   Home
                 </Link>
 
-                {/* Primary Nav */}
-                {primaryNav.map(item => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMobile}
-                    className={clsx(
-                      'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                      isActivePath(pathname, item.href)
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
+                {/* Primary */}
+                {primaryNav.map(item => {
+                  const active = isActivePath(pathname, item.href)
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={closeMobile}
+                      className="flex items-center gap-2.5 px-3 py-2
+                                 rounded-[var(--radius-md)] text-sm font-medium
+                                 transition-colors duration-150 font-body mx-1"
+                      style={{
+                        background: active ? 'var(--primary-50)'  : 'transparent',
+                        color:      active ? 'var(--primary-700)' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
 
-                {/* Product Section */}
-                <div className="pt-3 pb-1.5 px-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Product
-                  </p>
-                </div>
-                {productMenu.map(item => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMobile}
-                    className={clsx(
-                      'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                      isActivePath(pathname, item.href)
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    {item.icon && (
-                      <span
-                        className={clsx(
-                          'shrink-0',
-                          isActivePath(pathname, item.href) ? 'text-blue-600' : 'text-slate-400'
-                        )}
-                      >
-                        {item.icon}
-                      </span>
-                    )}
-                    {item.label}
-                  </Link>
-                ))}
-
-                {/* Community Section */}
-                <div className="pt-3 pb-1.5 px-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Community
-                  </p>
-                </div>
-                {communityMenu.map(item => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMobile}
-                    className={clsx(
-                      'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                      isActivePath(pathname, item.href)
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    {item.icon && (
-                      <span className="shrink-0 text-slate-400">{item.icon}</span>
-                    )}
-                    {item.label}
-                  </Link>
-                ))}
-
-                {/* Company Section */}
-                <div className="pt-3 pb-1.5 px-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    Company
-                  </p>
-                </div>
-                {companyMenu.map(item => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={closeMobile}
-                    className={clsx(
-                      'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                      isActivePath(pathname, item.href)
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    )}
-                  >
-                    {item.icon && (
-                      <span
-                        className={clsx(
-                          'shrink-0',
-                          isActivePath(pathname, item.href) ? 'text-blue-600' : 'text-slate-400'
-                        )}
-                      >
-                        {item.icon}
-                      </span>
-                    )}
-                    {item.label}
-                  </Link>
-                ))}
+                {/* Sections */}
+                <MobileSection
+                  title="Product"
+                  items={productMenu}
+                  pathname={pathname}
+                  onClose={closeMobile}
+                />
+                <MobileSection
+                  title="Community"
+                  items={communityMenu}
+                  pathname={pathname}
+                  onClose={closeMobile}
+                />
+                <MobileSection
+                  title="Company"
+                  items={companyMenu}
+                  pathname={pathname}
+                  onClose={closeMobile}
+                />
               </div>
             </nav>
 
-            {/* CTA Buttons */}
-            <div className="p-3 border-t border-slate-100 space-y-2">
+            {/* CTA footer */}
+            <div
+              className="p-3 space-y-2 flex-shrink-0"
+              style={{ borderTop: '1px solid var(--border)' }}
+            >
               <Link
                 href="/login"
                 onClick={closeMobile}
-                className="block w-full text-center py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                className="block w-full text-center py-2.5 text-sm font-semibold
+                           rounded-[var(--radius-md)] transition-colors duration-150
+                           font-display"
+                style={{
+                  background: 'var(--bg-muted)',
+                  color:      'var(--text-primary)',
+                  border:     '1px solid var(--border)',
+                }}
               >
                 Log in
               </Link>
               <Link
                 href="/register"
                 onClick={closeMobile}
-                className="block w-full text-center py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                className="block w-full text-center py-2.5 text-sm font-semibold
+                           text-white rounded-[var(--radius-md)] transition-all
+                           duration-150 font-display"
+                style={{
+                  background: 'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
+                  boxShadow:  '0 2px 8px rgba(99,102,241,0.3)',
+                }}
               >
                 Start Free Trial →
               </Link>
             </div>
 
-            {/* Branding */}
-            <div className="px-4 py-2.5 border-t border-slate-100">
-              <p className="text-[10px] text-slate-400 text-center">
+            {/* Footer brand */}
+            <div
+              className="px-4 py-2.5 text-center flex-shrink-0"
+              style={{ borderTop: '1px solid var(--border)' }}
+            >
+              <p
+                className="text-[10px] tracking-wide"
+                style={{ color: 'var(--text-muted)' }}
+              >
                 A unit of Shivshakti Computer Academy
               </p>
             </div>
           </div>
         </div>
       )}
+
+      {/* Mobile menu animation */}
+      <style>{`
+        @keyframes mobileMenuIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to   { transform: translateX(0);    opacity: 1; }
+        }
+      `}</style>
     </>
   )
 }

@@ -1,396 +1,616 @@
-/* ============================================================
-   FILE: src/components/ui/index.tsx
-   Shared UI primitives — Button, Input, Badge, Card, Spinner
-   ============================================================ */
-
 'use client'
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, forwardRef } from 'react'
+
+import {
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  forwardRef,
+} from 'react'
 import { clsx } from 'clsx'
 
-/* ── Button ── */
-type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
-type BtnSize = 'sm' | 'md' | 'lg'
+/* ─────────────────────────────────────────────────────────────
+   BUTTON
+   ───────────────────────────────────────────────────────────── */
+
+type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent'
+type BtnSize    = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-    variant?: BtnVariant
-    size?: BtnSize
-    loading?: boolean
+  variant?: BtnVariant
+  size?:    BtnSize
+  loading?: boolean
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ variant = 'primary', size = 'md', loading, children, className, disabled, ...props }, ref) => {
-        const base = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed select-none'
+  (
+    {
+      variant = 'primary',
+      size    = 'md',
+      loading,
+      children,
+      className,
+      disabled,
+      ...props
+    },
+    ref
+  ) => {
+    const base =
+      'inline-flex items-center justify-center gap-2 font-semibold font-display ' +
+      'rounded-[var(--radius-md)] transition-all duration-150 ' +
+      'disabled:opacity-50 disabled:cursor-not-allowed select-none ' +
+      'active:scale-[.98]'
 
-        const variants: Record<BtnVariant, string> = {
-            primary: 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-[.98] shadow-sm',
-            secondary: 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 active:scale-[.98]',
-            ghost: 'text-slate-600 hover:bg-slate-100 active:scale-[.98]',
-            danger: 'bg-red-600 text-white hover:bg-red-700 active:scale-[.98]',
-        }
+    const variants: Record<BtnVariant, string> = {
+      primary:
+        'text-white shadow-sm ' +
+        '[background:linear-gradient(135deg,var(--primary-500),var(--primary-600))] ' +
+        'hover:[background:linear-gradient(135deg,var(--primary-600),var(--primary-700))] ' +
+        'hover:shadow-[0_4px_12px_rgba(99,102,241,0.3)]',
 
-        const sizes: Record<BtnSize, string> = {
-            sm: 'px-3 py-1.5 text-xs',
-            md: 'px-4 py-2 text-sm',
-            lg: 'px-5 py-2.5 text-sm',
-        }
+      secondary:
+        '[background:var(--bg-card)] [color:var(--primary-600)] ' +
+        '[border:1.5px_solid_var(--primary-200)] ' +
+        'hover:[background:var(--primary-50)] ' +
+        'hover:[border-color:var(--primary-300)]',
 
-        return (
-            <button
-                ref={ref}
-                disabled={disabled || loading}
-                className={clsx(base, variants[variant], sizes[size], className)}
-                {...props}
-            >
-                {loading && <Spinner size="sm" />}
-                {children}
-            </button>
-        )
+      ghost:
+        '[color:var(--text-secondary)] ' +
+        'hover:[background:var(--bg-muted)] hover:[color:var(--text-primary)]',
+
+      danger:
+        '[background:var(--danger-light)] [color:var(--danger-dark)] ' +
+        '[border:1.5px_solid_rgba(239,68,68,0.2)] ' +
+        'hover:[background:#fee2e2]',
+
+      accent:
+        'text-white ' +
+        '[background:linear-gradient(135deg,var(--accent-400),var(--accent-500))] ' +
+        'hover:[background:linear-gradient(135deg,var(--accent-500),var(--accent-600))] ' +
+        'hover:shadow-[0_4px_12px_rgba(249,115,22,0.3)]',
     }
+
+    const sizes: Record<BtnSize, string> = {
+      sm: 'px-3 py-1.5 text-xs',
+      md: 'px-4 py-2 text-sm',
+      lg: 'px-5 py-2.5 text-sm',
+    }
+
+    return (
+      <button
+        ref={ref}
+        disabled={disabled || loading}
+        className={clsx(base, variants[variant], sizes[size], className)}
+        {...props}
+      >
+        {loading && <Spinner size="sm" />}
+        {children}
+      </button>
+    )
+  }
 )
 Button.displayName = 'Button'
 
+/* ─────────────────────────────────────────────────────────────
+   INPUT
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Input ── */
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-    label?: string
-    error?: string
-    helper?: string
+  label?:  string
+  error?:  string
+  helper?: string
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ label, error, helper, className, ...props }, ref) => (
-        <div className="flex flex-col gap-1">
-            {label && (
-                <label className="text-xs font-medium text-slate-600">{label}</label>
-            )}
-            <input
-                ref={ref}
-                className={clsx(
-                    'h-9 px-3 text-sm rounded-lg border bg-white transition-colors',
-                    'placeholder:text-slate-400',
-                    error
-                        ? 'border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100'
-                        : 'border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50',
-                    className
-                )}
-                {...props}
-            />
-            {error && <p className="text-xs text-red-500">{error}</p>}
-            {helper && !error && <p className="text-xs text-slate-400">{helper}</p>}
-        </div>
-    )
+  ({ label, error, helper, className, ...props }, ref) => (
+    <div className="flex flex-col gap-1">
+      {label && (
+        <label
+          className="text-xs font-semibold font-display"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          {label}
+        </label>
+      )}
+      <input
+        ref={ref}
+        className={clsx(
+          'input-clean',
+          error && 'input-error',
+          className
+        )}
+        {...props}
+      />
+      {error  && <p className="text-xs" style={{ color: 'var(--danger)'      }}>{error}</p>}
+      {helper && !error && (
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{helper}</p>
+      )}
+    </div>
+  )
 )
 Input.displayName = 'Input'
 
+/* ─────────────────────────────────────────────────────────────
+   SELECT
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Select ── */
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-    label?: string
-    error?: string
-    options: { value: string; label: string }[]
+  label?:   string
+  error?:   string
+  options:  { value: string; label: string }[]
 }
 
 export function Select({ label, error, options, className, ...props }: SelectProps) {
-    return (
-        <div className="flex flex-col gap-1">
-            {label && <label className="text-xs font-medium text-slate-600">{label}</label>}
-            <select
-                className={clsx(
-                    'h-9 px-3 text-sm rounded-lg border bg-white transition-colors cursor-pointer',
-                    error
-                        ? 'border-red-400'
-                        : 'border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-50',
-                    className
-                )}
-                {...props}
-            >
-                {options.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-            </select>
-            {error && <p className="text-xs text-red-500">{error}</p>}
-        </div>
-    )
+  return (
+    <div className="flex flex-col gap-1">
+      {label && (
+        <label
+          className="text-xs font-semibold font-display"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          {label}
+        </label>
+      )}
+      <select
+        className={clsx(
+          'h-10 px-3 text-sm rounded-[var(--radius-md)] cursor-pointer',
+          'transition-all duration-150 font-body',
+          'border-[1.5px] focus:outline-none',
+          error
+            ? '[border-color:var(--danger)] [box-shadow:0_0_0_3px_rgba(239,68,68,0.1)]'
+            : '[border-color:var(--border)] [background:var(--bg-card)] [color:var(--text-primary)]' +
+              ' focus:[border-color:var(--primary-500)] focus:[box-shadow:0_0_0_3px_rgba(99,102,241,0.1)]',
+          className
+        )}
+        {...props}
+      >
+        {options.map(o => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {error && (
+        <p className="text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
+      )}
+    </div>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   BADGE
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Badge ── */
-type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'purple'
+type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary'
 
 export function Badge({
-    children,
-    variant = 'default',
-    className,
+  children,
+  variant  = 'default',
+  className,
 }: {
-    children: React.ReactNode
-    variant?: BadgeVariant
-    className?: string
+  children:  React.ReactNode
+  variant?:  BadgeVariant
+  className?: string
 }) {
-    const styles: Record<BadgeVariant, string> = {
-        default: 'bg-slate-100 text-slate-600',
-        success: 'bg-emerald-100 text-emerald-700',
-        warning: 'bg-amber-100 text-amber-700',
-        danger: 'bg-red-100 text-red-700',
-        info: 'bg-blue-100 text-blue-700',
-        purple: 'bg-indigo-100 text-indigo-700',
-    }
-    return (
-        <span className={clsx(
-            'inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium',
-            styles[variant], className
-        )}>
-            {children}
-        </span>
-    )
+  const styles: Record<BadgeVariant, React.CSSProperties> = {
+    default: {
+      background: 'var(--bg-muted)',
+      color:      'var(--text-secondary)',
+      border:     '1px solid var(--border)',
+    },
+    success: {
+      background: 'var(--success-light)',
+      color:      'var(--success-dark)',
+      border:     '1px solid rgba(16,185,129,0.2)',
+    },
+    warning: {
+      background: 'var(--warning-light)',
+      color:      'var(--warning-dark)',
+      border:     '1px solid rgba(245,158,11,0.2)',
+    },
+    danger: {
+      background: 'var(--danger-light)',
+      color:      'var(--danger-dark)',
+      border:     '1px solid rgba(239,68,68,0.2)',
+    },
+    info: {
+      background: 'var(--info-light)',
+      color:      'var(--info-dark)',
+      border:     '1px solid rgba(59,130,246,0.2)',
+    },
+    primary: {
+      background: 'var(--primary-50)',
+      color:      'var(--primary-600)',
+      border:     '1px solid var(--primary-200)',
+    },
+  }
+
+  return (
+    <span
+      className={clsx(
+        'inline-flex items-center px-2.5 py-0.5 rounded-full',
+        'text-xs font-semibold font-display',
+        className
+      )}
+      style={styles[variant]}
+    >
+      {children}
+    </span>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   CARD
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Card ── */
 export function Card({
-    children,
-    className,
-    padding = true,
+  children,
+  className,
+  padding = true,
+  hover   = false,
 }: {
-    children: React.ReactNode
-    className?: string
-    padding?: boolean
+  children:   React.ReactNode
+  className?: string
+  padding?:   boolean
+  hover?:     boolean
 }) {
-    return (
-        <div className={clsx(
-            'bg-white rounded-xl border border-slate-200 shadow-sm',
-            padding && 'p-5',
-            className
-        )}>
-            {children}
-        </div>
-    )
+  return (
+    <div
+      className={clsx(
+        'rounded-[var(--radius-lg)]',
+        'transition-all duration-200',
+        hover && 'cursor-pointer',
+        padding && 'p-5',
+        className
+      )}
+      style={{
+        background: 'var(--bg-card)',
+        border:     '1px solid var(--border)',
+        boxShadow:  'var(--shadow-sm)',
+      }}
+    >
+      {children}
+    </div>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   STAT CARD
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Stat Card ── */
+type StatColor = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+
 export function StatCard({
-    label,
-    value,
-    icon,
-    trend,
-    color = 'indigo',
+  label,
+  value,
+  icon,
+  trend,
+  color = 'primary',
 }: {
-    label: string
-    value: string | number
-    icon: React.ReactNode
-    trend?: string
-    color?: 'indigo' | 'emerald' | 'amber' | 'red' | 'blue'
+  label:  string
+  value:  string | number
+  icon:   React.ReactNode
+  trend?: string
+  color?: StatColor
 }) {
-    const colors = {
-        indigo: { bg: 'bg-indigo-50', icon: 'text-indigo-600', val: 'text-indigo-700' },
-        emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', val: 'text-emerald-700' },
-        amber: { bg: 'bg-amber-50', icon: 'text-amber-600', val: 'text-amber-700' },
-        red: { bg: 'bg-red-50', icon: 'text-red-600', val: 'text-red-700' },
-        blue: { bg: 'bg-blue-50', icon: 'text-blue-600', val: 'text-blue-700' },
-    }
-    const c = colors[color]
-    return (
-        <Card className="flex items-start gap-4">
-            <div className={clsx('p-2.5 rounded-lg', c.bg)}>
-                <span className={clsx('w-5 h-5 block', c.icon)}>{icon}</span>
-            </div>
-            <div>
-                <p className="text-xs text-slate-500 font-medium">{label}</p>
-                <p className={clsx('text-2xl font-semibold mt-0.5', c.val)}>{value}</p>
-                {trend && <p className="text-xs text-slate-400 mt-1">{trend}</p>}
-            </div>
-        </Card>
-    )
-}
+  const colorMap: Record<StatColor, { bg: string; icon: string }> = {
+    primary: { bg: 'var(--primary-50)', icon: 'var(--primary-500)' },
+    success: { bg: 'var(--success-light)', icon: 'var(--success)' },
+    warning: { bg: 'var(--warning-light)', icon: 'var(--warning)' },
+    danger:  { bg: 'var(--danger-light)',  icon: 'var(--danger)'  },
+    info:    { bg: 'var(--info-light)',     icon: 'var(--info)'    },
+  }
 
+  const c = colorMap[color]
 
-/* ── Spinner ── */
-export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-    const sizes = { sm: 'w-3 h-3', md: 'w-5 h-5', lg: 'w-8 h-8' }
-    return (
-        <svg
-            className={clsx('animate-spin text-current', sizes[size])}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
+  return (
+    <div
+      className="flex items-start gap-4 p-5 rounded-[var(--radius-lg)]
+                 transition-all duration-200 portal-stat-card"
+    >
+      <div
+        className="p-2.5 rounded-[var(--radius-md)] flex-shrink-0 stat-icon"
+        style={{ background: c.bg, color: c.icon }}
+      >
+        {icon}
+      </div>
+      <div>
+        <p
+          className="text-xs font-medium font-body stat-label"
+          style={{ color: 'var(--text-muted)' }}
         >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-    )
+          {label}
+        </p>
+        <p className="stat-value mt-0.5">{value}</p>
+        {trend && (
+          <p
+            className="text-xs font-body mt-1"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {trend}
+          </p>
+        )}
+      </div>
+    </div>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   SPINNER
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Modal ── */
+export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
+  const sizes = { sm: 'w-3.5 h-3.5', md: 'w-5 h-5', lg: 'w-7 h-7' }
+  return (
+    <svg
+      className={clsx('animate-spin', sizes[size])}
+      style={{ color: 'currentColor' }}
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+    >
+      <circle
+        className="opacity-25"
+        cx="12" cy="12" r="10"
+        stroke="currentColor" strokeWidth="4"
+      />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+      />
+    </svg>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MODAL
+   ───────────────────────────────────────────────────────────── */
+
 export function Modal({
-    open,
-    onClose,
-    title,
-    children,
-    size = 'md',
+  open,
+  onClose,
+  title,
+  children,
+  size = 'md',
 }: {
-    open: boolean
-    onClose: () => void
-    title: string
-    children: React.ReactNode
-    size?: 'sm' | 'md' | 'lg'
+  open:     boolean
+  onClose:  () => void
+  title:    string
+  children: React.ReactNode
+  size?:    'sm' | 'md' | 'lg'
 }) {
-    if (!open) return null
+  if (!open) return null
 
-    const sizes = {
-        sm: 'max-w-sm',
-        md: 'max-w-lg',
-        lg: 'max-w-2xl',
-    }
+  const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' }
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                onClick={onClose}
-            />
-            <div className={clsx(
-                'relative bg-white rounded-2xl shadow-xl w-full',
-                sizes[size]
-            )}>
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-                    <h3 className="text-base font-semibold text-slate-800">{title}</h3>
-                    <button
-                        onClick={onClose}
-                        className="text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                        <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                    </button>
-                </div>
-                <div className="px-6 py-4">{children}</div>
-            </div>
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background:           'rgba(30,27,75,0.45)',
+          backdropFilter:       'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
+        }}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Panel */}
+      <div
+        className={clsx('relative w-full rounded-[var(--radius-xl)] overflow-hidden', sizes[size])}
+        style={{
+          background: 'var(--bg-card)',
+          border:     '1px solid var(--border)',
+          boxShadow:  'var(--shadow-xl)',
+          animation:  'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid var(--border)' }}
+        >
+          <h3
+            className="text-base font-bold font-display"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {title}
+          </h3>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-[var(--radius-sm)] transition-colors duration-150"
+            style={{ color: 'var(--text-muted)' }}
+            onMouseEnter={e =>
+              (e.currentTarget.style.background = 'var(--bg-muted)')
+            }
+            onMouseLeave={e =>
+              (e.currentTarget.style.background = 'transparent')
+            }
+            aria-label="Close"
+          >
+            <svg
+              className="w-4 h-4" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
-    )
+
+        {/* Body */}
+        <div className="px-5 py-4">{children}</div>
+      </div>
+    </div>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   EMPTY STATE
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Empty State ── */
 export function EmptyState({
-    icon,
-    title,
-    description,
-    action,
+  icon,
+  title,
+  description,
+  action,
 }: {
-    icon: React.ReactNode
-    title: string
-    description?: string
-    action?: React.ReactNode
+  icon:          React.ReactNode
+  title:         string
+  description?:  string
+  action?:       React.ReactNode
 }) {
-    return (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-4 text-slate-400">
-                {icon}
-            </div>
-            <p className="text-sm font-medium text-slate-600">{title}</p>
-            {description && <p className="text-xs text-slate-400 mt-1 max-w-xs">{description}</p>}
-            {action && <div className="mt-4">{action}</div>}
-        </div>
-    )
+  return (
+    <div className="portal-empty">
+      <div className="portal-empty-icon">
+        {icon}
+      </div>
+      <p className="portal-empty-title">{title}</p>
+      {description && (
+        <p className="portal-empty-text">{description}</p>
+      )}
+      {action && <div className="mt-5">{action}</div>}
+    </div>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   TABLE PRIMITIVES
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Table ── */
 export function Table({
-    headers,
-    children,
-    className,
+  headers,
+  children,
+  className,
 }: {
-    headers: string[]
-    children: React.ReactNode
-    className?: string
+  headers:    string[]
+  children:   React.ReactNode
+  className?: string
 }) {
-    return (
-        <div className={clsx('overflow-x-auto', className)}>
-            <table className="w-full text-sm">
-                <thead>
-                    <tr className="border-b border-slate-100">
-                        {headers.map(h => (
-                            <th
-                                key={h}
-                                className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap"
-                            >
-                                {h}
-                            </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">{children}</tbody>
-            </table>
-        </div>
-    )
+  return (
+    <div className={clsx('overflow-x-auto', className)}>
+      <table className="portal-table">
+        <thead>
+          <tr>
+            {headers.map(h => (
+              <th key={h}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
+  )
 }
 
-export function Tr({ children, className }: { children: React.ReactNode; className?: string }) {
-    return (
-        <tr className={clsx('hover:bg-slate-50/60 transition-colors', className)}>
-            {children}
-        </tr>
-    )
+export function Tr({
+  children,
+  className,
+}: {
+  children:   React.ReactNode
+  className?: string
+}) {
+  return <tr className={className}>{children}</tr>
 }
 
-export function Td({ children, className }: { children: React.ReactNode; className?: string }) {
-    return (
-        <td className={clsx('px-4 py-3 text-slate-700', className)}>
-            {children}
-        </td>
-    )
+export function Td({
+  children,
+  className,
+}: {
+  children:   React.ReactNode
+  className?: string
+}) {
+  return (
+    <td
+      className={clsx('px-4 py-3', className)}
+      style={{ color: 'var(--text-secondary)' }}
+    >
+      {children}
+    </td>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   PAGE HEADER
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Page Header ── */
 export function PageHeader({
-    title,
-    subtitle,
-    action,
+  title,
+  subtitle,
+  action,
 }: {
-    title: string
-    subtitle?: string
-    action?: React.ReactNode
+  title:     string
+  subtitle?: string
+  action?:   React.ReactNode
 }) {
-    return (
-        <div className="flex items-start justify-between mb-6">
-            <div>
-                <h1 className="text-xl font-semibold text-slate-800">{title}</h1>
-                {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
-            </div>
-            {action && <div>{action}</div>}
-        </div>
-    )
+  return (
+    <div className="portal-page-header">
+      <div>
+        <h1 className="portal-page-title">{title}</h1>
+        {subtitle && (
+          <p className="portal-page-subtitle">{subtitle}</p>
+        )}
+      </div>
+      {action && <div>{action}</div>}
+    </div>
+  )
 }
 
+/* ─────────────────────────────────────────────────────────────
+   ALERT
+   ───────────────────────────────────────────────────────────── */
 
-/* ── Alert ── */
+type AlertType = 'success' | 'error' | 'warning' | 'info'
+
 export function Alert({
-    type = 'info',
-    message,
-    onClose,
+  type    = 'info',
+  message,
+  onClose,
 }: {
-    type?: 'success' | 'error' | 'warning' | 'info'
-    message: string
-    onClose?: () => void
+  type?:    AlertType
+  message:  string
+  onClose?: () => void
 }) {
-    const styles = {
-        success: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-        error: 'bg-red-50 text-red-800 border-red-200',
-        warning: 'bg-amber-50 text-amber-800 border-amber-200',
-        info: 'bg-blue-50 text-blue-800 border-blue-200',
-    }
-    return (
-        <div className={clsx(
-            'flex items-start gap-3 px-4 py-3 rounded-lg border text-sm',
-            styles[type]
-        )}>
-            <p className="flex-1">{message}</p>
-            {onClose && (
-                <button onClick={onClose} className="opacity-60 hover:opacity-100">✕</button>
-            )}
-        </div>
-    )
+  const styleMap: Record<AlertType, React.CSSProperties> = {
+    success: {
+      background: 'var(--success-light)',
+      color:      'var(--success-dark)',
+      border:     '1px solid rgba(16,185,129,0.25)',
+    },
+    error: {
+      background: 'var(--danger-light)',
+      color:      'var(--danger-dark)',
+      border:     '1px solid rgba(239,68,68,0.25)',
+    },
+    warning: {
+      background: 'var(--warning-light)',
+      color:      'var(--warning-dark)',
+      border:     '1px solid rgba(245,158,11,0.25)',
+    },
+    info: {
+      background: 'var(--info-light)',
+      color:      'var(--info-dark)',
+      border:     '1px solid rgba(59,130,246,0.25)',
+    },
+  }
+
+  return (
+    <div
+      className="flex items-start gap-3 px-4 py-3 rounded-[var(--radius-md)] text-sm font-body"
+      style={styleMap[type]}
+    >
+      <p className="flex-1 leading-relaxed">{message}</p>
+      {onClose && (
+        <button
+          onClick={onClose}
+          className="opacity-60 hover:opacity-100 transition-opacity"
+          aria-label="Dismiss"
+        >
+          ✕
+        </button>
+      )}
+    </div>
+  )
 }

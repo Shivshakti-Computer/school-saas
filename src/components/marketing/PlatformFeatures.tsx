@@ -1,151 +1,250 @@
-// FILE: src/components/marketing/PlatformFeatures.tsx
-// UPDATED: SMS credit text fix in Indian School Optimized card
-
 'use client'
 
-import { Container } from './Container'
-import { SectionTitle } from './MiniUI'
+import { Container }             from './Container'
+import { SectionTitle }          from './MiniUI'
 import { useReveal, useRevealGroup } from '@/hooks/useReveal'
 
-/* ─── Website Builder Plans Data ─── */
+/* ─────────────────────────────────────────────────────────────
+   WEBSITE PLAN DATA
+   ───────────────────────────────────────────────────────────── */
+
 const websiteFeatures = [
   {
-    plan: 'Starter',
-    templates: 1,
-    pages: 4,
-    photos: 10,
-    customPages: 0,
-    features: ['Hero Banner', 'About Section', 'Stats', 'Facilities', 'Contact', 'CTA'],
-    color: '#64748B',
-    bgColor: 'bg-slate-50',
-    borderColor: 'border-slate-200',
+    plan:       'Starter',
+    templates:  1,
+    pages:      4,
+    photos:     10,
+    customPages:0,
+    features:   ['Hero Banner', 'About Section', 'Stats', 'Facilities', 'Contact', 'CTA'],
+    accent:     'var(--text-secondary)',
+    bg:         'var(--bg-muted)',
+    border:     'var(--border)',
+    popular:    false,
   },
   {
-    plan: 'Growth',
-    templates: 3,
-    pages: 7,
-    photos: 50,
-    customPages: 2,
-    features: [
-      'All Starter +',
-      'Faculty Section',
-      'Testimonials',
-      'Events',
-      'Principal Message',
-      'Video Tour',
-      'Announcements',
-      'Login Button',
-      'WhatsApp Button',
-    ],
-    color: '#2563EB',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    popular: true,
+    plan:       'Growth',
+    templates:  3,
+    pages:      7,
+    photos:     50,
+    customPages:2,
+    features:   ['All Starter +', 'Faculty Section', 'Testimonials', 'Events', 'Principal Message', 'Video Tour', 'Announcements', 'Login Button', 'WhatsApp Button'],
+    accent:     'var(--primary-600)',
+    bg:         'var(--primary-50)',
+    border:     'var(--primary-200)',
+    popular:    true,
   },
   {
-    plan: 'Pro',
-    templates: 3,
-    pages: 15,
-    photos: 200,
-    customPages: 5,
-    features: [
-      'All Growth +',
-      'Gallery Albums',
-      'Achievements',
-      'Downloads',
-      'Infrastructure',
-      'Fee Structure',
-      'Live Notice Board',
-      'Custom Domain',
-      'Scroll Animations',
-    ],
-    color: '#7C3AED',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200',
+    plan:       'Pro',
+    templates:  3,
+    pages:      15,
+    photos:     200,
+    customPages:5,
+    features:   ['All Growth +', 'Gallery Albums', 'Achievements', 'Downloads', 'Infrastructure', 'Fee Structure', 'Live Notice Board', 'Custom Domain', 'Scroll Animations'],
+    accent:     'var(--role-student)',
+    bg:         'rgba(139,92,246,0.07)',
+    border:     'rgba(139,92,246,0.2)',
+    popular:    false,
   },
   {
-    plan: 'Enterprise',
-    templates: 3,
-    pages: '∞',
-    photos: '∞',
-    customPages: '∞',
-    features: [
-      'All Pro +',
-      'Academic Calendar',
-      'Transport Routes',
-      'Alumni Section',
-      'Mandatory Disclosure',
-      'Remove Branding',
-      'Custom Everything',
-    ],
-    color: '#D97706',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-200',
+    plan:       'Enterprise',
+    templates:  3,
+    pages:      '∞',
+    photos:     '∞',
+    customPages:'∞',
+    features:   ['All Pro +', 'Academic Calendar', 'Transport Routes', 'Alumni Section', 'Mandatory Disclosure', 'Remove Branding', 'Custom Everything'],
+    accent:     'var(--warning-dark)',
+    bg:         'var(--warning-light)',
+    border:     'rgba(245,158,11,0.2)',
+    popular:    false,
   },
 ]
 
-/* ─── Platform Highlight Cards ─── */
+/* ─────────────────────────────────────────────────────────────
+   PLATFORM HIGHLIGHT DATA
+   ───────────────────────────────────────────────────────────── */
+
 const platformHighlights = [
   {
-    title: 'Installable App (PWA)',
-    desc: 'Students, parents & teachers install the app directly from browser. Works offline, loads fast even on 2G. No app store needed.',
-    features: [
-      'Home screen install',
-      'Offline capable',
-      'Push notifications ready',
-      'Works on all devices',
-      'Auto updates',
-    ],
-    visual: 'pwa',
-    gradient: 'from-sky-500 to-blue-600',
-    bgColor: 'bg-sky-50',
-    iconBg: 'bg-sky-100',
+    title:   'Installable App (PWA)',
+    desc:    'Students, parents & teachers install the app directly from browser. Works offline, loads fast even on 2G. No app store needed.',
+    features:['Home screen install', 'Offline capable', 'Push notifications ready', 'Works on all devices', 'Auto updates'],
+    visual:  'pwa',
+    gradFrom:'var(--info)',
+    gradTo:  'var(--primary-600)',
+    bg:      'var(--info-light)',
   },
   {
-    title: 'Multi-Role Portal',
-    desc: 'One platform, 4 different experiences. Admin sees everything, teachers manage classes, students check results, parents track progress.',
-    features: [
-      'Admin dashboard',
-      'Teacher panel',
-      'Student portal',
-      'Parent app',
-      'SuperAdmin (you)',
-    ],
-    visual: 'roles',
-    gradient: 'from-blue-500 to-indigo-600',
-    bgColor: 'bg-blue-50',
-    iconBg: 'bg-blue-100',
+    title:   'Multi-Role Portal',
+    desc:    'One platform, 4 different experiences. Admin sees everything, teachers manage classes, students check results, parents track progress.',
+    features:['Admin dashboard', 'Teacher panel', 'Student portal', 'Parent app', 'SuperAdmin (you)'],
+    visual:  'roles',
+    gradFrom:'var(--primary-500)',
+    gradTo:  'var(--primary-700)',
+    bg:      'var(--primary-50)',
   },
   {
-    title: 'Indian School Optimized',
-    desc: 'Built specifically for Indian education. Hindi + English, CBSE/ICSE/State board support, Indian payment gateway, SMS & WhatsApp via credit system.',
-    features: [
-      'Razorpay payments (₹)',
-      'SMS via Credits (Hindi/English)',        // ← UPDATED
-      'WhatsApp via Credits',                   // ← NEW (added for clarity)
-      'Indian date formats',
-      'Board-wise structure',
-      'GST invoicing ready',
-    ],
-    visual: 'india',
-    gradient: 'from-orange-500 to-amber-600',
-    bgColor: 'bg-amber-50',
-    iconBg: 'bg-amber-100',
+    title:   'Indian School Optimized',
+    desc:    'Built specifically for Indian education. Hindi + English, CBSE/ICSE/State board support, Indian payment gateway, SMS & WhatsApp via credit system.',
+    features:['Razorpay payments (₹)', 'SMS via Credits', 'WhatsApp via Credits', 'Indian date formats', 'Board-wise structure', 'GST invoicing ready'],
+    visual:  'india',
+    gradFrom:'var(--accent-400)',
+    gradTo:  'var(--accent-600)',
+    bg:      'var(--warning-light)',
   },
 ]
 
-/* ─── Visual: Browser Mockup ─── */
+/* ─────────────────────────────────────────────────────────────
+   SVG VISUALS
+   ───────────────────────────────────────────────────────────── */
+
+function WebsitePreviewSVG() {
+  return (
+    <svg viewBox="0 0 320 200" fill="none" className="w-full h-auto">
+      <rect width="320" height="70" fill="var(--primary-50)" />
+      <rect x="20" y="15" width="140" height="8"  rx="4"   fill="var(--primary-500)" />
+      <rect x="20" y="28" width="200" height="5"  rx="2.5" fill="var(--border)"      />
+      <rect x="20" y="38" width="160" height="5"  rx="2.5" fill="var(--bg-muted)"    />
+      <rect x="20" y="52" width="60"  height="12" rx="6"   fill="var(--primary-600)" />
+      <rect x="240" y="10" width="60" height="50" rx="8"
+        fill="var(--bg-card)" stroke="var(--border)" strokeWidth="1" />
+
+      <g transform="translate(0,75)">
+        {['500+', '25+', '10+', '20+'].map((v, i) => (
+          <g key={i} transform={`translate(${20 + i * 75}, 0)`}>
+            <rect width="65" height="30" rx="6"
+              fill="var(--bg-card)" stroke="var(--border)" strokeWidth="1" />
+            <text x="32" y="14" textAnchor="middle"
+              fill="var(--primary-500)" fontSize="9" fontWeight="bold">{v}</text>
+            <text x="32" y="24" textAnchor="middle"
+              fill="var(--text-muted)" fontSize="5">
+              {['Students','Teachers','Years','Activities'][i]}
+            </text>
+          </g>
+        ))}
+      </g>
+
+      <g transform="translate(0,115)">
+        <rect x="20" y="0" width="80" height="5" rx="2.5" fill="var(--border)" />
+        {[0,1,2].map(i => (
+          <rect key={i} x={20 + i*95} y="12" width="85" height="50" rx="6"
+            fill="var(--bg-card)" stroke="var(--border)" strokeWidth="1" />
+        ))}
+      </g>
+
+      <rect x="0" y="185" width="320" height="15" fill="var(--bg-muted)" />
+      <rect x="20" y="190" width="100" height="3" rx="1.5" fill="var(--border)" />
+    </svg>
+  )
+}
+
+function PWADevicesSVG() {
+  return (
+    <svg viewBox="0 0 280 160" fill="none" className="w-full h-auto">
+      {/* Desktop */}
+      <g transform="translate(10,25)" opacity="0.6">
+        <rect width="80" height="55" rx="6"
+          fill="rgba(139,92,246,0.08)" stroke="rgba(139,92,246,0.3)" strokeWidth="1" />
+        <rect x="5" y="5" width="70" height="4" rx="2" fill="var(--role-student)" />
+        <rect x="5" y="14" width="50" height="3" rx="1.5" fill="var(--border)" />
+      </g>
+      {/* Phone */}
+      <g transform="translate(90,10)">
+        <rect width="60" height="110" rx="10"
+          fill="var(--info-light)" stroke="rgba(59,130,246,0.3)" strokeWidth="1.5" />
+        <rect x="5" y="15" width="50" height="80" rx="4" fill="var(--bg-card)" />
+        <rect x="10" y="20" width="40" height="6" rx="3" fill="var(--info)" />
+        <rect x="10" y="30" width="30" height="3" rx="1.5" fill="var(--border)" />
+        <rect x="10" y="40" width="40" height="20" rx="3" fill="var(--info-light)" />
+        <rect x="10" y="65" width="18" height="10" rx="3" fill="var(--info-light)" />
+        <rect x="32" y="65" width="18" height="10" rx="3" fill="var(--success-light)" />
+        <rect x="18" y="100" width="24" height="3" rx="1.5" fill="var(--border)" />
+        <rect x="20" y="5"  width="20" height="6" rx="3"   fill="var(--border)" />
+      </g>
+      {/* Tablet */}
+      <g transform="translate(170,20)" opacity="0.6">
+        <rect width="70" height="90" rx="8"
+          fill="var(--success-light)" stroke="rgba(16,185,129,0.3)" strokeWidth="1" />
+        <rect x="5" y="8" width="60" height="4" rx="2" fill="var(--success)" />
+        <rect x="5" y="16" width="40" height="3" rx="1.5" fill="var(--border)" />
+        <rect x="5" y="24" width="60" height="30" rx="4" fill="rgba(16,185,129,0.15)" />
+      </g>
+      {/* Install button */}
+      <g transform="translate(125,130)">
+        <rect x="-30" y="-10" width="60" height="22" rx="11"
+          fill="var(--primary-500)" />
+        <text x="0" y="5" textAnchor="middle"
+          fill="white" fontSize="7" fontWeight="600">Install ↓</text>
+      </g>
+    </svg>
+  )
+}
+
+function RolesSVG() {
+  const roles = [
+    { label: 'Admin',   color: 'var(--primary-500)', bg: 'var(--primary-50)'        },
+    { label: 'Teacher', color: 'var(--success)',      bg: 'var(--success-light)'     },
+    { label: 'Student', color: 'var(--role-student)', bg: 'rgba(139,92,246,0.08)'   },
+    { label: 'Parent',  color: 'var(--role-parent)',  bg: 'var(--warning-light)'    },
+  ]
+  return (
+    <svg viewBox="0 0 280 120" fill="none" className="w-full h-auto">
+      {roles.map((role, i) => (
+        <g key={role.label} transform={`translate(${15 + i * 67}, 20)`}>
+          <rect width="58" height="80" rx="12"
+            fill={role.bg} stroke={role.color}
+            strokeWidth="1" strokeOpacity="0.35" />
+          <circle cx="29" cy="30" r="12" fill="var(--bg-card)" />
+          <circle cx="29" cy="27" r="5" fill={role.color} />
+          <path d={`M21 38a8 8 0 0 1 16 0`} fill={role.color} opacity="0.25" />
+          <text x="29" y="60" textAnchor="middle"
+            fill={role.color} fontSize="7" fontWeight="700">{role.label}</text>
+          <rect x="10" y="68" width="38" height="3" rx="1.5"
+            fill={role.color} opacity="0.2" />
+        </g>
+      ))}
+    </svg>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────────
+   BROWSER MOCKUP
+   ───────────────────────────────────────────────────────────── */
+
 function BrowserMockup({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-medium overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2 bg-slate-50">
+    <div
+      className="rounded-[var(--radius-xl)] overflow-hidden"
+      style={{
+        background: 'var(--bg-card)',
+        border:     '1px solid var(--border)',
+        boxShadow:  'var(--shadow-lg)',
+      }}
+    >
+      {/* Chrome bar */}
+      <div
+        className="px-4 py-3 flex items-center gap-2"
+        style={{
+          background:   'var(--bg-muted)',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
         <div className="flex gap-1.5">
-          <div className="w-3 h-3 rounded-full bg-red-400" />
-          <div className="w-3 h-3 rounded-full bg-amber-400" />
-          <div className="w-3 h-3 rounded-full bg-emerald-400" />
+          {['rgba(239,68,68,0.5)', 'rgba(245,158,11,0.5)', 'rgba(16,185,129,0.5)'].map(
+            (bg, i) => (
+              <div key={i} className="w-3 h-3 rounded-full" style={{ background: bg }} />
+            )
+          )}
         </div>
-        <div className="flex-1 mx-2 bg-white rounded-lg px-3 py-1.5 text-[10px] text-slate-500 border border-slate-200">
-          🔒 yourschool.skolify
+        <div
+          className="flex-1 mx-2 px-3 py-1.5 rounded-[var(--radius-sm)]
+                     text-[10px] font-mono"
+          style={{
+            background: 'var(--bg-card)',
+            border:     '1px solid var(--border)',
+            color:      'var(--text-muted)',
+          }}
+        >
+          🔒 yourschool.skolify.in
         </div>
       </div>
       {children}
@@ -153,129 +252,31 @@ function BrowserMockup({ children }: { children: React.ReactNode }) {
   )
 }
 
-/* ─── Visual: School Website Preview ─── */
-function WebsitePreviewSVG() {
-  return (
-    <svg viewBox="0 0 320 200" fill="none" className="w-full h-auto">
-      {/* Hero */}
-      <rect width="320" height="70" fill="#EFF6FF" />
-      <rect x="20" y="15" width="140" height="8" rx="4" fill="#3B82F6" />
-      <rect x="20" y="28" width="200" height="5" rx="2.5" fill="#CBD5E1" />
-      <rect x="20" y="38" width="160" height="5" rx="2.5" fill="#E2E8F0" />
-      <rect x="20" y="52" width="60" height="12" rx="6" fill="#2563EB" />
-      <rect x="240" y="10" width="60" height="50" rx="8" fill="white" stroke="#E2E8F0" strokeWidth="1" />
+/* ─────────────────────────────────────────────────────────────
+   PLATFORM FEATURES
+   ───────────────────────────────────────────────────────────── */
 
-      {/* Stats */}
-      <g transform="translate(0,75)">
-        {['500+', '25+', '10+', '20+'].map((v, i) => (
-          <g key={i} transform={`translate(${20 + i * 75}, 0)`}>
-            <rect width="65" height="30" rx="6" fill="white" stroke="#E2E8F0" strokeWidth="1" />
-            <text x="32" y="14" textAnchor="middle" fill="#2563EB" fontSize="9" fontWeight="bold">{v}</text>
-            <text x="32" y="24" textAnchor="middle" fill="#64748B" fontSize="5">
-              {['Students', 'Teachers', 'Years', 'Activities'][i]}
-            </text>
-          </g>
-        ))}
-      </g>
-
-      {/* Facilities */}
-      <g transform="translate(0,115)">
-        <rect x="20" y="0" width="80" height="5" rx="2.5" fill="#CBD5E1" />
-        <g transform="translate(20,12)">
-          {[0, 1, 2].map(i => (
-            <rect key={i} x={i * 95} y="0" width="85" height="50" rx="6" fill="white" stroke="#E2E8F0" strokeWidth="1" />
-          ))}
-        </g>
-      </g>
-
-      {/* Footer */}
-      <rect x="0" y="185" width="320" height="15" fill="#F8FAFC" />
-      <rect x="20" y="190" width="100" height="3" rx="1.5" fill="#CBD5E1" />
-    </svg>
-  )
-}
-
-/* ─── Visual: PWA Devices ─── */
-function PWADevicesSVG() {
-  return (
-    <svg viewBox="0 0 280 160" fill="none" className="w-full h-auto">
-      {/* Phone */}
-      <g transform="translate(90,10)">
-        <rect width="60" height="110" rx="10" fill="#F0F9FF" stroke="#BAE6FD" strokeWidth="1.5" />
-        <rect x="5" y="15" width="50" height="80" rx="4" fill="white" />
-        <rect x="10" y="20" width="40" height="6" rx="3" fill="#0EA5E9" />
-        <rect x="10" y="30" width="30" height="3" rx="1.5" fill="#CBD5E1" />
-        <rect x="10" y="40" width="40" height="20" rx="3" fill="#E0F2FE" />
-        <rect x="10" y="65" width="18" height="10" rx="3" fill="#E0F2FE" />
-        <rect x="32" y="65" width="18" height="10" rx="3" fill="#D1FAE5" />
-        <rect x="18" y="100" width="24" height="3" rx="1.5" fill="#CBD5E1" />
-        <rect x="20" y="5" width="20" height="6" rx="3" fill="#E2E8F0" />
-      </g>
-
-      {/* Desktop behind */}
-      <g transform="translate(10,25)" opacity="0.6">
-        <rect width="80" height="55" rx="6" fill="#F5F3FF" stroke="#DDD6FE" strokeWidth="1" />
-        <rect x="25" y="55" width="30" height="8" rx="1" fill="#EDE9FE" />
-        <rect x="5" y="5" width="70" height="4" rx="2" fill="#8B5CF6" />
-        <rect x="5" y="14" width="50" height="3" rx="1.5" fill="#CBD5E1" />
-      </g>
-
-      {/* Tablet behind */}
-      <g transform="translate(170,20)" opacity="0.6">
-        <rect width="70" height="90" rx="8" fill="#ECFDF5" stroke="#A7F3D0" strokeWidth="1" />
-        <rect x="5" y="8" width="60" height="4" rx="2" fill="#10B981" />
-        <rect x="5" y="16" width="40" height="3" rx="1.5" fill="#CBD5E1" />
-        <rect x="5" y="24" width="60" height="30" rx="4" fill="#D1FAE5" />
-      </g>
-
-      {/* Install button */}
-      <g transform="translate(125,130)">
-        <rect x="-25" y="-8" width="50" height="20" rx="10" fill="#0EA5E9" />
-        <text x="0" y="4" textAnchor="middle" fill="white" fontSize="7" fontWeight="600">Install ↓</text>
-      </g>
-    </svg>
-  )
-}
-
-/* ─── Visual: Roles ─── */
-function RolesSVG() {
-  const roles = [
-    { label: 'Admin', color: '#3B82F6', bg: '#EFF6FF' },
-    { label: 'Teacher', color: '#10B981', bg: '#ECFDF5' },
-    { label: 'Student', color: '#F59E0B', bg: '#FFFBEB' },
-    { label: 'Parent', color: '#EC4899', bg: '#FDF2F8' },
-  ]
-  return (
-    <svg viewBox="0 0 280 120" fill="none" className="w-full h-auto">
-      {roles.map((role, i) => (
-        <g key={role.label} transform={`translate(${15 + i * 67}, 20)`}>
-          <rect width="58" height="80" rx="12" fill={role.bg} stroke={role.color} strokeWidth="1" strokeOpacity="0.3" />
-          <circle cx="29" cy="30" r="12" fill="white" />
-          <circle cx="29" cy="27" r="5" fill={role.color} />
-          <path d={`M21 38a8 8 0 0 1 16 0`} fill={role.color} opacity="0.3" />
-          <text x="29" y="60" textAnchor="middle" fill={role.color} fontSize="7" fontWeight="700">{role.label}</text>
-          <rect x="10" y="68" width="38" height="3" rx="1.5" fill={role.color} opacity="0.2" />
-        </g>
-      ))}
-    </svg>
-  )
-}
-
-/* ═══════════════════════════════════════════════════════
-   PLATFORM FEATURES COMPONENT
-   ═══════════════════════════════════════════════════════ */
 export function PlatformFeatures() {
-  const websiteRef = useReveal<HTMLDivElement>()
+  const websiteRef    = useReveal<HTMLDivElement>()
   const highlightsRef = useRevealGroup()
 
   const visuals: Record<string, React.ReactNode> = {
-    pwa: <PWADevicesSVG />,
+    pwa:   <PWADevicesSVG />,
     roles: <RolesSVG />,
     india: (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex items-center justify-center py-10">
         <div className="relative">
           <span className="text-7xl">🇮🇳</span>
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 bg-amber-100 rounded-full text-[10px] font-bold text-amber-700 whitespace-nowrap">
+          <div
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2
+                       px-3 py-1 rounded-full text-[10px] font-bold
+                       font-display whitespace-nowrap"
+            style={{
+              background: 'var(--warning-light)',
+              border:     '1px solid rgba(245,158,11,0.25)',
+              color:      'var(--warning-dark)',
+            }}
+          >
             Made for India
           </div>
         </div>
@@ -284,15 +285,28 @@ export function PlatformFeatures() {
   }
 
   return (
-    <section className="section-padding relative bg-slate-50">
-      {/* Background */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/[0.04] blur-[120px] rounded-full" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-500/[0.03] blur-[100px] rounded-full" />
+    <section
+      className="section-padding relative"
+      style={{ background: 'var(--bg-muted)' }}
+    >
+      {/* Bg decorations */}
+      <div aria-hidden="true" style={{ pointerEvents: 'none' }}>
+        <div style={{
+          position:   'absolute', top: 0, right: 0,
+          width: '40%', height: '50%',
+          background: 'radial-gradient(ellipse, rgba(99,102,241,0.05) 0%, transparent 70%)',
+          filter:     'blur(40px)',
+        }} />
+        <div style={{
+          position:   'absolute', bottom: 0, left: 0,
+          width: '35%', height: '40%',
+          background: 'radial-gradient(ellipse, rgba(139,92,246,0.04) 0%, transparent 70%)',
+          filter:     'blur(40px)',
+        }} />
       </div>
 
       <Container>
-        {/* ═══ WEBSITE BUILDER SECTION ═══ */}
+        {/* ═══ WEBSITE BUILDER ═══ */}
         <SectionTitle
           eyebrow="🌐 Website Builder"
           title="Professional school website — zero coding needed"
@@ -300,66 +314,118 @@ export function PlatformFeatures() {
           center
         />
 
-        {/* Website Preview */}
+        {/* Preview */}
         <div ref={websiteRef} className="reveal mt-10 max-w-3xl mx-auto">
           <BrowserMockup>
-            <div className="p-2 bg-slate-50">
+            <div
+              className="p-2"
+              style={{ background: 'var(--bg-muted)' }}
+            >
               <WebsitePreviewSVG />
             </div>
           </BrowserMockup>
         </div>
 
-        {/* Website Plan Comparison */}
+        {/* Website plan comparison */}
         <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {websiteFeatures.map(plan => (
             <div
               key={plan.plan}
-              className={`bg-white rounded-2xl border p-5 relative transition-all duration-300 hover:shadow-medium ${plan.borderColor} ${plan.popular ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+              className="relative rounded-[var(--radius-xl)] p-5
+                         transition-all duration-300"
+              style={{
+                background: 'var(--bg-card)',
+                border:     plan.popular
+                  ? `2px solid ${plan.accent}`
+                  : `1px solid ${plan.border}`,
+                boxShadow:  plan.popular ? 'var(--shadow-md)' : 'var(--shadow-xs)',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-lg)'
+                ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.boxShadow = plan.popular
+                  ? 'var(--shadow-md)' : 'var(--shadow-xs)'
+                ;(e.currentTarget as HTMLElement).style.transform = 'translateY(0)'
+              }}
             >
+              {/* Popular pill */}
               {plan.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white bg-blue-500 px-3 py-1 rounded-full shadow-soft">
+                <span
+                  className="absolute -top-3 left-1/2 -translate-x-1/2
+                             text-[10px] font-bold font-display text-white
+                             px-3 py-1 rounded-full whitespace-nowrap"
+                  style={{
+                    background: 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
+                    boxShadow:  '0 2px 8px rgba(99,102,241,0.35)',
+                  }}
+                >
                   🔥 Popular
                 </span>
               )}
-              <h4 className="text-base font-bold mb-4" style={{ color: plan.color }}>
+
+              <h4
+                className="text-base font-bold font-display mb-4"
+                style={{ color: plan.accent }}
+              >
                 {plan.plan}
               </h4>
 
-              <div className="space-y-2.5 mb-5">
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-slate-500">Templates</span>
-                  <span className="text-slate-900 font-semibold">{plan.templates}</span>
-                </div>
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-slate-500">Pages</span>
-                  <span className="text-slate-900 font-semibold">{plan.pages}</span>
-                </div>
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-slate-500">Gallery Photos</span>
-                  <span className="text-slate-900 font-semibold">{plan.photos}</span>
-                </div>
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-slate-500">Custom Pages</span>
-                  <span className="text-slate-900 font-semibold">{plan.customPages}</span>
-                </div>
+              {/* Spec rows */}
+              <div className="space-y-2 mb-5">
+                {[
+                  { label: 'Templates',     val: plan.templates   },
+                  { label: 'Pages',         val: plan.pages       },
+                  { label: 'Gallery Photos',val: plan.photos      },
+                  { label: 'Custom Pages',  val: plan.customPages },
+                ].map(row => (
+                  <div
+                    key={row.label}
+                    className="flex justify-between text-[13px]"
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
+                    <span
+                      className="font-semibold font-display"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {row.val}
+                    </span>
+                  </div>
+                ))}
               </div>
 
-              <div className="border-t border-slate-100 pt-4">
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-bold mb-2">
+              {/* Features list */}
+              <div
+                className="pt-4"
+                style={{ borderTop: '1px solid var(--border)' }}
+              >
+                <p
+                  className="text-[10px] font-bold uppercase tracking-widest
+                             font-display mb-2"
+                  style={{ color: 'var(--text-muted)' }}
+                >
                   Sections Included
                 </p>
                 <div className="space-y-1.5">
                   {plan.features.slice(0, 5).map(f => (
-                    <p key={f} className="text-[11px] text-slate-600 flex items-center gap-2">
+                    <p
+                      key={f}
+                      className="text-[11px] font-body flex items-center gap-2"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
                       <span
                         className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                        style={{ background: plan.color }}
+                        style={{ background: plan.accent }}
                       />
                       {f}
                     </p>
                   ))}
                   {plan.features.length > 5 && (
-                    <p className="text-[11px] text-slate-400 font-medium">
+                    <p
+                      className="text-[11px] font-medium font-body"
+                      style={{ color: 'var(--text-muted)' }}
+                    >
                       +{plan.features.length - 5} more sections
                     </p>
                   )}
@@ -374,22 +440,38 @@ export function PlatformFeatures() {
           <SectionTitle
             eyebrow="⚡ Platform"
             title="Built different — designed for real schools"
-            subtitle="Not just another ERP. Skolify is built ground-up for Indian schools with mobile-first design, offline support & credit-based messaging system."
+            subtitle="Not just another ERP. Skolify is built ground-up for Indian schools with mobile-first design, offline support & credit-based messaging."
             center
           />
         </div>
 
-        <div ref={highlightsRef} className="mt-12 space-y-6 reveal-stagger">
+        <div
+          ref={highlightsRef}
+          className="mt-12 space-y-5 reveal-stagger"
+        >
           {platformHighlights.map((item, idx) => (
             <div
               key={item.title}
-              className={`
-                reveal bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-soft hover:shadow-medium transition-all duration-300
-                flex flex-col ${idx % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'}
-              `}
+              className={`reveal rounded-[var(--radius-2xl)] overflow-hidden
+                         transition-all duration-300 flex flex-col
+                         ${idx % 2 === 0 ? 'lg:flex-row' : 'lg:flex-row-reverse'}`}
+              style={{
+                background: 'var(--bg-card)',
+                border:     '1px solid var(--border)',
+                boxShadow:  'var(--shadow-sm)',
+              }}
+              onMouseEnter={e =>
+                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-lg)'
+              }
+              onMouseLeave={e =>
+                (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-sm)'
+              }
             >
-              {/* Visual */}
-              <div className={`lg:w-[45%] p-8 flex items-center justify-center ${item.bgColor}`}>
+              {/* Visual panel */}
+              <div
+                className="lg:w-[44%] p-8 flex items-center justify-center"
+                style={{ background: item.bg }}
+              >
                 <div className="w-full max-w-[280px]">
                   {visuals[item.visual]}
                 </div>
@@ -397,18 +479,36 @@ export function PlatformFeatures() {
 
               {/* Content */}
               <div className="flex-1 p-8 lg:p-10 flex flex-col justify-center">
-                <div className={`w-14 h-1.5 rounded-full bg-gradient-to-r ${item.gradient} mb-5`} />
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                {/* Accent bar */}
+                <div
+                  className="w-14 h-[3px] rounded-full mb-5"
+                  style={{
+                    background: `linear-gradient(90deg, ${item.gradFrom}, ${item.gradTo})`,
+                  }}
+                />
+                <h3
+                  className="text-2xl font-extrabold font-display mb-3"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {item.title}
                 </h3>
-                <p className="text-base text-slate-600 leading-relaxed mb-6">
+                <p
+                  className="text-[1.0625rem] leading-relaxed font-body mb-6"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {item.desc}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {item.features.map(f => (
                     <span
                       key={f}
-                      className="text-xs font-medium text-slate-600 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200"
+                      className="text-xs font-medium font-body px-3 py-1.5
+                                 rounded-[var(--radius-md)]"
+                      style={{
+                        background: 'var(--bg-muted)',
+                        border:     '1px solid var(--border)',
+                        color:      'var(--text-secondary)',
+                      }}
                     >
                       {f}
                     </span>

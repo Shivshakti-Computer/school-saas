@@ -1,9 +1,7 @@
-// FILE: src/components/marketing/Container.tsx
-
 interface ContainerProps {
-  children: React.ReactNode
+  children:   React.ReactNode
   className?: string
-  as?: React.ElementType
+  as?:        React.ElementType
 }
 
 export function Container({
