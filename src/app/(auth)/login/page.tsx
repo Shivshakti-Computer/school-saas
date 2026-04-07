@@ -1,5 +1,4 @@
-// FILE: src/app/login/page.tsx
-
+// FILE: src/app/(auth)/login/page.tsx
 'use client'
 
 import { useState, useEffect, useRef, Suspense } from 'react'
@@ -7,83 +6,90 @@ import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
-/* ─── Icons ─── */
-function EyeIcon() {
+// ══════════════════════════════════════════════════════════
+// ICONS
+// ══════════════════════════════════════════════════════════
+
+function Spinner() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  )
+}
+
+function Eye({ off = false }: { off?: boolean }) {
+  return off ? (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+      <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+      <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+      <path d="m2 2 20 20" />
+    </svg>
+  ) : (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   )
 }
 
-function EyeOffIcon() {
+function ArrowRight() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
-      <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
-      <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
-      <path d="m2 2 20 20" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M12 5l7 7-7 7" />
     </svg>
   )
 }
 
-function Spinner() {
+function Check({ size = 13 }: { size?: number }) {
   return (
-    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
     </svg>
   )
 }
 
-function ShieldIcon() {
+// ══════════════════════════════════════════════════════════
+// INPUT STYLE
+// ══════════════════════════════════════════════════════════
+
+const baseInput = [
+  'w-full h-10 px-3 rounded-lg text-[13px] text-slate-800',
+  'bg-white border border-slate-200',
+  'placeholder:text-slate-400',
+  'transition-all duration-150',
+  'focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10',
+  'hover:border-slate-300',
+].join(' ')
+
+// ══════════════════════════════════════════════════════════
+// FIELD WRAPPER
+// ══════════════════════════════════════════════════════════
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint?: string
+  children: React.ReactNode
+}) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
+    <div className="space-y-1.5">
+      <label className="block text-[13px] font-medium text-slate-700">{label}</label>
+      {children}
+      {hint && <p className="text-[11px] text-slate-400">{hint}</p>}
+    </div>
   )
 }
 
-function KeyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4" />
-      <path d="m21 2-9.6 9.6" />
-      <circle cx="7.5" cy="15.5" r="5.5" />
-    </svg>
-  )
-}
+// ══════════════════════════════════════════════════════════
+// OTP INPUT — 6 boxes
+// ══════════════════════════════════════════════════════════
 
-/* ─── Back to Home Button ─── */
-function BackToHome() {
-  return (
-    <Link
-      href="/"
-      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/80 hover:bg-white border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-900 text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200 backdrop-blur-sm"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19 12H5M12 5l-7 7 7 7" />
-      </svg>
-      Back to Home
-    </Link>
-  )
-}
-
-/* ─── Input Style ─── */
-const inputClass = `
-  w-full py-3 px-4 rounded-xl text-sm transition-all duration-200
-  bg-white border border-slate-200
-  text-slate-900 placeholder-slate-400
-  focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10
-  hover:border-slate-300
-`
-
-/* ═══════════════════════════════════════════════════════
-   OTP INPUT COMPONENT
-   6-digit input boxes for 2FA verification
-   ═══════════════════════════════════════════════════════ */
 function OTPInput({
   value,
   onChange,
@@ -95,80 +101,75 @@ function OTPInput({
   length?: number
   disabled?: boolean
 }) {
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  const refs = useRef<(HTMLInputElement | null)[]>([])
 
-  const handleChange = (index: number, char: string) => {
+  const handleChange = (i: number, char: string) => {
     if (!/^\d*$/.test(char)) return
-
-    const newValue = value.split('')
-    newValue[index] = char
-    const joined = newValue.join('').slice(0, length)
+    const arr = value.split('')
+    arr[i] = char
+    const joined = arr.join('').slice(0, length)
     onChange(joined)
-
-    // Auto-focus next
-    if (char && index < length - 1) {
-      inputRefs.current[index + 1]?.focus()
-    }
+    if (char && i < length - 1) refs.current[i + 1]?.focus()
   }
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !value[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus()
-    }
+  const handleKey = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !value[i] && i > 0) refs.current[i - 1]?.focus()
   }
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length)
-    onChange(pasted)
-    if (pasted.length === length) {
-      inputRefs.current[length - 1]?.focus()
-    } else {
-      inputRefs.current[pasted.length]?.focus()
-    }
+    const p = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, length)
+    onChange(p)
+    const focusIdx = Math.min(p.length, length - 1)
+    refs.current[focusIdx]?.focus()
   }
 
   return (
-    <div className="flex gap-2.5 justify-center">
+    <div className="flex gap-2 justify-center">
       {Array.from({ length }).map((_, i) => (
         <input
           key={i}
-          ref={el => { inputRefs.current[i] = el }}
+          ref={el => { refs.current[i] = el }}
           type="text"
           inputMode="numeric"
           maxLength={1}
           value={value[i] || ''}
           onChange={e => handleChange(i, e.target.value)}
-          onKeyDown={e => handleKeyDown(i, e)}
+          onKeyDown={e => handleKey(i, e)}
           onPaste={i === 0 ? handlePaste : undefined}
           disabled={disabled}
-          className={`
-            w-12 h-14 text-center text-xl font-bold rounded-xl border-2 transition-all duration-200
-            ${value[i]
-              ? 'border-blue-500 bg-blue-50/50 text-blue-700'
-              : 'border-slate-200 bg-white text-slate-900'
-            }
-            focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10
-            hover:border-slate-300
-            disabled:opacity-50 disabled:cursor-not-allowed
-          `}
           autoComplete="one-time-code"
+          className={[
+            'w-10 h-12 text-center text-base font-bold rounded-xl border-2',
+            'outline-none transition-all duration-150 caret-transparent',
+            value[i]
+              ? 'border-blue-500 bg-blue-50 text-blue-700'
+              : 'border-slate-200 bg-white text-slate-900',
+            'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10',
+            'disabled:opacity-50 disabled:cursor-not-allowed',
+          ].join(' ')}
         />
       ))}
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════════
-   2FA VERIFICATION SCREEN
-   Shown after successful password login when 2FA is enabled
-   ═══════════════════════════════════════════════════════ */
+// ══════════════════════════════════════════════════════════
+// 2FA SCREEN — Logic same, Notion design
+// ══════════════════════════════════════════════════════════
+
 function TwoFactorScreen({
   userData,
   onVerified,
   onCancel,
 }: {
-  userData: { userId: string; tenantId: string; maskedPhone: string; userName: string; userRole: string }
+  userData: {
+    userId: string
+    tenantId: string
+    maskedPhone: string
+    userName: string
+    userRole: string
+  }
   onVerified: (deviceId?: string) => void
   onCancel: () => void
 }) {
@@ -176,52 +177,41 @@ function TwoFactorScreen({
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
   const [trustDevice, setTrustDevice] = useState(true)
-  const [useBackupCode, setUseBackupCode] = useState(false)
+  const [useBackup, setUseBackup] = useState(false)
   const [backupCode, setBackupCode] = useState('')
   const [countdown, setCountdown] = useState(0)
-  const [otpSent, setOtpSent] = useState(false)
 
   // Send OTP on mount
-  useEffect(() => {
-    sendOTP()
-  }, [])
+  useEffect(() => { sendOTP() }, [])
 
-  // Countdown timer
+  // Countdown
   useEffect(() => {
     if (countdown <= 0) return
-    const timer = setInterval(() => setCountdown(c => c - 1), 1000)
-    return () => clearInterval(timer)
+    const t = setInterval(() => setCountdown(c => c - 1), 1000)
+    return () => clearInterval(t)
   }, [countdown])
 
-  // Auto-submit when 6 digits entered
+  // Auto-submit when 6 digits
   useEffect(() => {
-    if (otp.length === 6 && !loading) {
-      handleVerify()
-    }
+    if (otp.length === 6 && !loading) handleVerify()
   }, [otp])
 
   const sendOTP = async () => {
-    setSending(true)
-    setError('')
+    setSending(true); setError('')
     try {
       const res = await fetch('/api/auth/2fa/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: userData.userId,
-          tenantId: userData.tenantId,
-        }),
+        body: JSON.stringify({ userId: userData.userId, tenantId: userData.tenantId }),
       })
       const data = await res.json()
       setSending(false)
-
       if (data.success) {
-        setOtpSent(true)
         setCountdown(60)
-        setSuccess('OTP sent successfully!')
-        setTimeout(() => setSuccess(''), 3000)
+        setSuccessMsg('OTP sent!')
+        setTimeout(() => setSuccessMsg(''), 3000)
       } else {
         setError(data.error || 'Failed to send OTP')
       }
@@ -232,9 +222,7 @@ function TwoFactorScreen({
   }
 
   const handleVerify = async () => {
-    setLoading(true)
-    setError('')
-
+    setLoading(true); setError('')
     try {
       const res = await fetch('/api/auth/2fa/verify', {
         method: 'POST',
@@ -242,8 +230,8 @@ function TwoFactorScreen({
         body: JSON.stringify({
           userId: userData.userId,
           tenantId: userData.tenantId,
-          otp: useBackupCode ? undefined : otp,
-          backupCode: useBackupCode ? backupCode.trim() : undefined,
+          otp: useBackup ? undefined : otp,
+          backupCode: useBackup ? backupCode.trim() : undefined,
           trustDevice,
           deviceName: navigator.userAgent.slice(0, 50),
           userName: userData.userName,
@@ -252,14 +240,10 @@ function TwoFactorScreen({
       })
       const data = await res.json()
       setLoading(false)
-
       if (data.success && data.verified) {
-        // Store trusted device ID
-        if (data.deviceId) {
-          localStorage.setItem('skolify_device_id', data.deviceId)
-        }
+        if (data.deviceId) localStorage.setItem('skolify_device_id', data.deviceId)
         if (data.warning) {
-          setSuccess(data.warning)
+          setSuccessMsg(data.warning)
           setTimeout(() => onVerified(data.deviceId), 2000)
         } else {
           onVerified(data.deviceId)
@@ -276,210 +260,230 @@ function TwoFactorScreen({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-50/50 flex flex-col relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-400/[0.06] rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-400/[0.05] rounded-full blur-[120px]" />
-      </div>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
 
-      {/* Top Bar */}
-      <div className="relative z-10 flex items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
-            <span className="text-white font-extrabold text-xs">SF</span>
-          </div>
-          <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Skolify</span>
-        </Link>
-        <BackToHome />
-      </div>
-
-      {/* Main Content */}
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
-
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/25">
-              <ShieldIcon />
+      {/* Nav */}
+      <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-slate-200/80">
+        <div className="max-w-screen-xl mx-auto px-5 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+              <span className="text-white font-black text-[11px]">SF</span>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900">Two-Factor Authentication</h1>
-            <p className="text-sm text-slate-500 mt-1.5">
-              Enter the OTP sent to your registered phone
+            <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Skolify</span>
+          </Link>
+          <button
+            onClick={onCancel}
+            className="text-[13px] text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-1"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7" />
+            </svg>
+            Back to Login
+          </button>
+        </div>
+      </nav>
+
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[400px]">
+
+          {/* Heading */}
+          <div className="text-center mb-8">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto mb-4">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900">Two-Factor Authentication</h1>
+            <p className="text-[13px] text-slate-500 mt-1.5">
+              OTP sent to <span className="font-mono font-semibold text-slate-700">{userData.maskedPhone}</span>
             </p>
           </div>
 
           {/* Card */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/60 p-8">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
+            <div className="h-[3px] bg-blue-500" />
+            <div className="p-6 space-y-5">
 
-            {/* Phone Info */}
-            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                </svg>
-                <span className="text-sm font-semibold text-blue-700">OTP sent to</span>
-              </div>
-              <p className="text-lg font-mono font-bold text-blue-800 tracking-wider">
-                {userData.maskedPhone}
-              </p>
-            </div>
+              {!useBackup ? (
+                <>
+                  {/* OTP boxes */}
+                  <div className="space-y-3">
+                    <p className="text-[12px] text-slate-500 text-center">Enter 6-digit OTP</p>
+                    <OTPInput value={otp} onChange={v => { setOtp(v); setError('') }} disabled={loading} />
+                  </div>
 
-            {!useBackupCode ? (
-              <>
-                {/* OTP Input */}
-                <div className="mb-6">
-                  <label className="block text-sm font-semibold text-slate-700 mb-3 text-center">
-                    Enter 6-digit OTP
-                  </label>
-                  <OTPInput
-                    value={otp}
-                    onChange={(val) => { setOtp(val); setError('') }}
-                    disabled={loading}
-                  />
-                </div>
-
-                {/* Resend OTP */}
-                <div className="text-center mb-5">
-                  {countdown > 0 ? (
-                    <p className="text-xs text-slate-400">
-                      Resend OTP in <span className="font-semibold text-blue-600">{countdown}s</span>
-                    </p>
-                  ) : (
-                    <button
-                      onClick={sendOTP}
-                      disabled={sending}
-                      className="text-sm text-blue-600 font-semibold hover:text-blue-700 hover:underline transition-colors disabled:opacity-50"
-                    >
-                      {sending ? 'Sending...' : 'Resend OTP'}
-                    </button>
-                  )}
-                </div>
-              </>
-            ) : (
-              /* Backup Code Input */
-              <div className="mb-6">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Enter Backup Code
-                </label>
-                <input
-                  type="text"
-                  value={backupCode}
-                  onChange={e => { setBackupCode(e.target.value.toUpperCase()); setError('') }}
-                  className={`${inputClass} text-center font-mono text-lg tracking-widest uppercase`}
-                  placeholder="XXXXXXXX"
-                  maxLength={8}
-                  disabled={loading}
-                  autoComplete="off"
-                />
-                <p className="mt-2 text-xs text-slate-400 text-center">
-                  Use one of your saved backup codes
-                </p>
-              </div>
-            )}
-
-            {/* Success */}
-            {success && (
-              <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-                <p className="text-sm text-emerald-700">{success}</p>
-              </div>
-            )}
-
-            {/* Error */}
-            {error && (
-              <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" x2="12" y1="8" y2="12" />
-                  <line x1="12" x2="12.01" y1="16" y2="16" />
-                </svg>
-                <p className="text-sm text-red-700">{error}</p>
-              </div>
-            )}
-
-            {/* Trust Device */}
-            <label className="flex items-center gap-3 mb-5 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={trustDevice}
-                  onChange={e => setTrustDevice(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-5 h-5 rounded-md border-2 border-slate-300 peer-checked:border-blue-600 peer-checked:bg-blue-600 transition-all flex items-center justify-center">
-                  {trustDevice && (
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm text-slate-700 font-medium group-hover:text-slate-900">Trust this device</p>
-                <p className="text-xs text-slate-400">Skip 2FA on this device for 30 days</p>
-              </div>
-            </label>
-
-            {/* Verify Button */}
-            <button
-              onClick={handleVerify}
-              disabled={loading || (!useBackupCode && otp.length < 6) || (useBackupCode && backupCode.length < 6)}
-              className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2"><Spinner /> Verifying...</span>
+                  {/* Resend */}
+                  <div className="text-center">
+                    {countdown > 0
+                      ? <p className="text-[12px] text-slate-400">Resend in <strong className="text-slate-600">{countdown}s</strong></p>
+                      : <button onClick={sendOTP} disabled={sending} className="text-[12px] text-blue-600 font-semibold hover:underline disabled:opacity-50">
+                          {sending ? 'Sending...' : 'Resend OTP'}
+                        </button>
+                    }
+                  </div>
+                </>
               ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <ShieldIcon />
-                  Verify & Login
-                </span>
+                /* Backup code */
+                <Field label="Backup Code" hint="Use one of your saved 8-character backup codes">
+                  <input
+                    type="text"
+                    value={backupCode}
+                    onChange={e => { setBackupCode(e.target.value.toUpperCase()); setError('') }}
+                    className={`${baseInput} text-center font-mono tracking-widest uppercase`}
+                    placeholder="XXXXXXXX"
+                    maxLength={8}
+                    disabled={loading}
+                    autoComplete="off"
+                  />
+                </Field>
               )}
-            </button>
 
-            {/* Toggle: OTP ↔ Backup Code */}
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => { setUseBackupCode(!useBackupCode); setError(''); setOtp(''); setBackupCode('') }}
-                className="text-xs text-slate-500 hover:text-blue-600 font-medium transition-colors flex items-center gap-1.5 mx-auto"
-              >
-                <KeyIcon />
-                {useBackupCode ? 'Use OTP instead' : 'Use backup code instead'}
-              </button>
-            </div>
+              {/* Success */}
+              {successMsg && (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3.5 py-2.5">
+                  <Check size={12} />
+                  <p className="text-[12px] text-emerald-700">{successMsg}</p>
+                </div>
+              )}
 
-            {/* Cancel */}
-            <div className="mt-3 text-center">
+              {/* Error */}
+              {error && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-px">
+                    <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
+                  </svg>
+                  <p className="text-[12px] text-red-700">{error}</p>
+                </div>
+              )}
+
+              {/* Trust device */}
+              <label className="flex items-center gap-2.5 cursor-pointer group">
+                <div className="relative flex-shrink-0">
+                  <input type="checkbox" checked={trustDevice} onChange={e => setTrustDevice(e.target.checked)} className="sr-only peer" />
+                  <div className="w-4.5 h-4.5 w-[18px] h-[18px] rounded-md border-2 border-slate-300 peer-checked:border-blue-600 peer-checked:bg-blue-600 transition-all flex items-center justify-center">
+                    {trustDevice && <Check size={10} />}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[13px] font-medium text-slate-700">Trust this device</p>
+                  <p className="text-[11px] text-slate-400">Skip 2FA for 30 days on this device</p>
+                </div>
+              </label>
+
+              {/* Verify button */}
               <button
-                onClick={onCancel}
-                className="text-xs text-slate-400 hover:text-red-500 font-medium transition-colors"
+                onClick={handleVerify}
+                disabled={loading || (!useBackup && otp.length < 6) || (useBackup && backupCode.length < 6)}
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors"
               >
-                Cancel & go back to login
+                {loading ? <><Spinner /> Verifying...</> : 'Verify & Login'}
               </button>
+
+              {/* Toggle backup */}
+              <button
+                onClick={() => { setUseBackup(b => !b); setError(''); setOtp(''); setBackupCode('') }}
+                className="w-full text-[12px] text-slate-500 hover:text-blue-600 transition-colors text-center"
+              >
+                {useBackup ? '← Use OTP instead' : 'Use backup code instead'}
+              </button>
+
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-[11px] text-slate-400">
-              Powered by <span className="font-semibold text-slate-500">Skolify</span>
-              {' · '}
-              <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
-                Shivshakti Computer Academy
-              </a>
-            </p>
+          <p className="text-center text-[11px] text-slate-400 mt-6">
+            Powered by <span className="font-medium text-slate-500">Skolify</span>
+          </p>
+        </div>
+      </main>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════
+// SUPERADMIN LOGIN — Minimal dark (same logic)
+// ══════════════════════════════════════════════════════════
+
+function SuperAdminLogin({
+  form,
+  setForm,
+  error,
+  loading,
+  onSubmit,
+}: {
+  form: { email: string; password: string }
+  setForm: (f: { email: string; password: string }) => void
+  error: string
+  loading: boolean
+  onSubmit: (e: React.FormEvent) => void
+}) {
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+
+        {/* Icon */}
+        <div className="flex justify-center mb-8">
+          <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
           </div>
         </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+          <div className="h-[2px] bg-slate-700" />
+          <div className="p-6">
+            <p className="text-[12px] font-medium text-slate-500 text-center mb-5 uppercase tracking-wider">
+              System Access
+            </p>
+            <form onSubmit={onSubmit} className="space-y-3">
+              <div className="space-y-1.5">
+                <label className="text-[12px] text-slate-500">Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm({ ...form, email: e.target.value })}
+                  className="w-full h-9 px-3 rounded-lg text-[13px] bg-slate-950 border border-slate-800 text-slate-200 placeholder:text-slate-700 focus:outline-none focus:border-slate-600 transition-colors"
+                  placeholder="admin@system.com"
+                  required
+                  autoComplete="email"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[12px] text-slate-500">Password</label>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })}
+                  className="w-full h-9 px-3 rounded-lg text-[13px] bg-slate-950 border border-slate-800 text-slate-200 placeholder:text-slate-700 focus:outline-none focus:border-slate-600 transition-colors"
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+              {error && (
+                <p className="text-[12px] text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-9 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[13px] font-medium rounded-lg transition-colors disabled:opacity-50 mt-1"
+              >
+                {loading ? 'Authenticating...' : 'Access System'}
+              </button>
+            </form>
+          </div>
+        </div>
+
       </div>
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════════════════
-   LOGIN INNER — Updated with 2FA Flow
-   ═══════════════════════════════════════════════════════ */
+// ══════════════════════════════════════════════════════════
+// LOGIN INNER — Main logic (unchanged)
+// ══════════════════════════════════════════════════════════
+
 function LoginInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -491,11 +495,12 @@ function LoginInner() {
     email: '',
     password: '',
   })
+  const [saForm, setSaForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
 
-  // ── 2FA State ──
+  // 2FA
   const [show2FA, setShow2FA] = useState(false)
   const [twoFactorData, setTwoFactorData] = useState<{
     userId: string
@@ -516,34 +521,30 @@ function LoginInner() {
     const sessionRes = await fetch('/api/auth/session')
     const session = await sessionRes.json()
     const role = session?.user?.role
-
     if (isSuperAdmin || role === 'superadmin') router.push('/superadmin')
     else if (role === 'teacher') router.push('/teacher')
     else if (role === 'student') router.push('/student')
     else if (role === 'parent') router.push('/parent')
     else router.push('/admin')
-
     router.refresh()
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    setError('')
+    setLoading(true); setError('')
 
     try {
       let res
 
       if (isSuperAdmin) {
-        if (!form.email.trim() || !form.password) {
+        if (!saForm.email.trim() || !saForm.password) {
           setError('Email and password are required')
-          setLoading(false)
-          return
+          setLoading(false); return
         }
         res = await signIn('credentials', {
           redirect: false,
-          email: form.email.trim(),
-          password: form.password,
+          email: saForm.email.trim(),
+          password: saForm.password,
           type: 'superadmin',
         })
       } else {
@@ -551,9 +552,7 @@ function LoginInner() {
         if (!form.phone.trim()) { setError('Please enter your Phone Number or Email'); setLoading(false); return }
         if (!form.password) { setError('Please enter your Password'); setLoading(false); return }
 
-        // Get trusted device ID from localStorage
         const deviceId = localStorage.getItem('skolify_device_id') || ''
-
         res = await signIn('credentials', {
           redirect: false,
           phone: form.phone.trim(),
@@ -573,12 +572,11 @@ function LoginInner() {
       }
       if (!res?.ok) { setError('Something went wrong. Please try again.'); return }
 
-      // ── Check if 2FA is required ──
+      // Check 2FA
       const sessionRes = await fetch('/api/auth/session')
       const session = await sessionRes.json()
 
       if (session?.user?.twoFactorRequired) {
-        // Show 2FA screen
         setTwoFactorData({
           userId: session.user.id,
           tenantId: session.user.tenantId,
@@ -590,9 +588,7 @@ function LoginInner() {
         return
       }
 
-      // No 2FA — navigate directly
       await navigateByRole()
-
     } catch {
       setLoading(false)
       setError('Something went wrong. Please try again.')
@@ -600,35 +596,28 @@ function LoginInner() {
   }
 
   const handle2FAVerified = async (deviceId?: string) => {
-    // Re-sign in with 2FA flag
-    const deviceStoredId = deviceId || localStorage.getItem('skolify_device_id') || ''
-
+    const storedId = deviceId || localStorage.getItem('skolify_device_id') || ''
     const res = await signIn('credentials', {
       redirect: false,
       phone: form.phone.trim(),
       password: form.password,
       subdomain: form.schoolCode.trim().toLowerCase(),
       twoFactorVerified: 'true',
-      deviceId: deviceStoredId,
+      deviceId: storedId,
     })
-
-    if (res?.ok) {
-      await navigateByRole()
-    } else {
+    if (res?.ok) await navigateByRole()
+    else {
       setError('Login failed after 2FA. Please try again.')
-      setShow2FA(false)
-      setTwoFactorData(null)
+      setShow2FA(false); setTwoFactorData(null)
     }
   }
 
   const handle2FACancel = () => {
-    setShow2FA(false)
-    setTwoFactorData(null)
-    // Sign out the partial session
+    setShow2FA(false); setTwoFactorData(null)
     fetch('/api/auth/signout', { method: 'POST' }).catch(() => {})
   }
 
-  // ── Show 2FA screen ──
+  // 2FA screen
   if (show2FA && twoFactorData) {
     return (
       <TwoFactorScreen
@@ -639,296 +628,249 @@ function LoginInner() {
     )
   }
 
-  /* ── SUPERADMIN ── */
+  // Superadmin
   if (isSuperAdmin) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto mb-3">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              </svg>
-            </div>
-            <h1 className="text-base font-semibold text-slate-400">System Access</h1>
-          </div>
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">Email</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-                  className="w-full py-2.5 px-3 rounded-xl text-sm bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-700 focus:outline-none focus:border-slate-600 transition-all"
-                  placeholder="admin@system.com"
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-500 mb-1.5">Password</label>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                  className="w-full py-2.5 px-3 rounded-xl text-sm bg-slate-950 border border-slate-800 text-slate-200 placeholder-slate-700 focus:outline-none focus:border-slate-600 transition-all"
-                  placeholder="••••••••"
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 text-sm text-red-400">
-                  {error}
-                </div>
-              )}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition-colors disabled:opacity-50 border border-slate-700"
-              >
-                {loading ? 'Authenticating...' : 'Access'}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
+      <SuperAdminLogin
+        form={saForm}
+        setForm={setSaForm}
+        error={error}
+        loading={loading}
+        onSubmit={handleSubmit}
+      />
     )
   }
 
-  /* ── SCHOOL LOGIN ── */
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-50/50 flex flex-col relative overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-400/[0.06] rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-400/[0.05] rounded-full blur-[120px]" />
-        <div className="absolute inset-0 opacity-[0.4]" style={{ backgroundImage: 'radial-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
-      </div>
+  // ══════════════════════════════════════════════════════════
+  // SCHOOL LOGIN — Notion style
+  // ══════════════════════════════════════════════════════════
 
-      {/* Top Bar */}
-      <div className="relative z-10 flex items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
-            <span className="text-white font-extrabold text-xs">SF</span>
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+
+      {/* Nav */}
+      <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-slate-200/80">
+        <div className="max-w-screen-xl mx-auto px-5 h-14 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+              <span className="text-white font-black text-[11px]">SF</span>
+            </div>
+            <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
+              Skolify
+            </span>
+          </Link>
+          <div className="flex items-center gap-4">
+            <span className="text-[12px] text-slate-500 hidden sm:block">New school?</span>
+            <Link href="/register" className="text-[13px] font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+              Register →
+            </Link>
           </div>
-          <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Skolify</span>
-        </Link>
-        <BackToHome />
-      </div>
+        </div>
+      </nav>
 
       {/* Main */}
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[400px]">
 
-          {/* Header */}
+          {/* Heading */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/25">
-              <span className="text-white font-extrabold text-xl">SF</span>
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900">Welcome back!</h1>
-            <p className="text-sm text-slate-500 mt-1.5">Sign in to your school portal</p>
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Sign in to your school
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-2">
+              Admin, Teacher, Student & Parent — all login here
+            </p>
+          </div>
+
+          {/* Role pills */}
+          <div className="flex items-center justify-center gap-2 mb-7 flex-wrap">
+            {[
+              { label: 'Admin', color: 'bg-blue-50 text-blue-600 border-blue-200' },
+              { label: 'Teacher', color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+              { label: 'Student', color: 'bg-amber-50 text-amber-600 border-amber-200' },
+              { label: 'Parent', color: 'bg-rose-50 text-rose-600 border-rose-200' },
+            ].map(r => (
+              <span
+                key={r.label}
+                className={`text-[11px] font-semibold border rounded-full px-2.5 py-0.5 ${r.color}`}
+              >
+                {r.label}
+              </span>
+            ))}
           </div>
 
           {/* Card */}
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/60 p-8">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
 
-            {/* Role info banner */}
-            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
-                <span className="text-xs font-bold text-blue-700">All Roles Login Here</span>
-              </div>
-              <p className="text-[12px] text-blue-600/80 leading-relaxed">
-                Admin, Teacher, Student & Parent — all login from this single page.
-                You&apos;ll be auto-redirected to your portal.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {[
-                  { role: 'Admin', bg: 'bg-blue-100 text-blue-700 border-blue-200' },
-                  { role: 'Teacher', bg: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-                  { role: 'Student', bg: 'bg-amber-100 text-amber-700 border-amber-200' },
-                  { role: 'Parent', bg: 'bg-rose-100 text-rose-700 border-rose-200' },
-                ].map(r => (
-                  <span key={r.role} className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${r.bg}`}>
-                    {r.role}
-                  </span>
-                ))}
-              </div>
-            </div>
+            {/* Top strip */}
+            <div className="h-[3px] bg-blue-500" />
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="px-6 py-6 space-y-4">
 
               {/* School Code */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">School Code</label>
+              <Field
+                label="School Code"
+                hint="Ask your school admin for this code"
+              >
                 <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                  </div>
                   <input
                     type="text"
                     value={form.schoolCode}
                     onChange={e => setForm(f => ({ ...f, schoolCode: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '') }))}
-                    className={`${inputClass} pl-10`}
+                    className={`${baseInput} font-mono pr-20`}
                     placeholder="e.g. dps_delhi"
                     required
                     autoComplete="off"
                     autoCapitalize="off"
+                    spellCheck={false}
+                    autoFocus
                   />
+                  {form.schoolCode && (
+                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-emerald-500">
+                      <Check size={14} />
+                    </div>
+                  )}
                 </div>
-                <p className="mt-1.5 text-xs text-slate-400 flex items-center gap-1">
-                  <svg width="11" height="11" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#94A3B8" strokeWidth="1.5" /><path d="M8 7.5v4M8 5.5h.01" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                  Ask your school admin for this code
-                </p>
-              </div>
+              </Field>
 
               {/* Phone / Email */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Phone Number or Email</label>
-                <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    value={form.phone}
-                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-                    className={`${inputClass} pl-10`}
-                    placeholder="9876543210 or email@example.com"
-                    required
-                    autoComplete="username"
-                  />
-                </div>
-              </div>
+              <Field label="Phone or Email">
+                <input
+                  type="text"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  className={baseInput}
+                  placeholder="9876543210 or email@example.com"
+                  required
+                  autoComplete="username"
+                />
+              </Field>
 
               {/* Password */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+              <Field label="Password">
                 <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </div>
                   <input
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPwd ? 'text' : 'password'}
                     value={form.password}
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                    className={`${inputClass} pl-10 pr-12`}
-                    placeholder="Enter your password"
+                    className={`${baseInput} pr-10`}
+                    placeholder="Your password"
                     required
                     autoComplete="current-password"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
+                    onClick={() => setShowPwd(p => !p)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                     tabIndex={-1}
                   >
-                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                    <Eye off={showPwd} />
                   </button>
                 </div>
-              </div>
+              </Field>
 
               {/* Error */}
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3.5 py-3">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-px">
                     <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
                   </svg>
-                  <p className="text-sm text-red-700">{error}</p>
+                  <p className="text-[12px] text-red-700">{error}</p>
                 </div>
               )}
 
               {/* Submit */}
               <button
-                type="submit"
+                onClick={handleSubmit}
                 disabled={loading}
-                className="w-full py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors"
               >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2"><Spinner /> Signing in...</span>
-                ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    Sign In to Portal
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  </span>
-                )}
+                {loading
+                  ? <><Spinner /> Signing in...</>
+                  : <>Sign in to Portal <ArrowRight /></>
+                }
               </button>
-            </form>
+
+            </div>
           </div>
 
-          {/* How it works */}
-          <div className="mt-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-slate-200 p-5 shadow-sm">
-            <h3 className="text-xs font-bold text-slate-700 mb-3 flex items-center gap-1.5 uppercase tracking-wider">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" x2="12.01" y1="17" y2="17" /></svg>
-              How does login work?
-            </h3>
-            <div className="space-y-3">
+          {/* How it works — simple, no heavy card */}
+          <div className="mt-5 px-1">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-3">
+              How login works
+            </p>
+            <div className="space-y-2">
               {[
-                { step: '1', text: <>Enter your <strong className="text-slate-800">School Code</strong> provided during registration</>, color: 'bg-blue-100 text-blue-700' },
-                { step: '2', text: <>Enter your <strong className="text-slate-800">Phone/Email</strong> and <strong className="text-slate-800">Password</strong></>, color: 'bg-indigo-100 text-indigo-700' },
-                { step: '3', text: <>You&apos;ll be <strong className="text-slate-800">auto-redirected</strong> to your role-specific portal</>, color: 'bg-emerald-100 text-emerald-700' },
+                { n: '1', text: 'Enter School Code given by your admin' },
+                { n: '2', text: 'Enter your Phone/Email and Password' },
+                { n: '3', text: "You'll be redirected to your role's portal" },
               ].map(item => (
-                <div key={item.step} className="flex items-start gap-3">
-                  <span className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 ${item.color}`}>{item.step}</span>
-                  <p className="text-[13px] text-slate-500 leading-relaxed">{item.text}</p>
+                <div key={item.n} className="flex items-center gap-2.5">
+                  <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-500 text-[10px] font-bold flex items-center justify-center flex-shrink-0">
+                    {item.n}
+                  </span>
+                  <p className="text-[12px] text-slate-500">{item.text}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Register */}
-          <div className="mt-5 text-center">
-            <p className="text-sm text-slate-500">
-              New school?{' '}
-              <Link href="/register" className="text-blue-600 font-semibold hover:text-blue-700 hover:underline transition-colors">Register here →</Link>
+          {/* Bottom */}
+          <div className="mt-6 space-y-3">
+            <p className="text-center text-[12px] text-slate-500">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-blue-600 font-semibold hover:underline">
+                Register your school →
+              </Link>
+            </p>
+
+            <div className="flex items-center justify-center gap-4">
+              {[
+                { icon: '🔒', text: 'Secure login' },
+                { icon: '🏫', text: 'All roles' },
+                { icon: '⚡', text: 'Instant access' },
+              ].map(b => (
+                <div key={b.text} className="flex items-center gap-1 text-[11px] text-slate-400">
+                  <span>{b.icon}</span>
+                  <span>{b.text}</span>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-center text-[11px] text-slate-400">
+              <Link href="/privacy" className="hover:text-blue-600 underline underline-offset-2 transition-colors">Privacy</Link>
+              {' · '}
+              <Link href="/terms" className="hover:text-blue-600 underline underline-offset-2 transition-colors">Terms</Link>
+              {' · '}
+              <Link href="/contact" className="hover:text-blue-600 underline underline-offset-2 transition-colors">Support</Link>
+            </p>
+
+            <p className="text-center text-[11px] text-slate-400">
+              Powered by <span className="font-medium text-slate-500">Skolify</span>
+              {' · '}
+              <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
+                Shivshakti Computer Academy
+              </a>
             </p>
           </div>
 
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-[11px] text-slate-400">
-              Powered by <span className="font-semibold text-slate-500">Skolify</span>
-              {' · '}
-              <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">Shivshakti Computer Academy</a>
-            </p>
-            <div className="mt-2 flex justify-center gap-3 text-[11px] text-slate-400">
-              <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy</Link>
-              <span>·</span>
-              <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms</Link>
-              <span>·</span>
-              <Link href="/contact" className="hover:text-slate-600 transition-colors">Support</Link>
-            </div>
-          </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
 
-/* ── Page Export ── */
+// ══════════════════════════════════════════════════════════
+// PAGE EXPORT — Suspense same as before
+// ══════════════════════════════════════════════════════════
+
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg animate-pulse">
-            <span className="text-white font-bold text-sm">SF</span>
+          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center">
+            <span className="text-white font-black text-xs">SF</span>
           </div>
           <Spinner />
         </div>

@@ -1,5 +1,5 @@
 // FILE: src/lib/msg91.ts
-// MSG91 SDK wrapper — SMS + WhatsApp
+// MSG91 SDK wrapper — SMS + WhatsApp + Email
 // ═══════════════════════════════════════════════════════════
 
 import mongoose from 'mongoose'
@@ -18,15 +18,154 @@ function getWhatsAppNumber(): string {
     return process.env.MSG91_WHATSAPP_NUMBER ?? ''
 }
 
+function getDomain(): string {
+    return process.env.MSG91_EMAIL_DOMAIN ?? process.env.NEXT_PUBLIC_APP_DOMAIN ?? 'skolify.in'
+}
+
 // ─── Clean phone number ───
 function cleanPhone(phone: string): string {
-    // Remove +91, 0, spaces, dashes
     const cleaned = phone.replace(/[\s\-\(\)]/g, '').replace(/^(\+91|0091|91|0)/, '')
     return `91${cleaned}`
 }
 
 // ═══════════════════════════════════════
-// SMS
+// EMAIL (MSG91 Email API)
+// ═══════════════════════════════════════
+
+export interface EmailResult {
+    success: boolean
+    messageId?: string
+    error?: string
+}
+
+export async function msg91SendEmail(
+    to: string,
+    subject: string,
+    html: string,
+    options?: {
+        from?: string
+        fromName?: string
+        replyTo?: string
+    }
+): Promise<EmailResult> {
+    const authKey = getAuthKey()
+    const domain = getDomain()
+
+    // Dev mode — no API key
+    if (!authKey) {
+        console.log(`[MSG91-EMAIL-DEV] To: ${to}`)
+        console.log(`[MSG91-EMAIL-DEV] Subject: ${subject}`)
+        console.log(`[MSG91-EMAIL-DEV] Preview: ${html.replace(/<[^>]*>/g, '').slice(0, 100)}`)
+        return { success: true, messageId: `dev_email_${Date.now()}` }
+    }
+
+    try {
+        const fromEmail = options?.from ?? `noreply@${domain}`
+        const fromName = options?.fromName ?? 'Skolify'
+
+        const payload = {
+            from: {
+                name: fromName,
+                email: fromEmail,
+            },
+            to: [{ email: to }],
+            subject,
+            html,
+            ...(options?.replyTo && {
+                reply_to: [{ email: options.replyTo }],
+            }),
+        }
+
+        const res = await fetch('https://api.msg91.com/api/v5/email/send', {
+            method: 'POST',
+            headers: {
+                'authkey': authKey,
+                'Content-Type': 'application/json',
+                'accept': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        })
+
+        const data = await res.json()
+
+        if (
+            data.type === 'success' ||
+            data.status === 'success' ||
+            res.ok
+        ) {
+            return {
+                success: true,
+                messageId: data.message_id ?? data.id ?? `email_${Date.now()}`,
+            }
+        }
+
+        console.error('[MSG91-EMAIL] Error:', data)
+        return {
+            success: false,
+            error: data.message ?? data.error ?? 'Email send failed',
+        }
+
+    } catch (err: any) {
+        console.error('[MSG91-EMAIL] Exception:', err)
+        return { success: false, error: err?.message ?? 'Email send failed' }
+    }
+}
+
+// ── Bulk Email ──
+export async function msg91SendBulkEmail(
+    recipients: Array<{ email: string; name?: string }>,
+    subject: string,
+    html: string,
+    options?: { fromName?: string }
+): Promise<EmailResult> {
+    const authKey = getAuthKey()
+    const domain = getDomain()
+
+    if (!authKey) {
+        console.log(`[MSG91-BULK-EMAIL-DEV] Recipients: ${recipients.length}, Subject: ${subject}`)
+        return { success: true, messageId: `dev_bulk_email_${Date.now()}` }
+    }
+
+    try {
+        const payload = {
+            from: {
+                name: options?.fromName ?? 'Skolify',
+                email: `noreply@${domain}`,
+            },
+            to: recipients.map(r => ({
+                email: r.email,
+                ...(r.name && { name: r.name }),
+            })),
+            subject,
+            html,
+        }
+
+        const res = await fetch('https://api.msg91.com/api/v5/email/send', {
+            method: 'POST',
+            headers: {
+                'authkey': authKey,
+                'Content-Type': 'application/json',
+                'accept': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        })
+
+        const data = await res.json()
+
+        if (data.type === 'success' || res.ok) {
+            return { success: true, messageId: data.message_id ?? `bulk_${Date.now()}` }
+        }
+
+        return { success: false, error: data.message ?? 'Bulk email failed' }
+
+    } catch (err: any) {
+        console.error('[MSG91-BULK-EMAIL] Exception:', err)
+        return { success: false, error: err?.message }
+    }
+}
+
+// ═══════════════════════════════════════
+// SMS — SAME AS BEFORE (no change)
 // ═══════════════════════════════════════
 
 export interface SMSResult {
@@ -42,7 +181,6 @@ export async function msg91SendSMS(
 ): Promise<SMSResult> {
     const authKey = getAuthKey()
 
-    // Dev mode — no API key
     if (!authKey) {
         const phoneList = Array.isArray(phone) ? phone.join(', ') : phone
         console.log(`[MSG91-SMS-DEV] To: ${phoneList}`)
@@ -54,17 +192,12 @@ export async function msg91SendSMS(
         const phones = Array.isArray(phone) ? phone : [phone]
         const cleanedPhones = phones.map(cleanPhone)
 
-        // ── Template Flow API (preferred for DLT compliance) ──
         if (templateId) {
             const payload = {
                 template_id: templateId,
                 short_url: '0',
                 realTimeResponse: '1',
-                recipients: cleanedPhones.map(p => ({
-                    mobiles: p,
-                    // Add template variables here if needed
-                    // name: "Student Name",
-                })),
+                recipients: cleanedPhones.map(p => ({ mobiles: p })),
             }
 
             const res = await fetch(`${MSG91_BASE}/flow/`, {
@@ -86,14 +219,13 @@ export async function msg91SendSMS(
             return { success: false, error: data.message ?? 'MSG91 SMS failed' }
         }
 
-        // ── Direct SMS API (fallback) ──
         const numbers = cleanedPhones.join(',')
         const params = new URLSearchParams({
             authkey: authKey,
             mobiles: numbers,
             message: encodeURIComponent(message),
             sender: getSenderId(),
-            route: '4',       // 4 = Transactional, 1 = Promotional
+            route: '4',
             country: '91',
         })
 
@@ -118,10 +250,6 @@ export async function msg91SendSMS(
     }
 }
 
-// ═══════════════════════════════════════
-// BULK SMS (Optimized for large lists)
-// ═══════════════════════════════════════
-
 export interface BulkSMSResult {
     success: boolean
     requestId?: string
@@ -142,7 +270,6 @@ export async function msg91SendBulkSMS(
     }
 
     try {
-        // MSG91 bulk API format
         const payload = {
             sender: getSenderId(),
             route: '4',
@@ -177,7 +304,7 @@ export async function msg91SendBulkSMS(
 }
 
 // ═══════════════════════════════════════
-// WHATSAPP
+// WHATSAPP — SAME AS BEFORE (no change)
 // ═══════════════════════════════════════
 
 export interface WhatsAppResult {
@@ -195,7 +322,6 @@ export async function msg91SendWhatsApp(
     const authKey = getAuthKey()
     const waNumber = getWhatsAppNumber()
 
-    // Dev mode
     if (!authKey || !waNumber) {
         console.log(`[MSG91-WA-DEV] To: ${phone}`)
         console.log(`[MSG91-WA-DEV] Template: ${templateId ?? 'none'}`)
@@ -205,9 +331,8 @@ export async function msg91SendWhatsApp(
 
     try {
         const cleanedPhone = cleanPhone(phone)
-
-        // Build template components
         const components: any[] = []
+
         if (params && params.length > 0) {
             components.push({
                 type: 'body',
@@ -265,7 +390,7 @@ export async function msg91SendWhatsApp(
 }
 
 // ═══════════════════════════════════════
-// OTP
+// OTP — SAME AS BEFORE (no change)
 // ═══════════════════════════════════════
 
 export async function msg91SendOTP(
@@ -274,8 +399,6 @@ export async function msg91SendOTP(
     templateId?: string
 ): Promise<SMSResult> {
     const message = `Your Skolify OTP is ${otp}. Valid for 10 minutes. Do not share. -Skolify`
-
-    // Try OTP API first (MSG91 has dedicated OTP API)
     const authKey = getAuthKey()
 
     if (!authKey) {
@@ -287,7 +410,6 @@ export async function msg91SendOTP(
         const otpTemplateId = templateId ?? process.env.MSG91_OTP_TEMPLATE_ID
 
         if (otpTemplateId) {
-            // Use MSG91 OTP API
             const params = new URLSearchParams({
                 authkey: authKey,
                 mobile: cleanPhone(phone),
@@ -308,7 +430,6 @@ export async function msg91SendOTP(
             }
         }
 
-        // Fallback to regular SMS
         return msg91SendSMS(phone, message, templateId)
 
     } catch (err: any) {
@@ -316,10 +437,6 @@ export async function msg91SendOTP(
         return msg91SendSMS(phone, message)
     }
 }
-
-// ═══════════════════════════════════════
-// DELIVERY STATUS CHECK
-// ═══════════════════════════════════════
 
 export interface DeliveryStatus {
     messageId: string
@@ -339,9 +456,7 @@ export async function msg91CheckDelivery(
     try {
         const res = await fetch(
             `${MSG91_BASE}/report/?request_id=${requestId}&type=all`,
-            {
-                headers: { 'authkey': authKey },
-            }
+            { headers: { 'authkey': authKey } }
         )
         const data = await res.json()
 

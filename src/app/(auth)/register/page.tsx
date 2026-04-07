@@ -1,391 +1,166 @@
-// FILE: src/app/register/page.tsx
-
+// FILE: src/app/(auth)/register/page.tsx
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
 
-/* ══════════════════════════════════════════════════════════
-   ICONS
-══════════════════════════════════════════════════════════ */
+// ══════════════════════════════════════════════════════════
+// TINY ICONS
+// ══════════════════════════════════════════════════════════
+
 function Spinner() {
   return (
     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
   )
 }
 
-function EyeIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+function Eye({ off = false }) {
+  return off ? (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+      <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+      <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+      <path d="m2 2 20 20" />
+    </svg>
+  ) : (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   )
 }
 
-function EyeOffIcon() {
+function Check({ size = 13 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
-      <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
-      <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
-      <path d="m2 2 20 20" />
-    </svg>
-  )
-}
-
-function CheckIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   BACK TO HOME BUTTON
-══════════════════════════════════════════════════════════ */
-function BackToHome() {
+function ArrowRight({ size = 14 }: { size?: number }) {
   return (
-    <Link
-      href="/"
-      className="
-        inline-flex items-center gap-2 px-4 py-2 rounded-xl
-        bg-white/80 hover:bg-white
-        border border-slate-200 hover:border-slate-300
-        text-slate-600 hover:text-slate-900
-        text-sm font-medium
-        shadow-sm hover:shadow-md
-        transition-all duration-200
-        backdrop-blur-sm
-      "
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M19 12H5M12 5l-7 7 7 7" />
-      </svg>
-      Back to Home
-    </Link>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
   )
 }
 
-/* ══════════════════════════════════════════════════════════
-   INPUT CLASS
-══════════════════════════════════════════════════════════ */
-const inputClass = `
-  w-full py-3 px-4 rounded-xl text-sm transition-all duration-200
-  bg-white border border-slate-200
-  text-slate-900 placeholder-slate-400
-  focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10
-  hover:border-slate-300
-`
+function ArrowLeft({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 12H5M12 5l-7 7 7 7" />
+    </svg>
+  )
+}
 
-/* ══════════════════════════════════════════════════════════
-   GLOBAL STYLES — ::before / ::after patterns
-   Injected via <style> tag (Tailwind can't do pseudo-elements natively)
-══════════════════════════════════════════════════════════ */
-const pseudoStyles = `
+// ══════════════════════════════════════════════════════════
+// FIELD — Reusable input wrapper
+// ══════════════════════════════════════════════════════════
 
-  /* ── Page background dot grid ── */
-  .reg-bg::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(rgba(59, 130, 246, 0.045) 1px, transparent 1px);
-    background-size: 24px 24px;
-    pointer-events: none;
-    z-index: 0;
-  }
+function Field({
+  label,
+  required,
+  optional,
+  hint,
+  children,
+}: {
+  label: string
+  required?: boolean
+  optional?: boolean
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <label className="text-[13px] font-medium text-slate-700">{label}</label>
+        {required && <span className="text-[11px] text-red-400">*</span>}
+        {optional && (
+          <span className="text-[11px] text-slate-400 font-normal">— optional</span>
+        )}
+      </div>
+      {children}
+      {hint && <p className="text-[11px] text-slate-400 leading-relaxed">{hint}</p>}
+    </div>
+  )
+}
 
-  /* ── Floating top-right glow blob ── */
-  .reg-bg::after {
-    content: '';
-    position: absolute;
-    top: -15%;
-    right: -10%;
-    width: 550px;
-    height: 550px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(99,102,241,0.07) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
+// ══════════════════════════════════════════════════════════
+// INPUT STYLES
+// ══════════════════════════════════════════════════════════
 
-  /* ── Step connector line (between circles) ── */
-  .step-connector {
-    position: relative;
-    width: 48px;
-    height: 2px;
-    background: #E2E8F0;
-    border-radius: 9999px;
-    overflow: visible;
-    transition: background 0.4s ease;
-  }
-  .step-connector.active {
-    background: linear-gradient(90deg, #2563EB, #4F46E5);
-  }
-  /* Animated fill shimmer on connector */
-  .step-connector.active::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
-    animation: connectorShimmer 1.5s infinite;
-    border-radius: 9999px;
-  }
-  @keyframes connectorShimmer {
-    0%   { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
+const baseInput = [
+  'w-full h-10 px-3 rounded-lg text-[13px] text-slate-800',
+  'bg-white border border-slate-200',
+  'placeholder:text-slate-400',
+  'transition-all duration-150',
+  'focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10',
+  'hover:border-slate-300',
+].join(' ')
 
-  /* ── Main card — decorative top accent bar ── */
-  .reg-card {
-    position: relative;
-    overflow: hidden;
-  }
-  .reg-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #2563EB, #6366F1, #8B5CF6);
-    border-radius: 24px 24px 0 0;
-    z-index: 1;
-  }
-  /* Card inner glow on top-left corner */
-  .reg-card::after {
-    content: '';
-    position: absolute;
-    top: -60px;
-    left: -60px;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(99,102,241,0.04) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
+// ══════════════════════════════════════════════════════════
+// STEP PILL — top indicator
+// ══════════════════════════════════════════════════════════
 
-  /* ── Info banner — left accent border ── */
-  .info-banner {
-    position: relative;
-    overflow: hidden;
-  }
-  .info-banner::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 12px;
-    bottom: 12px;
-    width: 3px;
-    background: linear-gradient(180deg, #2563EB, #6366F1);
-    border-radius: 0 9999px 9999px 0;
-  }
+function StepPills({ current }: { current: number }) {
+  const steps = ['School', 'Admin', 'Verify']
+  return (
+    <div className="flex items-center justify-center gap-2 mb-8">
+      {steps.map((label, i) => {
+        const n = i + 1
+        const done = current > n
+        const active = current === n
+        return (
+          <div key={n} className="flex items-center gap-2">
+            <div className={`
+              flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium
+              transition-all duration-300
+              ${done
+                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                : active
+                ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
+                : 'bg-slate-100 text-slate-400 border border-slate-200'
+              }
+            `}>
+              {done
+                ? <span className="text-emerald-500"><Check size={11} /></span>
+                : <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold ${active ? 'bg-white/20' : ''}`}>{n}</span>
+              }
+              <span>{label}</span>
+            </div>
+            {i < 2 && (
+              <div className={`w-6 h-px transition-colors duration-300 ${current > n ? 'bg-emerald-300' : 'bg-slate-200'}`} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
-  /* ── School code preview badge — shine ── */
-  .code-preview {
-    position: relative;
-    overflow: hidden;
-  }
-  .code-preview::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
-    animation: badgeShine 3s ease-in-out infinite;
-    border-radius: inherit;
-  }
-  @keyframes badgeShine {
-    0%   { left: -100%; }
-    50%  { left: 130%; }
-    100% { left: 130%; }
-  }
+// ══════════════════════════════════════════════════════════
+// MAIN
+// ══════════════════════════════════════════════════════════
 
-  /* ── Submit button — animated gradient bg ── */
-  .reg-submit-btn {
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(135deg, #2563EB 0%, #4F46E5 50%, #7C3AED 100%);
-    background-size: 200% 200%;
-    animation: gradientShift 4s ease infinite;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .reg-submit-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 28px -6px rgba(37, 99, 235, 0.4);
-  }
-  .reg-submit-btn:active {
-    transform: translateY(0);
-  }
-  .reg-submit-btn:disabled {
-    opacity: 0.55;
-    transform: none;
-    animation: none;
-    background: #94A3B8;
-  }
-  @keyframes gradientShift {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-  /* Ripple shimmer on button */
-  .reg-submit-btn::before {
-    content: '';
-    position: absolute;
-    top: 0; left: -75%;
-    width: 50%;
-    height: 100%;
-    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.15), transparent);
-    transform: skewX(-20deg);
-    animation: btnShimmer 2.5s ease-in-out infinite;
-  }
-  .reg-submit-btn:disabled::before {
-    display: none;
-  }
-  @keyframes btnShimmer {
-    0%   { left: -75%; }
-    100% { left: 130%; }
-  }
-
-  /* ── Step circle — active pulse ring ── */
-  .step-circle-active {
-    position: relative;
-  }
-  .step-circle-active::after {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    background: transparent;
-    border: 2px solid rgba(37, 99, 235, 0.3);
-    animation: stepPulse 2s ease-in-out infinite;
-  }
-  @keyframes stepPulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%       { opacity: 0.4; transform: scale(1.25); }
-  }
-
-  /* ── Success screen — hero icon glow ── */
-  .success-icon-wrap {
-    position: relative;
-  }
-  .success-icon-wrap::before {
-    content: '';
-    position: absolute;
-    inset: -12px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
-    animation: successPulse 2.5s ease-in-out infinite;
-  }
-  .success-icon-wrap::after {
-    content: '';
-    position: absolute;
-    inset: -24px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%);
-    animation: successPulse 2.5s ease-in-out infinite 0.5s;
-  }
-  @keyframes successPulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50%       { transform: scale(1.12); opacity: 0.6; }
-  }
-
-  /* ── Feature badges row — hover lift ── */
-  .feature-badge {
-    position: relative;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  .feature-badge:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px -4px rgba(0,0,0,0.08);
-  }
-  .feature-badge::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(135deg, rgba(255,255,255,0.5), transparent);
-    pointer-events: none;
-  }
-
-  /* ── Section divider with label ── */
-  .divider-label {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  .divider-label::before,
-  .divider-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #E2E8F0);
-  }
-  .divider-label::after {
-    background: linear-gradient(90deg, #E2E8F0, transparent);
-  }
-
-  /* ── Left-side blob (bottom-left) ── */
-  .reg-blob-bl {
-    position: absolute;
-    bottom: -15%;
-    left: -10%;
-    width: 450px;
-    height: 450px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  /* ── Input focused glow helper ── */
-  .input-wrap {
-    position: relative;
-  }
-  .input-wrap::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    border-radius: 13px;
-    background: transparent;
-    box-shadow: 0 0 0 0px rgba(37, 99, 235, 0);
-    pointer-events: none;
-    transition: box-shadow 0.2s ease;
-  }
-  .input-wrap:focus-within::after {
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
-  }
-
-  /* ── Success credential row ── */
-  .cred-row {
-    position: relative;
-  }
-  .cred-row + .cred-row::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #E2E8F0 20%, #E2E8F0 80%, transparent);
-  }
-`
-
-/* ══════════════════════════════════════════════════════════
-   MAIN PAGE
-══════════════════════════════════════════════════════════ */
 export default function RegisterPage() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPwd, setShowPwd] = useState(false)
+
+  // OTP
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpValues, setOtpValues] = useState(['', '', '', '', '', ''])
+  const [otpChannel, setOtpChannel] = useState<'sms' | 'email'>('sms')
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+  const [verified, setVerified] = useState(false)
+  const [vToken, setVToken] = useState('')
+
   const [success, setSuccess] = useState<{
     schoolCode: string
     schoolName: string
@@ -395,14 +170,9 @@ export default function RegisterPage() {
   } | null>(null)
 
   const [form, setForm] = useState({
-    schoolName: '',
-    schoolCode: '',
-    address: '',
-    adminName: '',
-    phone: '',
-    email: '',
-    password: '',
-    confirmPwd: '',
+    schoolName: '', schoolCode: '', address: '',
+    adminName: '', phone: '', email: '',
+    password: '', confirmPwd: '',
   })
 
   const set = (k: string, v: string) => {
@@ -410,39 +180,94 @@ export default function RegisterPage() {
     setForm(f => ({ ...f, [k]: v }))
   }
 
-  const autoCode = (name: string) =>
-    name.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30)
+  const slug = (s: string) =>
+    s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().replace(/\s+/g, '_').slice(0, 30)
 
-  const validateStep1 = () => {
-    if (!form.schoolName.trim()) { setError('School name is required'); return false }
-    if (!form.schoolCode.trim()) { setError('School code is required'); return false }
-    if (form.schoolCode.length < 3) { setError('School code must be at least 3 characters'); return false }
-    if (!/^[a-z0-9_-]+$/.test(form.schoolCode)) {
-      setError('School code: only lowercase letters, numbers, _ or - allowed')
-      return false
-    }
+  // ── OTP ──
+  const handleOtpChange = (i: number, v: string) => {
+    if (!/^\d*$/.test(v)) return
+    const n = [...otpValues]; n[i] = v.slice(-1); setOtpValues(n); setError('')
+    if (v && i < 5) document.getElementById(`otp-${i + 1}`)?.focus()
+  }
+
+  const handleOtpKey = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' && !otpValues[i] && i > 0)
+      document.getElementById(`otp-${i - 1}`)?.focus()
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const p = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (p.length === 6) { setOtpValues(p.split('')); setError('') }
+  }
+
+  const startCooldown = (s = 60) => {
+    setCooldown(s)
+    const t = setInterval(() => setCooldown(c => { if (c <= 1) { clearInterval(t); return 0 } return c - 1 }), 1000)
+  }
+
+  const sendOTP = async (ch: 'sms' | 'email') => {
+    setOtpLoading(true); setError('')
+    try {
+      const res = await fetch('/api/auth/otp/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: form.phone, email: form.email, channel: ch }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Failed to send OTP'); return }
+      setOtpChannel(ch); setOtpSent(true)
+      setOtpValues(['', '', '', '', '', ''])
+      startCooldown(60)
+      setTimeout(() => document.getElementById('otp-0')?.focus(), 100)
+    } catch { setError('Failed to send OTP.') }
+    finally { setOtpLoading(false) }
+  }
+
+  const verifyOTP = async () => {
+    const otp = otpValues.join('')
+    if (otp.length !== 6) { setError('Enter complete 6-digit OTP'); return }
+    setOtpLoading(true); setError('')
+    try {
+      const id = otpChannel === 'sms'
+        ? form.phone.replace(/\D/g, '')
+        : form.email.toLowerCase().trim()
+      const res = await fetch('/api/auth/otp/verify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: id, otp, purpose: 'registration' }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || 'Invalid OTP'); return }
+      setVToken(data.verificationToken); setVerified(true); setOtpSent(false)
+    } catch { setError('Verification failed.') }
+    finally { setOtpLoading(false) }
+  }
+
+  // ── Validate ──
+  const v1 = () => {
+    if (!form.schoolName.trim()) { setError('School name required'); return false }
+    if (!form.schoolCode.trim() || form.schoolCode.length < 3) { setError('School code min 3 chars'); return false }
+    if (!/^[a-z0-9_-]+$/.test(form.schoolCode)) { setError('Code: lowercase, numbers, _ or - only'); return false }
     return true
   }
 
+  const v2 = () => {
+    if (!form.adminName.trim()) { setError('Admin name required'); return false }
+    if (form.phone.replace(/\D/g, '').length !== 10) { setError('Valid 10-digit phone required'); return false }
+    if (form.password.length < 6) { setError('Password min 6 characters'); return false }
+    if (form.password !== form.confirmPwd) { setError('Passwords do not match'); return false }
+    return true
+  }
+
+  // ── Submit ──
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    if (step === 1) {
-      if (validateStep1()) setStep(2)
-      return
-    }
-
-    if (!form.adminName.trim()) { setError('Admin name is required'); return }
-    if (!form.phone.trim() || form.phone.trim().length < 10) { setError('Enter a valid 10-digit phone number'); return }
-    if (!form.password || form.password.length < 6) { setError('Password must be at least 6 characters'); return }
-    if (form.password !== form.confirmPwd) { setError('Passwords do not match'); return }
-
+    e.preventDefault(); setError('')
+    if (step === 1) { if (v1()) setStep(2); return }
+    if (step === 2) { if (v2()) setStep(3); return }
+    if (!verified || !vToken) { setError('Please verify phone first'); return }
     setLoading(true)
     try {
       const res = await fetch('/api/schools/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           schoolName: form.schoolName.trim(),
           subdomain: form.schoolCode.trim(),
@@ -451,730 +276,598 @@ export default function RegisterPage() {
           phone: form.phone.trim(),
           email: form.email.trim(),
           password: form.password,
+          verificationToken: vToken,
         }),
       })
       const data = await res.json()
-      setLoading(false)
-      if (!res.ok) { setError(data.error || 'Registration failed.'); return }
-      setSuccess({
-        schoolCode: data.schoolCode,
-        schoolName: form.schoolName,
-        adminName: form.adminName,
-        phone: form.phone,
-        trialDays: 15,
-      })
-    } catch {
-      setLoading(false)
-      setError('Something went wrong. Please try again.')
-    }
+      if (!res.ok) { setError(data.error || 'Registration failed'); return }
+      setSuccess({ schoolCode: data.schoolCode, schoolName: form.schoolName, adminName: form.adminName, phone: form.phone, trialDays: data.trialDays })
+    } catch { setError('Something went wrong.') }
+    finally { setLoading(false) }
   }
 
-  /* ════════════════════════════════════════
-     SUCCESS SCREEN
-  ════════════════════════════════════════ */
+  // ══════════════════════════════════════════════════════════
+  // SUCCESS
+  // ══════════════════════════════════════════════════════════
+
   if (success) {
     return (
-      <>
-        <style>{pseudoStyles}</style>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
 
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/40 to-teal-50/30 flex items-center justify-center p-4 relative overflow-hidden">
-
-          {/* Background decorations */}
-          <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/[0.05] rounded-full blur-[120px]" />
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-teal-400/[0.05] rounded-full blur-[120px]" />
-            <div
-              className="absolute inset-0 opacity-[0.35]"
-              style={{
-                backgroundImage: 'radial-gradient(rgba(16,185,129,0.04) 1px, transparent 1px)',
-                backgroundSize: '24px 24px',
-              }}
-            />
+          {/* Logo */}
+          <div className="flex justify-center mb-8">
+            <Link href="/" className="flex items-center gap-2 group">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                <span className="text-white font-black text-xs">SF</span>
+              </div>
+              <span className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Skolify</span>
+            </Link>
           </div>
 
-          <div className="relative w-full max-w-md">
+          {/* Card */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
 
-            {/* Top bar */}
-            <div className="flex items-center justify-between mb-6">
-              <Link href="/" className="flex items-center gap-2 group">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
-                  <span className="text-white font-extrabold text-xs">SF</span>
+            {/* Green top strip */}
+            <div className="h-1 bg-emerald-500" />
+
+            <div className="p-8">
+              {/* Icon */}
+              <div className="flex justify-center mb-6">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                  </svg>
                 </div>
-                <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-                  Skolify
-                </span>
-              </Link>
-              <BackToHome />
-            </div>
-
-            {/* Success Card */}
-            <div className="reg-card bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/60 p-8">
-
-              {/* Success icon */}
-              <div className="text-center mb-8">
-                <div className="relative inline-flex items-center justify-center mb-5">
-                  <div className="success-icon-wrap w-20 h-20 bg-emerald-50 border-2 border-emerald-200 rounded-full flex items-center justify-center">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                  </div>
-                </div>
-                <h2 className="text-2xl font-bold text-slate-900">You're all set! 🎉</h2>
-                <p className="text-sm text-slate-500 mt-1.5">
-                  <span className="font-semibold text-emerald-600">{success.schoolName}</span> has been registered.
-                  {/* Your {success.trialDays}-day free trial has started. */}
-                  Your free trial has started.
-                </p>
               </div>
 
-              {/* Divider */}
-              <div className="divider-label mb-5">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-                  Your Login Credentials
-                </span>
-              </div>
+              <h2 className="text-xl font-bold text-slate-900 text-center">Registration Successful!</h2>
+              <p className="text-sm text-slate-500 text-center mt-1.5">
+                Your {success.trialDays}-day free trial has started
+              </p>
 
-              {/* Credentials Box */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mb-5">
-                <div className="space-y-0">
+              {/* Credentials */}
+              <div className="mt-6 rounded-xl border border-slate-200 overflow-hidden">
+                <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200">
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Login Credentials</p>
+                </div>
+                <div className="divide-y divide-slate-100">
                   {[
                     {
                       label: 'School Code',
                       value: (
-                        <span className="code-preview inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 font-mono font-bold text-sm px-3 py-1 rounded-lg">
+                        <code className="text-[13px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
                           {success.schoolCode}
-                        </span>
-                      ),
+                        </code>
+                      )
                     },
-                    {
-                      label: 'Phone (Login ID)',
-                      value: <span className="text-sm font-semibold text-slate-700">{success.phone}</span>,
-                    },
-                    {
-                      label: 'Role',
-                      value: (
-                        <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-100 text-blue-700 text-[10px] font-bold px-2.5 py-0.5">
-                          Admin
-                        </span>
-                      ),
-                    },
-                    {
-                      label: 'Admin Name',
-                      value: <span className="text-sm font-semibold text-slate-700">{success.adminName}</span>,
-                    },
-                  ].map((row, i) => (
-                    <div key={i} className={`cred-row flex items-center justify-between py-3 ${i > 0 ? 'pt-3' : ''}`}>
-                      <span className="text-xs text-slate-500 font-medium">{row.label}</span>
-                      {row.value}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Warning */}
-                <div className="mt-3 pt-3 border-t border-slate-200">
-                  <div className="info-banner bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 pl-5">
-                    <p className="text-[12px] text-amber-700 leading-relaxed flex items-start gap-2">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
-                        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-                        <line x1="12" x2="12" y1="9" y2="13" />
-                        <line x1="12" x2="12.01" y1="17" y2="17" />
-                      </svg>
-                      <span>
-                        <strong>Save your School Code!</strong> Teachers, students &amp; parents need it to login.
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* What to do next */}
-              <div className="mb-6">
-                <div className="divider-label mb-4">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">
-                    What to do next
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {[
-                    { step: '1', text: 'Login with School Code + Phone + Password', color: 'bg-blue-100 text-blue-700' },
-                    { step: '2', text: 'Add teachers and students from admin panel', color: 'bg-indigo-100 text-indigo-700' },
-                    { step: '3', text: 'Share School Code with teachers & parents', color: 'bg-emerald-100 text-emerald-700' },
-                    { step: '4', text: 'Explore features — upgrade plan when ready', color: 'bg-amber-100 text-amber-700' },
-                  ].map(item => (
-                    <div key={item.step} className="flex items-start gap-3">
-                      <span className={`w-6 h-6 rounded-lg text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5 ${item.color}`}>
-                        {item.step}
-                      </span>
-                      <p className="text-[13px] text-slate-500 leading-relaxed">{item.text}</p>
+                    { label: 'Phone (Login ID)', value: <span className="text-[13px] font-semibold text-slate-700">+91 {success.phone}</span> },
+                    { label: 'Role', value: <span className="text-[11px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">Admin</span> },
+                    { label: 'Name', value: <span className="text-[13px] text-slate-700">{success.adminName}</span> },
+                  ].map((r, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-3">
+                      <span className="text-[12px] text-slate-500">{r.label}</span>
+                      {r.value}
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* CTA Button */}
+              {/* Save code warning */}
+              <div className="mt-4 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-3">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" x2="12" y1="9" y2="13" /><line x1="12" x2="12.01" y1="17" y2="17" />
+                </svg>
+                <p className="text-[12px] text-amber-700 leading-relaxed">
+                  <strong>Save your School Code.</strong> Teachers, students & parents will need it to login.
+                </p>
+              </div>
+
+              {/* CTA */}
               <Link
                 href="/login"
-                className="
-                  reg-submit-btn
-                  flex w-full justify-center items-center gap-2
-                  text-white py-3.5 rounded-2xl text-sm font-bold
-                "
+                className="mt-6 flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
               >
-                Go to Login Portal
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                Go to Login
+                <ArrowRight />
               </Link>
-
-              {/* Login URL */}
-              <p className="text-center text-[11px] text-slate-400 mt-4">
-                Login URL:{' '}
-                <span className="font-mono font-medium text-slate-500">
-                  {typeof window !== 'undefined' ? window.location.origin : ''}/login
-                </span>
-              </p>
-            </div>
-
-            {/* Footer */}
-            <div className="mt-6 text-center">
-              <p className="text-[11px] text-slate-400">
-                Powered by <span className="font-semibold text-slate-500">Skolify</span>
-                {' · '}
-                <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
-                  Shivshakti Computer Academy
-                </a>
-              </p>
             </div>
           </div>
+
+          <p className="text-center text-[11px] text-slate-400 mt-6">
+            Powered by Skolify ·{' '}
+            <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
+              Shivshakti Computer Academy
+            </a>
+          </p>
+
         </div>
-      </>
+      </div>
     )
   }
 
-  /* ════════════════════════════════════════
-     REGISTRATION FORM
-  ════════════════════════════════════════ */
+  // ══════════════════════════════════════════════════════════
+  // FORM
+  // ══════════════════════════════════════════════════════════
+
   return (
-    <>
-      <style>{pseudoStyles}</style>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
 
-      <div className="reg-bg min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-50/50 flex flex-col relative overflow-hidden">
-
-        {/* Blob bottom-left */}
-        <div className="reg-blob-bl" aria-hidden="true" />
-
-        {/* ─── Top Bar ─── */}
-        <div className="relative z-10 flex items-center justify-between px-6 py-4">
+      {/* ── Top Nav ── */}
+      <nav className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-slate-200/80">
+        <div className="max-w-screen-xl mx-auto px-5 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-sm">
-              <span className="text-white font-extrabold text-xs">SF</span>
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+              <span className="text-white font-black text-[11px]">SF</span>
             </div>
-            <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">
-              Skolify
-            </span>
+            <span className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">Skolify</span>
           </Link>
-          <BackToHome />
+
+          <div className="flex items-center gap-4">
+            <span className="text-[12px] text-slate-500 hidden sm:block">Already have an account?</span>
+            <Link
+              href="/login"
+              className="text-[13px] font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              Login →
+            </Link>
+          </div>
         </div>
+      </nav>
 
-        {/* ─── Main Content ─── */}
-        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-8">
-          <div className="w-full max-w-md">
+      {/* ── Main ── */}
+      <main className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-[440px]">
 
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-500/25">
-                <span className="text-white font-extrabold text-xl">SF</span>
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900">Register Your School</h1>
-              <p className="text-sm text-slate-500 mt-1.5">
-                60-day free trial · No credit card required
-              </p>
+          {/* Page heading */}
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Register your school
+            </h1>
+            <p className="text-[13px] text-slate-500 mt-2">
+              60-day free trial · No credit card required
+            </p>
+          </div>
 
-              {/* Feature badges */}
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
-                {[
-                  { icon: '✓', label: 'Free 60-day trial', colors: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
-                  { icon: '✓', label: 'All roles included', colors: 'bg-blue-50 border-blue-200 text-blue-700' },
-                  { icon: '✓', label: 'Setup in 2 minutes', colors: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
-                ].map(b => (
-                  <span
-                    key={b.label}
-                    className={`feature-badge inline-flex items-center gap-1.5 border rounded-full px-3 py-1 text-[11px] font-semibold ${b.colors}`}
-                  >
-                    <span className="text-[10px] font-bold">{b.icon}</span>
-                    {b.label}
-                  </span>
-                ))}
-              </div>
-            </div>
+          {/* Step pills */}
+          <StepPills current={step} />
 
-            {/* ── Step Indicator ── */}
-            <div className="flex items-center justify-center gap-3 mb-7">
-              {/* Step 1 */}
-              <div className="flex items-center gap-2.5">
-                <div className={`relative w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                  step >= 1
-                    ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 step-circle-active'
-                    : 'bg-slate-100 border border-slate-200 text-slate-400'
+          {/* ── Card ── */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
+
+            {/* Colored top strip — changes per step */}
+            <div className={`h-[3px] transition-all duration-500 ${
+              step === 1 ? 'bg-blue-500'
+              : step === 2 ? 'bg-violet-500'
+              : verified ? 'bg-emerald-500'
+              : 'bg-amber-500'
+            }`} />
+
+            <div className="px-7 py-7">
+
+              {/* Step label */}
+              <div className="flex items-center gap-2 mb-6">
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white ${
+                  step === 1 ? 'bg-blue-500' : step === 2 ? 'bg-violet-500' : 'bg-amber-500'
                 }`}>
-                  {step > 1 ? <CheckIcon /> : '1'}
+                  {step}
                 </div>
-                <div>
-                  <p className={`text-xs font-bold leading-tight transition-colors ${step >= 1 ? 'text-slate-700' : 'text-slate-400'}`}>
-                    Step 1
-                  </p>
-                  <p className={`text-[10px] leading-tight transition-colors ${step >= 1 ? 'text-slate-500' : 'text-slate-400'}`}>
-                    School Info
-                  </p>
-                </div>
-              </div>
-
-              {/* Connector */}
-              <div className={`step-connector ${step >= 2 ? 'active' : ''}`} />
-
-              {/* Step 2 */}
-              <div className="flex items-center gap-2.5">
-                <div className={`relative w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                  step >= 2
-                    ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/30 step-circle-active'
-                    : 'bg-slate-100 border border-slate-200 text-slate-400'
-                }`}>
-                  2
-                </div>
-                <div>
-                  <p className={`text-xs font-bold leading-tight transition-colors ${step >= 2 ? 'text-slate-700' : 'text-slate-400'}`}>
-                    Step 2
-                  </p>
-                  <p className={`text-[10px] leading-tight transition-colors ${step >= 2 ? 'text-slate-500' : 'text-slate-400'}`}>
-                    Admin Account
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Form Card ── */}
-            <div className="reg-card bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/60 p-8">
-
-              {/* Card header */}
-              <div className="mb-6">
-                <div className="info-banner bg-blue-50 border border-blue-200 rounded-2xl p-4 pl-5">
-                  <div className="flex items-center gap-2 mb-1">
-                    {step === 1 ? (
-                      <>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                          <polyline points="9 22 9 12 15 12 15 22" />
-                        </svg>
-                        <span className="text-xs font-bold text-blue-700">School Information</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                          <circle cx="12" cy="7" r="4" />
-                        </svg>
-                        <span className="text-xs font-bold text-blue-700">Admin Account Setup</span>
-                      </>
-                    )}
-                  </div>
-                  <p className="text-[12px] text-blue-600/80 leading-relaxed">
-                    {step === 1
-                      ? "Enter your school's basic details. The School Code will be used by all users to login."
-                      : 'Set up the admin login credentials. This will be the primary account for your school.'}
-                  </p>
+                <p className="text-[13px] font-semibold text-slate-600">
+                  {step === 1 ? 'School Information'
+                  : step === 2 ? 'Admin Account Setup'
+                  : 'Verify Your Phone'}
+                </p>
+                <div className="ml-auto text-[11px] text-slate-400">
+                  Step {step} of 3
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
 
-                {/* ── STEP 1 ── */}
+                {/* ══════════════
+                    STEP 1
+                ══════════════ */}
                 {step === 1 && (
                   <>
-                    {/* School Name */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        School Name <span className="text-red-400">*</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                              <polyline points="9 22 9 12 15 12 15 22" />
-                            </svg>
-                          </div>
-                          <input
-                            type="text"
-                            value={form.schoolName}
-                            onChange={e => {
-                              set('schoolName', e.target.value)
-                              if (!form.schoolCode || form.schoolCode === autoCode(form.schoolName)) {
-                                set('schoolCode', autoCode(e.target.value))
-                              }
-                            }}
-                            className={`${inputClass} pl-10`}
-                            placeholder="e.g. Delhi Public School"
-                            required
-                          />
-                        </div>
+                    <Field label="School Name" required hint="Official name of your school or institute">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={form.schoolName}
+                          onChange={e => {
+                            set('schoolName', e.target.value)
+                            if (!form.schoolCode || form.schoolCode === slug(form.schoolName))
+                              set('schoolCode', slug(e.target.value))
+                          }}
+                          className={baseInput}
+                          placeholder="e.g. Saraswati Vidya Mandir"
+                          required
+                          autoFocus
+                        />
                       </div>
-                    </div>
+                    </Field>
 
-                    {/* School Code */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        School Code <span className="text-red-400">*</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5" />
-                            </svg>
+                    <Field
+                      label="School Code"
+                      required
+                      hint="Unique ID for your school — teachers & parents use this to login. Cannot be changed later."
+                    >
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={form.schoolCode}
+                          onChange={e => set('schoolCode', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
+                          className={`${baseInput} font-mono pr-28`}
+                          placeholder="e.g. svm_ambikapur"
+                          required
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                        />
+                        {form.schoolCode && (
+                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            <span className="text-[10px] text-blue-600 font-mono font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded max-w-[90px] truncate">
+                              {form.schoolCode}
+                            </span>
                           </div>
-                          <input
-                            type="text"
-                            value={form.schoolCode}
-                            onChange={e => set('schoolCode', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
-                            className={`${inputClass} pl-10 font-mono tracking-wide`}
-                            placeholder="e.g. dps_delhi"
-                            required
-                            autoCapitalize="off"
-                            autoComplete="off"
-                          />
-                        </div>
+                        )}
                       </div>
-                      <p className="mt-1.5 text-xs text-slate-400 flex items-center gap-1">
-                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                          <circle cx="8" cy="8" r="7" stroke="#94A3B8" strokeWidth="1.5" />
-                          <path d="M8 7.5v4M8 5.5h.01" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                        Lowercase letters, numbers, _ or - only. Cannot be changed later.
-                      </p>
+                    </Field>
 
-                      {/* Live preview */}
-                      {form.schoolCode && (
-                        <div className="mt-2 code-preview bg-blue-50 border border-blue-200 rounded-xl px-3.5 py-2.5">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-blue-600 font-medium">School Code Preview</p>
-                            <span className="font-mono font-bold text-sm text-blue-700">{form.schoolCode}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Address */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        City / Address
-                        <span className="ml-2 text-[11px] font-normal text-slate-400">(optional)</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
-                              <circle cx="12" cy="10" r="3" />
-                            </svg>
-                          </div>
-                          <input
-                            type="text"
-                            value={form.address}
-                            onChange={e => set('address', e.target.value)}
-                            className={`${inputClass} pl-10`}
-                            placeholder="e.g. Ambikapur, Chhattisgarh"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <Field label="City / Address" optional>
+                      <input
+                        type="text"
+                        value={form.address}
+                        onChange={e => set('address', e.target.value)}
+                        className={baseInput}
+                        placeholder="e.g. Ambikapur, Chhattisgarh"
+                      />
+                    </Field>
                   </>
                 )}
 
-                {/* ── STEP 2 ── */}
+                {/* ══════════════
+                    STEP 2
+                ══════════════ */}
                 {step === 2 && (
                   <>
-                    {/* Admin Name */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Admin Name <span className="text-red-400">*</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                              <circle cx="12" cy="7" r="4" />
-                            </svg>
-                          </div>
-                          <input
-                            type="text"
-                            value={form.adminName}
-                            onChange={e => set('adminName', e.target.value)}
-                            className={`${inputClass} pl-10`}
-                            placeholder="Principal or school owner name"
-                            required
-                            autoComplete="name"
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    <Field label="Your Name" required hint="Principal or school owner name">
+                      <input
+                        type="text"
+                        value={form.adminName}
+                        onChange={e => set('adminName', e.target.value)}
+                        className={baseInput}
+                        placeholder="e.g. Ramesh Kumar"
+                        required
+                        autoComplete="name"
+                        autoFocus
+                      />
+                    </Field>
 
-                    {/* Phone */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Phone Number <span className="text-red-400">*</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                            </svg>
-                          </div>
-                          <input
-                            type="tel"
-                            value={form.phone}
-                            onChange={e => set('phone', e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                            className={`${inputClass} pl-10`}
-                            placeholder="9876543210"
-                            required
-                            maxLength={10}
-                            autoComplete="tel"
-                          />
+                    <Field label="Phone Number" required hint="This will be your Login ID · OTP verification required">
+                      <div className="relative flex">
+                        <div className="flex items-center px-3 bg-slate-50 border border-r-0 border-slate-200 rounded-l-lg text-[12px] font-semibold text-slate-500 select-none">
+                          +91
                         </div>
+                        <input
+                          type="tel"
+                          value={form.phone}
+                          onChange={e => {
+                            set('phone', e.target.value.replace(/\D/g, '').slice(0, 10))
+                            setVerified(false); setVToken(''); setOtpSent(false)
+                          }}
+                          className={`${baseInput} rounded-l-none font-mono tracking-widest`}
+                          placeholder="9876543210"
+                          required
+                          maxLength={10}
+                          autoComplete="tel"
+                        />
+                        {form.phone.length === 10 && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500">
+                            <Check size={14} />
+                          </div>
+                        )}
                       </div>
-                      <p className="mt-1.5 text-xs text-slate-400 flex items-center gap-1">
-                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                          <circle cx="8" cy="8" r="7" stroke="#94A3B8" strokeWidth="1.5" />
-                          <path d="M8 7.5v4M8 5.5h.01" stroke="#94A3B8" strokeWidth="1.5" strokeLinecap="round" />
-                        </svg>
-                        This will be your Login ID
-                      </p>
-                    </div>
+                    </Field>
 
-                    {/* Email */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Email
-                        <span className="ml-2 text-[11px] font-normal text-slate-400">(optional)</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect width="20" height="16" x="2" y="4" rx="2" />
-                              <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-                            </svg>
-                          </div>
-                          <input
-                            type="email"
-                            value={form.email}
-                            onChange={e => set('email', e.target.value)}
-                            className={`${inputClass} pl-10`}
-                            placeholder="school@example.com"
-                            autoComplete="email"
-                          />
-                        </div>
+                    <Field label="Email" optional hint="For welcome email & trial reminders">
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={e => set('email', e.target.value)}
+                        className={baseInput}
+                        placeholder="school@example.com"
+                        autoComplete="email"
+                      />
+                    </Field>
+
+                    <Field label="Password" required>
+                      <div className="relative">
+                        <input
+                          type={showPwd ? 'text' : 'password'}
+                          value={form.password}
+                          onChange={e => set('password', e.target.value)}
+                          className={`${baseInput} pr-10`}
+                          placeholder="Min. 6 characters"
+                          required
+                          minLength={6}
+                          autoComplete="new-password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPwd(p => !p)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          tabIndex={-1}
+                        >
+                          <Eye off={showPwd} />
+                        </button>
                       </div>
-                    </div>
-
-                    {/* Password */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Password <span className="text-red-400">*</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                            </svg>
-                          </div>
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={form.password}
-                            onChange={e => set('password', e.target.value)}
-                            className={`${inputClass} pl-10 pr-12`}
-                            placeholder="Minimum 6 characters"
-                            required
-                            minLength={6}
-                            autoComplete="new-password"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-0.5"
-                            tabIndex={-1}
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                          >
-                            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                          </button>
+                      {/* Strength bar */}
+                      {form.password && (
+                        <div className="flex gap-1 mt-1.5">
+                          {[6, 9, 12, 15].map((len, i) => (
+                            <div
+                              key={i}
+                              className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ${
+                                form.password.length >= len
+                                  ? i < 2 ? 'bg-amber-400' : i === 2 ? 'bg-blue-400' : 'bg-emerald-500'
+                                  : 'bg-slate-200'
+                              }`}
+                            />
+                          ))}
                         </div>
-                      </div>
-                    </div>
+                      )}
+                    </Field>
 
-                    {/* Confirm Password */}
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-700 mb-2">
-                        Confirm Password <span className="text-red-400">*</span>
-                      </label>
-                      <div className="input-wrap">
-                        <div className="relative">
-                          <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-                              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                            </svg>
+                    <Field label="Confirm Password" required>
+                      <div className="relative">
+                        <input
+                          type={showPwd ? 'text' : 'password'}
+                          value={form.confirmPwd}
+                          onChange={e => set('confirmPwd', e.target.value)}
+                          className={`${baseInput} pr-10`}
+                          placeholder="Re-enter password"
+                          required
+                          autoComplete="new-password"
+                        />
+                        {form.confirmPwd && (
+                          <div className={`absolute right-3 top-1/2 -translate-y-1/2 ${form.password === form.confirmPwd ? 'text-emerald-500' : 'text-red-400'}`}>
+                            {form.password === form.confirmPwd
+                              ? <Check size={14} />
+                              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                            }
                           </div>
-                          <input
-                            type={showPassword ? 'text' : 'password'}
-                            value={form.confirmPwd}
-                            onChange={e => set('confirmPwd', e.target.value)}
-                            className={`${inputClass} pl-10 pr-12`}
-                            placeholder="Re-enter your password"
-                            required
-                            autoComplete="new-password"
-                          />
-                          {/* Match indicator */}
-                          {form.confirmPwd && (
-                            <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center ${
-                              form.password === form.confirmPwd
-                                ? 'bg-emerald-100 text-emerald-600'
-                                : 'bg-red-100 text-red-500'
-                            }`}>
-                              {form.password === form.confirmPwd ? (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                  <polyline points="20 6 9 17 4 12" />
-                                </svg>
-                              ) : (
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                  <line x1="18" y1="6" x2="6" y2="18" />
-                                  <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                       {form.confirmPwd && form.password !== form.confirmPwd && (
-                        <p className="mt-1.5 text-xs text-red-500 flex items-center gap-1">
-                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                            <circle cx="8" cy="8" r="7" stroke="#EF4444" strokeWidth="1.5" />
-                            <path d="M8 5v4M8 11h.01" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                          Passwords do not match
-                        </p>
+                        <p className="text-[11px] text-red-500 mt-1">Passwords do not match</p>
                       )}
-                      {form.confirmPwd && form.password === form.confirmPwd && (
-                        <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1">
-                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none">
-                            <circle cx="8" cy="8" r="7" stroke="#10B981" strokeWidth="1.5" />
-                            <path d="m5 8 2 2 4-4" stroke="#10B981" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          Passwords match
-                        </p>
-                      )}
-                    </div>
+                    </Field>
                   </>
                 )}
 
-                {/* Error */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-0.5">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" x2="12" y1="8" y2="12" />
-                      <line x1="12" x2="12.01" y1="16" y2="16" />
-                    </svg>
-                    <p className="text-sm text-red-700">{error}</p>
+                {/* ══════════════
+                    STEP 3 — OTP
+                ══════════════ */}
+                {step === 3 && (
+                  <div className="space-y-5">
+
+                    {/* Phone display */}
+                    <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                      <div>
+                        <p className="text-[11px] text-slate-400 mb-0.5">Verifying</p>
+                        <p className="text-[14px] font-bold text-slate-800 font-mono">+91 {form.phone}</p>
+                      </div>
+                      {verified
+                        ? <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-2.5 py-1 flex items-center gap-1"><Check size={10} /> Verified</span>
+                        : <span className="text-[11px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2.5 py-1">Pending</span>
+                      }
+                    </div>
+
+                    {/* Verified state */}
+                    {verified && (
+                      <div className="text-center py-6">
+                        <div className="w-14 h-14 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-3 text-emerald-500">
+                          <Check size={22} />
+                        </div>
+                        <p className="text-[15px] font-bold text-slate-800">Phone verified!</p>
+                        <p className="text-[12px] text-slate-500 mt-1">Click below to complete registration</p>
+                      </div>
+                    )}
+
+                    {/* Choose channel */}
+                    {!verified && !otpSent && (
+                      <div className="space-y-2.5">
+                        <p className="text-[13px] text-slate-600 text-center font-medium">
+                          Send OTP via:
+                        </p>
+
+                        {/* SMS */}
+                        <button
+                          type="button"
+                          onClick={() => sendOTP('sms')}
+                          disabled={otpLoading}
+                          className="w-full flex items-center gap-3 px-4 py-3.5 bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl transition-all duration-150 group disabled:opacity-60 text-left"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 18a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.64 7.35h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 15a16 16 0 0 0 5.91 5.91l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-[13px] font-semibold text-slate-800">SMS to +91 {form.phone}</p>
+                            <p className="text-[11px] text-slate-400">Instant delivery</p>
+                          </div>
+                          {otpLoading ? <Spinner /> : <ArrowRight size={14} />}
+                        </button>
+
+                        {/* Email */}
+                        {form.email && (
+                          <button
+                            type="button"
+                            onClick={() => sendOTP('email')}
+                            disabled={otpLoading}
+                            className="w-full flex items-center gap-3 px-4 py-3.5 bg-white border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 rounded-xl transition-all duration-150 group disabled:opacity-60 text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect width="20" height="16" x="2" y="4" rx="2" /><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                              </svg>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-[13px] font-semibold text-slate-800">
+                                Email to {form.email.slice(0, 4)}***{form.email.slice(form.email.indexOf('@'))}
+                              </p>
+                              <p className="text-[11px] text-slate-400">Check your inbox</p>
+                            </div>
+                            {otpLoading ? <Spinner /> : <ArrowRight size={14} />}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* OTP Input */}
+                    {!verified && otpSent && (
+                      <div className="space-y-5">
+
+                        <p className="text-center text-[13px] text-slate-600">
+                          Enter the 6-digit code sent via{' '}
+                          <span className="font-semibold">{otpChannel === 'sms' ? 'SMS' : 'Email'}</span>
+                        </p>
+
+                        {/* Boxes */}
+                        <div className="flex justify-center gap-2" onPaste={handlePaste}>
+                          {otpValues.map((val, i) => (
+                            <input
+                              key={i}
+                              id={`otp-${i}`}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={val}
+                              onChange={e => handleOtpChange(i, e.target.value)}
+                              onKeyDown={e => handleOtpKey(i, e)}
+                              className={[
+                                'w-10 h-12 text-center text-base font-bold rounded-xl border-2',
+                                'outline-none transition-all duration-150 caret-transparent',
+                                val
+                                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                  : 'border-slate-200 bg-white text-slate-900',
+                                'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10',
+                              ].join(' ')}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Verify */}
+                        <button
+                          type="button"
+                          onClick={verifyOTP}
+                          disabled={otpLoading || otpValues.join('').length !== 6}
+                          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors"
+                        >
+                          {otpLoading ? <><Spinner /> Verifying...</> : 'Verify OTP'}
+                        </button>
+
+                        {/* Resend */}
+                        <div className="text-center">
+                          {cooldown > 0
+                            ? <p className="text-[12px] text-slate-400">Resend in <strong className="text-slate-600">{cooldown}s</strong></p>
+                            : (
+                              <div className="flex items-center justify-center gap-2 flex-wrap text-[12px]">
+                                <span className="text-slate-400">Didn't get it?</span>
+                                <button type="button" onClick={() => sendOTP('sms')} className="text-blue-600 font-semibold hover:underline">Resend SMS</button>
+                                {form.email && <><span className="text-slate-300">·</span><button type="button" onClick={() => sendOTP('email')} className="text-blue-600 font-semibold hover:underline">Email</button></>}
+                                <span className="text-slate-300">·</span>
+                                <button type="button" onClick={() => { setOtpSent(false); setOtpValues(['', '', '', '', '', '']); setError('') }} className="text-slate-500 hover:text-slate-700 hover:underline">Change method</button>
+                              </div>
+                            )
+                          }
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 )}
 
-                {/* Buttons */}
-                <div className="flex gap-3 pt-1">
-                  {step === 2 && (
+                {/* ── Error ── */}
+                {error && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3.5 py-3">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 mt-px">
+                      <circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" />
+                    </svg>
+                    <p className="text-[12px] text-red-700">{error}</p>
+                  </div>
+                )}
+
+                {/* ── Buttons ── */}
+                <div className="flex gap-2.5 pt-2">
+                  {step > 1 && (
                     <button
                       type="button"
-                      onClick={() => { setStep(1); setError('') }}
-                      className="
-                        flex-1 py-3 border border-slate-200 bg-white
-                        text-slate-600 text-sm font-semibold rounded-2xl
-                        hover:bg-slate-50 hover:border-slate-300
-                        transition-all duration-200
-                        flex items-center justify-center gap-2
-                      "
+                      onClick={() => { setStep(s => s - 1); setError(''); setOtpSent(false); setOtpValues(['', '', '', '', '', '']) }}
+                      className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium text-slate-600 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 rounded-xl transition-all"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 12H5M12 5l-7 7 7 7" />
-                      </svg>
-                      Back
+                      <ArrowLeft /> Back
                     </button>
                   )}
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="reg-submit-btn flex-1 py-3.5 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2"
-                  >
-                    {loading ? (
-                      <>
-                        <Spinner />
-                        Registering...
-                      </>
-                    ) : step === 1 ? (
-                      <>
-                        Continue
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M5 12h14M12 5l7 7-7 7" />
-                        </svg>
-                      </>
-                    ) : (
-                      <>
-                        Register School
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                          <polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                      </>
-                    )}
-                  </button>
+                  {(step === 1 || step === 2 || (step === 3 && verified)) && (
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-[13px] font-semibold py-2.5 rounded-xl transition-colors"
+                    >
+                      {loading
+                        ? <><Spinner /> Creating account...</>
+                        : step < 3
+                        ? <>Continue <ArrowRight /></>
+                        : <>Create Account <Check /></>
+                      }
+                    </button>
+                  )}
                 </div>
+
               </form>
             </div>
+          </div>
 
-            {/* Login link */}
-            <div className="mt-5 text-center">
-              <p className="text-sm text-slate-500">
-                Already registered?{' '}
-                <Link href="/login" className="text-blue-600 font-semibold hover:text-blue-700 hover:underline transition-colors">
-                  Login here →
-                </Link>
-              </p>
+          {/* Bottom info */}
+          <div className="mt-6 space-y-3">
+
+            {/* Trust row */}
+            <div className="flex items-center justify-center gap-5">
+              {[
+                { icon: '🔒', text: 'Secure' },
+                { icon: '🆓', text: '60-day trial' },
+                { icon: '🇮🇳', text: 'Made in India' },
+              ].map(b => (
+                <div key={b.text} className="flex items-center gap-1 text-[11px] text-slate-400">
+                  <span>{b.icon}</span>
+                  <span>{b.text}</span>
+                </div>
+              ))}
             </div>
 
-            {/* Footer */}
-            <div className="mt-6 text-center">
-              <p className="text-[11px] text-slate-400">
-                Powered by <span className="font-semibold text-slate-500">Skolify</span>
-                {' · '}
-                <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
-                  Shivshakti Computer Academy
-                </a>
-              </p>
-              <div className="mt-2 flex justify-center gap-3 text-[11px] text-slate-400">
-                <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy</Link>
-                <span>·</span>
-                <Link href="/terms" className="hover:text-slate-600 transition-colors">Terms</Link>
-                <span>·</span>
-                <Link href="/contact" className="hover:text-slate-600 transition-colors">Support</Link>
-              </div>
-            </div>
+            <p className="text-center text-[11px] text-slate-400">
+              By registering, you agree to our{' '}
+              <Link href="/terms" className="hover:text-blue-600 underline underline-offset-2 transition-colors">Terms</Link>
+              {' & '}
+              <Link href="/privacy" className="hover:text-blue-600 underline underline-offset-2 transition-colors">Privacy Policy</Link>
+            </p>
+
+            <p className="text-center text-[11px] text-slate-400">
+              Powered by <span className="font-medium text-slate-500">Skolify</span>
+              {' · '}
+              <a href="https://shivshakticomputer.in" target="_blank" rel="noopener noreferrer" className="hover:text-slate-600 transition-colors">
+                Shivshakti Computer Academy
+              </a>
+            </p>
 
           </div>
         </div>
-      </div>
-    </>
+      </main>
+    </div>
   )
 }

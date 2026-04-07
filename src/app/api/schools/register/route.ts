@@ -1,16 +1,20 @@
-// FILE: src/app/api/schools/register/route.ts (UPDATED with security)
+// FILE: src/app/api/schools/register/route.ts
+// CHANGES: 
+//   1. verificationToken check add kiya
+//   2. trialDays: → TRIAL_CONFIG.durationDays fix kiya
+//   3. Baaki sab SAME hai
 
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/db'
 import { School } from '@/models/School'
 import { User } from '@/models/User'
+import { OTPVerification } from '@/models/OTPVerification'  // ← NEW IMPORT
 import {
   sanitizeBody,
   checkRateLimit,
   RATE_LIMITS,
   rateLimitResponse,
-  validatePasswordStrength,
   getClientInfo,
 } from '@/lib/security'
 import { logAudit } from '@/lib/audit'
@@ -18,16 +22,12 @@ import { TRIAL_CONFIG } from '@/lib/plans'
 import { grantTrialCredits } from '@/lib/credits'
 
 export async function POST(req: NextRequest) {
-  // ── Rate Limit ──
   const rl = checkRateLimit(req, RATE_LIMITS.register)
-  if (!rl.allowed) {
-    return rateLimitResponse(rl.resetIn)
-  }
+  if (!rl.allowed) return rateLimitResponse(rl.resetIn)
 
   try {
     await connectDB()
 
-    // ── Sanitize Input ──
     const raw = await req.json()
     const body = sanitizeBody(raw)
 
@@ -39,9 +39,10 @@ export async function POST(req: NextRequest) {
       email,
       password,
       address,
+      verificationToken,  // ← NEW
     } = body
 
-    // ── Validation ──
+    // ── Basic Validation (same as before) ──
     if (!schoolName?.trim() || !subdomain?.trim() || !adminName?.trim() || !phone?.trim() || !password) {
       return NextResponse.json(
         { error: 'School name, school code, admin name, phone, and password are required.' },
@@ -49,7 +50,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Password Strength ──
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters.' },
@@ -57,7 +57,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Phone Validation ──
     const cleanPhone = phone.trim().replace(/[^0-9]/g, '')
     if (cleanPhone.length !== 10) {
       return NextResponse.json(
@@ -66,7 +65,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Email Validation (if provided) ──
     if (email?.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(email.trim())) {
@@ -77,7 +75,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Clean school code ──
     const schoolCode = subdomain.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
 
     if (schoolCode.length < 3) {
@@ -94,7 +91,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Reserved codes ──
     const reserved = [
       'admin', 'api', 'www', 'app', 'login', 'register',
       'superadmin', 'test', 'demo', 'skolify', 'support',
@@ -107,7 +103,37 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Check duplicate school code ──
+    // ── NEW: Verify OTP Token ──
+    if (!verificationToken) {
+      return NextResponse.json(
+        { error: 'Phone verification required. Please verify your phone number first.' },
+        { status: 400 }
+      )
+    }
+
+    const otpRecord = await OTPVerification.findOne({
+      phone: cleanPhone,
+      purpose: 'registration',
+      verified: true,
+      token: verificationToken,
+    })
+
+    if (!otpRecord) {
+      return NextResponse.json(
+        { error: 'Invalid or expired verification. Please verify your phone again.' },
+        { status: 400 }
+      )
+    }
+
+    if (new Date() > otpRecord.expiresAt) {
+      await OTPVerification.findByIdAndDelete(otpRecord._id)
+      return NextResponse.json(
+        { error: 'Verification expired. Please verify your phone again.' },
+        { status: 400 }
+      )
+    }
+
+    // ── Duplicate checks (same as before) ──
     const exists = await School.findOne({ subdomain: schoolCode })
     if (exists) {
       return NextResponse.json(
@@ -116,7 +142,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Check duplicate phone ──
     const phoneExists = await User.findOne({ phone: cleanPhone })
     if (phoneExists) {
       return NextResponse.json(
@@ -125,11 +150,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Trial: 60 days ──
+    // ── Trial setup (same as before) ──
     const trialEndsAt = new Date()
-    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_CONFIG.durationDays) // 60 days
+    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_CONFIG.durationDays)
 
-    // ── Create school ──
+    // ── Create School (same as before) ──
     const school = await School.create({
       name: schoolName.trim(),
       subdomain: schoolCode,
@@ -138,15 +163,15 @@ export async function POST(req: NextRequest) {
       email: email?.trim() || '',
       plan: 'starter',
       trialEndsAt,
-      modules: TRIAL_CONFIG.modules, // ALL modules during trial
+      modules: TRIAL_CONFIG.modules,
       isActive: true,
       onboardingComplete: false,
     })
 
     await grantTrialCredits(school._id.toString())
 
-    // ── Create admin user (with stronger hash) ──
-    const hashedPwd = await bcrypt.hash(password, 12) // Increased from 10 to 12
+    // ── Create Admin User (same as before) ──
+    const hashedPwd = await bcrypt.hash(password, 12)
 
     await User.create({
       tenantId: school._id,
@@ -158,7 +183,10 @@ export async function POST(req: NextRequest) {
       isActive: true,
     })
 
-    // ── Audit Log ──
+    // ── Cleanup OTP record ──
+    await OTPVerification.findByIdAndDelete(otpRecord._id)
+
+    // ── Audit Log (same as before) ──
     const clientInfo = getClientInfo(req)
     await logAudit({
       tenantId: school._id.toString(),
@@ -172,12 +200,13 @@ export async function POST(req: NextRequest) {
         schoolCode,
         phone: cleanPhone,
         trialEndsAt: trialEndsAt.toISOString(),
+        phoneVerified: true,  // ← NEW
       },
       ipAddress: clientInfo.ip,
       userAgent: clientInfo.userAgent,
     })
 
-    // ── Send welcome email (optional) ──
+    // ── Welcome Email (same as before) ──
     if (email?.trim()) {
       try {
         const { sendEmail, EMAIL_TEMPLATES } = await import('@/lib/email')
@@ -193,13 +222,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── FIX: trialDays → TRIAL_CONFIG.durationDays ──
     return NextResponse.json(
       {
         success: true,
         schoolCode,
         schoolName: schoolName.trim(),
         trialEndsAt: trialEndsAt.toISOString(),
-        trialDays: 15,
+        trialDays: TRIAL_CONFIG.durationDays,  
         message: `School registered successfully.`,
       },
       { status: 201 }
