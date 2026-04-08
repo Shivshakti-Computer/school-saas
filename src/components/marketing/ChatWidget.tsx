@@ -4,12 +4,12 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
+import { usePathname } from 'next/navigation' // ✅ Add this
 
 // ══════════════════════════════════════════════
 // Types
 // ══════════════════════════════════════════════
 
-// Aapke User model ke roles (src/models/User.ts)
 type SessionUserRole =
   | 'admin'
   | 'teacher'
@@ -48,7 +48,6 @@ const SUGGESTIONS = [
   'See all Features →',
 ]
 
-// Thanks patterns — no API call needed
 const THANKS_PATTERNS = [
   'thanks', 'thank you', 'thankyou', 'thank you so much',
   'that helped', 'got it', 'understood', 'makes sense',
@@ -64,28 +63,30 @@ const THANKS_REPLIES = [
 ]
 
 const GLOBAL_STYLES = `
-  @keyframes bubbleIn {
-    from { opacity: 0; transform: translateY(16px) scale(0.92); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
   @keyframes chatOpen {
-    from { opacity: 0; transform: translateY(20px) scale(0.95); }
-    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+    from { opacity: 0; transform: translateY(24px) scale(0.92); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
   }
-  @keyframes pulseRing {
-    0%   { transform: scale(1);    opacity: 0.6; }
-    70%  { transform: scale(1.55); opacity: 0;   }
-    100% { transform: scale(1.55); opacity: 0;   }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); }
+    50%      { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
   }
-  @keyframes badgePop {
-    0%   { transform: scale(0); }
-    70%  { transform: scale(1.2); }
-    100% { transform: scale(1); }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes scaleIn {
+    from { transform: scale(0.9); opacity: 0; }
+    to   { transform: scale(1); opacity: 1; }
   }
 `
 
 // ══════════════════════════════════════════════
-// Welcome Messages (qa-database se independent)
+// Welcome Messages
 // ══════════════════════════════════════════════
 
 function getWelcomeMessage(role: SessionUserRole): Message {
@@ -178,10 +179,8 @@ function IconClose({ size = 20 }: { size?: number }) {
 
 function IconSend() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-      strokeLinejoin="round">
-      <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
     </svg>
   )
 }
@@ -213,7 +212,7 @@ function IconUser() {
 
 function IconForward() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
       stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
       <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5
         19.5 0 013.07 8.8 19.79 19.79 0 01-.001 .17A2 2 0 012 0h3a2 2 0 012
@@ -224,25 +223,18 @@ function IconForward() {
   )
 }
 
-function IconSpark() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3
-        2.4-7.4L2 9.4h7.6L12 2z" />
-    </svg>
-  )
-}
-
 // ══════════════════════════════════════════════
-// Launcher Bubble
+// Launcher Bubble (Updated)
 // ══════════════════════════════════════════════
 
 function LauncherBubble({
   onOpen,
   visible,
+  isLoggedIn, // ✅ New prop
 }: {
   onOpen: () => void
   visible: boolean
+  isLoggedIn: boolean // ✅ New prop
 }) {
   const [suggIdx, setSuggIdx] = useState(0)
   const [fade, setFade] = useState(true)
@@ -256,87 +248,62 @@ function LauncherBubble({
         setSuggIdx(i => (i + 1) % SUGGESTIONS.length)
         setFade(true)
       }, 300)
-    }, 3000)
+    }, 3500)
     return () => clearInterval(interval)
   }, [visible, dismissed])
 
-  if (!visible || dismissed) return null
+  // ✅ Portal/Dashboard me mat dikhao
+  if (!visible || dismissed || isLoggedIn) return null
 
   return (
     <div
-      className="fixed bottom-[100px] right-4 sm:right-6 z-[9998] flex items-end gap-2"
-      style={{ animation: 'bubbleIn 0.5s cubic-bezier(0.16,1,0.3,1) forwards' }}
+      className="fixed bottom-24 right-5 z-[9998] flex items-end gap-2.5"
+      style={{ animation: 'slideUpFade 0.6s cubic-bezier(0.16,1,0.3,1) forwards' }}
     >
-      <div className="relative max-w-[220px] cursor-pointer" onClick={onOpen}>
+      <div className="relative max-w-[240px] cursor-pointer group" onClick={onOpen}>
         <div
-          className="px-4 py-3 rounded-2xl rounded-br-sm select-none"
+          className="px-4 py-3.5 rounded-2xl rounded-br-sm transition-all duration-300 group-hover:shadow-xl"
           style={{
             background: '#FFFFFF',
-            boxShadow: [
-              '0 0 0 1px rgba(37,99,235,0.1)',
-              '0 8px 32px rgba(37,99,235,0.18)',
-              '0 2px 8px rgba(0,0,0,0.08)',
-            ].join(','),
+            boxShadow: '0 4px 24px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05)',
           }}
         >
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span style={{ color: '#2563EB' }}><IconSpark /></span>
-            <span className="text-[10px] font-bold uppercase tracking-widest"
-              style={{ color: '#2563EB' }}>
-              Skolify Assistant
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">
+              Skolify AI
             </span>
           </div>
 
           <p
-            className="text-[13px] font-semibold leading-snug transition-all duration-300"
+            className="text-[13.5px] font-semibold leading-snug text-slate-800 transition-all duration-300"
             style={{
-              color: '#0F172A',
               opacity: fade ? 1 : 0,
-              transform: fade ? 'translateY(0)' : 'translateY(4px)',
+              transform: fade ? 'translateY(0)' : 'translateY(6px)',
             }}
           >
             {SUGGESTIONS[suggIdx]}
           </p>
-
-          <div className="flex gap-1 mt-2">
-            {SUGGESTIONS.map((_, i) => (
-              <span
-                key={i}
-                className="rounded-full transition-all duration-300"
-                style={{
-                  width: i === suggIdx ? '16px' : '5px',
-                  height: '5px',
-                  background: i === suggIdx ? '#2563EB' : '#CBD5E1',
-                }}
-              />
-            ))}
-          </div>
         </div>
 
-        {/* Tail */}
-        <div
+        <svg
           className="absolute bottom-0 right-[-6px]"
-          style={{
-            width: 0, height: 0,
-            borderStyle: 'solid',
-            borderWidth: '0 0 10px 10px',
-            borderColor: 'transparent transparent #FFFFFF transparent',
-            filter: 'drop-shadow(1px 1px 1px rgba(0,0,0,0.05))',
-          }}
-        />
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+        >
+          <path d="M0 0 L12 12 L0 12 Z" fill="#FFFFFF" />
+        </svg>
       </div>
 
       <button
         onClick={e => { e.stopPropagation(); setDismissed(true) }}
-        className="mb-1 w-5 h-5 rounded-full flex items-center justify-center
-        transition-all hover:scale-110 active:scale-90"
-        style={{ background: 'rgba(100,116,139,0.15)', color: '#64748B' }}
+        className="mb-1.5 w-6 h-6 rounded-full flex items-center justify-center
+        transition-all hover:bg-slate-200 active:scale-90"
+        style={{ background: 'rgba(148,163,184,0.2)', color: '#64748B' }}
         aria-label="Dismiss"
       >
-        <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
-          stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
+        <IconClose size={10} />
       </button>
     </div>
   )
@@ -348,27 +315,25 @@ function LauncherBubble({
 
 function renderInline(text: string): string {
   return text
-    .replace(/\*\*(.*?)\*\*/g,
-      '<strong class="text-slate-900 font-semibold">$1</strong>')
-    .replace(/\*(.*?)\*/g,
-      '<em class="text-slate-800 italic">$1</em>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
     .replace(/\[(.*?)\]\((.*?)\)/g,
-      '<a href="$2" class="text-blue-600 underline font-medium hover:text-blue-700 transition-colors" target="_blank" rel="noopener noreferrer">$1</a>')
+      '<a href="$2" class="text-blue-500 underline hover:text-blue-600" target="_blank" rel="noopener">$1</a>')
     .replace(/`(.*?)`/g,
-      '<code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">$1</code>')
+      '<code class="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-mono">$1</code>')
 }
 
 function MarkdownRenderer({ text }: { text: string }) {
   const lines = text.split('\n')
 
   return (
-    <div className="space-y-2 text-[13.5px] leading-relaxed">
+    <div className="space-y-2 text-[14px] leading-relaxed">
       {lines.map((line, idx) => {
-        if (!line.trim()) return <div key={idx} className="h-1.5" />
+        if (!line.trim()) return <div key={idx} className="h-1" />
 
         if (line.startsWith('## ')) {
           return (
-            <p key={idx} className="font-bold text-[15px] text-slate-900 mt-3 mb-1.5 pb-1.5 border-b border-slate-100">
+            <p key={idx} className="font-bold text-[15px] mt-2 mb-1">
               {line.replace('## ', '')}
             </p>
           )
@@ -376,16 +341,14 @@ function MarkdownRenderer({ text }: { text: string }) {
 
         if (line.startsWith('### ')) {
           return (
-            <p key={idx} className="font-semibold text-[12px] text-slate-600 mt-2 mb-1 uppercase tracking-wider">
+            <p key={idx} className="font-semibold text-[13px] opacity-70 mt-2">
               {line.replace('### ', '')}
             </p>
           )
         }
 
-        // Table separator — skip
         if (line.trim().match(/^\|?[-:\s|]+\|?$/)) return null
 
-        // Table row
         if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
           const cells = line.split('|').map(c => c.trim()).filter(c => c.length > 0)
           if (cells.length === 0) return null
@@ -394,14 +357,14 @@ function MarkdownRenderer({ text }: { text: string }) {
             lines[idx + 1]?.trim().match(/^\|?[-:\s|]+\|?$/)
 
           return (
-            <div key={idx} className="flex gap-1.5 text-[11px] flex-wrap">
+            <div key={idx} className="flex gap-1.5 text-[11px]">
               {cells.map((cell, i) => (
                 <span key={i}
-                  className={`flex-1 min-w-[50px] px-2 py-1.5 rounded-lg text-center border ${isHeader
-                      ? 'bg-blue-50 text-blue-900 font-bold border-blue-200'
+                  className={`flex-1 px-2 py-1.5 rounded-lg text-center ${isHeader
+                      ? 'bg-blue-50 text-blue-900 font-bold'
                       : i === 0
-                        ? 'bg-slate-100 text-slate-800 font-semibold border-slate-200'
-                        : 'bg-white text-slate-700 border-slate-200'
+                        ? 'bg-slate-50 font-semibold'
+                        : 'bg-white'
                     }`}>
                   {cell.replace(/\*\*/g, '')}
                 </span>
@@ -410,19 +373,17 @@ function MarkdownRenderer({ text }: { text: string }) {
           )
         }
 
-        // Bullet
         if (line.trim().match(/^[•*\-]\s/)) {
           const content = line.replace(/^[•*\-]\s+/, '')
           return (
             <div key={idx} className="flex gap-2 items-start">
-              <span className="text-blue-500 flex-shrink-0 font-bold mt-0.5">•</span>
-              <span className="text-slate-700 flex-1"
+              <span className="text-emerald-500 flex-shrink-0 font-bold mt-0.5">•</span>
+              <span className="flex-1 opacity-90"
                 dangerouslySetInnerHTML={{ __html: renderInline(content) }} />
             </div>
           )
         }
 
-        // Numbered list
         if (line.trim().match(/^\d+\./)) {
           const content = line.replace(/^\d+\.\s*/, '')
           const num = line.match(/^(\d+)\./)?.[1]
@@ -432,14 +393,14 @@ function MarkdownRenderer({ text }: { text: string }) {
                 text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
                 {num}
               </span>
-              <span className="text-slate-700 flex-1"
+              <span className="flex-1 opacity-90"
                 dangerouslySetInnerHTML={{ __html: renderInline(content) }} />
             </div>
           )
         }
 
         return (
-          <p key={idx} className="text-slate-700"
+          <p key={idx} className="opacity-90"
             dangerouslySetInnerHTML={{ __html: renderInline(line) }} />
         )
       })}
@@ -452,10 +413,15 @@ function MarkdownRenderer({ text }: { text: string }) {
 // ══════════════════════════════════════════════
 
 function TimeStamp({ date }: { date: Date }) {
-  const time = date.toLocaleTimeString('hi-IN', {
-    hour: '2-digit', minute: '2-digit',
+  const time = date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
   })
-  return <span className="text-[10px] text-slate-400 select-none">{time}</span>
+  return (
+    <span className="text-[10px] opacity-60 select-none font-medium">
+      {time}
+    </span>
+  )
 }
 
 // ══════════════════════════════════════════════
@@ -464,18 +430,18 @@ function TimeStamp({ date }: { date: Date }) {
 
 function TypingIndicator() {
   return (
-    <div className="flex gap-2.5 items-end">
-      <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-white"
-        style={{ background: '#2563EB' }}>
-        <IconBot />
+    <div className="flex gap-2.5 items-end" style={{ animation: 'fadeIn 0.3s ease' }}>
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600
+        flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+        <IconBot size={16} />
       </div>
-      <div className="rounded-2xl rounded-bl-md px-4 py-3.5 flex gap-1.5 items-center
-        bg-white border-2 border-slate-200 shadow-sm">
-        <span className="text-[11px] text-slate-500 mr-1">Typing</span>
+      <div className="bg-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm
+        border border-slate-100 flex gap-1 items-center">
         {[0, 1, 2].map(i => (
-          <div key={i}
-            className="w-2 h-2 rounded-full bg-blue-500 animate-bounce"
-            style={{ animationDelay: `${i * 0.18}s` }}
+          <div
+            key={i}
+            className="w-2 h-2 rounded-full bg-slate-400 animate-bounce"
+            style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.6s' }}
           />
         ))}
       </div>
@@ -499,44 +465,54 @@ function ForwardForm({
   const [query, setQuery] = useState('')
 
   return (
-    <div className="rounded-2xl overflow-hidden shadow-lg border-2 border-blue-200"
-      style={{ background: '#F0F7FF' }}>
-      <div className="px-4 py-3 flex items-center gap-2" style={{ background: '#2563EB' }}>
-        <span className="text-white text-sm">💬</span>
-        <p className="text-white font-bold text-sm">Talk to our real team</p>
+    <div
+      className="rounded-2xl overflow-hidden shadow-lg border border-slate-200"
+      style={{ animation: 'scaleIn 0.3s ease' }}
+    >
+      <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-3.5
+        flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-sm
+          flex items-center justify-center">
+          💬
+        </div>
+        <div>
+          <p className="text-white font-bold text-sm">Connect with our team</p>
+          <p className="text-emerald-50 text-[11px] font-medium">We'll reply within 2-4 hours</p>
+        </div>
       </div>
-      <div className="p-4 space-y-3">
+
+      <div className="bg-white p-4 space-y-3">
         <input
-          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
-          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
-          transition-all text-slate-900 placeholder:text-slate-400 font-medium"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200
+          bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-2
+          focus:ring-emerald-100 outline-none transition-all placeholder:text-slate-400"
           placeholder="Your name (optional)"
           value={name}
           onChange={e => setName(e.target.value)}
         />
         <input
-          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
-          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
-          transition-all text-slate-900 placeholder:text-slate-400 font-medium"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200
+          bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-2
+          focus:ring-emerald-100 outline-none transition-all placeholder:text-slate-400"
           placeholder="WhatsApp Number *"
           type="tel"
           value={phone}
           onChange={e => setPhone(e.target.value)}
         />
         <textarea
-          className="w-full px-3.5 py-2.5 text-sm rounded-xl border-2 border-slate-200
-          bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none
-          transition-all resize-none text-slate-900 placeholder:text-slate-400 font-medium"
+          className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200
+          bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-2
+          focus:ring-emerald-100 outline-none transition-all resize-none placeholder:text-slate-400"
           rows={3}
-          placeholder="Describe your question in detail *"
+          placeholder="Describe your question *"
           value={query}
           onChange={e => setQuery(e.target.value)}
         />
-        <div className="flex gap-2.5">
+        <div className="flex gap-2.5 pt-1">
           <button
             onClick={onCancel}
-            className="flex-1 py-2.5 text-sm rounded-xl font-semibold border-2
-            border-slate-300 bg-white text-slate-700 hover:bg-slate-50
+            className="flex-1 py-2.5 text-sm rounded-xl font-semibold
+            bg-slate-100 text-slate-700 hover:bg-slate-200
             transition-all active:scale-95">
             Cancel
           </button>
@@ -549,9 +525,10 @@ function ForwardForm({
               onSubmit({ name, phone, query })
             }}
             className="flex-1 py-2.5 text-sm rounded-xl font-bold text-white
-            transition-all active:scale-95 shadow-md"
-            style={{ background: '#2563EB' }}>
-            Send →
+            bg-gradient-to-r from-emerald-500 to-emerald-600
+            hover:from-emerald-600 hover:to-emerald-700
+            transition-all active:scale-95 shadow-md">
+            Send Message
           </button>
         </div>
       </div>
@@ -560,18 +537,28 @@ function ForwardForm({
 }
 
 // ══════════════════════════════════════════════
-// Main ChatWidget
+// Main ChatWidget (Updated)
 // ══════════════════════════════════════════════
-
 
 export function ChatWidget() {
   const { data: session } = useSession()
+  const pathname = usePathname() // ✅ Current route
 
-  // Session se role aur tenantId lo
   const userRole = (session?.user?.role as SessionUserRole) || 'guest'
   const tenantId = (session?.user as any)?.tenantId || null
 
-  // State
+  // ✅ Check if user is logged in (portal/dashboard)
+  const isLoggedIn = !!session?.user && userRole !== 'guest'
+
+  // ✅ Portal routes detection
+  const isPortalRoute = pathname?.startsWith('/dashboard') || 
+                        pathname?.startsWith('/portal') ||
+                        pathname?.startsWith('/admin') ||
+                        pathname?.startsWith('/teacher') ||
+                        pathname?.startsWith('/student') ||
+                        pathname?.startsWith('/parent') ||
+                        pathname?.startsWith('/superadmin')
+
   const [isOpen, setIsOpen] = useState(false)
   const [showBubble, setShowBubble] = useState(false)
   const [unreadCount, setUnreadCount] = useState(1)
@@ -584,7 +571,6 @@ export function ChatWidget() {
   const [forwarded, setForwarded] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
 
-  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -593,9 +579,16 @@ export function ChatWidget() {
   }, [userRole])
 
   useEffect(() => {
+    // ✅ Portal me bubble kabhi nahi dikhao
+    if (isPortalRoute || isLoggedIn) {
+      setShowBubble(false)
+      return
+    }
+    
+    // Public pages pe 3 seconds baad dikhao
     const timer = setTimeout(() => setShowBubble(true), 3000)
     return () => clearTimeout(timer)
-  }, [])
+  }, [isPortalRoute, isLoggedIn])
 
   useEffect(() => {
     if (isOpen) {
@@ -606,8 +599,8 @@ export function ChatWidget() {
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, 80)
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }, 100)
   }, [])
 
   useEffect(() => {
@@ -617,7 +610,6 @@ export function ChatWidget() {
     }
   }, [isOpen, messages, scrollToBottom])
 
-  // ── Updated sendMessage ───────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim()
     if (!trimmed || loading) return
@@ -632,7 +624,6 @@ export function ChatWidget() {
     setLoading(true)
     setShowForwardForm(false)
 
-    // Thanks detection
     const msgLower = trimmed.toLowerCase()
     const isThanks = THANKS_PATTERNS.some(p => msgLower.includes(p))
 
@@ -653,12 +644,10 @@ export function ChatWidget() {
           source: 'local',
         }])
         setLoading(false)
-      }, 600)
+      }, 800)
       return
     }
 
-    // API call
-    // ✅ Smart endpoint selection based on role
     const endpoint = (() => {
       if (userRole === 'superadmin') return '/api/chat/superadmin'
       if (userRole !== 'guest' && tenantId) return '/api/chat/portal'
@@ -672,8 +661,6 @@ export function ChatWidget() {
         body: JSON.stringify({
           message: trimmed,
           conversation_id: conversationId,
-          // Portal route session se tenantId khud lega
-          // Ye sirf public route ke liye backup hai
           tenant_id: tenantId,
         }),
       })
@@ -690,7 +677,6 @@ export function ChatWidget() {
         setMessages(prev => [...prev, {
           id: `bot_${Date.now()}`,
           role: 'bot',
-          // ✅ data.response (route.ts "response" field bhejta hai)
           content: data.response,
           quickReplies: data.quickReplies ?? [],
           canForward: data.canForward ?? false,
@@ -716,7 +702,6 @@ export function ChatWidget() {
     }
   }, [loading, conversationId, tenantId, userRole])
 
-  // ── Quick Reply Handler ───────────────────
   const handleQuickReply = useCallback((qr: QuickReply) => {
     if (qr.action === 'navigate' && qr.payload) {
       window.location.href = qr.payload
@@ -724,13 +709,10 @@ export function ChatWidget() {
       setShowForwardForm(true)
       scrollToBottom()
     } else {
-      // payload ko natural message ki tarah send karo
-      // AI isko samjhega
       sendMessage(qr.payload || qr.text)
     }
   }, [sendMessage, scrollToBottom])
 
-  // ── Forward Form Submit ───────────────────
   const handleForwardSubmit = useCallback(async (data: {
     name: string; phone: string; query: string
   }) => {
@@ -751,83 +733,58 @@ export function ChatWidget() {
       setMessages(prev => [...prev, {
         id: `fwd_${Date.now()}`,
         role: 'bot',
-        content: '✔ **Message sent successfully!**\n\nOur team will reach out on WhatsApp within **2–4 hours**.\n\nThank you! 🙏',
+        content: '✅ **Message sent successfully!**\n\nOur team will reach out on WhatsApp within **2–4 hours**.\n\nThank you! 🙏',
         timestamp: new Date(),
         source: 'system',
       }])
     } catch {
-      alert('An error occurred. Please use the enquiry form directly.')
+      alert('An error occurred. Please try again.')
     }
   }, [])
 
-  // ── Computed ──────────────────────────────
   const lastBotMsg = [...messages].reverse().find(m => m.role === 'bot')
-  const hasQuickReplies = !!(lastBotMsg?.quickReplies?.length)
 
-  // ── Render ────────────────────────────────
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLES }} />
 
-      {/* Launcher Bubble */}
+      {/* ✅ Bubble sirf public pages pe dikhega */}
       <LauncherBubble
         visible={showBubble && !isOpen}
         onOpen={() => setIsOpen(true)}
+        isLoggedIn={isLoggedIn}
       />
 
-      {/* Chat Window */}
       {isOpen && (
         <div
-          className="fixed bottom-[88px] right-4 sm:right-6 z-[9999]
-          w-[min(420px,calc(100vw-2rem))] flex flex-col rounded-2xl overflow-hidden"
+          className="fixed bottom-20 right-5 z-[9999]
+          w-[min(400px,calc(100vw-2.5rem))] flex flex-col rounded-3xl overflow-hidden"
           style={{
-            height: 'min(640px, calc(100vh - 120px))',
+            height: 'min(600px, calc(100vh - 120px))',
             background: '#FFFFFF',
-            boxShadow: [
-              '0 0 0 1px rgba(0,0,0,0.06)',
-              '0 4px 6px -1px rgba(0,0,0,0.07)',
-              '0 24px 48px -8px rgba(0,0,0,0.22)',
-              '0 48px 80px -12px rgba(37,99,235,0.12)',
-            ].join(','),
+            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.05)',
             animation: 'chatOpen 0.4s cubic-bezier(0.16,1,0.3,1) forwards',
           }}
         >
           {/* Header */}
           <div
-            className="flex-shrink-0 flex items-center gap-3 px-5 py-4"
+            className="flex-shrink-0 flex items-center gap-3 px-4 py-3.5"
             style={{
-              background: 'linear-gradient(135deg, #2563EB 0%, #1E40AF 100%)',
-              borderBottom: '1.5px solid rgba(255,255,255,0.15)',
+              background: 'linear-gradient(135deg, #00A884 0%, #008f6f 100%)',
             }}
           >
-            <div className="relative flex-shrink-0">
-              <span className="absolute inset-0 rounded-xl"
-                style={{
-                  background: 'rgba(255,255,255,0.3)',
-                  animation: 'pulseRing 2s ease-out infinite',
-                }}
-              />
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center
-                relative z-10 text-white"
-                style={{
-                  background: 'rgba(255,255,255,0.18)',
-                  border: '1.5px solid rgba(255,255,255,0.35)',
-                }}
-              >
-                <IconBot size={20} />
-              </div>
+            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm
+              flex items-center justify-center text-white flex-shrink-0 shadow-sm">
+              <IconBot size={20} />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-[15px] leading-tight" style={{ color: '#FFFFFF' }}>
+              <p className="font-bold text-white text-[15px] leading-tight">
                 Skolify Assistant
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-2 h-2 rounded-full bg-green-400"
-                  style={{ animation: 'pulseRing 2s ease-out infinite' }}
-                />
-                <p className="text-[11px] font-medium" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                <span className="w-2 h-2 rounded-full bg-emerald-300" />
+                <p className="text-[11px] text-emerald-50 font-medium">
                   Online · Replies instantly
                 </p>
               </div>
@@ -835,126 +792,85 @@ export function ChatWidget() {
 
             <button
               onClick={() => setIsOpen(false)}
-              className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center
-              transition-all active:scale-90 hover:bg-white/20"
-              style={{
-                color: 'rgba(255,255,255,0.9)',
-                background: 'rgba(255,255,255,0.12)',
-                border: '1px solid rgba(255,255,255,0.2)',
-              }}
-              aria-label="Close chat"
+              className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
+              text-white hover:bg-white/10 transition-all active:scale-90"
+              aria-label="Close"
             >
-              <IconClose />
+              <IconClose size={20} />
             </button>
           </div>
 
           {/* Messages */}
           <div
-            className="flex-1 overflow-y-auto px-4 py-5 space-y-4"
-            style={{ background: '#F1F5F9' }}
+            className="flex-1 overflow-y-auto px-3 py-4 space-y-3"
+            style={{
+              background: '#E5DDD5',
+              backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h100v100H0z\' fill=\'none\'/%3E%3Cpath d=\'M10 10h15v15H10zM35 35h15v15H35zM60 10h15v15H60zM10 60h15v15H10z\' fill=\'%23000\' opacity=\'.03\'/%3E%3C/svg%3E")',
+            }}
           >
             {messages.map((msg, idx) => (
               <div key={msg.id}>
-                <div className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-end'
+                <div className={`flex gap-2 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row items-end'
                   }`}>
-                  {/* Avatar */}
-                  {msg.role === 'bot' ? (
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center
-                      flex-shrink-0 self-end mb-1 text-white"
-                      style={{ background: '#2563EB' }}>
-                      <IconBot />
-                    </div>
-                  ) : (
-                    <div className="w-8 h-8 rounded-xl flex items-center justify-center
-                      flex-shrink-0 self-end mb-1 text-white"
-                      style={{ background: '#64748B' }}>
-                      <IconUser />
+                  {msg.role === 'bot' && (
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600
+                      flex items-center justify-center text-white flex-shrink-0 self-end shadow-sm">
+                      <IconBot size={14} />
                     </div>
                   )}
 
-                  {/* Bubble */}
                   <div
-                    className={`flex flex-col gap-1 ${msg.role === 'user' ? 'items-end' : 'items-start'
+                    className={`flex flex-col gap-0.5 ${msg.role === 'user' ? 'items-end' : 'items-start'
                       }`}
-                    style={{ maxWidth: '82%' }}
+                    style={{ maxWidth: '85%' }}
                   >
                     <div
                       className={msg.role === 'user'
-                        ? 'rounded-2xl rounded-br-md px-4 py-3'
-                        : 'rounded-2xl rounded-bl-md px-4 py-3'}
+                        ? 'rounded-xl rounded-br-sm px-3.5 py-2.5 shadow-sm'
+                        : 'rounded-xl rounded-bl-sm px-3.5 py-2.5 shadow-sm'}
                       style={msg.role === 'user'
-                        ? {
-                          background: 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-                          color: '#FFFFFF',
-                          boxShadow: '0 4px 14px rgba(37,99,235,0.35)',
-                        }
-                        : {
-                          background: '#FFFFFF',
-                          border: '1.5px solid #E2E8F0',
-                          boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-                        }}
+                        ? { background: '#DCF8C6', color: '#000000' }
+                        : { background: '#FFFFFF', color: '#000000' }}
                     >
                       {msg.role === 'user' ? (
-                        <p className="text-sm leading-relaxed font-medium"
-                          style={{ color: '#FFFFFF' }}>
+                        <p className="text-[14px] leading-relaxed">
                           {msg.content}
                         </p>
                       ) : (
                         <MarkdownRenderer text={msg.content} />
                       )}
+
+                      <div className="flex items-center justify-end gap-1 mt-1">
+                        <TimeStamp date={msg.timestamp} />
+                        {msg.role === 'user' && (
+                          <svg width="14" height="8" viewBox="0 0 18 10" fill="none">
+                            <path d="M1 5L6 9L17 1" stroke="#53BDEB" strokeWidth="2"
+                              strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
                     </div>
 
-                    {/* AI Badge */}
-                    {msg.role === 'bot' &&
-                      msg.source &&
-                      (msg.source.includes('ai') || msg.source.includes('groq')) && (
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className="text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide"
-                            style={{
-                              background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
-                              color: '#1E40AF',
-                              border: '1px solid #93C5FD',
-                            }}
-                          >
-                            ✨ AI
-                          </span>
-                          {process.env.NODE_ENV === 'development' && (
-                            <span className="text-[8px] text-slate-400">
-                              ({msg.source})
-                            </span>
-                          )}
-                        </div>
-                      )}
-
-                    <TimeStamp date={msg.timestamp} />
+                    {msg.role === 'bot' && msg.source?.includes('ai') && (
+                      <span className="text-[9px] px-2 py-0.5 rounded-full font-bold
+                        bg-blue-100 text-blue-600 uppercase tracking-wide ml-1">
+                        ✨ AI
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Quick replies — only last bot message */}
                 {msg.role === 'bot' && idx === messages.length - 1 && (
-                  <div className="mt-3 ml-10 space-y-2.5">
+                  <div className="mt-2.5 ml-9 space-y-2">
                     {msg.quickReplies && msg.quickReplies.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5">
                         {msg.quickReplies.map(qr => (
                           <button
                             key={qr.text}
                             onClick={() => handleQuickReply(qr)}
-                            className="text-xs px-3.5 py-2 rounded-full font-semibold
-                            transition-all active:scale-95 hover:shadow-md"
-                            style={{
-                              background: '#FFFFFF',
-                              border: '2px solid #2563EB',
-                              color: '#1E40AF',
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.background = '#2563EB'
-                              e.currentTarget.style.color = '#FFFFFF'
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.background = '#FFFFFF'
-                              e.currentTarget.style.color = '#1E40AF'
-                            }}
+                            className="text-[12px] px-3 py-1.5 rounded-full font-semibold
+                            bg-white text-emerald-700 border border-emerald-200
+                            hover:bg-emerald-50 transition-all active:scale-95 shadow-sm"
                           >
                             {qr.text}
                           </button>
@@ -965,10 +881,9 @@ export function ChatWidget() {
                     {msg.canForward && !forwarded && (
                       <button
                         onClick={() => setShowForwardForm(p => !p)}
-                        className="flex items-center gap-2 text-xs px-4 py-2.5
-                        rounded-full font-bold transition-all active:scale-95
-                        text-white shadow-md"
-                        style={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                        className="flex items-center gap-1.5 text-[12px] px-3 py-1.5
+                        rounded-full font-bold bg-emerald-500 text-white
+                        hover:bg-emerald-600 transition-all active:scale-95 shadow-md"
                       >
                         <IconForward />
                         Talk to a real person
@@ -980,7 +895,7 @@ export function ChatWidget() {
             ))}
 
             {showForwardForm && (
-              <div className="ml-10">
+              <div className="ml-9">
                 <ForwardForm
                   onSubmit={handleForwardSubmit}
                   onCancel={() => setShowForwardForm(false)}
@@ -992,22 +907,15 @@ export function ChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          
           {/* Input */}
-          <div
-            className="flex-shrink-0 px-4 py-3.5 flex gap-2.5 items-center"
-            style={{ background: '#FFFFFF', borderTop: '1.5px solid #E2E8F0' }}
-          >
+          <div className="flex-shrink-0 bg-white px-3 py-2.5 flex gap-2 items-center
+            border-t border-slate-200">
             <input
               ref={inputRef}
-              className="flex-1 px-4 py-3 text-sm rounded-xl outline-none
-              transition-all disabled:opacity-50 font-medium"
-              style={{
-                background: '#F8FAFC',
-                border: '2px solid #E2E8F0',
-                color: '#0F172A',
-              }}
-              placeholder="Type your message..."
+              className="flex-1 px-4 py-2.5 text-[14px] rounded-full outline-none
+              bg-slate-50 border border-slate-200 focus:bg-white focus:border-emerald-400
+              transition-all disabled:opacity-50"
+              placeholder="Type a message..."
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => {
@@ -1016,29 +924,19 @@ export function ChatWidget() {
                   sendMessage(input)
                 }
               }}
-              onFocus={e => {
-                e.currentTarget.style.borderColor = '#2563EB'
-                e.currentTarget.style.background = '#FFFFFF'
-              }}
-              onBlur={e => {
-                e.currentTarget.style.borderColor = '#E2E8F0'
-                e.currentTarget.style.background = '#F8FAFC'
-              }}
               disabled={loading}
             />
             <button
               onClick={() => sendMessage(input)}
               disabled={!input.trim() || loading}
-              className="w-11 h-11 rounded-xl flex items-center justify-center
+              className="w-11 h-11 rounded-full flex items-center justify-center
               text-white transition-all flex-shrink-0
               disabled:opacity-40 disabled:cursor-not-allowed active:scale-90"
               style={{
                 background: !input.trim() || loading
                   ? '#94A3B8'
-                  : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-                boxShadow: !input.trim() || loading
-                  ? 'none'
-                  : '0 4px 14px rgba(37,99,235,0.4)',
+                  : 'linear-gradient(135deg, #00A884, #008f6f)',
+                boxShadow: !input.trim() || loading ? 'none' : '0 2px 8px rgba(0,168,132,0.4)',
               }}
               aria-label="Send"
             >
@@ -1049,57 +947,35 @@ export function ChatWidget() {
       )}
 
       {/* Toggle Button */}
-      <div className="fixed bottom-6 right-4 sm:right-6 z-[9999]">
-        {!isOpen && (
-          <>
-            <span
-              className="absolute inset-0 rounded-2xl"
-              style={{ background: '#2563EB', animation: 'pulseRing 2s ease-out infinite' }}
-            />
-            <span
-              className="absolute inset-0 rounded-2xl"
-              style={{ background: '#2563EB', animation: 'pulseRing 2s ease-out 0.6s infinite' }}
-            />
-          </>
-        )}
-
+      <div className="fixed bottom-5 right-5 z-[9999]">
         <button
           onClick={() => setIsOpen(p => !p)}
-          className="relative w-16 h-16 rounded-2xl text-white flex items-center
-          justify-center transition-all hover:scale-110 active:scale-95"
+          className="relative w-14 h-14 rounded-full text-white flex items-center
+          justify-center transition-all hover:scale-110 active:scale-95 shadow-xl"
           style={{
             background: isOpen
-              ? 'linear-gradient(135deg, #475569, #334155)'
-              : 'linear-gradient(135deg, #2563EB, #1D4ED8)',
-            boxShadow: [
-              '0 0 0 3px rgba(37,99,235,0.15)',
-              '0 8px 24px rgba(37,99,235,0.45)',
-              '0 2px 6px rgba(0,0,0,0.15)',
-            ].join(','),
-            border: '2.5px solid rgba(255,255,255,0.9)',
+              ? 'linear-gradient(135deg, #6B7280, #4B5563)'
+              : 'linear-gradient(135deg, #00A884, #008f6f)',
+            animation: !isOpen ? 'pulseGlow 2s infinite' : 'none',
           }}
           aria-label={isOpen ? 'Close chat' : 'Open chat'}
         >
           {isOpen ? (
             <IconClose size={22} />
           ) : (
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-              strokeLinejoin="round">
-              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" />
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 1.54.36 3 .97 4.29L2 22l5.71-.97C9 21.64 10.46 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.38 0-2.67-.34-3.81-.94l-.27-.15-2.85.48.48-2.85-.15-.27C4.34 14.67 4 13.38 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z" />
             </svg>
           )}
         </button>
 
-        {!isOpen && unreadCount > 0 && (
+        {/* ✅ Unread badge sirf public pages pe dikhega */}
+        {!isOpen && unreadCount > 0 && !isLoggedIn && !isPortalRoute && (
           <span
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
-            flex items-center justify-center text-[10px] font-bold text-white"
-            style={{
-              background: '#EF4444',
-              boxShadow: '0 0 0 2px #FFFFFF',
-              animation: 'badgePop 0.4s cubic-bezier(0.16,1,0.3,1) forwards',
-            }}
+            className="absolute -top-1 -right-1 w-5 h-5 rounded-full
+            flex items-center justify-center text-[10px] font-bold text-white
+            bg-red-500 shadow-lg border-2 border-white"
+            style={{ animation: 'scaleIn 0.3s cubic-bezier(0.16,1,0.3,1)' }}
           >
             {unreadCount}
           </span>

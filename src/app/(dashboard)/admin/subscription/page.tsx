@@ -624,6 +624,136 @@ function AddonModal({
     )
 }
 
+
+// Real Clock-Style Countdown Component
+function RealClockCountdown({ targetDate, type }: { targetDate: string; type: 'trial' | 'subscription' }) {
+    const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: false })
+    const [blink, setBlink] = useState(true)
+
+    useEffect(() => {
+        const calc = () => {
+            const diff = new Date(targetDate).getTime() - new Date().getTime()
+            if (diff <= 0) {
+                setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true })
+                return
+            }
+            setTimeLeft({
+                days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+                hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+                minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+                seconds: Math.floor((diff % (1000 * 60)) / 1000),
+                isExpired: false,
+            })
+        }
+        calc()
+        const timer = setInterval(calc, 1000)
+        const blinkTimer = setInterval(() => setBlink(b => !b), 500)
+        return () => {
+            clearInterval(timer)
+            clearInterval(blinkTimer)
+        }
+    }, [targetDate])
+
+    if (timeLeft.isExpired) {
+        return (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-100 border border-red-300">
+                <span className="text-xs font-bold text-red-700">⏰ Expired</span>
+            </div>
+        )
+    }
+
+    // Color themes
+    const theme = type === 'trial'
+        ? {
+            bg: 'bg-gradient-to-br from-blue-600 to-blue-700',
+            text: 'text-blue-700',
+            light: 'bg-blue-100',
+            border: 'border-blue-300',
+            glow: 'shadow-blue-500/20'
+        }
+        : {
+            bg: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
+            text: 'text-emerald-700',
+            light: 'bg-emerald-100',
+            border: 'border-emerald-300',
+            glow: 'shadow-emerald-500/20'
+        }
+
+    return (
+        <div className={clsx(
+            'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border-2',
+            theme.light, theme.border, 'shadow-lg', theme.glow
+        )}>
+            {/* Days (only if > 0) */}
+            {timeLeft.days > 0 && (
+                <>
+                    <div className="flex flex-col items-center">
+                        <div className={clsx(
+                            'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
+                            theme.bg
+                        )}>
+                            {String(timeLeft.days).padStart(2, '0')}
+                        </div>
+                        <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
+                            Days
+                        </span>
+                    </div>
+                    <span className={clsx('text-2xl font-bold', theme.text, blink ? 'opacity-100' : 'opacity-30')}>
+                        :
+                    </span>
+                </>
+            )}
+
+            {/* Hours */}
+            <div className="flex flex-col items-center">
+                <div className={clsx(
+                    'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
+                    theme.bg
+                )}>
+                    {String(timeLeft.hours).padStart(2, '0')}
+                </div>
+                <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
+                    Hours
+                </span>
+            </div>
+
+            <span className={clsx('text-2xl font-bold', theme.text, blink ? 'opacity-100' : 'opacity-30')}>
+                :
+            </span>
+
+            {/* Minutes */}
+            <div className="flex flex-col items-center">
+                <div className={clsx(
+                    'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
+                    theme.bg
+                )}>
+                    {String(timeLeft.minutes).padStart(2, '0')}
+                </div>
+                <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
+                    Mins
+                </span>
+            </div>
+
+            <span className={clsx('text-2xl font-bold', theme.text, blink ? 'opacity-100' : 'opacity-30')}>
+                :
+            </span>
+
+            {/* Seconds */}
+            <div className="flex flex-col items-center">
+                <div className={clsx(
+                    'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
+                    theme.bg
+                )}>
+                    {String(timeLeft.seconds).padStart(2, '0')}
+                </div>
+                <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
+                    Secs
+                </span>
+            </div>
+        </div>
+    )
+}
+
 // ═══════════════════════════════════════
 // LIMIT USAGE BAR
 // ═══════════════════════════════════════
@@ -1159,8 +1289,6 @@ function SubscriptionInner() {
                 </Portal>
             )}
 
-            // showAddon Portal mein ye change karo:
-
             {showAddon && (
                 <Portal>
                     <AddonModal
@@ -1227,46 +1355,54 @@ function SubscriptionInner() {
             {/* Status banner */}
             {status && (
                 <div className={clsx(
-                    'rounded-xl p-4 mb-6 flex items-center gap-3.5 border',
+                    'rounded-xl p-4 mb-6 border',
                     status.isPaid ? 'bg-emerald-50 border-emerald-200'
                         : status.isInTrial ? 'bg-blue-50 border-blue-200'
                             : 'bg-red-50 border-red-200'
                 )}>
-                    <span className="text-2xl">
-                        {status.isPaid ? '✅' : status.isInTrial ? '⏱️' : '❌'}
-                    </span>
-                    <div className="flex-1">
-                        {status.isPaid && (
-                            <>
-                                <p className="font-semibold text-sm text-emerald-800 mb-0.5">
-                                    {status.planName} Plan — Active
-                                    {currentCycle && (
-                                        <span className="font-normal text-emerald-600">
-                                            {' '}({currentCycle === 'monthly' ? 'Monthly' : 'Yearly'})
-                                        </span>
-                                    )}
-                                </p>
-                                <p className="text-[13px] text-emerald-700">
-                                    Valid till: {formatDate(status.validTill)}
-                                </p>
-                            </>
-                        )}
-                        {status.isInTrial && (
-                            <>
-                                <p className="font-semibold text-sm text-blue-800 mb-0.5">
-                                    Free Trial — {status.daysLeft} days remaining
-                                </p>
-                                <p className="text-[13px] text-blue-700">
-                                    Subscribe karein to continue after trial
-                                </p>
-                            </>
-                        )}
-                        {status.isExpired && (
-                            <>
-                                <p className="font-semibold text-sm text-red-800 mb-0.5">Access Blocked</p>
-                                <p className="text-[13px] text-red-700">Neeche plan choose karein</p>
-                            </>
-                        )}
+                    <div className="flex items-start gap-3.5">
+                        <span className="text-2xl flex-shrink-0">
+                            {status.isPaid ? '✅' : status.isInTrial ? '⏱️' : '❌'}
+                        </span>
+                        <div className="flex-1">
+                            {status.isPaid && (
+                                <>
+                                    <p className="font-semibold text-sm text-emerald-800 mb-2">
+                                        {status.planName} Plan — Active
+                                        {currentCycle && (
+                                            <span className="font-normal text-emerald-600">
+                                                {' '}({currentCycle === 'monthly' ? 'Monthly' : 'Yearly'})
+                                            </span>
+                                        )}
+                                    </p>
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <p className="text-[13px] text-emerald-700">
+                                            Valid till: {formatDate(status.validTill)}
+                                        </p>
+                                        <RealClockCountdown targetDate={status.validTill} type="subscription" />
+                                    </div>
+                                </>
+                            )}
+                            {status.isInTrial && (
+                                <>
+                                    <p className="font-semibold text-sm text-blue-800 mb-2">
+                                        Free Trial — {status.daysLeft} days remaining
+                                    </p>
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                        <p className="text-[13px] text-blue-700">
+                                            Subscribe karein to continue after trial
+                                        </p>
+                                        <RealClockCountdown targetDate={status.trialEndsAt || status.validTill} type="trial" />
+                                    </div>
+                                </>
+                            )}
+                            {status.isExpired && (
+                                <>
+                                    <p className="font-semibold text-sm text-red-800 mb-0.5">Access Blocked</p>
+                                    <p className="text-[13px] text-red-700">Neeche plan choose karein</p>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
