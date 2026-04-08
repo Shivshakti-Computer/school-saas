@@ -11,7 +11,7 @@ function getAuthKey(): string {
 }
 
 function getSenderId(): string {
-    return process.env.MSG91_SENDER_ID ?? 'SKLIFY'
+    return process.env.MSG91_SENDER_ID ?? 'SKLOIFY'
 }
 
 function getWhatsAppNumber(): string {
