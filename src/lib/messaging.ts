@@ -1,16 +1,42 @@
 // FILE: src/lib/messaging.ts
-// Unified send — SMS + WhatsApp + Email with credit check
+// ═══════════════════════════════════════════════════════════
+// SMS_TEMPLATES — sms.ts se import karo, yahan define mat karo
 // ═══════════════════════════════════════════════════════════
 
 import { connectDB } from './db'
 import { MessageLog } from '@/models/MessageLog'
 import { deductCredits, checkCredits } from './credits'
 import { sendEmail } from './email'
-import { CREDIT_COSTS, TRIAL_CONFIG } from '@/config/pricing'
-import { School } from '@/models/School'
+import { CREDIT_COSTS } from '@/config/pricing'
 import type { MessageChannel, MessagePurpose } from '@/models/MessageLog'
 import type { CreditType } from '@/config/pricing'
 import { msg91SendSMS, msg91SendWhatsApp } from './msg91'
+
+// ✅ Single source of truth — sms.ts se import
+export { SMS_TEMPLATES } from './sms'
+export type { SMSTemplateResult } from './sms'
+
+// ══════════════════════════════════════════════
+// MessageInput — string ya SMSTemplateResult dono
+// ══════════════════════════════════════════════
+
+export type MessageInput =
+  | string
+  | { message: string; templateId?: string }
+
+function resolveMessage(input: MessageInput): {
+  message: string
+  templateId?: string
+} {
+  if (typeof input === 'string') {
+    return { message: input, templateId: undefined }
+  }
+  return { message: input.message, templateId: input.templateId }
+}
+
+// ══════════════════════════════════════════════
+// Interfaces
+// ══════════════════════════════════════════════
 
 export interface SendMessageOptions {
   tenantId: string
@@ -18,18 +44,15 @@ export interface SendMessageOptions {
   purpose: MessagePurpose
   recipient: string
   recipientName?: string
-  message: string
-  // ── Email specific ──
+  message: MessageInput         // string | { message, templateId }
   subject?: string
   html?: string
-  // ── MSG91 specific ──
-  templateId?: string
+  templateId?: string           // override — priority over template's templateId
   templateParams?: string[]
-  // ── Meta ──
   sentBy?: string
   sentByName?: string
   metadata?: Record<string, any>
-  skipCreditCheck?: boolean  // System messages (OTP, confirmations)
+  skipCreditCheck?: boolean
 }
 
 export interface SendResult {
@@ -42,81 +65,77 @@ export interface SendResult {
   skipReason?: string
 }
 
-// ── Main send function ──
+// ══════════════════════════════════════════════
+// Main send function
+// ══════════════════════════════════════════════
+
 export async function sendMessage(options: SendMessageOptions): Promise<SendResult> {
   await connectDB()
+
+  // ✅ Resolve — string ya object dono handle
+  const resolved        = resolveMessage(options.message)
+  const finalMessage    = resolved.message
+  const finalTemplateId = options.templateId ?? resolved.templateId
 
   const creditType = options.channel as CreditType
   const creditCost = CREDIT_COSTS[creditType]
 
-  // Check credits (skip for OTP/system)
+  // ── Credit check ──
   if (!options.skipCreditCheck) {
     const creditCheck = await checkCredits(options.tenantId, creditType, 1)
     if (!creditCheck.canSend) {
-      // Log as skipped
       const log = await MessageLog.create({
-        tenantId: options.tenantId,
-        channel: options.channel,
-        purpose: options.purpose,
-        recipient: options.recipient,
+        tenantId:      options.tenantId,
+        channel:       options.channel,
+        purpose:       options.purpose,
+        recipient:     options.recipient,
         recipientName: options.recipientName,
-        message: options.message,
-        creditsUsed: 0,
-        status: 'skipped',
-        errorMessage: creditCheck.message,
-        sentBy: options.sentBy,
-        sentByName: options.sentByName,
-        metadata: options.metadata,
+        message:       finalMessage,
+        creditsUsed:   0,
+        status:        'skipped',
+        errorMessage:  creditCheck.message,
+        sentBy:        options.sentBy,
+        sentByName:    options.sentByName,
+        metadata:      options.metadata,
       })
-
       return {
-        success: false,
-        channel: options.channel,
-        creditsUsed: 0,
+        success:      false,
+        channel:      options.channel,
+        creditsUsed:  0,
         messageLogId: log._id.toString(),
-        skipped: true,
-        skipReason: creditCheck.message,
+        skipped:      true,
+        skipReason:   creditCheck.message,
       }
     }
   }
 
-  // Create log entry (queued)
+  // ── Log entry ──
   const log = await MessageLog.create({
-    tenantId: options.tenantId,
-    channel: options.channel,
-    purpose: options.purpose,
-    recipient: options.recipient,
+    tenantId:      options.tenantId,
+    channel:       options.channel,
+    purpose:       options.purpose,
+    recipient:     options.recipient,
     recipientName: options.recipientName,
-    message: options.message,
-    templateId: options.templateId,
-    creditsUsed: creditCost,
-    status: 'queued',
-    sentBy: options.sentBy,
-    sentByName: options.sentByName,
-    metadata: options.metadata,
+    message:       finalMessage,
+    templateId:    finalTemplateId,
+    creditsUsed:   creditCost,
+    status:        'queued',
+    sentBy:        options.sentBy,
+    sentByName:    options.sentByName,
+    metadata:      options.metadata,
   })
 
   let providerResult: { success: boolean; messageId?: string; error?: string }
 
-  // ── Send via provider ──
+  // ── Send ──
   try {
     if (options.channel === 'sms') {
-      providerResult = await msg91SendSMS(
-        options.recipient,
-        options.message,
-        options.templateId
-      )
+      providerResult = await msg91SendSMS(options.recipient, finalMessage, finalTemplateId)
     } else if (options.channel === 'whatsapp') {
-      providerResult = await msg91SendWhatsApp(
-        options.recipient,
-        options.message,
-        options.templateId,
-        options.templateParams
-      )
+      providerResult = await msg91SendWhatsApp(options.recipient, finalMessage, finalTemplateId, options.templateParams)
     } else {
-      // Email
       const subject = options.subject ?? 'Message from your school'
-      const html = options.html ?? `<p>${options.message}</p>`
+      const html    = options.html    ?? `<p>${finalMessage}</p>`
       providerResult = await sendEmail(options.recipient, subject, html)
     }
   } catch (err: any) {
@@ -124,35 +143,31 @@ export async function sendMessage(options: SendMessageOptions): Promise<SendResu
   }
 
   // ── Update log ──
-  const finalStatus = providerResult.success ? 'sent' : 'failed'
   await MessageLog.findByIdAndUpdate(log._id, {
-    status: finalStatus,
+    status:            providerResult.success ? 'sent' : 'failed',
     providerMessageId: providerResult.messageId,
-    errorMessage: providerResult.error,
-    deliveredAt: providerResult.success ? new Date() : undefined,
+    errorMessage:      providerResult.error,
+    deliveredAt:       providerResult.success ? new Date() : undefined,
   })
 
-  // ── Deduct credits if sent ──
+  // ── Deduct credits ──
   if (providerResult.success && !options.skipCreditCheck) {
-    await deductCredits(
-      options.tenantId,
-      creditType,
-      1,
-      options.purpose,
-      log._id.toString()
-    )
+    await deductCredits(options.tenantId, creditType, 1, options.purpose, log._id.toString())
   }
 
   return {
-    success: providerResult.success,
-    channel: options.channel,
-    creditsUsed: providerResult.success ? creditCost : 0,
+    success:      providerResult.success,
+    channel:      options.channel,
+    creditsUsed:  providerResult.success ? creditCost : 0,
     messageLogId: log._id.toString(),
-    error: providerResult.error,
+    error:        providerResult.error,
   }
 }
 
-// ── Bulk send (e.g., attendance SMS to all absent students) ──
+// ══════════════════════════════════════════════
+// Bulk send
+// ══════════════════════════════════════════════
+
 export interface BulkSendOptions {
   tenantId: string
   channel: MessageChannel
@@ -160,7 +175,7 @@ export interface BulkSendOptions {
   recipients: Array<{
     recipient: string
     recipientName?: string
-    message: string
+    message: MessageInput     // ✅ dono formats
     templateParams?: string[]
   }>
   templateId?: string
@@ -181,40 +196,38 @@ export interface BulkSendResult {
 export async function sendBulkMessages(options: BulkSendOptions): Promise<BulkSendResult> {
   await connectDB()
 
-  const creditType = options.channel as CreditType
-  const totalRequired = Math.ceil(options.recipients.length * CREDIT_COSTS[creditType])
-
-  // Pre-check total credits
+  const creditType  = options.channel as CreditType
   const creditCheck = await checkCredits(options.tenantId, creditType, options.recipients.length)
 
   if (!creditCheck.canSend) {
-    // Log all as skipped
-    const logs = options.recipients.map(r => ({
-      tenantId: options.tenantId,
-      channel: options.channel,
-      purpose: options.purpose,
-      recipient: r.recipient,
-      recipientName: r.recipientName,
-      message: r.message,
-      creditsUsed: 0,
-      status: 'skipped' as const,
-      errorMessage: 'Insufficient credits',
-      sentBy: options.sentBy,
-      sentByName: options.sentByName,
-    }))
+    const logs = options.recipients.map(r => {
+      const { message } = resolveMessage(r.message)
+      return {
+        tenantId:      options.tenantId,
+        channel:       options.channel,
+        purpose:       options.purpose,
+        recipient:     r.recipient,
+        recipientName: r.recipientName,
+        message,
+        creditsUsed:   0,
+        status:        'skipped' as const,
+        errorMessage:  'Insufficient credits',
+        sentBy:        options.sentBy,
+        sentByName:    options.sentByName,
+      }
+    })
     await MessageLog.insertMany(logs)
 
     return {
-      total: options.recipients.length,
-      sent: 0,
-      failed: 0,
-      skipped: options.recipients.length,
-      creditsUsed: 0,
+      total:               options.recipients.length,
+      sent:                0,
+      failed:              0,
+      skipped:             options.recipients.length,
+      creditsUsed:         0,
       insufficientCredits: true,
     }
   }
 
-  // Send in batches of 50
   const BATCH_SIZE = 50
   let sent = 0, failed = 0, skipped = 0, creditsUsed = 0
 
@@ -224,64 +237,29 @@ export async function sendBulkMessages(options: BulkSendOptions): Promise<BulkSe
     await Promise.allSettled(
       batch.map(async (r) => {
         const result = await sendMessage({
-          tenantId: options.tenantId,
-          channel: options.channel,
-          purpose: options.purpose,
-          recipient: r.recipient,
-          recipientName: r.recipientName,
-          message: r.message,
-          templateId: options.templateId,
+          tenantId:       options.tenantId,
+          channel:        options.channel,
+          purpose:        options.purpose,
+          recipient:      r.recipient,
+          recipientName:  r.recipientName,
+          message:        r.message,
+          templateId:     options.templateId,
           templateParams: r.templateParams,
-          sentBy: options.sentBy,
-          sentByName: options.sentByName,
-          subject: options.subject,
+          sentBy:         options.sentBy,
+          sentByName:     options.sentByName,
+          subject:        options.subject,
         })
 
-        if (result.skipped) skipped++
+        if (result.skipped)        skipped++
         else if (result.success) { sent++; creditsUsed += result.creditsUsed }
-        else failed++
+        else                       failed++
       })
     )
 
-    // Small delay between batches
     if (i + BATCH_SIZE < options.recipients.length) {
       await new Promise(r => setTimeout(r, 200))
     }
   }
 
-  return {
-    total: options.recipients.length,
-    sent,
-    failed,
-    skipped,
-    creditsUsed,
-    insufficientCredits: false,
-  }
-}
-
-// ── SMS Templates (MSG91 style) ──
-export const SMS_TEMPLATES = {
-  absentAlert: (studentName: string, date: string, schoolName: string) =>
-    `${studentName} was ABSENT on ${date} at ${schoolName}. Please contact school if needed. -Skolify`,
-
-  feeReminder: (studentName: string, amount: number, dueDate: string) =>
-    `Fee of Rs.${amount} for ${studentName} due on ${dueDate}. Pay online to avoid late fine. -Skolify`,
-
-  feePaid: (studentName: string, amount: number, receiptNo: string) =>
-    `Payment Rs.${amount} received for ${studentName}. Receipt: ${receiptNo}. Thank you! -Skolify`,
-
-  examResult: (studentName: string, examName: string) =>
-    `${studentName}'s ${examName} result is now available. Login to portal to view. -Skolify`,
-
-  notice: (schoolName: string, title: string) =>
-    `${schoolName}: New notice - "${title}". Login to portal for details. -Skolify`,
-
-  admissionApproved: (studentName: string, schoolName: string) =>
-    `${studentName}'s admission at ${schoolName} is APPROVED. Visit school for further process. -Skolify`,
-
-  creditLow: (balance: number) =>
-    `Skolify Alert: Your message credit balance is low (${balance} credits). Recharge now to continue messaging.`,
-
-  trialEnding: (daysLeft: number) =>
-    `Skolify: Your 60-day free trial ends in ${daysLeft} days. Subscribe now at skolify.in to continue.`,
+  return { total: options.recipients.length, sent, failed, skipped, creditsUsed, insufficientCredits: false }
 }
