@@ -117,10 +117,10 @@ export default function HostelPage() {
 
             {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <StatCard label="Total Rooms" value={stats.totalRooms} icon={<Building size={18} />} color="indigo" />
-                    <StatCard label="Total Capacity" value={stats.totalCapacity} icon={<Users size={18} />} color="blue" />
-                    <StatCard label="Occupied" value={stats.totalOccupied} icon={<Users size={18} />} color="emerald" />
-                    <StatCard label="Vacant" value={stats.totalCapacity - stats.totalOccupied} icon={<Building size={18} />} color="amber" />
+                    <StatCard label="Total Rooms" value={stats.totalRooms} icon={<Building size={18} />} color="info" />
+                    <StatCard label="Total Capacity" value={stats.totalCapacity} icon={<Users size={18} />} color="primary" />
+                    <StatCard label="Occupied" value={stats.totalOccupied} icon={<Users size={18} />} />
+                    <StatCard label="Vacant" value={stats.totalCapacity - stats.totalOccupied} icon={<Building size={18} />} color="warning" />
                 </div>
             )}
 
@@ -180,7 +180,7 @@ export default function HostelPage() {
                                         <div className="space-y-1.5">
                                             {menu.meals.map((m: any, i: number) => (
                                                 <div key={i} className="flex items-start gap-2 text-xs">
-                                                    <Badge variant={m.type === 'breakfast' ? 'warning' : m.type === 'lunch' ? 'success' : m.type === 'snacks' ? 'info' : 'purple'}>
+                                                    <Badge variant={m.type === 'breakfast' ? 'warning' : m.type === 'lunch' ? 'success' : m.type === 'snacks' ? 'info' : 'primary'}>
                                                         {m.type}
                                                     </Badge>
                                                     <span className="text-slate-600">{m.items?.join(', ') || 'Not set'}</span>
@@ -222,7 +222,7 @@ export default function HostelPage() {
                         {mealForm.map((meal, i) => (
                             <div key={i} className="space-y-2">
                                 <div className="flex items-center gap-2">
-                                    <Badge variant={meal.type === 'breakfast' ? 'warning' : meal.type === 'lunch' ? 'success' : meal.type === 'snacks' ? 'info' : 'purple'}>
+                                    <Badge variant={meal.type === 'breakfast' ? 'warning' : meal.type === 'lunch' ? 'success' : meal.type === 'snacks' ? 'info' : 'primary'}>
                                         {meal.type}
                                     </Badge>
                                     <Input type="time" value={meal.time} onChange={e => {

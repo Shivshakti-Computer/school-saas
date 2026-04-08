@@ -179,7 +179,7 @@ export function Select({ label, error, options, className, ...props }: SelectPro
    BADGE
    ───────────────────────────────────────────────────────────── */
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary'
+type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary' 
 
 export function Badge({
   children,

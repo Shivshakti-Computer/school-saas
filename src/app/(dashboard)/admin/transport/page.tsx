@@ -84,9 +84,9 @@ export default function TransportPage() {
 
             {stats && (
                 <div className="grid grid-cols-3 gap-4 mb-6">
-                    <StatCard label="Total Routes" value={stats.totalRoutes} icon={<Bus size={18} />} color="indigo" />
-                    <StatCard label="Students Using" value={stats.totalStudents} icon={<MapPin size={18} />} color="emerald" />
-                    <StatCard label="Total Capacity" value={stats.totalCapacity} icon={<Bus size={18} />} color="amber" />
+                    <StatCard label="Total Routes" value={stats.totalRoutes} icon={<Bus size={18} />} color="info" />
+                    <StatCard label="Students Using" value={stats.totalStudents} icon={<MapPin size={18} />} color="primary" />
+                    <StatCard label="Total Capacity" value={stats.totalCapacity} icon={<Bus size={18} />} color="danger" />
                 </div>
             )}
 

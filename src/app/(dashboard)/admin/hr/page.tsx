@@ -100,10 +100,10 @@ export default function HRPage() {
 
             {stats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <StatCard label="Total Staff" value={stats.total} icon={<Users size={18} />} color="indigo" />
-                    <StatCard label="Active" value={stats.active} icon={<Users size={18} />} color="emerald" />
-                    <StatCard label="Monthly Payroll" value={`₹${stats.totalSalary?.toLocaleString('en-IN')}`} icon={<DollarSign size={18} />} color="amber" />
-                    <StatCard label="Departments" value={stats.departments?.length || 0} icon={<Briefcase size={18} />} color="blue" />
+                    <StatCard label="Total Staff" value={stats.total} icon={<Users size={18} />} color="info" />
+                    <StatCard label="Active" value={stats.active} icon={<Users size={18} />} color="success" />
+                    <StatCard label="Monthly Payroll" value={`₹${stats.totalSalary?.toLocaleString('en-IN')}`} icon={<DollarSign size={18} />} color="warning" />
+                    <StatCard label="Departments" value={stats.departments?.length || 0} icon={<Briefcase size={18} />} color="primary" />
                 </div>
             )}
 

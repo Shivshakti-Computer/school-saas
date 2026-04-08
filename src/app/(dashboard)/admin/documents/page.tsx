@@ -100,7 +100,7 @@ export default function DocumentsPage() {
                             <div className="flex items-start justify-between mb-3">
                                 <div>
                                     <h3 className="font-semibold text-sm text-slate-800">{t.name}</h3>
-                                    <Badge variant={t.type === 'tc' ? 'info' : t.type === 'cc' ? 'success' : t.type === 'bonafide' ? 'warning' : 'purple'}>
+                                    <Badge variant={t.type === 'tc' ? 'info' : t.type === 'cc' ? 'success' : t.type === 'bonafide' ? 'warning' : 'primary'}>
                                         {t.type.toUpperCase()}
                                     </Badge>
                                 </div>

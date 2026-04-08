@@ -54,13 +54,13 @@ export default async function TeacherDashboard() {
                     label="Attendance Marked Today"
                     value={todayMarked}
                     icon={<CheckSquare size={20} />}
-                    color="emerald"
+                    color="success"
                 />
                 <StatCard
                     label="My Class"
                     value={user.class ?? 'N/A'} // Use 'user' instead of 'session.user'
                     icon={<BookOpen size={20} />}
-                    color="indigo"
+                    color="info"
                 />
             </div>
 

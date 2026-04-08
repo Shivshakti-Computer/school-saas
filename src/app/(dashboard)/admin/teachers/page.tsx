@@ -212,7 +212,7 @@ export default function TeachersStaffPage() {
     // Category badge
     const getCategoryBadge = (cat: string) => {
         switch (cat) {
-            case 'teaching': return <Badge variant="purple">Teaching</Badge>
+            case 'teaching': return <Badge variant="primary">Teaching</Badge>
             case 'non_teaching': return <Badge variant="info">Non-Teaching</Badge>
             case 'admin': return <Badge variant="warning">Admin</Badge>
             case 'support': return <Badge variant="default">Support</Badge>
@@ -259,25 +259,25 @@ export default function TeachersStaffPage() {
                     label="Total Staff"
                     value={stats.total}
                     icon={<Users size={18} />}
-                    color="indigo"
+                    color="primary"
                 />
                 <StatCard
                     label="Active"
                     value={stats.active}
                     icon={<UserCheck size={18} />}
-                    color="emerald"
+                    color="success"
                 />
                 <StatCard
                     label="On Leave"
                     value={stats.onLeave}
                     icon={<Clock size={18} />}
-                    color="amber"
+                    color="info"
                 />
                 <StatCard
                     label="Inactive"
                     value={stats.inactive}
                     icon={<UserX size={18} />}
-                    color="red"
+                    color="danger"
                 />
             </div>
 
@@ -1096,7 +1096,7 @@ function ViewStaffModal({
                         <p className="text-xs font-medium text-slate-500 mb-1.5">Classes</p>
                         <div className="flex flex-wrap gap-1.5">
                             {staff.classes.map(cls => (
-                                <Badge key={cls} variant="purple">Class {cls}</Badge>
+                                <Badge key={cls} variant="primary">Class {cls}</Badge>
                             ))}
                         </div>
                     </div>

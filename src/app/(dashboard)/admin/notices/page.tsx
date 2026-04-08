@@ -56,10 +56,10 @@ export default function NoticesPage() {
             : <Badge variant="default">Normal</Badge>
 
     const roleBadge = (r: string) => {
-        const map: Record<string, 'info' | 'purple' | 'warning' | 'success' | 'default'> = {
+        const map: Record<string, 'info' | 'primary' | 'warning' | 'success' | 'default'> = {
             all: 'info',
             parent: 'warning',
-            teacher: 'purple',
+            teacher: 'primary',
             student: 'success',
         }
         return <Badge variant={map[r] ?? 'default'}>{r}</Badge>

@@ -83,7 +83,7 @@ export default function CommunicationPage() {
                                 <Td className="text-xs text-slate-500">
                                     {new Date(msg.sentAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                                 </Td>
-                                <Td><Badge variant={msg.type === 'sms' ? 'info' : msg.type === 'whatsapp' ? 'success' : 'purple'}>{msg.type.toUpperCase()}</Badge></Td>
+                                <Td><Badge variant={msg.type === 'sms' ? 'info' : msg.type === 'whatsapp' ? 'success' : 'primary'}>{msg.type.toUpperCase()}</Badge></Td>
                                 <Td className="font-medium">{msg.title}</Td>
                                 <Td className="capitalize">{msg.recipients}{msg.targetClass ? ` — Class ${msg.targetClass}` : ''}</Td>
                                 <Td><span className="text-emerald-600 font-medium">{msg.totalSent}</span></Td>

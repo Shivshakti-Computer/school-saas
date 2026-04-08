@@ -104,7 +104,7 @@ export default function HomeworkPage() {
                             const overdue = isOverdue(hw.dueDate)
                             return (
                                 <Tr key={hw._id}>
-                                    <Td><Badge variant="purple">{hw.subject}</Badge></Td>
+                                    <Td><Badge variant="primary">{hw.subject}</Badge></Td>
                                     <Td className="font-medium">{hw.title}</Td>
                                     <Td>Class {hw.class}{hw.section ? `-${hw.section}` : ''}</Td>
                                     <Td>

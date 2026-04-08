@@ -110,7 +110,7 @@ export default function AlumniPage() {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h3 className="font-semibold text-sm text-slate-800 truncate">{a.name}</h3>
-                                    <Badge variant="purple" className="mt-0.5">Batch {a.batch}</Badge>
+                                    <Badge variant="primary" className="mt-0.5">Batch {a.batch}</Badge>
                                 </div>
                             </div>
                             <div className="mt-3 space-y-1.5 text-xs text-slate-600">

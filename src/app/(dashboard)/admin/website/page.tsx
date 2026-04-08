@@ -407,7 +407,7 @@ export default function WebsiteBuilderPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {page.isSystem && <Badge variant="info">System</Badge>}
-                                        {!page.isSystem && <Badge variant="purple">Custom</Badge>}
+                                        {!page.isSystem && <Badge variant="primary">Custom</Badge>}
                                         <button onClick={() => togglePage(page.id)}
                                             className={`w-8 h-4 rounded-full transition-colors relative ${page.enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}>
                                             <div className={`w-3 h-3 bg-white rounded-full absolute top-[2px] transition-all ${page.enabled ? 'right-[2px]' : 'left-[2px]'}`} />

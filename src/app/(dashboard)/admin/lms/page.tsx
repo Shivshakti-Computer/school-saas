@@ -110,7 +110,7 @@ export default function LMSPage() {
                                     <h3 className="font-semibold text-slate-800 text-sm">{course.title}</h3>
                                     <div className="flex gap-1.5 mt-1">
                                         <Badge variant="info">Class {course.class}</Badge>
-                                        <Badge variant="purple">{course.subject}</Badge>
+                                        <Badge variant="primary">{course.subject}</Badge>
                                     </div>
                                 </div>
                                 {course.isPublished ? (
@@ -198,7 +198,7 @@ export default function LMSPage() {
                         <div>
                             <div className="flex gap-2 mb-4">
                                 <Badge variant="info">Class {viewCourse.class}</Badge>
-                                <Badge variant="purple">{viewCourse.subject}</Badge>
+                                <Badge variant="primary">{viewCourse.subject}</Badge>
                                 <Badge variant={viewCourse.isPublished ? 'success' : 'warning'}>
                                     {viewCourse.isPublished ? 'Published' : 'Draft'}
                                 </Badge>

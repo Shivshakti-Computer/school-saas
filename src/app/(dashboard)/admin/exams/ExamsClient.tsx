@@ -86,7 +86,7 @@ export default function ExamsClient() {
                             <Tr key={ex._id}>
                                 <Td className="font-medium text-slate-700">{ex.name}</Td>
                                 <Td>
-                                    <Badge variant="purple">
+                                    <Badge variant="primary">
                                         {ex.class}{ex.section ? ` - ${ex.section}` : ''}
                                     </Badge>
                                 </Td>

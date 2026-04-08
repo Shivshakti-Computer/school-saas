@@ -132,10 +132,10 @@ export default function LibraryPage() {
             {/* Stats */}
             {bookStats && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <StatCard label="Total Books" value={bookStats.totalBooks} icon={<Library size={18} />} color="indigo" />
-                    <StatCard label="Total Copies" value={bookStats.totalCopies} icon={<BookOpen size={18} />} color="blue" />
-                    <StatCard label="Available" value={bookStats.availableCopies} icon={<BookOpen size={18} />} color="emerald" />
-                    <StatCard label="Issued" value={bookStats.issuedCopies} icon={<BookOpen size={18} />} color="amber" />
+                    <StatCard label="Total Books" value={bookStats.totalBooks} icon={<Library size={18} />} color="info" />
+                    <StatCard label="Total Copies" value={bookStats.totalCopies} icon={<BookOpen size={18} />} color="primary" />
+                    <StatCard label="Available" value={bookStats.availableCopies} icon={<BookOpen size={18} />} color="success" />
+                    <StatCard label="Issued" value={bookStats.issuedCopies} icon={<BookOpen size={18} />} color="warning" />
                 </div>
             )}
 
