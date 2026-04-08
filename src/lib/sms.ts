@@ -1,58 +1,91 @@
 // FILE: src/lib/sms.ts
-// UPDATED: Now uses MSG91 via messaging.ts
-// Old sendSMS function kept — backward compatible
-// ═══════════════════════════════════════════════════════════
+// SMS wrapper with automatic provider selection
+// Future-proof: Easy to add new SMS providers
 
-import { msg91SendSMS } from "./msg91";
+import { msg91SendSMS, msg91SendBulkSMS, type SMSResult, type BulkSMSResult } from './msg91'
 
+// ══════════════════════════════════════════════
+// Main SMS Function - Backward Compatible
+// ══════════════════════════════════════════════
 
-// ── Backward compatible wrapper ──
 export async function sendSMS(
   phones: string | string[],
   message: string,
   templateId?: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; cost?: number }> {
   const phoneList = Array.isArray(phones) ? phones : [phones]
 
+  // Single SMS
   if (phoneList.length === 1) {
-    return msg91SendSMS(phoneList[0], message, templateId)
+    const result = await msg91SendSMS(phoneList[0], message, templateId)
+    return {
+      success: result.success,
+      error: result.error,
+      cost: result.cost,
+    }
   }
 
-  // Bulk — send to all, return overall success
-  const results = await Promise.allSettled(
-    phoneList.map(p => msg91SendSMS(p, message, templateId))
-  )
-
-  const failed = results.filter(
-    r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success)
-  )
-
+  // Bulk SMS
+  const recipients = phoneList.map(p => ({ phone: p }))
+  const result = await msg91SendBulkSMS(recipients, message, templateId)
+  
   return {
-    success: failed.length === 0,
-    error: failed.length > 0 ? `${failed.length} messages failed` : undefined,
+    success: result.success,
+    error: result.error,
+    cost: result.cost,
   }
 }
 
-// ── SMS Templates (kept same — backward compatible) ──
+// ══════════════════════════════════════════════
+// SMS Templates - Ready for DLT
+// ══════════════════════════════════════════════
+
 export const SMS_TEMPLATES = {
-  admissionReceived: (studentName: string, schoolName: string) =>
-    `Dear Parent, admission application for ${studentName} received at ${schoolName}. We will contact you shortly.`,
+  // ── OTP ──
+  otp: (otp: string) => ({
+    message: `Your Skolify OTP is ${otp}. Valid for 10 minutes. Do not share. -Skolify`,
+    templateId: process.env.MSG91_TEMPLATE_OTP,
+  }),
 
-  admissionApproved: (studentName: string, schoolName: string) =>
-    `Congratulations! ${studentName}'s admission at ${schoolName} is APPROVED. Visit school for further process.`,
+  // ── Fee Receipt ──
+  feeReceipt: (studentName: string, amount: number, receiptNo: string) => ({
+    message: `Dear Parent, fee of Rs.${amount} for ${studentName} received. Receipt: ${receiptNo}. Thank you! -Skolify`,
+    templateId: process.env.MSG91_TEMPLATE_FEE_RECEIPT,
+  }),
 
-  feeReminder: (studentName: string, amount: number, dueDate: string) =>
-    `Dear Parent, fee of Rs.${amount} for ${studentName} is due on ${dueDate}. Pay online to avoid late fine.`,
+  // ── Attendance Alert ──
+  attendanceAlert: (studentName: string, date: string, schoolName: string) => ({
+    message: `Dear Parent, ${studentName} was ABSENT on ${date} at ${schoolName}. Contact school if needed. -Skolify`,
+    templateId: process.env.MSG91_TEMPLATE_ATTENDANCE,
+  }),
 
-  feePaid: (studentName: string, amount: number, receiptNo: string) =>
-    `Payment of Rs.${amount} received for ${studentName}. Receipt No: ${receiptNo}. Thank you.`,
+  // ── Exam Result ──
+  examResult: (studentName: string, examName: string) => ({
+    message: `${studentName}'s ${examName} result is now available. Login to portal to view marks and grade card. -Skolify`,
+    templateId: process.env.MSG91_TEMPLATE_EXAM_RESULT,
+  }),
 
-  absentAlert: (studentName: string, date: string, schoolName: string) =>
-    `Dear Parent, ${studentName} was ABSENT on ${date} at ${schoolName}. Please contact school if needed.`,
+  // ── Fee Reminder ──
+  feeReminder: (studentName: string, amount: number, dueDate: string) => ({
+    message: `Dear Parent, fee of Rs.${amount} for ${studentName} is due on ${dueDate}. Pay online to avoid late fine. -Skolify`,
+    templateId: process.env.MSG91_TEMPLATE_FEE_RECEIPT,
+  }),
 
-  examResult: (studentName: string, examName: string) =>
-    `${studentName}'s ${examName} result is now available. Login to portal to view marks and grade card.`,
+  // ── Admission Received ──
+  admissionReceived: (studentName: string, schoolName: string) => ({
+    message: `Dear Parent, admission application for ${studentName} received at ${schoolName}. We will contact you shortly. -Skolify`,
+    templateId: undefined,
+  }),
 
-  notice: (schoolName: string, title: string) =>
-    `${schoolName}: New notice - "${title}". Login to school portal to read full details.`,
+  // ── Admission Approved ──
+  admissionApproved: (studentName: string, schoolName: string) => ({
+    message: `Congratulations! ${studentName}'s admission at ${schoolName} is APPROVED. Visit school for further process. -Skolify`,
+    templateId: undefined,
+  }),
+
+  // ── Notice ──
+  notice: (schoolName: string, title: string) => ({
+    message: `${schoolName}: New notice - "${title}". Login to school portal to read full details. -Skolify`,
+    templateId: undefined,
+  }),
 }
