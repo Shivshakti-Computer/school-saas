@@ -1,237 +1,441 @@
-// FILE: src/app/api/attendance/route.ts
-// UPDATED: Absent SMS via credit system
-// BACKWARD COMPATIBLE — same GET/POST structure
-// ═══════════════════════════════════════════════════════════
+/* ============================================================
+   FILE: src/app/api/attendance/route.ts
+   UPDATED: Stream filter support + explicit types
+   ============================================================ */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { connectDB } from '@/lib/db'
-import { Attendance } from '@/models/Attendance'
-import { Student } from '@/models/Student'
-import { User } from '@/models'
-import { sendMessage } from '@/lib/messaging'
-import { SMS_TEMPLATES } from '@/lib/sms'
+import { NextRequest, NextResponse }  from 'next/server'
+import { getServerSession }           from 'next-auth'
+import { authOptions }                from '@/lib/auth'
+import { connectDB }                  from '@/lib/db'
+import { Attendance }                 from '@/models/Attendance'
+import { Student }                    from '@/models/Student'
+import { User }                       from '@/models'
+import { sendMessage }                from '@/lib/messaging'
+import { SMS_TEMPLATES }              from '@/lib/sms'
 import { PUSH_TEMPLATES, sendPushToUser } from '@/lib/push'
-import { checkCredits } from '@/lib/credits'
+import { checkCredits }               from '@/lib/credits'
+import {
+  attendanceGetSchema,
+  attendancePostSchema,
+  type AttendancePostInput,
+}                                     from '@/lib/validators/attendance'
+import mongoose                       from 'mongoose'
+import type { IAttendanceLean }       from '@/models/Attendance'
 
-interface AttendanceRecordInput {
-  studentId: string
-  status: 'present' | 'absent' | 'late' | 'pending'
+// ── Types for populated lean queries ────────────────────────
+
+interface StudentLeanPopulated {
+  _id:         mongoose.Types.ObjectId
+  admissionNo: string
+  rollNo:      string
+  class:       string
+  section:     string
+  stream?:     string  // ✅ Added
+  parentPhone: string
+  userId:      {
+    _id:  mongoose.Types.ObjectId
+    name: string
+  }
 }
 
-// ── GET — same as before ──
+interface StudentLeanBasic {
+  _id:         mongoose.Types.ObjectId
+  parentPhone: string
+  class:       string
+  section:     string
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+
+const ALLOWED_ROLES = ['admin', 'teacher', 'staff'] as const
+type AllowedRole    = typeof ALLOWED_ROLES[number]
+
+// Classes eligible for stream
+const STREAM_CLASSES = ['11', '12']
+
+function isAllowed(role: string): role is AllowedRole {
+  return (ALLOWED_ROLES as readonly string[]).includes(role)
+}
+
+function errRes(msg: string, status: number) {
+  return NextResponse.json({ error: msg }, { status })
+}
+
+// ════════════════════════════════════════════════════════════
+// GET /api/attendance
+// Query: ?class=11&section=A&stream=science&date=2025-01-15
+// ════════════════════════════════════════════════════════════
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'teacher', 'staff'].includes(session.user.role)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session?.user || !isAllowed(session.user.role)) {
+    return errRes('Unauthorized', 401)
   }
 
-  await connectDB()
+  // ── Validate ──
+  const raw    = Object.fromEntries(req.nextUrl.searchParams)
+  const parsed = attendanceGetSchema.safeParse(raw)
 
-  const { searchParams } = req.nextUrl
-  const date = searchParams.get('date') || new Date().toISOString().split('T')[0]
-  const cls = searchParams.get('class')
-  const section = searchParams.get('section')
-
-  if (!cls) {
-    return NextResponse.json({ error: 'class required' }, { status: 400 })
-  }
-
-  const students = await Student.find({
-    tenantId: session.user.tenantId,
-    class: cls,
-    section: section || { $exists: true },
-    status: 'active',
-  })
-    .populate('userId', 'name')
-    .sort({ rollNo: 1 })
-    .lean()
-
-  const records = await Attendance.find({
-    tenantId: session.user.tenantId,
-    date,
-    studentId: { $in: students.map(s => s._id) },
-  }).lean()
-
-  const recordMap = new Map(records.map(r => [r.studentId.toString(), r]))
-
-  const list = students.map(s => ({
-    studentId: s._id,
-    admissionNo: s.admissionNo,
-    rollNo: s.rollNo,
-    name: (s.userId as any)?.name || '',
-    status: recordMap.get(s._id.toString())?.status || 'pending',
-    attendanceId: recordMap.get(s._id.toString())?._id || null,
-  }))
-
-  return NextResponse.json({ list, date, total: list.length })
-}
-
-// ── POST — credit system integrated ──
-export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.user || !['admin', 'teacher', 'staff'].includes(session.user.role)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  await connectDB()
-
-  const { date, records, subject, sendAbsentSms = true } = (await req.json()) as {
-    date: string
-    records: AttendanceRecordInput[]
-    subject?: string
-    sendAbsentSms?: boolean
-  }
-
-  if (!date || !records?.length) {
-    return NextResponse.json({ error: 'date and records required' }, { status: 400 })
-  }
-
-  // ── Bulk upsert attendance ──
-  const ops = records.map(r => ({
-    updateOne: {
-      filter: {
-        tenantId: session.user.tenantId,
-        studentId: r.studentId,
-        date,
-        ...(subject ? { subject } : {}),
+  if (!parsed.success) {
+    return NextResponse.json(
+      {
+        error:   'Invalid parameters',
+        details: parsed.error.flatten().fieldErrors,
       },
-      update: {
-        $set: {
-          status: r.status,
-          markedBy: session.user.id,
-          tenantId: session.user.tenantId,
-          ...(subject ? { subject } : {}),
+      { status: 400 }
+    )
+  }
+
+  const { class: cls, section, stream, date } = parsed.data
+  const attendanceDate = date ?? new Date().toISOString().split('T')[0]
+
+  try {
+    await connectDB()
+
+    // ── Student query with stream filter ──
+    const studentFilter: Record<string, unknown> = {
+      tenantId: session.user.tenantId,
+      class:    cls,
+      status:   'active',
+    }
+    if (section) studentFilter.section = section
+
+    // ✅ Stream filter at DB level (for Class 11, 12 only)
+    if (stream && STREAM_CLASSES.includes(cls)) {
+      // Student model normalizes stream to lowercase via pre-save hook
+      studentFilter.stream = stream.toLowerCase()
+    }
+
+    // ✅ Select stream field
+    const students = await Student
+      .find(studentFilter)
+      .populate<{ userId: { _id: mongoose.Types.ObjectId; name: string } }>(
+        'userId',
+        'name'
+      )
+      .select('_id admissionNo rollNo class section stream parentPhone userId')  // ← stream added
+      .sort({ rollNo: 1 })
+      .lean() as unknown as StudentLeanPopulated[]
+
+    if (!students.length) {
+      return NextResponse.json({
+        list:  [],
+        date:  attendanceDate,
+        total: 0,
+        meta: {
+          class:   cls,
+          section: section ?? null,
+          stream:  stream ?? null,  // ✅ Added
+          present: 0,
+          absent:  0,
+          late:    0,
+          pending: 0,
         },
-      },
-      upsert: true,
-    },
-  }))
+      })
+    }
 
-  await Attendance.bulkWrite(ops)
+    // ── Existing attendance records ──
+    const existingRecords = await Attendance
+      .find({
+        tenantId:  session.user.tenantId,
+        date:      attendanceDate,
+        studentId: { $in: students.map(s => s._id) },
+      })
+      .lean() as unknown as IAttendanceLean[]
 
-  // ── Absent students SMS ──
-  const absentIds = records
-    .filter(r => r.status === 'absent')
-    .map(r => r.studentId)
-
-  let smsSent = 0
-  let smsSkipped = 0
-  let smsFailReason = ''
-
-  if (absentIds.length > 0 && sendAbsentSms) {
-    // Check credits first (1 credit per SMS)
-    const creditCheck = await checkCredits(
-      session.user.tenantId,
-      'sms',
-      absentIds.length
+    const recordMap = new Map<string, IAttendanceLean>(
+      existingRecords.map(r => [r.studentId.toString(), r])
     )
 
-    if (!creditCheck.canSend) {
-      // Log skip reason but don't fail the attendance save
-      smsSkipped = absentIds.length
-      smsFailReason = `Insufficient credits (${creditCheck.balance} available, ${creditCheck.required} required)`
-      console.warn(`[Attendance] SMS skipped — ${smsFailReason}`)
-    } else {
-      // Get absent students
-      const absentStudents = await Student.find({
-        _id: { $in: absentIds },
+    // ── Build list ──
+    const list = students.map(s => {
+      const existing = recordMap.get(s._id.toString())
+      return {
+        studentId:    s._id.toString(),
+        admissionNo:  s.admissionNo,
+        rollNo:       s.rollNo,
+        name:         s.userId?.name ?? 'Unknown',
+        parentPhone:  s.parentPhone,
+        class:        s.class,
+        section:      s.section,
+        stream:       s.stream ?? '',  // ✅ Include stream
+        status:       existing?.status ?? 'pending',
+        attendanceId: existing?._id?.toString() ?? null,
+        smsSent:      existing?.smsSent ?? false,
+      }
+    })
+
+    // ── Stats ──
+    const presentCount = list.filter(r => r.status === 'present').length
+    const absentCount  = list.filter(r => r.status === 'absent').length
+    const lateCount    = list.filter(r => r.status === 'late').length
+    const pendingCount = list.filter(r => r.status === 'pending').length
+
+    return NextResponse.json({
+      list,
+      date:  attendanceDate,
+      total: list.length,
+      meta: {
+        class:   cls,
+        section: section ?? null,
+        stream:  stream ?? null,  // ✅ Added
+        present: presentCount,
+        absent:  absentCount,
+        late:    lateCount,
+        pending: pendingCount,
+      },
+    })
+  } catch (err) {
+    console.error('[GET /api/attendance]', err)
+    return errRes('Internal server error', 500)
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// POST /api/attendance
+// ════════════════════════════════════════════════════════════
+
+export async function POST(req: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user || !isAllowed(session.user.role)) {
+    return errRes('Unauthorized', 401)
+  }
+
+  // ── Parse body ──
+  let body: AttendancePostInput
+  try {
+    const raw    = await req.json()
+    const parsed = attendancePostSchema.safeParse(raw)
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error:   'Validation failed',
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      )
+    }
+    body = parsed.data
+  } catch {
+    return errRes('Invalid JSON body', 400)
+  }
+
+  const { date, records, subject, sendAbsentSms } = body
+
+  // ── Filter pending ──
+  const validRecords = records.filter(r => r.status !== ('pending' as string))
+
+  if (!validRecords.length) {
+    return errRes('No valid records — all are pending', 400)
+  }
+
+  try {
+    await connectDB()
+
+    // ── Verify all studentIds belong to this tenant ──
+    const studentIds = validRecords.map(r => r.studentId)
+
+    const verifiedStudents = await Student
+      .find({
+        _id:      { $in: studentIds },
         tenantId: session.user.tenantId,
-      }).lean()
+        status:   'active',
+      })
+      .select('_id parentPhone class section')
+      .lean() as unknown as StudentLeanBasic[]
 
-      for (const s of absentStudents) {
-        // Check if SMS already sent today
-        const alreadySent = await Attendance.findOne({
-          studentId: s._id,
+    const verifiedIds = new Set(verifiedStudents.map(s => s._id.toString()))
+
+    // Filter tampering attempts
+    const safeRecords = validRecords.filter(r => verifiedIds.has(r.studentId))
+
+    if (!safeRecords.length) {
+      return errRes('No valid students found for this tenant', 400)
+    }
+
+    // ── Bulk upsert ──
+    const ops = safeRecords.map(r => ({
+      updateOne: {
+        filter: {
+          tenantId:  session.user.tenantId,
+          studentId: r.studentId,
           date,
-          smsSent: true,
-        })
-        if (alreadySent) continue
+          ...(subject ? { subject } : {}),
+        },
+        update: {
+          $set: {
+            status:   r.status,
+            markedBy: session.user.id,
+            tenantId: session.user.tenantId,
+            ...(subject ? { subject } : {}),
+          },
+          $setOnInsert: {
+            smsSent: false,
+          },
+        },
+        upsert: true,
+      },
+    }))
 
-        const phone = (s as any).parentPhone || (s as any).phone
-        if (!phone) continue
+    const bulkResult = await Attendance.bulkWrite(ops as any, { ordered: false })
 
-        const studentName = (s as any).name || 'Student'
-        const message = SMS_TEMPLATES.absentAlert(
-          studentName,
-          date,
-          session.user.schoolName
+    // ── SMS for absent students ──────────────────────────────
+
+    const absentStudentIds = safeRecords
+      .filter(r => r.status === 'absent')
+      .map(r => r.studentId)
+
+    const smsResult = {
+      sent:          0,
+      skipped:       0,
+      failReason:    '',
+      creditWarning: undefined as string | undefined,
+    }
+
+    if (absentStudentIds.length > 0 && sendAbsentSms) {
+      // Credit check
+      const creditCheck = await checkCredits(
+        session.user.tenantId,
+        'sms',
+        absentStudentIds.length
+      )
+
+      if (!creditCheck.canSend) {
+        smsResult.skipped      = absentStudentIds.length
+        smsResult.failReason   = `Insufficient credits (${creditCheck.balance} available, ${creditCheck.required} required)`
+        smsResult.creditWarning = `${absentStudentIds.length} SMS not sent — ${smsResult.failReason}. Purchase credit pack.`
+        console.warn('[Attendance POST] SMS skipped —', smsResult.failReason)
+      } else {
+        // Build phone map
+        const studentPhoneMap = new Map(
+          verifiedStudents.map(s => [s._id.toString(), s.parentPhone])
         )
 
-        // ← Send via credit system
-        const result = await sendMessage({
-          tenantId: session.user.tenantId,
-          channel: 'sms',
-          purpose: 'attendance_absent',
-          recipient: phone,
-          recipientName: studentName,
-          message,
-          sentBy: session.user.id,
-          sentByName: session.user.name,
-          metadata: {
-            studentId: s._id.toString(),
+        for (const studentId of absentStudentIds) {
+          // Already sent today?
+          const alreadySent = await Attendance.findOne({
+            studentId,
             date,
-            class: (s as any).class,
-          },
-        })
+            smsSent: true,
+          })
+            .select('_id')
+            .lean()
 
-        if (result.success) {
-          // Mark SMS sent in attendance record
-          await Attendance.updateOne(
-            { studentId: s._id, date },
-            { $set: { smsSent: true } }
+          if (alreadySent) continue
+
+          const phone = studentPhoneMap.get(studentId)
+          if (!phone) {
+            smsResult.skipped++
+            continue
+          }
+
+          // Get student name
+          const studentDoc = await Student
+            .findById(studentId)
+            .populate<{ userId: { name: string } }>('userId', 'name')
+            .select('userId class')
+            .lean() as unknown as {
+              userId?: { name: string }
+              class?:  string
+            }
+
+          const studentName  = studentDoc?.userId?.name ?? 'Student'
+          const studentClass = studentDoc?.class ?? ''
+
+          const message = SMS_TEMPLATES.absentAlert(
+            studentName,
+            date,
+            session.user.schoolName
           )
-          smsSent++
-        } else if (result.skipped) {
-          smsSkipped++
-          smsFailReason = result.skipReason || 'Credits insufficient'
-          break // Stop if credits run out
+
+          const result = await sendMessage({
+            tenantId:      session.user.tenantId,
+            channel:       'sms',
+            purpose:       'attendance_absent',
+            recipient:     phone,
+            recipientName: studentName,
+            message,
+            sentBy:        session.user.id,
+            sentByName:    session.user.name,
+            metadata: {
+              studentId,
+              date,
+              class: studentClass,
+            },
+          })
+
+          if (result.success) {
+            await Attendance.updateOne(
+              { studentId, date, tenantId: session.user.tenantId },
+              { $set: { smsSent: true } }
+            )
+            smsResult.sent++
+          } else if (result.skipped) {
+            smsResult.skipped++
+            smsResult.failReason    = result.skipReason ?? 'Credits insufficient'
+            smsResult.creditWarning = `SMS stopped — ${smsResult.failReason}`
+            break
+          }
         }
       }
     }
-  }
 
-  // ── Push notifications for absent students ──
-  const absentRecords = records.filter(r => r.status === 'absent')
-  for (const r of absentRecords) {
-    try {
-      const student = await Student.findById(r.studentId)
-        .populate('userId', 'name')
-        .lean() as any
+    // ── Push Notifications — fire & forget ──────────────────
 
-      const parentUser = await User.findOne({
-        tenantId: session.user.tenantId,
-        studentRef: r.studentId,
-        role: 'parent',
+    const absentRecords = safeRecords.filter(r => r.status === 'absent')
+
+    Promise.allSettled(
+      absentRecords.map(async r => {
+        try {
+          const student = await Student
+            .findById(r.studentId)
+            .populate<{ userId: { name: string } }>('userId', 'name')
+            .select('userId')
+            .lean() as unknown as { userId?: { name: string } }
+
+          const parentUser = await User.findOne({
+            tenantId:   session.user.tenantId,
+            studentRef: r.studentId,
+            role:       'parent',
+          })
+            .select('pushSubscription')
+            .lean()
+
+          if (parentUser?.pushSubscription) {
+            await sendPushToUser(
+              parentUser.pushSubscription,
+              PUSH_TEMPLATES.attendanceMarked(
+                student?.userId?.name ?? 'Student',
+                'absent'
+              )
+            )
+          }
+        } catch (pushErr) {
+          console.error('[Attendance POST] Push error:', pushErr)
+        }
       })
+    )
 
-      if (parentUser?.pushSubscription) {
-        await sendPushToUser(
-          parentUser.pushSubscription,
-          PUSH_TEMPLATES.attendanceMarked(
-            student?.userId?.name ?? 'Student',
-            'absent'
-          )
-        ).catch(console.error)
-      }
-    } catch (pushErr) {
-      console.error('Push notification error (non-critical):', pushErr)
-    }
+    // ── Response ──────────────────────────────────────────────
+
+    return NextResponse.json({
+      success: true,
+      saved:   safeRecords.length,
+      absent:  absentStudentIds.length,
+      stats: {
+        upserted: bulkResult.upsertedCount,
+        modified: bulkResult.modifiedCount,
+      },
+      sms: {
+        sent:          smsResult.sent,
+        skipped:       smsResult.skipped,
+        failReason:    smsResult.failReason   || undefined,
+        creditWarning: smsResult.creditWarning,
+      },
+    })
+  } catch (err) {
+    console.error('[POST /api/attendance]', err)
+    return errRes('Internal server error', 500)
   }
-
-  return NextResponse.json({
-    success: true,
-    saved: records.length,
-    absent: absentIds.length,
-    sms: {
-      sent: smsSent,
-      skipped: smsSkipped,
-      failReason: smsFailReason || undefined,
-      // Show warning if credits were insufficient
-      creditWarning: smsSkipped > 0
-        ? `${smsSkipped} SMS skip hue — ${smsFailReason}. Credit pack kharido.`
-        : undefined,
-    },
-  })
 }

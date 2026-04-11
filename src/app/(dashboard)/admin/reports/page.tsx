@@ -1,205 +1,219 @@
+/* ============================================================
+   FILE: src/app/(dashboard)/admin/reports/page.tsx
+   Reports Hub — Navigation to module-specific reports
+   ============================================================ */
+
 'use client'
 
-import { useState } from 'react'
-import { Card, PageHeader, Button, Select, Alert } from '@/components/ui'
-import { FileText, FileSpreadsheet } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import {
+  Calendar,
+  DollarSign,
+  Users,
+  GraduationCap,
+  ChevronRight,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 
-// ─────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────
-type ReportFormat = 'pdf' | 'excel'
-type LoadingKey = `${string}-${ReportFormat}` | null
+// ── Types ─────────────────────────────────────────────────────
 
 interface ReportCard {
-    key: string
-    title: string
-    desc: string
-    icon: string
+  key:         string
+  title:       string
+  description: string
+  icon:        LucideIcon
+  iconBg:      string
+  iconColor:   string
+  action:      'navigate' | 'download'
+  path?:       string
+  downloadKey?: string
+  category:    'attendance' | 'financial' | 'academic' | 'administrative'
+  enabled:     boolean
 }
 
-// ─────────────────────────────────────────────────────────────
-// Static data
-// ─────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────
+
 const REPORTS: ReportCard[] = [
-    {
-        key: 'attendance',
-        title: 'Attendance Report',
-        desc: 'Monthly attendance summary for all students with percentage',
-        icon: '✅',
-    },
-    {
-        key: 'fees',
-        title: 'Fee Collection Report',
-        desc: 'Fee collected, pending, and overdue amounts with student details',
-        icon: '💳',
-    },
-    {
-        key: 'students',
-        title: 'Student List',
-        desc: 'Complete student directory with contact details',
-        icon: '👨‍🎓',
-    },
-    {
-        key: 'results',
-        title: 'Exam Results',
-        desc: 'Class-wise results with marks and grades',
-        icon: '📊',
-    },
+  {
+    key:         'attendance',
+    title:       'Attendance Reports',
+    description: 'Monthly attendance summary, low attendance alerts, and daily attendance registers with downloadable PDF/Excel formats',
+    icon:        Calendar,
+    iconBg:      'bg-primary-50',
+    iconColor:   'text-primary-600',
+    action:      'navigate',
+    path:        '/admin/attendance/reports',
+    category:    'attendance',
+    enabled:     true,
+  },
+  {
+    key:         'fees',
+    title:       'Fee Collection Reports',
+    description: 'Fee collected, pending, and overdue amounts with student-wise payment details and collection trends',
+    icon:        DollarSign,
+    iconBg:      'bg-emerald-50',
+    iconColor:   'text-emerald-600',
+    action:      'navigate',
+    path:        '/admin/fees/reports',
+    category:    'financial',
+    enabled:     false,  // Coming soon
+  },
+  {
+    key:         'students',
+    title:       'Student Directory',
+    description: 'Complete student list with contact details, admission information, and parent contact directory',
+    icon:        Users,
+    iconBg:      'bg-amber-50',
+    iconColor:   'text-amber-600',
+    action:      'download',
+    downloadKey: 'students-directory',
+    category:    'administrative',
+    enabled:     false,  // Coming soon
+  },
+  {
+    key:         'results',
+    title:       'Exam Results Reports',
+    description: 'Class-wise exam results with marks, grades, performance analysis, and subject-wise breakdown',
+    icon:        GraduationCap,
+    iconBg:      'bg-violet-50',
+    iconColor:   'text-violet-600',
+    action:      'navigate',
+    path:        '/admin/exams/reports',
+    category:    'academic',
+    enabled:     false,  // Coming soon
+  },
 ]
 
-const CLASSES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+// ── Main Component ────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────
-// Page
-// ─────────────────────────────────────────────────────────────
-export default function ReportsPage() {
-    const [month, setMonth] = useState(new Date().toISOString().slice(0, 7))
-    const [cls, setCls] = useState('')
-    const [loading, setLoading] = useState<LoadingKey>(null)
-    const [alert, setAlert] = useState<{
-        type: 'success' | 'error'
-        msg: string
-    } | null>(null)
+export default function ReportsHubPage() {
+  const router = useRouter()
 
-    // Last 12 months dropdown options
-    const months = Array.from({ length: 12 }, (_, i) => {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        return {
-            value: d.toISOString().slice(0, 7),
-            label: d.toLocaleDateString('en-IN', {
-                month: 'long',
-                year: 'numeric',
-            }),
-        }
-    })
+  const handleCardClick = (report: ReportCard) => {
+    if (!report.enabled) return
 
-    // ── Download handler ────────────────────────────────────────
-    const download = async (reportKey: string, format: ReportFormat) => {
-        const key = `${reportKey}-${format}` as LoadingKey
-        setLoading(key)
-        setAlert(null)
-
-        try {
-            const params = new URLSearchParams({ month, format })
-            if (cls) params.set('class', cls)
-
-            const res = await fetch(`/api/reports/${reportKey}?${params}`)
-
-            if (!res.ok) {
-                let errMsg = 'Export failed. Please try again.'
-                try {
-                    const body = await res.json()
-                    if (body?.error) errMsg = body.error
-                } catch { /* ignore */ }
-                throw new Error(errMsg)
-            }
-
-            const blob = await res.blob()
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `${reportKey}-${month}.${format === 'excel' ? 'xlsx' : 'pdf'}`
-            document.body.appendChild(a)
-            a.click()
-            document.body.removeChild(a)
-            URL.revokeObjectURL(url)
-
-            setAlert({
-                type: 'success',
-                msg: `${format.toUpperCase()} downloaded successfully.`,
-            })
-        } catch (err: any) {
-            setAlert({
-                type: 'error',
-                msg: err.message ?? 'Unknown error occurred.',
-            })
-        } finally {
-            setLoading(null)
-        }
+    if (report.action === 'navigate' && report.path) {
+      router.push(report.path)
+    } else if (report.action === 'download' && report.downloadKey) {
+      // Direct download for simple reports
+      const month = new Date().toISOString().slice(0, 7)
+      window.open(
+        `/api/reports/${report.downloadKey}?format=pdf&month=${month}`,
+        '_blank'
+      )
     }
+  }
 
-    // ────────────────────────────────────────────────────────────
-    return (
+  return (
+    <div className="portal-content-enter">
+
+      {/* ── Page Header ── */}
+      <div className="portal-page-header">
         <div>
-            <PageHeader
-                title="Reports & Exports"
-                subtitle="Download attendance, fee and student reports"
-            />
-
-            {alert && (
-                <div className="mb-4">
-                    <Alert
-                        type={alert.type}
-                        message={alert.msg}
-                        onClose={() => setAlert(null)}
-                    />
-                </div>
-            )}
-
-            {/* Filters */}
-            <Card className="mb-6">
-                <div className="flex flex-wrap gap-4">
-                    <Select
-                        label="Month"
-                        options={months}
-                        value={month}
-                        onChange={e => setMonth(e.target.value)}
-                        className="w-52"
-                    />
-                    <Select
-                        label="Class (optional)"
-                        options={[
-                            { value: '', label: 'All Classes' },
-                            ...CLASSES.map(c => ({ value: c, label: `Class ${c}` })),
-                        ]}
-                        value={cls}
-                        onChange={e => setCls(e.target.value)}
-                        className="w-40"
-                    />
-                </div>
-            </Card>
-
-            {/* Report cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {REPORTS.map(r => (
-                    <Card key={r.key}>
-                        <div className="flex items-start gap-4">
-                            <span className="text-3xl">{r.icon}</span>
-                            <div className="flex-1">
-                                <h3 className="font-semibold text-slate-800 mb-1">
-                                    {r.title}
-                                </h3>
-                                <p className="text-sm text-slate-500 mb-4">
-                                    {r.desc}
-                                </p>
-                                <div className="flex gap-2">
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        loading={loading === `${r.key}-pdf`}
-                                        disabled={loading !== null}
-                                        onClick={() => download(r.key, 'pdf')}
-                                    >
-                                        <FileText size={12} className="mr-1" />
-                                        PDF
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        loading={loading === `${r.key}-excel`}
-                                        disabled={loading !== null}
-                                        onClick={() => download(r.key, 'excel')}
-                                    >
-                                        <FileSpreadsheet size={12} className="mr-1" />
-                                        Excel
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
-                ))}
-            </div>
+          <nav className="portal-breadcrumb" aria-label="Breadcrumb">
+            <span>Dashboard</span>
+            <span className="bc-sep" aria-hidden>/</span>
+            <span className="bc-current">Reports</span>
+          </nav>
+          <h1 className="portal-page-title">Reports & Analytics</h1>
+          <p className="portal-page-subtitle">
+            Download and view detailed reports for attendance, fees, students, and academic performance
+          </p>
         </div>
-    )
+      </div>
+
+      {/* ── Reports Grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {REPORTS.map(report => {
+          const Icon = report.icon
+          
+          return (
+            <button
+              key={report.key}
+              onClick={() => handleCardClick(report)}
+              disabled={!report.enabled}
+              className={`
+                portal-card text-left w-full
+                transition-all duration-200
+                ${report.enabled
+                  ? 'card-interactive cursor-pointer'
+                  : 'opacity-60 cursor-not-allowed'
+                }
+              `}
+            >
+              <div className="portal-card-body">
+                <div className="flex items-start gap-4">
+
+                  {/* Icon */}
+                  <div className={`
+                    w-12 h-12 flex items-center justify-center rounded-lg flex-shrink-0
+                    ${report.iconBg}
+                  `}>
+                    <Icon className={`w-6 h-6 ${report.iconColor}`} aria-hidden />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className="portal-card-title">
+                        {report.title}
+                      </h3>
+                      {report.enabled ? (
+                        <ChevronRight
+                          className="w-5 h-5 text-text-muted flex-shrink-0 group-hover:text-primary-500 transition-colors"
+                          aria-hidden
+                        />
+                      ) : (
+                        <span className="badge badge-neutral text-2xs px-2 py-0.5">
+                          Coming Soon
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-text-muted leading-relaxed">
+                      {report.description}
+                    </p>
+                  </div>
+
+                </div>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* ── Info Card ── */}
+      <div className="portal-card">
+        <div className="portal-card-body">
+          <div className="flex items-start gap-3">
+            <Sparkles className="w-5 h-5 text-primary-500 flex-shrink-0 mt-0.5" aria-hidden />
+            <div>
+              <p className="text-sm font-semibold text-text-primary mb-2">
+                Quick Tips
+              </p>
+              <ul className="text-xs text-text-muted space-y-1.5 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="text-primary-500 flex-shrink-0 mt-0.5">•</span>
+                  <span>Click on any <strong>enabled report card</strong> to view detailed options and filters</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary-500 flex-shrink-0 mt-0.5">•</span>
+                  <span>Most reports are available in both <strong>PDF</strong> (for printing) and <strong>Excel</strong> (for analysis) formats</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary-500 flex-shrink-0 mt-0.5">•</span>
+                  <span>Use filters to generate targeted reports for specific <strong>classes, sections, or time periods</strong></span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-primary-500 flex-shrink-0 mt-0.5">•</span>
+                  <span>Downloaded files are automatically named with <strong>date and filter information</strong> for easy organization</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  )
 }

@@ -3,10 +3,16 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { Student } from '@/models/Student'
+import mongoose from 'mongoose'
 
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
+
+      // ✅ ADD
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })
+    }
 
     const session = await getServerSession(authOptions)
     if (!session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -24,6 +30,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
+
+     // ✅ ADD
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })
+    }
+
 
     const session = await getServerSession(authOptions)
     if (!session?.user || session.user.role !== 'admin') {
@@ -45,6 +57,11 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
+
+     // ✅ ADD
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return NextResponse.json({ error: 'Invalid ID' }, { status: 400 })
+    }
 
     const session = await getServerSession(authOptions)
     if (!session?.user || session.user.role !== 'admin') {
