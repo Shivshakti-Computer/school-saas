@@ -805,7 +805,7 @@ export default function StudentAttendanceReportPage() {
                             </select>
 
                             {/* Download buttons */}
-                            {monthlyData && (
+                            {/* {monthlyData && (
                                 <>
                                     <button
                                         onClick={() => handleDownload('pdf')}
@@ -833,7 +833,7 @@ export default function StudentAttendanceReportPage() {
                                         Excel
                                     </button>
                                 </>
-                            )}
+                            )} */}
                         </div>
                     </div>
 

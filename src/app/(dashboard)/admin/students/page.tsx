@@ -2372,10 +2372,60 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
 /* ═══════════════════════════════════════════
    EDIT STUDENT MODAL — Stream support added
    ═══════════════════════════════════════════ */
+// ✅ Field component - Modal ke BAHAR define karo
+const Field = ({
+    label, field, type = 'text', options, form, onChange
+}: {
+    label: string
+    field: string
+    type?: string
+    options?: { value: string; label: string }[]
+    form: any
+    onChange: (k: string, v: string) => void
+}) => (
+    <div className="flex flex-col gap-1">
+        <label className="text-xs font-semibold" style={{ color: '#475569' }}>{label}</label>
+        {options ? (
+            <select
+                className="h-9 px-3 text-sm rounded-lg border outline-none"
+                style={{ border: '1.5px solid #E2E8F0', color: '#0F172A' }}
+                value={form[field] || ''}
+                onChange={e => onChange(field, e.target.value)}
+                onFocus={e => { e.target.style.borderColor = '#2563EB' }}
+                onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
+            >
+                {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+        ) : (
+            <input
+                type={type}
+                className="h-9 px-3 text-sm rounded-lg border outline-none"
+                style={{ border: '1.5px solid #E2E8F0', color: '#0F172A' }}
+                value={form[field] || ''}
+                onChange={e => onChange(field, e.target.value)}
+                onFocus={e => {
+                    e.target.style.borderColor = '#2563EB'
+                    e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)'
+                }}
+                onBlur={e => {
+                    e.target.style.borderColor = '#E2E8F0'
+                    e.target.style.boxShadow = 'none'
+                }}
+            />
+        )}
+    </div>
+)
+
+// ═══════════════════════════════════════════
+// EDIT STUDENT MODAL
+// ═══════════════════════════════════════════
 function EditStudentModal({
     open, student, onClose, onSuccess,
 }: {
-    open: boolean; student: Student; onClose: () => void; onSuccess: (msg: string) => void
+    open: boolean
+    student: Student
+    onClose: () => void
+    onSuccess: (msg: string) => void
 }) {
     const [form, setForm] = useState<any>({})
     const [loading, setLoading] = useState(false)
@@ -2392,39 +2442,41 @@ function EditStudentModal({
             .then(d => {
                 const s = d.student
                 setForm({
-                    class: s.class,
-                    section: s.section,
-                    stream: s.stream || '',
-                    fatherName: s.fatherName,
-                    motherName: s.motherName || '',
+                    class:            s.class,
+                    section:          s.section,
+                    stream:           s.stream || '',
+                    fatherName:       s.fatherName,
+                    motherName:       s.motherName || '',
                     fatherOccupation: s.fatherOccupation || '',
-                    fatherPhone: s.fatherPhone || '',
+                    fatherPhone:      s.fatherPhone || '',
                     motherOccupation: s.motherOccupation || '',
-                    motherPhone: s.motherPhone || '',
-                    parentPhone: s.parentPhone,
-                    parentEmail: s.parentEmail || '',
-                    address: s.address,
-                    city: s.city || '',
-                    state: s.state || '',
-                    pincode: s.pincode || '',
-                    bloodGroup: s.bloodGroup || '',
-                    category: s.category || 'general',
-                    emergencyName: s.emergencyName || '',
+                    motherPhone:      s.motherPhone || '',
+                    parentPhone:      s.parentPhone,
+                    parentEmail:      s.parentEmail || '',
+                    address:          s.address,
+                    city:             s.city || '',
+                    state:            s.state || '',
+                    pincode:          s.pincode || '',
+                    bloodGroup:       s.bloodGroup || '',
+                    category:         s.category || 'general',
+                    emergencyName:    s.emergencyName || '',
                     emergencyContact: s.emergencyContact || '',
-                    status: s.status,
+                    status:           s.status,
                 })
             })
             .finally(() => setFetching(false))
     }, [open, student._id])
 
-    const set = (k: string, v: string) => setForm((f: any) => {
-        const updated = { ...f, [k]: v }
-        // Clear stream if class changed to non-11/12
-        if (k === 'class' && !['11', '12'].includes(v)) {
-            updated.stream = ''
-        }
-        return updated
-    })
+    // ✅ set function - useCallback se stable reference
+    const set = useCallback((k: string, v: string) => {
+        setForm((f: any) => {
+            const updated = { ...f, [k]: v }
+            if (k === 'class' && !['11', '12'].includes(v)) {
+                updated.stream = ''
+            }
+            return updated
+        })
+    }, [])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -2450,37 +2502,6 @@ function EditStudentModal({
 
     if (!open) return null
 
-    const Field = ({ label, field, type = 'text', options }: {
-        label: string; field: string; type?: string
-        options?: { value: string; label: string }[]
-    }) => (
-        <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold" style={{ color: '#475569' }}>{label}</label>
-            {options ? (
-                <select
-                    className="h-9 px-3 text-sm rounded-lg border outline-none"
-                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A' }}
-                    value={form[field] || ''}
-                    onChange={e => set(field, e.target.value)}
-                    onFocus={e => { e.target.style.borderColor = '#2563EB' }}
-                    onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
-                >
-                    {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-            ) : (
-                <input
-                    type={type}
-                    className="h-9 px-3 text-sm rounded-lg border outline-none"
-                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A' }}
-                    value={form[field] || ''}
-                    onChange={e => set(field, e.target.value)}
-                    onFocus={e => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)' }}
-                    onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = 'none' }}
-                />
-            )}
-        </div>
-    )
-
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -2488,35 +2509,49 @@ function EditStudentModal({
                 <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid #F1F5F9' }}>
                     <div>
                         <h3 className="text-base font-bold" style={{ color: '#0F172A' }}>Edit Student</h3>
-                        <p className="text-xs mt-0.5" style={{ color: '#94A3B8' }}>{student.admissionNo} · {student.userId?.name}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#94A3B8' }}>
+                            {student.admissionNo} · {student.userId?.name}
+                        </p>
                     </div>
-                    <button onClick={onClose} className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}>
+                    <button
+                        onClick={onClose}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center"
+                        style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}
+                    >
                         <X size={16} />
                     </button>
                 </div>
 
                 {fetching ? (
-                    <div className="flex justify-center py-12"><Spinner size="lg" /></div>
+                    <div className="flex justify-center py-12">
+                        <Spinner size="lg" />
+                    </div>
                 ) : (
                     <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                         <div className="flex-1 overflow-y-auto portal-scrollbar px-6 py-4">
                             <div className="space-y-5">
+
                                 {/* Academic */}
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>Academic</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>
+                                        Academic
+                                    </h4>
                                     <div className="grid grid-cols-2 gap-3">
+                                        {/* ✅ form aur onChange pass karo */}
                                         <Field
-                                            label="Class"
-                                            field="class"
-                                            options={[{ value: '', label: 'Select' }, ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))]}
+                                            label="Class" field="class"
+                                            form={form} onChange={set}
+                                            options={[
+                                                { value: '', label: 'Select' },
+                                                ...CLASSES.map(c => ({ value: c, label: `Class ${c}` }))
+                                            ]}
                                         />
                                         <Field
-                                            label="Section"
-                                            field="section"
+                                            label="Section" field="section"
+                                            form={form} onChange={set}
                                             options={SECTIONS.map(s => ({ value: s, label: `Section ${s}` }))}
                                         />
 
-                                        {/* ✅ Stream in Edit — only for 11/12 */}
                                         {isHigherSecondary && (
                                             <div className="col-span-2">
                                                 <StreamSelector
@@ -2527,62 +2562,83 @@ function EditStudentModal({
                                         )}
 
                                         <Field
-                                            label="Status"
-                                            field="status"
+                                            label="Status" field="status"
+                                            form={form} onChange={set}
                                             options={[
-                                                { value: 'active', label: 'Active' },
-                                                { value: 'inactive', label: 'Inactive' },
+                                                { value: 'active',      label: 'Active' },
+                                                { value: 'inactive',    label: 'Inactive' },
                                                 { value: 'transferred', label: 'Transferred' },
-                                                { value: 'graduated', label: 'Graduated' },
+                                                { value: 'graduated',   label: 'Graduated' },
                                             ]}
                                         />
                                         <Field
-                                            label="Blood Group"
-                                            field="bloodGroup"
-                                            options={[{ value: '', label: 'Not Known' }, ...BLOOD_GROUPS.map(b => ({ value: b, label: b }))]}
+                                            label="Blood Group" field="bloodGroup"
+                                            form={form} onChange={set}
+                                            options={[
+                                                { value: '', label: 'Not Known' },
+                                                ...BLOOD_GROUPS.map(b => ({ value: b, label: b }))
+                                            ]}
                                         />
                                     </div>
                                 </div>
 
                                 {/* Family */}
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>Family</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>
+                                        Family
+                                    </h4>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <Field label="Father's Name" field="fatherName" />
-                                        <Field label="Father's Phone" field="fatherPhone" />
-                                        <Field label="Father's Occupation" field="fatherOccupation" />
-                                        <Field label="Mother's Name" field="motherName" />
-                                        <Field label="Parent Phone" field="parentPhone" />
-                                        <Field label="Parent Email" field="parentEmail" />
-                                        <Field label="Emergency Name" field="emergencyName" />
-                                        <Field label="Emergency Contact" field="emergencyContact" />
+                                        <Field label="Father's Name"        field="fatherName"       form={form} onChange={set} />
+                                        <Field label="Father's Phone"       field="fatherPhone"      form={form} onChange={set} />
+                                        <Field label="Father's Occupation"  field="fatherOccupation" form={form} onChange={set} />
+                                        <Field label="Mother's Name"        field="motherName"       form={form} onChange={set} />
+                                        <Field label="Parent Phone"         field="parentPhone"      form={form} onChange={set} />
+                                        <Field label="Parent Email"         field="parentEmail"      form={form} onChange={set} />
+                                        <Field label="Emergency Name"       field="emergencyName"    form={form} onChange={set} />
+                                        <Field label="Emergency Contact"    field="emergencyContact" form={form} onChange={set} />
                                     </div>
                                 </div>
 
                                 {/* Address */}
                                 <div>
-                                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>Address</h4>
+                                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: '#94A3B8' }}>
+                                        Address
+                                    </h4>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="col-span-2"><Field label="Full Address" field="address" /></div>
-                                        <Field label="City" field="city" />
-                                        <Field label="State" field="state" />
-                                        <Field label="Pincode" field="pincode" />
+                                        <div className="col-span-2">
+                                            <Field label="Full Address" field="address" form={form} onChange={set} />
+                                        </div>
+                                        <Field label="City"    field="city"    form={form} onChange={set} />
+                                        <Field label="State"   field="state"   form={form} onChange={set} />
+                                        <Field label="Pincode" field="pincode" form={form} onChange={set} />
                                     </div>
                                 </div>
+
                             </div>
                         </div>
 
                         {error && (
-                            <div className="mx-6 mb-2 flex items-center gap-2 px-4 py-3 rounded-lg text-sm" style={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+                            <div
+                                className="mx-6 mb-2 flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
+                                style={{ backgroundColor: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}
+                            >
                                 <AlertCircle size={15} />{error}
                             </div>
                         )}
 
                         <div className="px-6 py-4 flex justify-end gap-2" style={{ borderTop: '1px solid #F1F5F9' }}>
-                            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}>
+                            <button
+                                type="button" onClick={onClose}
+                                className="px-4 py-2 rounded-xl text-sm font-medium"
+                                style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}
+                            >
                                 Cancel
                             </button>
-                            <button type="submit" disabled={loading} className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-60" style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}>
+                            <button
+                                type="submit" disabled={loading}
+                                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-60"
+                                style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
+                            >
                                 {loading ? <Spinner size="sm" /> : null}
                                 {loading ? 'Saving...' : 'Save Changes'}
                             </button>
