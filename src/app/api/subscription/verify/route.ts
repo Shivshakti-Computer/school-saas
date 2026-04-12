@@ -10,10 +10,10 @@ import { School } from '@/models/School'
 import { Subscription } from '@/models/Subscription'
 import { getPlan } from '@/config/pricing'
 import { grantMonthlyCredits } from '@/lib/credits'
-import { sendMessage } from '@/lib/messaging'
 import { logAudit } from '@/lib/audit'
 import crypto from 'crypto'
 import type { PlanId, BillingCycle } from '@/config/pricing'
+import { sendMessage } from '@/lib/message'
 
 export async function POST(req: NextRequest) {
   try {

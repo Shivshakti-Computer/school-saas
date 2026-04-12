@@ -1,6 +1,6 @@
 // FILE: src/app/api/schools/register/route.ts
-// School registration with phone verification
-// UPDATED: Fixed phone number cleaning and OTP verification
+// UPDATED: Welcome email — @/lib/email → resend.ts directly
+// ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
@@ -16,22 +16,19 @@ import {
   getClientInfo,
 } from '@/lib/security'
 import { logAudit } from '@/lib/audit'
-import { TRIAL_CONFIG } from '@/config/pricing'  // ✅ Fixed import
+import { TRIAL_CONFIG } from '@/config/pricing'
 import { grantTrialCredits } from '@/lib/credits'
 
 export async function POST(req: NextRequest) {
-  // ══════════════════════════════════════════════
-  // Rate Limiting
-  // ══════════════════════════════════════════════
+
+  // ── Rate Limiting ──────────────────────────────────────
   const rl = checkRateLimit(req, RATE_LIMITS.register)
   if (!rl.allowed) return rateLimitResponse(rl.resetIn)
 
   try {
     await connectDB()
 
-    // ══════════════════════════════════════════════
-    // Parse & Sanitize Input
-    // ══════════════════════════════════════════════
+    // ── Parse & Sanitize ───────────────────────────────────
     const raw = await req.json()
     const body = sanitizeBody(raw)
 
@@ -46,16 +43,12 @@ export async function POST(req: NextRequest) {
       verificationToken,
     } = body
 
-    // ✅ Debug logging (helpful for troubleshooting)
     console.log('[REGISTER] Registration request received')
     console.log('[REGISTER] School:', schoolName?.slice(0, 20))
     console.log('[REGISTER] Phone:', phone)
     console.log('[REGISTER] Has verification token:', !!verificationToken)
 
-    // ══════════════════════════════════════════════
-    // Basic Validation
-    // ══════════════════════════════════════════════
-
+    // ── Basic Validation ───────────────────────────────────
     if (!schoolName?.trim()) {
       return NextResponse.json(
         { error: 'School name is required.' },
@@ -98,11 +91,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ══════════════════════════════════════════════
-    // Phone Number Validation & Cleaning
-    // ══════════════════════════════════════════════
-
-    // ✅ Clean phone number - remove ALL non-digit characters
+    // ── Phone Cleaning ─────────────────────────────────────
     const cleanPhone = phone.trim().replace(/[^0-9]/g, '')
 
     console.log('[REGISTER] Original phone:', phone)
@@ -115,10 +104,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ══════════════════════════════════════════════
-    // Email Validation (Optional)
-    // ══════════════════════════════════════════════
-
+    // ── Email Validation (Optional) ────────────────────────
     if (email?.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(email.trim())) {
@@ -129,11 +115,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ══════════════════════════════════════════════
-    // School Code Validation
-    // ══════════════════════════════════════════════
-
-    const schoolCode = subdomain.toLowerCase().trim().replace(/[^a-z0-9_-]/g, '')
+    // ── School Code Validation ─────────────────────────────
+    const schoolCode = subdomain
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_-]/g, '')
 
     if (schoolCode.length < 3) {
       return NextResponse.json(
@@ -149,7 +135,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Reserved school codes
     const reserved = [
       'admin', 'api', 'www', 'app', 'login', 'register',
       'superadmin', 'test', 'demo', 'skolify', 'support',
@@ -164,10 +149,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ══════════════════════════════════════════════
-    // Verify OTP Token
-    // ══════════════════════════════════════════════
-
+    // ── OTP Verification ───────────────────────────────────
     if (!verificationToken) {
       return NextResponse.json(
         { error: 'Phone verification required. Please verify your phone number first.' },
@@ -176,15 +158,10 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[REGISTER] Verifying OTP token...')
-    console.log('[REGISTER] Phone (cleaned):', cleanPhone)
-    console.log('[REGISTER] Email:', email?.trim() || 'none')
-    console.log('[REGISTER] Token (prefix):', verificationToken?.slice(0, 15) + '...')
 
-    // ✅ FIX: Try both phone AND email
-    // User might have verified via email instead of SMS
     let otpRecord = null
 
-    // Try 1: Search by phone number
+    // Try 1: Phone se dhundo
     otpRecord = await OTPVerification.findOne({
       phone: cleanPhone,
       purpose: 'registration',
@@ -194,12 +171,12 @@ export async function POST(req: NextRequest) {
 
     console.log('[REGISTER] OTP record found by phone:', !!otpRecord)
 
-    // Try 2: Search by email (if provided and phone search failed)
+    // Try 2: Email se dhundo (agar phone se nahi mila)
     if (!otpRecord && email?.trim()) {
       const cleanEmail = email.toLowerCase().trim()
 
       otpRecord = await OTPVerification.findOne({
-        phone: cleanEmail,  // In OTP model, "phone" field stores identifier
+        phone: cleanEmail,
         purpose: 'registration',
         verified: true,
         token: verificationToken,
@@ -208,32 +185,21 @@ export async function POST(req: NextRequest) {
       console.log('[REGISTER] OTP record found by email:', !!otpRecord)
     }
 
-    // If still not found, return error with debug info
     if (!otpRecord) {
-      console.error('[REGISTER] ❌ OTP verification failed - record not found')
-      console.error('[REGISTER] Search criteria:', {
-        phone: cleanPhone,
-        email: email?.toLowerCase().trim() || 'none',
-        purpose: 'registration',
-        verified: true,
-        tokenPrefix: verificationToken?.slice(0, 20),
-      })
+      console.error('[REGISTER] ❌ OTP verification failed')
 
-      // Debug: Check if record exists with different criteria
       const anyPhoneRecord = await OTPVerification.findOne({
-        phone: cleanPhone
+        phone: cleanPhone,
       }).sort({ createdAt: -1 })
 
       const anyEmailRecord = email?.trim()
         ? await OTPVerification.findOne({
-          phone: email.toLowerCase().trim()
+          phone: email.toLowerCase().trim(),
         }).sort({ createdAt: -1 })
         : null
 
       if (anyPhoneRecord) {
-        console.error('[REGISTER] Found phone OTP record (criteria mismatch):', {
-          id: anyPhoneRecord._id,
-          phone: anyPhoneRecord.phone,
+        console.error('[REGISTER] Phone record found (criteria mismatch):', {
           verified: anyPhoneRecord.verified,
           purpose: anyPhoneRecord.purpose,
           tokenMatch: anyPhoneRecord.token === verificationToken,
@@ -242,18 +208,12 @@ export async function POST(req: NextRequest) {
       }
 
       if (anyEmailRecord) {
-        console.error('[REGISTER] Found email OTP record (criteria mismatch):', {
-          id: anyEmailRecord._id,
-          identifier: anyEmailRecord.phone,  // Shows email
+        console.error('[REGISTER] Email record found (criteria mismatch):', {
           verified: anyEmailRecord.verified,
           purpose: anyEmailRecord.purpose,
           tokenMatch: anyEmailRecord.token === verificationToken,
           expired: new Date() > anyEmailRecord.expiresAt,
         })
-      }
-
-      if (!anyPhoneRecord && !anyEmailRecord) {
-        console.error('[REGISTER] No OTP record found for phone OR email')
       }
 
       return NextResponse.json(
@@ -262,7 +222,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if record expired
     if (new Date() > otpRecord.expiresAt) {
       console.log('[REGISTER] ❌ OTP record expired')
       await OTPVerification.findByIdAndDelete(otpRecord._id)
@@ -273,16 +232,11 @@ export async function POST(req: NextRequest) {
     }
 
     console.log('[REGISTER] ✅ OTP verification passed')
-    console.log('[REGISTER] Verified via:', otpRecord.phone.includes('@') ? 'Email' : 'Phone')
 
-    // Continue with rest of registration...
-
-    // ══════════════════════════════════════════════
-    // Check Duplicates
-    // ══════════════════════════════════════════════
-
-    // Check if school code already exists
-    const existingSchool = await School.findOne({ subdomain: schoolCode })
+    // ── Check Duplicates ───────────────────────────────────
+    const existingSchool = await School.findOne({
+      subdomain: schoolCode,
+    })
     if (existingSchool) {
       return NextResponse.json(
         { error: 'This school code is already taken. Please choose another.' },
@@ -290,7 +244,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if phone already registered
     const existingUser = await User.findOne({ phone: cleanPhone })
     if (existingUser) {
       return NextResponse.json(
@@ -299,10 +252,9 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Check if email already registered (optional)
     if (email?.trim()) {
       const existingEmail = await User.findOne({
-        email: email.toLowerCase().trim()
+        email: email.toLowerCase().trim(),
       })
       if (existingEmail) {
         return NextResponse.json(
@@ -314,13 +266,11 @@ export async function POST(req: NextRequest) {
 
     console.log('[REGISTER] ✅ No duplicates found')
 
-    // ══════════════════════════════════════════════
-    // Create School
-    // ══════════════════════════════════════════════
-
-    // Calculate trial end date
+    // ── Create School ──────────────────────────────────────
     const trialEndsAt = new Date()
-    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_CONFIG.durationDays)
+    trialEndsAt.setDate(
+      trialEndsAt.getDate() + TRIAL_CONFIG.durationDays
+    )
 
     console.log('[REGISTER] Creating school...')
 
@@ -335,27 +285,20 @@ export async function POST(req: NextRequest) {
       modules: TRIAL_CONFIG.modules,
       isActive: true,
       onboardingComplete: false,
-      creditBalance: 0,  // Will be set by grantTrialCredits
+      creditBalance: 0,
     })
 
     console.log('[REGISTER] ✅ School created:', school._id)
 
-    // ══════════════════════════════════════════════
-    // Grant Trial Credits
-    // ══════════════════════════════════════════════
-
+    // ── Grant Trial Credits ────────────────────────────────
     try {
       await grantTrialCredits(school._id.toString())
       console.log('[REGISTER] ✅ Trial credits granted')
     } catch (creditError) {
-      console.error('[REGISTER] ⚠️ Failed to grant trial credits:', creditError)
-      // Non-critical - continue with registration
+      console.error('[REGISTER] ⚠️ Trial credits failed:', creditError)
     }
 
-    // ══════════════════════════════════════════════
-    // Create Admin User
-    // ══════════════════════════════════════════════
-
+    // ── Create Admin User ──────────────────────────────────
     console.log('[REGISTER] Creating admin user...')
 
     const hashedPassword = await bcrypt.hash(password, 12)
@@ -372,17 +315,11 @@ export async function POST(req: NextRequest) {
 
     console.log('[REGISTER] ✅ Admin user created')
 
-    // ══════════════════════════════════════════════
-    // Cleanup OTP Record
-    // ══════════════════════════════════════════════
-
+    // ── Cleanup OTP ────────────────────────────────────────
     await OTPVerification.findByIdAndDelete(otpRecord._id)
     console.log('[REGISTER] ✅ OTP record cleaned up')
 
-    // ══════════════════════════════════════════════
-    // Audit Log
-    // ══════════════════════════════════════════════
-
+    // ── Audit Log ──────────────────────────────────────────
     const clientInfo = getClientInfo(req)
 
     try {
@@ -408,17 +345,21 @@ export async function POST(req: NextRequest) {
       console.log('[REGISTER] ✅ Audit log created')
     } catch (auditError) {
       console.error('[REGISTER] ⚠️ Audit log failed:', auditError)
-      // Non-critical - continue
     }
 
-    // ══════════════════════════════════════════════
-    // Send Welcome Email
-    // ══════════════════════════════════════════════
-
+    // ── Welcome Email ──────────────────────────────────────
     if (email?.trim()) {
       try {
-        const { sendEmail, EMAIL_TEMPLATES } = await import('@/lib/email')
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        // ✅ FIX: resend.ts directly — @/lib/email exist nahi karta
+        const { resendSendEmail } = await import(
+          '@/lib/message/providers/resend'
+        )
+        const { EMAIL_TEMPLATES } = await import(
+          '@/lib/message/templates'
+        )
+
+        const appUrl =
+          process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
         const { subject, html } = EMAIL_TEMPLATES.welcome(
           schoolName.trim(),
@@ -426,21 +367,26 @@ export async function POST(req: NextRequest) {
           `${appUrl}/login`
         )
 
-        await sendEmail(email.trim(), subject, html, {
-          fromName: 'Skolify Team',
-        })
+        // isHtml = true — full HTML system email
+        await resendSendEmail(
+          email.trim(),
+          subject,
+          html,
+          'Skolify Team',
+          true    // ← isHtml: true
+        )
 
         console.log('[REGISTER] ✅ Welcome email sent to:', email.trim())
       } catch (emailError) {
-        console.error('[REGISTER] ⚠️ Welcome email failed (non-critical):', emailError)
-        // Non-critical - registration already successful
+        console.error(
+          '[REGISTER] ⚠️ Welcome email failed (non-critical):',
+          emailError
+        )
+        // Non-critical — registration already successful
       }
     }
 
-    // ══════════════════════════════════════════════
-    // Success Response
-    // ══════════════════════════════════════════════
-
+    // ── Success Response ───────────────────────────────────
     console.log('[REGISTER] ✅✅✅ Registration completed successfully')
 
     return NextResponse.json(
@@ -459,13 +405,13 @@ export async function POST(req: NextRequest) {
     console.error('[REGISTER] ❌ Error:', error)
     console.error('[REGISTER] Stack:', error.stack)
 
-    // Handle MongoDB duplicate key error
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern || {})[0]
-      const fieldName = field === 'subdomain' ? 'school code'
-        : field === 'phone' ? 'phone number'
-          : field === 'email' ? 'email'
-            : field
+      const fieldName =
+        field === 'subdomain' ? 'school code'
+          : field === 'phone' ? 'phone number'
+            : field === 'email' ? 'email'
+              : field
 
       return NextResponse.json(
         { error: `This ${fieldName} is already taken.` },
@@ -473,7 +419,6 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Generic error
     return NextResponse.json(
       { error: 'Registration failed. Please try again.' },
       { status: 500 }

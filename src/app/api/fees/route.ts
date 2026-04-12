@@ -10,9 +10,8 @@ import { connectDB } from '@/lib/db'
 import { Fee } from '@/models/Fee'
 import { Student } from '@/models/Student'
 import { User } from '@/models/User'
-import { sendMessage, sendBulkMessages } from '@/lib/messaging'
-import { SMS_TEMPLATES } from '@/lib/sms'
 import { checkCredits } from '@/lib/credits'
+import { sendBulkMessages, sendMessage, SMS_TEMPLATES } from '@/lib/message'
 
 // ── GET — same as before ──
 export async function GET(req: NextRequest) {

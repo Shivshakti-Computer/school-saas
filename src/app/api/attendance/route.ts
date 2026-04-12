@@ -10,8 +10,6 @@ import { connectDB }                  from '@/lib/db'
 import { Attendance }                 from '@/models/Attendance'
 import { Student }                    from '@/models/Student'
 import { User }                       from '@/models'
-import { sendMessage }                from '@/lib/messaging'
-import { SMS_TEMPLATES }              from '@/lib/sms'
 import { PUSH_TEMPLATES, sendPushToUser } from '@/lib/push'
 import { checkCredits }               from '@/lib/credits'
 import {
@@ -21,6 +19,7 @@ import {
 }                                     from '@/lib/validators/attendance'
 import mongoose                       from 'mongoose'
 import type { IAttendanceLean }       from '@/models/Attendance'
+import { sendMessage, SMS_TEMPLATES } from '@/lib/message'
 
 // ── Types for populated lean queries ────────────────────────
 

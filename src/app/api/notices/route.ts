@@ -9,10 +9,9 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { Notice } from '@/models/Notice'
 import { User } from '@/models/User'
-import { sendBulkMessages } from '@/lib/messaging'
-import { SMS_TEMPLATES } from '@/lib/sms'
 import { PUSH_TEMPLATES, sendPushToTenant } from '@/lib/push'
 import { checkCredits } from '@/lib/credits'
+import { sendBulkMessages, SMS_TEMPLATES } from '@/lib/message'
 
 // ── GET — same as before ──
 export async function GET(req: NextRequest) {
