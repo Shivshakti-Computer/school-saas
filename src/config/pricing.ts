@@ -163,7 +163,7 @@ export interface PlanConfig {
     // Internal P&L fields
     internalMonthlyCost: number      // Our cost to serve this plan
     internalMargin: number           // Revenue - Cost
-     // ── NEW: Addon caps ──
+    // ── NEW: Addon caps ──
     maxAddonStudents: number    // -1 = unlimited, else max extra students
     maxAddonTeachers: number    // -1 = unlimited, else max extra teachers
 }
@@ -452,7 +452,13 @@ export function calculateCreditCost(
     type: CreditType,
     count: number
 ): number {
-    return Math.ceil(count * CREDIT_COSTS[type])
+    const raw = count * CREDIT_COSTS[type]
+
+    // Email: 0.1 per message — decimal preserve karo
+    // SMS/WhatsApp: 1 per message — ceil safe hai
+    // Math.ceil sirf bulk ke liye use karo (fractional messages nahi hote)
+    // Per-message cost exact hona chahiye
+    return Math.round(raw * 100) / 100
 }
 
 // How many actions can you do with X credits

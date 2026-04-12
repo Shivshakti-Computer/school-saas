@@ -125,11 +125,20 @@ export async function deductCredits(
 ): Promise<DeductResult> {
     await connectDB()
 
+    // ✅ FIX: Math.ceil hatao — exact cost use karo
+    // calculateCreditCost already round karta hai
     const required = calculateCreditCost(type, count)
+    const requiredRounded = Math.round(required * 100) / 100
 
+    // Baaki code same...
     const credit = await MessageCredit.findOneAndUpdate(
-        { tenantId, balance: { $gte: required } },
-        { $inc: { balance: -required, totalUsed: required } },
+        { tenantId, balance: { $gte: requiredRounded } },
+        {
+            $inc: {
+                balance: -requiredRounded,
+                totalUsed: requiredRounded,
+            },
+        },
         { new: true }
     )
 
@@ -139,28 +148,32 @@ export async function deductCredits(
             success: false,
             creditsDeducted: 0,
             newBalance: current,
-            error: `Insufficient credits. Required: ${required}, Available: ${current}`,
+            error: `Insufficient credits. Required: ${requiredRounded}, Available: ${current}`,
         }
     }
+
+    const balanceRounded = Math.round(credit.balance * 100) / 100
 
     await CreditTransaction.create({
         tenantId,
         type: 'message_deduct' as TransactionType,
-        amount: -required,
-        balanceBefore: credit.balance + required,
-        balanceAfter: credit.balance,
+        amount: -requiredRounded,
+        balanceBefore: Math.round((credit.balance + requiredRounded) * 100) / 100,
+        balanceAfter: balanceRounded,
         description: `${count} ${type} message(s) sent — ${purpose}`,
         messageLogId,
         channel: type,
         purpose,
     })
 
-    await School.findByIdAndUpdate(tenantId, { creditBalance: credit.balance })
+    await School.findByIdAndUpdate(tenantId, {
+        creditBalance: balanceRounded,
+    })
 
     return {
         success: true,
-        creditsDeducted: required,
-        newBalance: credit.balance,
+        creditsDeducted: requiredRounded,
+        newBalance: balanceRounded,
     }
 }
 
@@ -274,7 +287,7 @@ export async function grantMonthlyCredits(
         // ── Enterprise: Never expire — full carry forward ──
         rolledOver = currentBalance
 
-     } else {
+    } else {
         // ── Growth (3mo) / Pro (6mo): Cap-based rollover ──
         const maxCarryForward = rolloverMonths * plan.freeCreditsPerMonth
 
@@ -344,7 +357,7 @@ export async function grantMonthlyCredits(
             : rolloverMonths === -1
                 ? `${creditsToGrant} credits granted — ${plan.name} + ${rolledOver} carried (never expire)`
                 : `${creditsToGrant} credits granted — ${plan.name} + ${rolledOver} carried ` +
-                  `(cap: ${rolloverMonths}mo × ${plan.freeCreditsPerMonth} = ${rolloverMonths * plan.freeCreditsPerMonth})`,
+                `(cap: ${rolloverMonths}mo × ${plan.freeCreditsPerMonth} = ${rolloverMonths * plan.freeCreditsPerMonth})`,
     })
 
     await School.findByIdAndUpdate(tenantId, { creditBalance: newBalance })

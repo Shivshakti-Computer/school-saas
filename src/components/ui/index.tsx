@@ -1,3 +1,6 @@
+// FILE: src/components/ui/index.tsx
+// COMPLETE UPDATED VERSION with style prop support
+
 'use client'
 
 import {
@@ -12,27 +15,16 @@ import { clsx } from 'clsx'
    ───────────────────────────────────────────────────────────── */
 
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'accent'
-type BtnSize    = 'sm' | 'md' | 'lg'
+type BtnSize = 'sm' | 'md' | 'lg'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: BtnVariant
-  size?:    BtnSize
+  size?: BtnSize
   loading?: boolean
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      variant = 'primary',
-      size    = 'md',
-      loading,
-      children,
-      className,
-      disabled,
-      ...props
-    },
-    ref
-  ) => {
+  ({ variant = 'primary', size = 'md', loading, children, className, disabled, ...props }, ref) => {
     const base =
       'inline-flex items-center justify-center gap-2 font-semibold font-display ' +
       'rounded-[var(--radius-md)] transition-all duration-150 ' +
@@ -45,22 +37,16 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         '[background:linear-gradient(135deg,var(--primary-500),var(--primary-600))] ' +
         'hover:[background:linear-gradient(135deg,var(--primary-600),var(--primary-700))] ' +
         'hover:shadow-[0_4px_12px_rgba(99,102,241,0.3)]',
-
       secondary:
         '[background:var(--bg-card)] [color:var(--primary-600)] ' +
         '[border:1.5px_solid_var(--primary-200)] ' +
         'hover:[background:var(--primary-50)] ' +
         'hover:[border-color:var(--primary-300)]',
-
-      ghost:
-        '[color:var(--text-secondary)] ' +
-        'hover:[background:var(--bg-muted)] hover:[color:var(--text-primary)]',
-
+      ghost: '[color:var(--text-secondary)] hover:[background:var(--bg-muted)] hover:[color:var(--text-primary)]',
       danger:
         '[background:var(--danger-light)] [color:var(--danger-dark)] ' +
         '[border:1.5px_solid_rgba(239,68,68,0.2)] ' +
         'hover:[background:#fee2e2]',
-
       accent:
         'text-white ' +
         '[background:linear-gradient(135deg,var(--accent-400),var(--accent-500))] ' +
@@ -94,8 +80,8 @@ Button.displayName = 'Button'
    ───────────────────────────────────────────────────────────── */
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?:  string
-  error?:  string
+  label?: string
+  error?: string
   helper?: string
 }
 
@@ -103,26 +89,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, helper, className, ...props }, ref) => (
     <div className="flex flex-col gap-1">
       {label && (
-        <label
-          className="text-xs font-semibold font-display"
-          style={{ color: 'var(--text-primary)' }}
-        >
+        <label className="text-xs font-semibold font-display text-[var(--text-primary)]">
           {label}
         </label>
       )}
-      <input
-        ref={ref}
-        className={clsx(
-          'input-clean',
-          error && 'input-error',
-          className
-        )}
-        {...props}
-      />
-      {error  && <p className="text-xs" style={{ color: 'var(--danger)'      }}>{error}</p>}
-      {helper && !error && (
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{helper}</p>
-      )}
+      <input ref={ref} className={clsx('input-clean', error && 'input-error', className)} {...props} />
+      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
+      {helper && !error && <p className="text-xs text-[var(--text-muted)]">{helper}</p>}
     </div>
   )
 )
@@ -133,31 +106,21 @@ Input.displayName = 'Input'
    ───────────────────────────────────────────────────────────── */
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label?:   string
-  error?:   string
-  options:  { value: string; label: string }[]
+  label?: string
+  error?: string
+  options: { value: string; label: string }[]
 }
 
 export function Select({ label, error, options, className, ...props }: SelectProps) {
   return (
     <div className="flex flex-col gap-1">
-      {label && (
-        <label
-          className="text-xs font-semibold font-display"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          {label}
-        </label>
-      )}
+      {label && <label className="text-xs font-semibold font-display text-[var(--text-primary)]">{label}</label>}
       <select
         className={clsx(
-          'h-10 px-3 text-sm rounded-[var(--radius-md)] cursor-pointer',
-          'transition-all duration-150 font-body',
-          'border-[1.5px] focus:outline-none',
+          'h-10 px-3 text-sm rounded-[var(--radius-md)] cursor-pointer transition-all duration-150 font-body border-[1.5px] focus:outline-none',
           error
-            ? '[border-color:var(--danger)] [box-shadow:0_0_0_3px_rgba(239,68,68,0.1)]'
-            : '[border-color:var(--border)] [background:var(--bg-card)] [color:var(--text-primary)]' +
-              ' focus:[border-color:var(--primary-500)] focus:[box-shadow:0_0_0_3px_rgba(99,102,241,0.1)]',
+            ? 'border-[var(--danger)] shadow-[0_0_0_3px_rgba(239,68,68,0.1)]'
+            : 'border-[var(--border)] bg-[var(--bg-card)] text-[var(--text-primary)] focus:border-[var(--primary-500)] focus:shadow-[0_0_0_3px_rgba(99,102,241,0.1)]',
           className
         )}
         {...props}
@@ -168,9 +131,7 @@ export function Select({ label, error, options, className, ...props }: SelectPro
           </option>
         ))}
       </select>
-      {error && (
-        <p className="text-xs" style={{ color: 'var(--danger)' }}>{error}</p>
-      )}
+      {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
     </div>
   )
 }
@@ -179,58 +140,33 @@ export function Select({ label, error, options, className, ...props }: SelectPro
    BADGE
    ───────────────────────────────────────────────────────────── */
 
-type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary' 
+type BadgeVariant = 'default' | 'success' | 'warning' | 'danger' | 'info' | 'primary'
 
 export function Badge({
   children,
-  variant  = 'default',
+  variant = 'default',
   className,
 }: {
-  children:  React.ReactNode
-  variant?:  BadgeVariant
+  children: React.ReactNode
+  variant?: BadgeVariant
   className?: string
 }) {
-  const styles: Record<BadgeVariant, React.CSSProperties> = {
-    default: {
-      background: 'var(--bg-muted)',
-      color:      'var(--text-secondary)',
-      border:     '1px solid var(--border)',
-    },
-    success: {
-      background: 'var(--success-light)',
-      color:      'var(--success-dark)',
-      border:     '1px solid rgba(16,185,129,0.2)',
-    },
-    warning: {
-      background: 'var(--warning-light)',
-      color:      'var(--warning-dark)',
-      border:     '1px solid rgba(245,158,11,0.2)',
-    },
-    danger: {
-      background: 'var(--danger-light)',
-      color:      'var(--danger-dark)',
-      border:     '1px solid rgba(239,68,68,0.2)',
-    },
-    info: {
-      background: 'var(--info-light)',
-      color:      'var(--info-dark)',
-      border:     '1px solid rgba(59,130,246,0.2)',
-    },
-    primary: {
-      background: 'var(--primary-50)',
-      color:      'var(--primary-600)',
-      border:     '1px solid var(--primary-200)',
-    },
+  const styles: Record<BadgeVariant, string> = {
+    default: 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border-[var(--border)]',
+    success: 'bg-[var(--success-light)] text-[var(--success-dark)] border-[rgba(16,185,129,0.2)]',
+    warning: 'bg-[var(--warning-light)] text-[var(--warning-dark)] border-[rgba(245,158,11,0.2)]',
+    danger: 'bg-[var(--danger-light)] text-[var(--danger-dark)] border-[rgba(239,68,68,0.2)]',
+    info: 'bg-[var(--info-light)] text-[var(--info-dark)] border-[rgba(59,130,246,0.2)]',
+    primary: 'bg-[var(--primary-50)] text-[var(--primary-600)] border-[var(--primary-200)]',
   }
 
   return (
     <span
       className={clsx(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full',
-        'text-xs font-semibold font-display',
+        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold font-display border',
+        styles[variant],
         className
       )}
-      style={styles[variant]}
     >
       {children}
     </span>
@@ -245,27 +181,21 @@ export function Card({
   children,
   className,
   padding = true,
-  hover   = false,
+  hover = false,
 }: {
-  children:   React.ReactNode
+  children: React.ReactNode
   className?: string
-  padding?:   boolean
-  hover?:     boolean
+  padding?: boolean
+  hover?: boolean
 }) {
   return (
     <div
       className={clsx(
-        'rounded-[var(--radius-lg)]',
-        'transition-all duration-200',
+        'rounded-[var(--radius-lg)] transition-all duration-200 bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow-sm)]',
         hover && 'cursor-pointer',
         padding && 'p-5',
         className
       )}
-      style={{
-        background: 'var(--bg-card)',
-        border:     '1px solid var(--border)',
-        boxShadow:  'var(--shadow-sm)',
-      }}
     >
       {children}
     </div>
@@ -285,9 +215,9 @@ export function StatCard({
   trend,
   color = 'primary',
 }: {
-  label:  string
-  value:  string | number
-  icon:   React.ReactNode
+  label: string
+  value: string | number
+  icon: React.ReactNode
   trend?: string
   color?: StatColor
 }) {
@@ -295,17 +225,14 @@ export function StatCard({
     primary: { bg: 'var(--primary-50)', icon: 'var(--primary-500)' },
     success: { bg: 'var(--success-light)', icon: 'var(--success)' },
     warning: { bg: 'var(--warning-light)', icon: 'var(--warning)' },
-    danger:  { bg: 'var(--danger-light)',  icon: 'var(--danger)'  },
-    info:    { bg: 'var(--info-light)',     icon: 'var(--info)'    },
+    danger: { bg: 'var(--danger-light)', icon: 'var(--danger)' },
+    info: { bg: 'var(--info-light)', icon: 'var(--info)' },
   }
 
   const c = colorMap[color]
 
   return (
-    <div
-      className="flex items-start gap-4 p-5 rounded-[var(--radius-lg)]
-                 transition-all duration-200 portal-stat-card"
-    >
+    <div className="flex items-start gap-4 p-5 rounded-[var(--radius-lg)] transition-all duration-200 portal-stat-card">
       <div
         className="p-2.5 rounded-[var(--radius-md)] flex-shrink-0 stat-icon"
         style={{ background: c.bg, color: c.icon }}
@@ -313,21 +240,9 @@ export function StatCard({
         {icon}
       </div>
       <div>
-        <p
-          className="text-xs font-medium font-body stat-label"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          {label}
-        </p>
+        <p className="text-xs font-medium font-body stat-label text-[var(--text-muted)]">{label}</p>
         <p className="stat-value mt-0.5">{value}</p>
-        {trend && (
-          <p
-            className="text-xs font-body mt-1"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            {trend}
-          </p>
-        )}
+        {trend && <p className="text-xs font-body mt-1 text-[var(--text-muted)]">{trend}</p>}
       </div>
     </div>
   )
@@ -342,17 +257,12 @@ export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
   return (
     <svg
       className={clsx('animate-spin', sizes[size])}
-      style={{ color: 'currentColor' }}
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
       aria-hidden="true"
     >
-      <circle
-        className="opacity-25"
-        cx="12" cy="12" r="10"
-        stroke="currentColor" strokeWidth="4"
-      />
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path
         className="opacity-75"
         fill="currentColor"
@@ -373,11 +283,11 @@ export function Modal({
   children,
   size = 'md',
 }: {
-  open:     boolean
-  onClose:  () => void
-  title:    string
+  open: boolean
+  onClose: () => void
+  title: string
   children: React.ReactNode
-  size?:    'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg'
 }) {
   if (!open) return null
 
@@ -385,62 +295,38 @@ export function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div
-        className="absolute inset-0"
-        style={{
-          background:           'rgba(30,27,75,0.45)',
-          backdropFilter:       'blur(6px)',
-          WebkitBackdropFilter: 'blur(6px)',
-        }}
+        className="absolute inset-0 bg-[rgba(30,27,75,0.45)] backdrop-blur-[6px]"
         onClick={onClose}
         aria-hidden="true"
       />
-
-      {/* Panel */}
       <div
-        className={clsx('relative w-full rounded-[var(--radius-xl)] overflow-hidden', sizes[size])}
-        style={{
-          background: 'var(--bg-card)',
-          border:     '1px solid var(--border)',
-          boxShadow:  'var(--shadow-xl)',
-          animation:  'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards',
-        }}
+        className={clsx(
+          'relative w-full rounded-[var(--radius-xl)] overflow-hidden bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow-xl)]',
+          sizes[size]
+        )}
+        style={{ animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
       >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between px-5 py-4"
-          style={{ borderBottom: '1px solid var(--border)' }}
-        >
-          <h3
-            className="text-base font-bold font-display"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {title}
-          </h3>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
+          <h3 className="text-base font-bold font-display text-[var(--text-primary)]">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-[var(--radius-sm)] transition-colors duration-150"
-            style={{ color: 'var(--text-muted)' }}
-            onMouseEnter={e =>
-              (e.currentTarget.style.background = 'var(--bg-muted)')
-            }
-            onMouseLeave={e =>
-              (e.currentTarget.style.background = 'transparent')
-            }
+            className="p-1.5 rounded-[var(--radius-sm)] transition-colors duration-150 text-[var(--text-muted)] hover:bg-[var(--bg-muted)]"
             aria-label="Close"
           >
             <svg
-              className="w-4 h-4" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
             >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
-
-        {/* Body */}
         <div className="px-5 py-4">{children}</div>
       </div>
     </div>
@@ -457,20 +343,16 @@ export function EmptyState({
   description,
   action,
 }: {
-  icon:          React.ReactNode
-  title:         string
-  description?:  string
-  action?:       React.ReactNode
+  icon: React.ReactNode
+  title: string
+  description?: string
+  action?: React.ReactNode
 }) {
   return (
     <div className="portal-empty">
-      <div className="portal-empty-icon">
-        {icon}
-      </div>
+      <div className="portal-empty-icon">{icon}</div>
       <p className="portal-empty-title">{title}</p>
-      {description && (
-        <p className="portal-empty-text">{description}</p>
-      )}
+      {description && <p className="portal-empty-text">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   )
@@ -485,8 +367,8 @@ export function Table({
   children,
   className,
 }: {
-  headers:    string[]
-  children:   React.ReactNode
+  headers: string[]
+  children: React.ReactNode
   className?: string
 }) {
   return (
@@ -505,28 +387,22 @@ export function Table({
   )
 }
 
-export function Tr({
-  children,
-  className,
-}: {
-  children:   React.ReactNode
-  className?: string
-}) {
+export function Tr({ children, className }: { children: React.ReactNode; className?: string }) {
   return <tr className={className}>{children}</tr>
 }
 
+// ✅ UPDATED: Added style prop support
 export function Td({
   children,
   className,
+  style,
 }: {
-  children:   React.ReactNode
+  children: React.ReactNode
   className?: string
+  style?: React.CSSProperties
 }) {
   return (
-    <td
-      className={clsx('px-4 py-3', className)}
-      style={{ color: 'var(--text-secondary)' }}
-    >
+    <td className={clsx('px-4 py-3', className)} style={{ color: 'var(--text-secondary)', ...style }}>
       {children}
     </td>
   )
@@ -541,17 +417,15 @@ export function PageHeader({
   subtitle,
   action,
 }: {
-  title:     string
+  title: string
   subtitle?: string
-  action?:   React.ReactNode
+  action?: React.ReactNode
 }) {
   return (
     <div className="portal-page-header">
       <div>
         <h1 className="portal-page-title">{title}</h1>
-        {subtitle && (
-          <p className="portal-page-subtitle">{subtitle}</p>
-        )}
+        {subtitle && <p className="portal-page-subtitle">{subtitle}</p>}
       </div>
       {action && <div>{action}</div>}
     </div>
@@ -565,49 +439,26 @@ export function PageHeader({
 type AlertType = 'success' | 'error' | 'warning' | 'info'
 
 export function Alert({
-  type    = 'info',
+  type = 'info',
   message,
   onClose,
 }: {
-  type?:    AlertType
-  message:  string
+  type?: AlertType
+  message: string
   onClose?: () => void
 }) {
-  const styleMap: Record<AlertType, React.CSSProperties> = {
-    success: {
-      background: 'var(--success-light)',
-      color:      'var(--success-dark)',
-      border:     '1px solid rgba(16,185,129,0.25)',
-    },
-    error: {
-      background: 'var(--danger-light)',
-      color:      'var(--danger-dark)',
-      border:     '1px solid rgba(239,68,68,0.25)',
-    },
-    warning: {
-      background: 'var(--warning-light)',
-      color:      'var(--warning-dark)',
-      border:     '1px solid rgba(245,158,11,0.25)',
-    },
-    info: {
-      background: 'var(--info-light)',
-      color:      'var(--info-dark)',
-      border:     '1px solid rgba(59,130,246,0.25)',
-    },
+  const styleMap: Record<AlertType, string> = {
+    success: 'bg-[var(--success-light)] text-[var(--success-dark)] border-[rgba(16,185,129,0.25)]',
+    error: 'bg-[var(--danger-light)] text-[var(--danger-dark)] border-[rgba(239,68,68,0.25)]',
+    warning: 'bg-[var(--warning-light)] text-[var(--warning-dark)] border-[rgba(245,158,11,0.25)]',
+    info: 'bg-[var(--info-light)] text-[var(--info-dark)] border-[rgba(59,130,246,0.25)]',
   }
 
   return (
-    <div
-      className="flex items-start gap-3 px-4 py-3 rounded-[var(--radius-md)] text-sm font-body"
-      style={styleMap[type]}
-    >
+    <div className={clsx('flex items-start gap-3 px-4 py-3 rounded-[var(--radius-md)] text-sm font-body border', styleMap[type])}>
       <p className="flex-1 leading-relaxed">{message}</p>
       {onClose && (
-        <button
-          onClick={onClose}
-          className="opacity-60 hover:opacity-100 transition-opacity"
-          aria-label="Dismiss"
-        >
+        <button onClick={onClose} className="opacity-60 hover:opacity-100 transition-opacity" aria-label="Dismiss">
           ✕
         </button>
       )}
