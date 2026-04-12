@@ -1,19 +1,28 @@
 // FILE: src/app/api/auth/otp/send/route.ts
-// UPDATED: Uses new messaging system (Fast2SMS + Resend)
+// UPDATED:
+// - Pre-tenant OTP sends provider-level sends directly
+// - No MessageLog / no tenantId dependency
+// - Uses Fast2SMS + Resend properly
+// - OTP remains free and outside credit system
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/db'
 import { OTPVerification } from '@/models/OTPVerification'
-import { checkRateLimit, RATE_LIMITS, rateLimitResponse } from '@/lib/security'
-import { sendMessage, SMS_TEMPLATES, EMAIL_TEMPLATES } from '@/lib/message'
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  rateLimitResponse,
+} from '@/lib/security'
+import { SMS_TEMPLATES, EMAIL_TEMPLATES } from '@/lib/message'
+import { fast2smsSendSMS } from '@/lib/message/providers/fast2sms'
+import { resendSendEmail } from '@/lib/message/providers/resend'
 
 const OTP_EXPIRY_MINUTES = 10
 const MAX_RESEND_PER_HOUR = 3
 
 export async function POST(req: NextRequest) {
-  // ── Rate limit ──
   const rl = checkRateLimit(req, RATE_LIMITS.register)
   if (!rl.allowed) return rateLimitResponse(rl.resetIn)
 
@@ -21,61 +30,92 @@ export async function POST(req: NextRequest) {
     await connectDB()
 
     const body = await req.json()
-    const { phone, email, channel } = body
-    // channel: 'sms' | 'email'
+    const rawPhone = body?.phone?.toString?.() || ''
+    const rawEmail = body?.email?.toString?.() || ''
+    const channel = body?.channel as 'sms' | 'email'
 
-    // ── Validate ──
-    if (channel === 'sms') {
-      if (!phone) {
-        return NextResponse.json({ error: 'Phone number required' }, { status: 400 })
-      }
-      const cleanPhone = phone.replace(/[^0-9]/g, '')
-      if (cleanPhone.length !== 10) {
-        return NextResponse.json({ error: 'Valid 10-digit phone required' }, { status: 400 })
-      }
-    } else if (channel === 'email') {
-      if (!email) {
-        return NextResponse.json({ error: 'Email required' }, { status: 400 })
-      }
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(email)) {
-        return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
-      }
-    } else {
-      return NextResponse.json({ error: 'Invalid channel' }, { status: 400 })
+    // ── Validate Channel ──────────────────────────────────
+    if (!['sms', 'email'].includes(channel)) {
+      return NextResponse.json(
+        { error: 'Invalid channel' },
+        { status: 400 }
+      )
     }
 
-    const identifier =
-      channel === 'sms' ? phone.replace(/[^0-9]/g, '') : email.toLowerCase().trim()
+    // ── Normalize Inputs ──────────────────────────────────
+    const cleanPhone = rawPhone.replace(/[^0-9]/g, '')
+    const cleanEmail = rawEmail.toLowerCase().trim()
 
-    // ── Check resend limit (3 per hour) ──
+    // ── Validate Input by Channel ─────────────────────────
+    if (channel === 'sms') {
+      if (!cleanPhone) {
+        return NextResponse.json(
+          { error: 'Phone number required' },
+          { status: 400 }
+        )
+      }
+
+      if (cleanPhone.length !== 10) {
+        return NextResponse.json(
+          { error: 'Valid 10-digit phone required' },
+          { status: 400 }
+        )
+      }
+    }
+
+    if (channel === 'email') {
+      if (!cleanEmail) {
+        return NextResponse.json(
+          { error: 'Email required' },
+          { status: 400 }
+        )
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(cleanEmail)) {
+        return NextResponse.json(
+          { error: 'Valid email required' },
+          { status: 400 }
+        )
+      }
+    }
+
+    const identifier = channel === 'sms' ? cleanPhone : cleanEmail
+
+    // ── Resend Limit (3 per hour) ─────────────────────────
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+
     const recentCount = await OTPVerification.countDocuments({
-      phone: identifier,
+      phone: identifier, // field reused as identifier (phone/email)
       purpose: 'registration',
       createdAt: { $gte: oneHourAgo },
     })
 
     if (recentCount >= MAX_RESEND_PER_HOUR) {
       return NextResponse.json(
-        { error: 'Too many OTP requests. Please wait 1 hour before trying again.' },
+        {
+          error:
+            'Too many OTP requests. Please wait 1 hour before trying again.',
+        },
         { status: 429 }
       )
     }
 
-    // ── Generate OTP ──
+    // ── Generate OTP ──────────────────────────────────────
     const otp = Math.floor(100000 + Math.random() * 900000).toString()
     const hashedOTP = await bcrypt.hash(otp, 10)
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000)
+    const expiresAt = new Date(
+      Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000
+    )
 
-    // ── Delete old OTPs for this identifier ──
+    // ── Delete old unverified OTPs ────────────────────────
     await OTPVerification.deleteMany({
       phone: identifier,
       purpose: 'registration',
       verified: false,
     })
 
-    // ── Save new OTP ──
+    // ── Save new OTP ──────────────────────────────────────
     await OTPVerification.create({
       phone: identifier,
       hashedOTP,
@@ -86,49 +126,49 @@ export async function POST(req: NextRequest) {
       expiresAt,
     })
 
-    // ── Send OTP via new messaging system ──
+    // ── Send OTP using provider layer directly ────────────
     let sendResult: { success: boolean; error?: string }
 
     if (channel === 'sms') {
-      // ✅ NEW: Use sendMessage from unified system
-      sendResult = await sendMessage({
-        tenantId: 'system', // System messages don't need tenant
-        channel: 'sms',
-        purpose: 'otp',
-        recipient: identifier,
-        message: SMS_TEMPLATES.otp(otp),
-        skipCreditCheck: true, // OTP is free, no credit check
-      })
+      sendResult = await fast2smsSendSMS(
+        cleanPhone,
+        SMS_TEMPLATES.otp(otp)
+      )
     } else {
-      // ✅ NEW: Use sendMessage for email
       const template = EMAIL_TEMPLATES.otp(otp)
-      sendResult = await sendMessage({
-        tenantId: 'system',
-        channel: 'email',
-        purpose: 'otp',
-        recipient: email.toLowerCase().trim(),
-        message: template.subject,
-        subject: template.subject,
-        html: template.html,
-        skipCreditCheck: true,
-      })
+
+      sendResult = await resendSendEmail(
+        cleanEmail,
+        template.subject,
+        template.html,
+        'Skolify',
+        true // full HTML system email
+      )
     }
 
     if (!sendResult.success) {
       console.error('[OTP-SEND] Failed:', sendResult.error)
+
+      // Failed send pe OTP record cleanup kar do
+      await OTPVerification.deleteMany({
+        phone: identifier,
+        purpose: 'registration',
+        verified: false,
+      })
+
       return NextResponse.json(
         { error: 'Failed to send OTP. Please try again.' },
         { status: 500 }
       )
     }
 
-    // ── Success response ──
+    // ── Success Response ──────────────────────────────────
     return NextResponse.json({
       success: true,
       message:
         channel === 'sms'
-          ? `OTP sent to ${identifier.slice(0, 2)}XXXXXXXX${identifier.slice(-2)}`
-          : `OTP sent to ${email.slice(0, 3)}***${email.slice(email.indexOf('@'))}`,
+          ? `OTP sent to ${cleanPhone.slice(0, 2)}XXXXXX${cleanPhone.slice(-2)}`
+          : `OTP sent to ${cleanEmail.slice(0, 3)}***${cleanEmail.slice(cleanEmail.indexOf('@'))}`,
       expiresIn: OTP_EXPIRY_MINUTES * 60,
     })
   } catch (err: any) {
