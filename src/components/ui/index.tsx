@@ -182,25 +182,32 @@ export function Card({
   className,
   padding = true,
   hover = false,
+  onClick,
+  style,
 }: {
   children: React.ReactNode
   className?: string
   padding?: boolean
   hover?: boolean
+  onClick?: () => void
+  style?: React.CSSProperties
 }) {
   return (
     <div
       className={clsx(
         'rounded-[var(--radius-lg)] transition-all duration-200 bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow-sm)]',
-        hover && 'cursor-pointer',
+        (hover || onClick) && 'cursor-pointer',
         padding && 'p-5',
         className
       )}
+      onClick={onClick}
+      style={style}
     >
       {children}
     </div>
   )
 }
+
 
 /* ─────────────────────────────────────────────────────────────
    STAT CARD
@@ -232,17 +239,22 @@ export function StatCard({
   const c = colorMap[color]
 
   return (
-    <div className="flex items-start gap-4 p-5 rounded-[var(--radius-lg)] transition-all duration-200 portal-stat-card">
+    <div className="flex items-start gap-4 p-5 rounded-[var(--radius-lg)] transition-all duration-200 portal-stat-card min-w-0">
       <div
         className="p-2.5 rounded-[var(--radius-md)] flex-shrink-0 stat-icon"
         style={{ background: c.bg, color: c.icon }}
       >
         {icon}
       </div>
-      <div>
-        <p className="text-xs font-medium font-body stat-label text-[var(--text-muted)]">{label}</p>
-        <p className="stat-value mt-0.5">{value}</p>
-        {trend && <p className="text-xs font-body mt-1 text-[var(--text-muted)]">{trend}</p>}
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium font-body stat-label text-[var(--text-muted)] mb-0.5">
+          {label}
+        </p>
+        {/* ✅ ADD: tabular-nums + break-words for overflow protection */}
+        <p className="stat-value tabular-nums break-words">{value}</p>
+        {trend && (
+          <p className="text-xs font-body mt-1 text-[var(--text-muted)]">{trend}</p>
+        )}
       </div>
     </div>
   )
@@ -294,40 +306,46 @@ export function Modal({
   const sizes = { sm: 'max-w-sm', md: 'max-w-lg', lg: 'max-w-2xl' }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      {/* ✅ FIX: Add overflow-y-auto to outer div */}
       <div
         className="absolute inset-0 bg-[rgba(30,27,75,0.45)] backdrop-blur-[6px]"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className={clsx(
-          'relative w-full rounded-[var(--radius-xl)] overflow-hidden bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow-xl)]',
-          sizes[size]
-        )}
+        className={`relative w-full rounded-[var(--radius-xl)] bg-[var(--bg-card)] border border-[var(--border)] shadow-[var(--shadow-xl)] my-8 ${sizes[size]}`}
         style={{ animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards' }}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)]">
-          <h3 className="text-base font-bold font-display text-[var(--text-primary)]">{title}</h3>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-[var(--radius-sm)] transition-colors duration-150 text-[var(--text-muted)] hover:bg-[var(--bg-muted)]"
-            aria-label="Close"
-          >
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
+        {/* ✅ FIX: Make modal body scrollable with max-height */}
+        <div className="flex flex-col max-h-[90vh]">
+          {/* Header - fixed */}
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border)] flex-shrink-0">
+            <h3 className="text-base font-bold font-display text-[var(--text-primary)]">{title}</h3>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-[var(--radius-sm)] transition-colors duration-150 text-[var(--text-muted)] hover:bg-[var(--bg-muted)]"
+              aria-label="Close"
             >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+              <svg
+                className="w-4 h-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Body - scrollable */}
+          <div className="px-5 py-4 overflow-y-auto flex-1">
+            {children}
+          </div>
         </div>
-        <div className="px-5 py-4">{children}</div>
       </div>
     </div>
   )

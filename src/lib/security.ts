@@ -122,7 +122,7 @@ export function checkRateLimit(
 export const RATE_LIMITS = {
   // Login: 5 attempts per 15 minutes
   login: { windowMs: 15 * 60 * 1000, maxRequests: 5, identifier: 'login' },
-  // Registration: 3 per hour
+  // Registration: 5 per hour
   register: { windowMs: 60 * 60 * 1000, maxRequests: 5, identifier: 'register' },
   // API general: 100 per minute
   api: { windowMs: 60 * 1000, maxRequests: 100, identifier: 'api' },
@@ -132,6 +132,9 @@ export const RATE_LIMITS = {
   passwordReset: { windowMs: 60 * 60 * 1000, maxRequests: 3, identifier: 'pwd-reset' },
   // File upload: 20 per minute
   upload: { windowMs: 60 * 1000, maxRequests: 20, identifier: 'upload' },
+  
+  // ✅ ADD THIS: Mutation operations (POST, PATCH, DELETE): 30 per minute
+  mutation: { windowMs: 60 * 1000, maxRequests: 30, identifier: 'mutation' },
 } as const
 
 /* ══════════════════════════════════════════════════════════

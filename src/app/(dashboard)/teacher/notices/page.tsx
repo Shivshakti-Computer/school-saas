@@ -1,16 +1,17 @@
-// FILE: src/app/(dashboard)/parent/notices/page.tsx
+// FILE: src/app/(dashboard)/teacher/notices/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PageHeader, Alert } from '@/components/ui'
+import { PageHeader, Button, Modal, Alert } from '@/components/ui'
 import { NoticeList } from '@/components/notices/NoticeList'
+import { NoticeForm } from '@/components/notices/NoticeForm'
 import { NoticeFiltersComponent } from '@/components/notices/NoticeFilters'
-import { NoticeStatsComponent } from '@/components/notices/NoticeStats'
-import type { NoticeListItem, NoticeFilters, NoticeStats } from '@/types/notice'
+import { Portal } from '@/components/ui/Portal'
+import { Plus } from 'lucide-react'
+import type { NoticeListItem, NoticeFilters, NoticeFormData } from '@/types/notice'
 
-export default function ParentNoticesPage() {
+export default function TeacherNoticesPage() {
     const [notices, setNotices] = useState<NoticeListItem[]>([])
-    const [stats, setStats] = useState<NoticeStats | null>(null)
     const [filters, setFilters] = useState<NoticeFilters>({
         page: 1,
         limit: 20,
@@ -18,6 +19,8 @@ export default function ParentNoticesPage() {
         sortOrder: 'desc',
     })
     const [loading, setLoading] = useState(true)
+    const [showCreateModal, setShowCreateModal] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
     const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
     const fetchNotices = async () => {
@@ -45,29 +48,44 @@ export default function ParentNoticesPage() {
         }
     }
 
-    const fetchStats = async () => {
-        try {
-            const res = await fetch('/api/notices/stats')
-            const data = await res.json()
-            if (res.ok) setStats(data.stats)
-        } catch (err) {
-            console.error('Failed to fetch stats:', err)
-        }
-    }
-
     useEffect(() => {
         fetchNotices()
     }, [filters])
 
-    useEffect(() => {
-        fetchStats()
-    }, [])
+    const handleCreate = async (formData: NoticeFormData) => {
+        try {
+            setSubmitting(true)
+            const res = await fetch('/api/notices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) throw new Error(data.error)
+
+            setAlert({ type: 'success', message: 'Notice created successfully!' })
+            setShowCreateModal(false)
+            fetchNotices()
+        } catch (err: any) {
+            setAlert({ type: 'error', message: err.message })
+        } finally {
+            setSubmitting(false)
+        }
+    }
 
     return (
         <div className="space-y-6">
             <PageHeader
-                title="📢 Notice Board"
-                subtitle="Important notices and announcements from school"
+                title="Notices"
+                subtitle="View and create notices"
+                action={
+                    <Button onClick={() => setShowCreateModal(true)}>
+                        <Plus size={16} />
+                        Create Notice
+                    </Button>
+                }
             />
 
             {alert && (
@@ -77,8 +95,6 @@ export default function ParentNoticesPage() {
                     onClose={() => setAlert(null)}
                 />
             )}
-
-            {stats && <NoticeStatsComponent stats={stats} />}
 
             <NoticeFiltersComponent
                 filters={filters}
@@ -95,6 +111,21 @@ export default function ParentNoticesPage() {
                 notices={notices}
                 isLoading={loading}
             />
+
+            <Portal>
+                <Modal
+                    open={showCreateModal}
+                    onClose={() => setShowCreateModal(false)}
+                    title="Create Notice"
+                    size="lg"
+                >
+                    <NoticeForm
+                        onSubmit={handleCreate}
+                        onCancel={() => setShowCreateModal(false)}
+                        isLoading={submitting}
+                    />
+                </Modal>
+            </Portal>
         </div>
     )
 }

@@ -1,67 +1,101 @@
-// -------------------------------------------------------------
 // FILE: src/app/(dashboard)/student/notices/page.tsx
-// -------------------------------------------------------------
+// Same for parent: src/app/(dashboard)/parent/notices/page.tsx
 'use client'
+
 import { useState, useEffect } from 'react'
-import { Card, PageHeader, Badge, Spinner, EmptyState } from '@/components/ui'
-import { Bell } from 'lucide-react'
+import { PageHeader, Alert } from '@/components/ui'
+import { NoticeList } from '@/components/notices/NoticeList'
+import { NoticeFiltersComponent } from '@/components/notices/NoticeFilters'
+import { NoticeStatsComponent } from '@/components/notices/NoticeStats'
+import type { NoticeListItem, NoticeFilters, NoticeStats } from '@/types/notice'
 
 export default function StudentNoticesPage() {
-    const [notices, setNotices] = useState<any[]>([])
+    const [notices, setNotices] = useState<NoticeListItem[]>([])
+    const [stats, setStats] = useState<NoticeStats | null>(null)
+    const [filters, setFilters] = useState<NoticeFilters>({
+        page: 1,
+        limit: 20,
+        sortBy: 'publishedAt',
+        sortOrder: 'desc',
+    })
     const [loading, setLoading] = useState(true)
-    const [expanded, setExpanded] = useState<string | null>(null)
+    const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+    const fetchNotices = async () => {
+        try {
+            setLoading(true)
+            const params = new URLSearchParams()
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value !== undefined && value !== '') {
+                    params.set(key, String(value))
+                }
+            })
+
+            const res = await fetch(`/api/notices?${params}`)
+            const data = await res.json()
+
+            if (res.ok) {
+                setNotices(data.notices)
+            } else {
+                throw new Error(data.error)
+            }
+        } catch (err: any) {
+            setAlert({ type: 'error', message: err.message })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const fetchStats = async () => {
+        try {
+            const res = await fetch('/api/notices/stats')
+            const data = await res.json()
+            if (res.ok) setStats(data.stats)
+        } catch (err) {
+            console.error('Failed to fetch stats:', err)
+        }
+    }
 
     useEffect(() => {
-        fetch('/api/students/notices')
-            .then(r => r.json())
-            .then(d => { setNotices(d.notices ?? []); setLoading(false) })
+        fetchNotices()
+    }, [filters])
+
+    useEffect(() => {
+        fetchStats()
     }, [])
 
     return (
-        <div className="space-y-4">
-            <PageHeader title="Notices" subtitle={`${notices.length} active notices`} />
+        <div className="space-y-6">
+            <PageHeader
+                title="📢 Notice Board"
+                subtitle="Important notices and announcements from school"
+            />
 
-            {loading ? (
-                <div className="flex justify-center py-12"><Spinner size="lg" /></div>
-            ) : notices.length === 0 ? (
-                <EmptyState
-                    icon={<Bell size={24} />}
-                    title="Koi notice nahi"
-                    description="Abhi koi active notice nahi hai"
+            {alert && (
+                <Alert
+                    type={alert.type}
+                    message={alert.message}
+                    onClose={() => setAlert(null)}
                 />
-            ) : (
-                <div className="space-y-2">
-                    {notices.map(n => (
-                        <Card key={n._id} padding={false}>
-                            <button
-                                className="w-full text-left px-5 py-4"
-                                onClick={() => setExpanded(expanded === n._id ? null : n._id)}
-                            >
-                                <div className="flex items-start gap-3">
-                                    <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.priority === 'urgent' ? 'bg-red-500' : 'bg-indigo-400'}`} />
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <p className="text-sm font-semibold text-slate-800">{n.title}</p>
-                                            {n.priority === 'urgent' && <Badge variant="danger">Urgent</Badge>}
-                                        </div>
-                                        <p className="text-xs text-slate-400 mt-0.5">
-                                            {new Date(n.publishedAt).toLocaleDateString('en-IN', {
-                                                day: 'numeric', month: 'short', year: 'numeric',
-                                            })}
-                                        </p>
-                                    </div>
-                                    <span className="text-slate-400 text-xs">{expanded === n._id ? '▲' : '▼'}</span>
-                                </div>
-                            </button>
-                            {expanded === n._id && (
-                                <div className="px-5 pb-4 border-t border-slate-50">
-                                    <p className="text-sm text-slate-600 mt-3 leading-relaxed">{n.content}</p>
-                                </div>
-                            )}
-                        </Card>
-                    ))}
-                </div>
             )}
+
+            {stats && <NoticeStatsComponent stats={stats} />}
+
+            <NoticeFiltersComponent
+                filters={filters}
+                onChange={setFilters}
+                onReset={() => setFilters({
+                    page: 1,
+                    limit: 20,
+                    sortBy: 'publishedAt',
+                    sortOrder: 'desc',
+                })}
+            />
+
+            <NoticeList
+                notices={notices}
+                isLoading={loading}
+            />
         </div>
     )
 }
