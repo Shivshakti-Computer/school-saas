@@ -1,7 +1,6 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  // ── Content Paths ──────────────────────────────────────────
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -11,36 +10,28 @@ const config: Config = {
     './src/utils/**/*.{js,ts}',
   ],
 
-  // ── Dark Mode ──────────────────────────────────────────────
-  // 'class' strategy: <html class="dark"> se toggle hoga
-  // Portal me user preference + system preference dono support
-  darkMode: ['class', '[data-theme="dark"]'],
+  darkMode: 'class', // ✅ Fixed: v3 doesn't support array format
 
   theme: {
-    // ── Override defaults selectively ──────────────────────
     screens: {
-      'xs':  '400px',   // Small phones
+      'xs':  '400px',
       'sm':  '640px',
       'md':  '768px',
       'lg':  '1024px',
       'xl':  '1280px',
-      '2xl': '1400px',  // Wide screens / dashboards
-      // Portal-specific breakpoints
-      'portal-sm': '900px',   // Sidebar shows
-      'portal-lg': '1200px',  // Expanded layout
+      '2xl': '1400px',
+      'portal-sm': '900px',
+      'portal-lg': '1200px',
     },
 
     extend: {
-      /* ── Fonts ──────────────────────────────────────────── */
       fontFamily: {
         display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
         body:    ['Inter', 'system-ui', 'sans-serif'],
         mono:    ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
 
-      /* ── Colors ─────────────────────────────────────────── */
       colors: {
-        /* Primary — Indigo */
         primary: {
           50:  '#eef2ff',
           100: '#e0e7ff',
@@ -52,28 +43,24 @@ const config: Config = {
           700: '#4338ca',
           800: '#3730a3',
           900: '#312e81',
-          950: '#1e1b4b',  // ← Added for deep dark usage
+          950: '#1e1b4b',
           DEFAULT: '#6366f1',
         },
-
-        /* Accent — Orange */
         accent: {
-          50:  '#fff7ed',  // ← Added
-          100: '#ffedd5',  // ← Added
-          200: '#fed7aa',  // ← Added
+          50:  '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
           300: '#fdba74',
           400: '#fb923c',
           500: '#f97316',
           600: '#ea580c',
-          700: '#c2410c',  // ← Added
+          700: '#c2410c',
           DEFAULT: '#f97316',
         },
-
-        /* Success — Emerald */
         success: {
           50:  '#ecfdf5',
           100: '#d1fae5',
-          200: '#a7f3d0',  // ← Added
+          200: '#a7f3d0',
           500: '#10b981',
           600: '#059669',
           700: '#047857',
@@ -81,12 +68,10 @@ const config: Config = {
           dark: '#065f46',
           DEFAULT: '#10b981',
         },
-
-        /* Warning — Amber */
         warning: {
           50:  '#fffbeb',
           100: '#fef3c7',
-          200: '#fde68a',  // ← Added
+          200: '#fde68a',
           400: '#fbbf24',
           500: '#f59e0b',
           600: '#d97706',
@@ -94,12 +79,10 @@ const config: Config = {
           dark: '#92400e',
           DEFAULT: '#f59e0b',
         },
-
-        /* Danger — Red */
         danger: {
           50:  '#fef2f2',
           100: '#fee2e2',
-          200: '#fecaca',  // ← Added
+          200: '#fecaca',
           400: '#f87171',
           500: '#ef4444',
           600: '#dc2626',
@@ -107,60 +90,48 @@ const config: Config = {
           dark: '#991b1b',
           DEFAULT: '#ef4444',
         },
-
-        /* Info — Blue */
         info: {
           50:  '#eff6ff',
           100: '#dbeafe',
-          200: '#bfdbfe',  // ← Added
+          200: '#bfdbfe',
           500: '#3b82f6',
           600: '#2563eb',
           800: '#1e40af',
           dark: '#1e40af',
           DEFAULT: '#3b82f6',
         },
-
-        /* Violet — Student portal */
         violet: {
           50:  '#f5f3ff',
           100: '#ede9fe',
-          200: '#ddd6fe',  // ← Added
+          200: '#ddd6fe',
           400: '#a78bfa',
           500: '#8b5cf6',
           600: '#7c3aed',
-          700: '#6d28d9',  // ← Added
+          700: '#6d28d9',
           DEFAULT: '#8b5cf6',
         },
-
-        /* Emerald — Teacher portal */
         emerald: {
           50:  '#ecfdf5',
-          100: '#d1fae5',  // ← Added
+          100: '#d1fae5',
           400: '#34d399',
           500: '#10b981',
           600: '#059669',
           DEFAULT: '#10b981',
         },
-
-        /* Amber — Parent portal */
         amber: {
           50:  '#fffbeb',
-          100: '#fef3c7',  // ← Added
+          100: '#fef3c7',
           400: '#fbbf24',
           500: '#f59e0b',
           600: '#d97706',
           DEFAULT: '#f59e0b',
         },
-
-        /* Backgrounds */
         bg: {
           base:   '#f8f7ff',
           card:   '#ffffff',
           muted:  '#f1f0f9',
           subtle: '#faf9ff',
         },
-
-        /* Surfaces */
         surface: {
           0:   '#ffffff',
           50:  '#f8f7ff',
@@ -169,16 +140,12 @@ const config: Config = {
           300: '#d1cfe8',
           DEFAULT: '#f8f7ff',
         },
-
-        /* Text */
         text: {
           primary:   '#1e1b4b',
           secondary: '#4c4980',
           muted:     '#9794b8',
           light:     '#c4c2d4',
         },
-
-        /* Borders */
         border: {
           DEFAULT: '#e8e6f0',
           strong:  '#d1cfe8',
@@ -186,7 +153,6 @@ const config: Config = {
         },
       },
 
-      /* ── Font Sizes ─────────────────────────────────────── */
       fontSize: {
         '2xs': ['0.625rem',  { lineHeight: '1rem' }],
         'xs':  ['0.75rem',   { lineHeight: '1.125rem' }],
@@ -201,7 +167,6 @@ const config: Config = {
         '6xl': ['3.75rem',   { lineHeight: '4.25rem' }],
       },
 
-      /* ── Border Radius ──────────────────────────────────── */
       borderRadius: {
         'xs':   '4px',
         'sm':   '6px',
@@ -213,11 +178,10 @@ const config: Config = {
         'full': '9999px',
       },
 
-      /* ── Spacing ────────────────────────────────────────── */
       spacing: {
-        '4.5': '1.125rem',  // ← Added — common gap
-        '13':  '3.25rem',   // ← Added
-        '15':  '3.75rem',   // ← Added
+        '4.5': '1.125rem',
+        '13':  '3.25rem',
+        '15':  '3.75rem',
         '18':  '4.5rem',
         '22':  '5.5rem',
         '26':  '6.5rem',
@@ -227,43 +191,38 @@ const config: Config = {
         '76':  '19rem',
         '84':  '21rem',
         '88':  '22rem',
-        '92':  '23rem',     // ← Added
+        '92':  '23rem',
         '96':  '24rem',
-        '128': '32rem',     // ← Added — modal widths
+        '128': '32rem',
       },
 
-      /* ── Max Width ──────────────────────────────────────── */
       maxWidth: {
         'container':      '1280px',
         'container-wide': '1400px',
         'prose':          '68ch',
-        'modal-sm':       '400px',   // ← Added
-        'modal-md':       '560px',   // ← Added
-        'modal-lg':       '720px',   // ← Added
-        'modal-xl':       '900px',   // ← Added
+        'modal-sm':       '400px',
+        'modal-md':       '560px',
+        'modal-lg':       '720px',
+        'modal-xl':       '900px',
       },
 
-      /* ── Height ─────────────────────────────────────────── */
       height: {
         'header':          '60px',
-        'header-mobile':   '56px',   // ← Added
-        'portal-content':  'calc(100vh - 60px)',  // ← Added
+        'header-mobile':   '56px',
+        'portal-content':  'calc(100vh - 60px)',
       },
 
-      /* ── Width ──────────────────────────────────────────── */
       width: {
         'sidebar':           '260px',
         'sidebar-collapsed': '72px',
       },
 
-      /* ── Min Height ─────────────────────────────────────── */
       minHeight: {
-        'screen-header': 'calc(100vh - 60px)',  // ← Added
+        'screen-header': 'calc(100vh - 60px)',
         '10': '2.5rem',
         '12': '3rem',
       },
 
-      /* ── Box Shadows ────────────────────────────────────── */
       boxShadow: {
         'xs':         '0 1px 2px rgba(99, 102, 241, 0.06)',
         'sm':         '0 1px 3px rgba(99, 102, 241, 0.08), 0 1px 2px rgba(0,0,0,0.04)',
@@ -275,7 +234,6 @@ const config: Config = {
         'primary':    '0 4px 14px rgba(99, 102, 241, 0.35)',
         'accent':     '0 4px 14px rgba(249, 115, 22, 0.35)',
         'inset-sm':   'inset 0 1px 2px rgba(99, 102, 241, 0.06)',
-        // ← Production additions
         'modal':      '0 25px 60px rgba(30, 27, 75, 0.25), 0 10px 20px rgba(0,0,0,0.1)',
         'dropdown':   '0 8px 24px rgba(99, 102, 241, 0.12), 0 2px 8px rgba(0,0,0,0.06)',
         'toast':      '0 8px 32px rgba(30, 27, 75, 0.12), 0 2px 8px rgba(0,0,0,0.06)',
@@ -284,7 +242,6 @@ const config: Config = {
         'none':       'none',
       },
 
-      /* ── Transitions ────────────────────────────────────── */
       transitionTimingFunction: {
         'expo':   'cubic-bezier(0.16, 1, 0.3, 1)',
         'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -305,7 +262,6 @@ const config: Config = {
         '700': '700ms',
       },
 
-      /* ── Background Images ──────────────────────────────── */
       backgroundImage: {
         'gradient-radial':   'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':    'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
@@ -313,45 +269,39 @@ const config: Config = {
         'gradient-accent':   'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
         'gradient-warm':     'linear-gradient(135deg, #6366f1 0%, #f97316 100%)',
         'gradient-aurora':   'linear-gradient(135deg, #4f46e5 0%, #7c3aed 40%, #db2777 100%)',
-        'gradient-success':  'linear-gradient(135deg, #10b981 0%, #059669 100%)',  // ← Added
-        'gradient-danger':   'linear-gradient(135deg, #f87171 0%, #ef4444 100%)',  // ← Added
+        'gradient-success':  'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        'gradient-danger':   'linear-gradient(135deg, #f87171 0%, #ef4444 100%)',
         'hero-glow': `
           radial-gradient(ellipse 80% 50% at 20% -10%, rgba(99,102,241,0.12) 0%, transparent 60%),
           radial-gradient(ellipse 60% 40% at 80% 110%, rgba(249,115,22,0.08) 0%, transparent 60%)
         `,
-        // Portal stat card top borders
-        'stat-primary':  'linear-gradient(90deg, #6366f1, #818cf8)',  // ← Added
-        'stat-success':  'linear-gradient(90deg, #10b981, #34d399)',  // ← Added
-        'stat-warning':  'linear-gradient(90deg, #f59e0b, #fbbf24)',  // ← Added
-        'stat-danger':   'linear-gradient(90deg, #ef4444, #f87171)', // ← Added
+        'stat-primary':  'linear-gradient(90deg, #6366f1, #818cf8)',
+        'stat-success':  'linear-gradient(90deg, #10b981, #34d399)',
+        'stat-warning':  'linear-gradient(90deg, #f59e0b, #fbbf24)',
+        'stat-danger':   'linear-gradient(90deg, #ef4444, #f87171)',
       },
 
-      /* ── Animations ─────────────────────────────────────── */
       animation: {
-        // Entry animations
         'fade-in':       'fadeIn 0.5s ease-out forwards',
-        'fade-out':      'fadeOut 0.3s ease-in forwards',  // ← Added
+        'fade-out':      'fadeOut 0.3s ease-in forwards',
         'slide-up':      'slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'slide-down':    'slideDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'slide-left':    'slideLeft 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'slide-right':   'slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards', // ← Added
+        'slide-right':   'slideRight 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'scale-in':      'scaleIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
-        'scale-out':     'scaleOut 0.2s ease-in forwards', // ← Added
-        // Continuous animations
+        'scale-out':     'scaleOut 0.2s ease-in forwards',
         'float':         'float 6s ease-in-out infinite',
         'shimmer':       'shimmer 1.8s ease-in-out infinite',
         'pulse-soft':    'pulseSoft 2.5s ease-in-out infinite',
         'bounce-gentle': 'bounceGentle 2s ease-in-out infinite',
         'spin-slow':     'spin 3s linear infinite',
-        // Portal specific
         'portal-enter':  'portalContentIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-        'sidebar-in':    'sidebarIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',  // ← Added
-        'overlay-in':    'overlayIn 0.25s ease forwards',    // ← Added
-        'toast-in':      'toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',    // ← Added
-        'toast-out':     'toastOut 0.3s ease-in forwards',   // ← Added
+        'sidebar-in':    'sidebarIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'overlay-in':    'overlayIn 0.25s ease forwards',
+        'toast-in':      'toastIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'toast-out':     'toastOut 0.3s ease-in forwards',
       },
 
-      /* ── Keyframes ──────────────────────────────────────── */
       keyframes: {
         fadeIn: {
           '0%':   { opacity: '0' },
@@ -413,7 +363,6 @@ const config: Config = {
           'from': { opacity: '0' },
           'to':   { opacity: '1' },
         },
-        // Toast slides in from right
         toastIn: {
           '0%':   { opacity: '0', transform: 'translateX(100%) scale(0.95)' },
           '100%': { opacity: '1', transform: 'translateX(0) scale(1)' },
@@ -424,30 +373,27 @@ const config: Config = {
         },
       },
 
-      /* ── Z-Index Scale ──────────────────────────────────── */
-      // Systematic z-index — no random values across codebase
       zIndex: {
-        '1':   '1',     // Slight elevation
-        '5':   '5',     // Cards hover
-        '10':  '10',    // Dropdowns
+        '1':   '1',
+        '5':   '5',
+        '10':  '10',
         '15':  '15',
-        '20':  '20',    // Sticky elements
+        '20':  '20',
         '25':  '25',
-        '30':  '30',    // Portal header
+        '30':  '30',
         '35':  '35',
-        '40':  '40',    // Mobile overlay
+        '40':  '40',
         '45':  '45',
-        '50':  '50',    // Sidebar mobile
+        '50':  '50',
         '55':  '55',
-        '60':  '60',    // Modals
-        '70':  '70',    // Toast notifications
-        '80':  '80',    // Tooltips
-        '90':  '90',    // Command palette
-        '100': '100',   // Critical overlays
+        '60':  '60',
+        '70':  '70',
+        '80':  '80',
+        '90':  '90',
+        '100': '100',
         'max': '2147483647',
       },
 
-      /* ── Opacity ────────────────────────────────────────── */
       opacity: {
         '15': '0.15',
         '35': '0.35',
@@ -455,7 +401,6 @@ const config: Config = {
         '85': '0.85',
       },
 
-      /* ── Blur ───────────────────────────────────────────── */
       blur: {
         'xs': '2px',
         '4xl': '72px',
@@ -463,13 +408,7 @@ const config: Config = {
     },
   },
 
-  plugins: [
-    // NOTE: Uncomment these as you install them
-    // require('@tailwindcss/forms'),        // Form reset & styling
-    // require('@tailwindcss/typography'),   // Prose content
-    // require('@tailwindcss/aspect-ratio'), // Media aspect ratios
-    // require('tailwindcss-animate'),       // Additional animations
-  ],
+  plugins: [],
 }
 
 export default config

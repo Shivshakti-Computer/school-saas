@@ -1,27 +1,78 @@
-// -------------------------------------------------------------
 // FILE: src/app/(dashboard)/student/results/page.tsx
-// -------------------------------------------------------------
+// Student portal — apne results dekho
+// ═══════════════════════════════════════════════════════════
+
 'use client'
+
 import { useState, useEffect } from 'react'
-import { Card, PageHeader, Badge, Spinner, EmptyState } from '@/components/ui'
-import { BookOpen } from 'lucide-react'
+import {
+    PageHeader, Badge, Card, Spinner, EmptyState, StatCard,
+} from '@/components/ui'
+import {
+    BookOpen, Trophy, TrendingUp, CheckCircle, XCircle,
+    Download, ChevronDown, ChevronUp,
+} from 'lucide-react'
+import { getCurrentAcademicYear } from '@/lib/academicYear'
+
+// ══════════════════════════════════════════════════════════
+// Types
+// ══════════════════════════════════════════════════════════
+
+interface Mark {
+    subject: string
+    marksObtained: number
+    maxMarks: number
+    grade: string
+    isAbsent: boolean
+}
 
 interface ResultItem {
     _id: string
-    examId: { name: string; class: string }
+    examId: {
+        _id: string
+        name: string
+        class: string
+        section: string
+        academicYear: string
+        resultPublished: boolean
+    }
+    marks: Mark[]
     totalMarks: number
     totalObtained: number
     percentage: number
     grade: string
+    rank?: number
     isPassed: boolean
-    marks: Array<{
-        subject: string
-        marksObtained: number
-        maxMarks: number
-        grade: string
-        isAbsent: boolean
-    }>
 }
+
+// ══════════════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════════════
+
+function gradeColor(grade: string): string {
+    const map: Record<string, string> = {
+        'A+': 'text-emerald-600',
+        'A': 'text-green-600',
+        'B+': 'text-blue-600',
+        'B': 'text-indigo-600',
+        'C+': 'text-amber-600',
+        'C': 'text-orange-600',
+        'D': 'text-red-500',
+        'F': 'text-red-700',
+        'AB': 'text-slate-400',
+    }
+    return map[grade] ?? 'text-slate-600'
+}
+
+function pctColor(pct: number): string {
+    if (pct >= 75) return 'text-[var(--success-dark)]'
+    if (pct >= 50) return 'text-[var(--warning-dark)]'
+    return 'text-[var(--danger-dark)]'
+}
+
+// ══════════════════════════════════════════════════════════
+// Main Component
+// ══════════════════════════════════════════════════════════
 
 export default function StudentResultsPage() {
     const [results, setResults] = useState<ResultItem[]>([])
@@ -29,88 +80,191 @@ export default function StudentResultsPage() {
     const [expanded, setExpanded] = useState<string | null>(null)
 
     useEffect(() => {
-        fetch('/api/students/results')
-            .then(r => r.json())
-            .then(d => { setResults(d.results ?? []); setLoading(false) })
+        const fetchResults = async () => {
+            try {
+                const res = await fetch('/api/students/results')
+                const data = await res.json()
+                setResults(data.results ?? [])
+            } catch (err) {
+                console.error('[STUDENT RESULTS]', err)
+            } finally {
+                setLoading(false)
+            }
+        }
+        fetchResults()
     }, [])
 
-    const gradeColor = (g: string) => {
-        if (['A+', 'A'].includes(g)) return 'success'
-        if (['B+', 'B'].includes(g)) return 'info'
-        if (['C+', 'C'].includes(g)) return 'warning'
-        return 'danger'
+    // ── Stats ──
+    const stats = {
+        total: results.length,
+        passed: results.filter(r => r.isPassed).length,
+        failed: results.filter(r => !r.isPassed).length,
+        avgPct: results.length > 0
+            ? Math.round(
+                results.reduce((s, r) => s + r.percentage, 0) / results.length
+            )
+            : 0,
+    }
+
+    if (loading) {
+        return (
+            <div className="flex justify-center py-16">
+                <Spinner size="lg" />
+            </div>
+        )
     }
 
     return (
-        <div className="space-y-4">
-            <PageHeader title="Exam Results" subtitle="Apne saare exam results dekho" />
+        <div className="portal-content-enter">
 
-            {loading ? (
-                <div className="flex justify-center py-16"><Spinner size="lg" /></div>
-            ) : results.length === 0 ? (
+            <PageHeader
+                title="My Results"
+                subtitle="View your exam results and report cards"
+            />
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <StatCard
+                    label="Exams Appeared"
+                    value={stats.total}
+                    icon={<BookOpen size={20} />}
+                    color="primary"
+                />
+                <StatCard
+                    label="Passed"
+                    value={stats.passed}
+                    icon={<CheckCircle size={20} />}
+                    color="success"
+                />
+                <StatCard
+                    label="Average %"
+                    value={`${stats.avgPct}%`}
+                    icon={<TrendingUp size={20} />}
+                    color="info"
+                />
+                <StatCard
+                    label="Failed"
+                    value={stats.failed}
+                    icon={<XCircle size={20} />}
+                    color="danger"
+                />
+            </div>
+
+            {/* Results List */}
+            {results.length === 0 ? (
                 <EmptyState
                     icon={<BookOpen size={24} />}
-                    title="Koi result nahi mila"
-                    description="Abhi tak koi exam result publish nahi hua hai"
+                    title="No results yet"
+                    description="Your exam results will appear here once published by your school"
                 />
             ) : (
-                <div className="space-y-3">
-                    {results.map(r => (
-                        <Card key={r._id} padding={false}>
-                            {/* Result header — click to expand */}
-                            <button
-                                className="w-full text-left px-5 py-4 flex items-center gap-4"
-                                onClick={() => setExpanded(expanded === r._id ? null : r._id)}
+                <div className="space-y-4">
+                    {results.map(result => (
+                        <Card key={result._id}>
+                            {/* Result Header */}
+                            <div
+                                className="flex items-center justify-between cursor-pointer"
+                                onClick={() =>
+                                    setExpanded(
+                                        expanded === result._id ? null : result._id
+                                    )
+                                }
                             >
-                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold flex-shrink-0 ${r.isPassed ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
-                                    }`}>
-                                    {r.grade}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-slate-800">
-                                        {(r.examId as any)?.name ?? 'Exam'}
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3">
+                                        <h3 className="font-semibold text-[var(--text-primary)]">
+                                            {result.examId?.name}
+                                        </h3>
+                                        <Badge variant={result.isPassed ? 'success' : 'danger'}>
+                                            {result.isPassed ? 'Pass' : 'Fail'}
+                                        </Badge>
+                                        {result.rank && (
+                                            <span className="flex items-center gap-1 text-xs text-amber-600 font-semibold">
+                                                <Trophy size={12} />
+                                                Rank #{result.rank}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">
+                                        {result.examId?.academicYear} ·
+                                        Class {result.examId?.class}
+                                        {result.examId?.section ? ` - ${result.examId.section}` : ''}
                                     </p>
-                                    <p className="text-sm text-slate-500 mt-0.5">
-                                        {r.totalObtained}/{r.totalMarks} marks · {r.percentage}%
-                                    </p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Badge variant={r.isPassed ? 'success' : 'danger'}>
-                                        {r.isPassed ? 'PASS' : 'FAIL'}
-                                    </Badge>
-                                    <span className="text-slate-400 text-sm">
-                                        {expanded === r._id ? '▲' : '▼'}
-                                    </span>
-                                </div>
-                            </button>
 
-                            {/* Subject-wise marks — expanded */}
-                            {expanded === r._id && (
-                                <div className="border-t border-slate-100">
-                                    <div className="divide-y divide-slate-50">
-                                        {r.marks.map(m => (
-                                            <div key={m.subject} className="flex items-center justify-between px-5 py-3">
-                                                <p className="text-sm text-slate-700">{m.subject}</p>
+                                {/* Summary */}
+                                <div className="flex items-center gap-6 mr-4">
+                                    <div className="text-center">
+                                        <p className="text-xs text-[var(--text-muted)]">Marks</p>
+                                        <p className="font-bold text-[var(--text-primary)]">
+                                            {result.totalObtained}/{result.totalMarks}
+                                        </p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs text-[var(--text-muted)]">%</p>
+                                        <p className={`font-bold ${pctColor(result.percentage)}`}>
+                                            {result.percentage}%
+                                        </p>
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs text-[var(--text-muted)]">Grade</p>
+                                        <p className={`text-lg font-black ${gradeColor(result.grade)}`}>
+                                            {result.grade}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    {/* Download report card */}
+                                    <a
+                                        href={`/api/pdf/reportcard/${result._id}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={e => e.stopPropagation()}
+                                        className="flex items-center gap-1 text-xs text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium px-2.5 py-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] hover:bg-[var(--bg-muted)] transition-all"
+                                    >
+                                        <Download size={12} />
+                                        Report Card
+                                    </a>
+
+                                    {expanded === result._id
+                                        ? <ChevronUp size={16} className="text-[var(--text-muted)]" />
+                                        : <ChevronDown size={16} className="text-[var(--text-muted)]" />
+                                    }
+                                </div>
+                            </div>
+
+                            {/* Subject-wise breakdown */}
+                            {expanded === result._id && (
+                                <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                                    <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide mb-3">
+                                        Subject-wise Marks
+                                    </p>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                        {result.marks.map(m => (
+                                            <div
+                                                key={m.subject}
+                                                className="flex items-center justify-between p-2.5 rounded-[var(--radius-sm)] bg-[var(--bg-muted)] border border-[var(--border)]"
+                                            >
+                                                <span className="text-sm text-[var(--text-primary)] font-medium">
+                                                    {m.subject}
+                                                </span>
                                                 <div className="flex items-center gap-3">
-                                                    <p className="text-sm text-slate-500">
-                                                        {m.isAbsent ? 'Absent' : `${m.marksObtained}/${m.maxMarks}`}
-                                                    </p>
-                                                    <Badge variant={gradeColor(m.grade) as any}>
-                                                        {m.isAbsent ? 'AB' : m.grade}
-                                                    </Badge>
+                                                    {m.isAbsent ? (
+                                                        <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-card)] px-2 py-0.5 rounded">
+                                                            Absent
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-sm font-semibold text-[var(--text-primary)]">
+                                                            {m.marksObtained}/{m.maxMarks}
+                                                        </span>
+                                                    )}
+                                                    <span className={`text-sm font-bold ${gradeColor(m.grade)}`}>
+                                                        {m.grade}
+                                                    </span>
                                                 </div>
                                             </div>
                                         ))}
-                                    </div>
-
-                                    {/* Download report card */}
-                                    <div className="px-5 py-3 border-t border-slate-50">
-                                        <button
-                                            onClick={() => window.open(`/api/pdf/reportcard/${r._id}`, '_blank')}
-                                            className="text-xs text-indigo-600 hover:underline"
-                                        >
-                                            📄 Download Report Card PDF
-                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -118,6 +272,7 @@ export default function StudentResultsPage() {
                     ))}
                 </div>
             )}
+
         </div>
     )
 }
