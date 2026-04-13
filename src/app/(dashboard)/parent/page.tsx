@@ -180,6 +180,7 @@ export default async function ParentDashboard() {
                     { href: '/parent/fees', label: 'Fee Payment', icon: '₹', color: 'bg-amber-50 text-amber-700' },
                     { href: '/parent/results', label: 'Exam Results', icon: '📋', color: 'bg-blue-50 text-blue-700' },
                     { href: '/parent/notices', label: 'School Notices', icon: '🔔', color: 'bg-purple-50 text-purple-700' },
+                    { href: '/parent/exams', label: 'Exam Schedule', icon: '🎫', color: 'bg-indigo-50 text-indigo-700' },
                 ].map(item => (
                     <Link key={item.href} href={item.href}>
                         <div className={`${item.color} rounded-xl p-4 flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer`}>

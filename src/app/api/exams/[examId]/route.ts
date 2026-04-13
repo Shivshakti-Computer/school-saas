@@ -1,7 +1,5 @@
-// FILE: src/app/api/exams/[examId]/route.ts
-// GET    → Single exam detail
-// PATCH  → Update exam (status, publish results)
-// DELETE → Delete exam
+// src/app/api/exams/[examId]/route.ts
+// COMPLETE FILE — GET + PATCH (fixed) + DELETE
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -33,13 +31,25 @@ export async function GET(req: NextRequest, { params }: Params) {
         const exam = await Exam.findOne({
             _id: examId,
             tenantId: session.user.tenantId,
-        }).lean()
+        }).lean() as any
 
         if (!exam) {
             return NextResponse.json({ error: 'Exam not found' }, { status: 404 })
         }
 
-        return NextResponse.json({ exam })
+        // ── Backward compat: normalize subjects ──────────────
+        // Purane docs mein maxMarks tha, naye mein totalMaxMarks hai
+        const normalized = {
+            ...exam,
+            subjects: (exam.subjects ?? []).map((s: any) => ({
+                ...s,
+                totalMaxMarks: s.totalMaxMarks ?? s.maxMarks ?? 0,
+                components: s.components ?? [],
+                isGradeOnly: s.isGradeOnly ?? false,
+            })),
+        }
+
+        return NextResponse.json({ exam: normalized })
 
     } catch (err: any) {
         console.error('[EXAM GET]', err)
@@ -51,7 +61,9 @@ export async function GET(req: NextRequest, { params }: Params) {
 }
 
 // ══════════════════════════════════════════════════════════
-// PATCH — Update Exam (status / publish)
+// PATCH — Update Exam
+// FIX: findOneAndUpdate instead of save() to avoid
+//      schema validation on old subjects missing totalMaxMarks
 // ══════════════════════════════════════════════════════════
 
 export async function PATCH(req: NextRequest, { params }: Params) {
@@ -70,27 +82,107 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     try {
         await connectDB()
 
-        const exam = await Exam.findOne({
+        // Pehle check karo exist karta hai ya nahi
+        const existing = await Exam.findOne({
             _id: examId,
             tenantId: session.user.tenantId,
-        })
+        }).lean() as any
 
-        if (!exam) {
+        if (!existing) {
             return NextResponse.json({ error: 'Exam not found' }, { status: 404 })
         }
 
-        // Allowed updates
-        const updates: any = {}
-        if (body.status && ['upcoming', 'ongoing', 'completed'].includes(body.status)) {
-            updates.status = body.status
-        }
-        if (typeof body.resultPublished === 'boolean') {
-            updates.resultPublished = body.resultPublished
-        }
-        if (body.name?.trim()) updates.name = body.name.trim()
+        // ── Build $set object (sirf allowed fields) ──────────
+        const $set: Record<string, any> = {}
 
-        Object.assign(exam, updates)
-        await exam.save()
+        if (
+            body.status &&
+            ['upcoming', 'ongoing', 'completed'].includes(body.status)
+        ) {
+            $set.status = body.status
+        }
+
+        if (typeof body.resultPublished === 'boolean') {
+            $set.resultPublished = body.resultPublished
+        }
+
+        if (typeof body.admitCardEnabled === 'boolean') {
+            $set.admitCardEnabled = body.admitCardEnabled
+        }
+
+        if (body.name?.trim()) {
+            $set.name = body.name.trim()
+        }
+
+        if (body.examCenter !== undefined) {
+            $set.examCenter = body.examCenter
+        }
+
+        if (Array.isArray(body.instructions)) {
+            $set.instructions = body.instructions
+        }
+
+        if (Array.isArray(body.subjects) && body.subjects.length > 0) {
+            $set.subjects = body.subjects.map((s: any) => {
+                const components = Array.isArray(s.components)
+                    ? s.components
+                        .filter((c: any) => c.name?.trim())
+                        .map((c: any) => ({
+                            name: c.name.trim(),
+                            maxMarks: Number(c.maxMarks) || 0,
+                        }))
+                    : []
+
+                const totalMaxMarks = components.length > 0
+                    ? components.reduce(
+                        (sum: number, c: any) => sum + c.maxMarks, 0
+                    )
+                    : Number(s.totalMaxMarks) || 0
+
+                return {
+                    name: s.name,
+                    date: s.isGradeOnly
+                        ? new Date()
+                        : new Date(s.date),
+                    time: s.time || '10:00 AM',
+                    duration: Number(s.duration) || 180,
+                    totalMaxMarks,
+                    minMarks: Number(s.minMarks) || 0,
+                    components,
+                    isGradeOnly: Boolean(s.isGradeOnly),
+                }
+            })
+        }
+
+        // ── findOneAndUpdate — bypass Mongoose validation ────
+        // runValidators: false → purane subjects ka schema
+        // mismatch ignore hoga
+        const updated = await Exam.findOneAndUpdate(
+            {
+                _id: examId,
+                tenantId: session.user.tenantId,
+            },
+            { $set },
+            {
+                new: true,
+                runValidators: false,  // ← KEY FIX
+            }
+        ).lean() as any
+
+        if (!updated) {
+            return NextResponse.json({ error: 'Update failed' }, { status: 500 })
+        }
+
+        // Normalize response
+        const normalized = {
+            ...updated,
+            subjects: (updated.subjects ?? []).map((s: any) => ({
+                ...s,
+                totalMaxMarks: s.totalMaxMarks ?? s.maxMarks ?? 0,
+                components: s.components ?? [],
+                isGradeOnly: s.isGradeOnly ?? false,
+            })),
+        }
 
         await logAudit({
             tenantId: session.user.tenantId,
@@ -100,14 +192,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
             action: 'UPDATE',
             resource: 'Exam',
             resourceId: examId,
-            description: `Updated exam: ${exam.name}`,
-            metadata: updates,
+            description: `Updated exam: ${updated.name}`,
+            metadata: $set,
             ipAddress: clientInfo.ip,
             userAgent: clientInfo.userAgent,
             status: 'SUCCESS',
         })
 
-        return NextResponse.json({ exam })
+        return NextResponse.json({ exam: normalized })
 
     } catch (err: any) {
         console.error('[EXAM PATCH]', err)
@@ -141,16 +233,18 @@ export async function DELETE(req: NextRequest, { params }: Params) {
         const exam = await Exam.findOne({
             _id: examId,
             tenantId: session.user.tenantId,
-        })
+        }).lean() as any
 
         if (!exam) {
             return NextResponse.json({ error: 'Exam not found' }, { status: 404 })
         }
 
-        // Delete exam + all results
         await Promise.all([
             Exam.findByIdAndDelete(examId),
-            Result.deleteMany({ examId, tenantId: session.user.tenantId }),
+            Result.deleteMany({
+                examId,
+                tenantId: session.user.tenantId,
+            }),
         ])
 
         await logAudit({

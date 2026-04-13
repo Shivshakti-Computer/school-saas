@@ -477,6 +477,7 @@ export function getSidebarNav(
   if (role === 'student') {
     return [
       { key: 'attendance', label: 'Attendance', icon: 'CheckSquare', href: '/student/attendance', color: '#059669' },
+      { key: 'admitcard', label: 'Admit Card', icon: 'IdCard', href: '/student/exams', color: '#ba0f0c' },
       { key: 'results', label: 'Exam Results', icon: 'BookOpen', href: '/student/results', color: '#2563EB' },
       { key: 'fees', label: 'Fees', icon: 'CreditCard', href: '/student/fees', color: '#D97706' },
       { key: 'notices', label: 'Notices', icon: 'Bell', href: '/student/notices', color: '#7C3AED' },
@@ -487,6 +488,7 @@ export function getSidebarNav(
   if (role === 'parent') {
     return [
       { key: 'attendance', label: 'Attendance', icon: 'CheckSquare', href: '/parent/attendance', color: '#059669' },
+      { key: 'admitcard', label: 'Admit Card', icon: 'IdCard', href: '/parent/exams', color: '#ba0f0c' },
       { key: 'fees', label: 'Fee Payment', icon: 'CreditCard', href: '/parent/fees', color: '#D97706' },
       { key: 'results', label: 'Results', icon: 'BookOpen', href: '/parent/results', color: '#2563EB' },
       { key: 'notices', label: 'Notices', icon: 'Bell', href: '/parent/notices', color: '#7C3AED' },

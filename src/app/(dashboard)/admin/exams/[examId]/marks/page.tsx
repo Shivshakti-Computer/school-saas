@@ -1,22 +1,56 @@
-// FILE: src/app/(dashboard)/admin/exams/[examId]/marks/page.tsx
-// FIX: academicYear filter added in student fetch
-// Exam ke academicYear se hi students fetch honge
+// src/app/(dashboard)/admin/exams/[examId]/marks/page.tsx
+// UPGRADED:
+//   - Composite marks entry (Theory + Practical + etc.)
+//   - Nursery/KG grade-only mode
+//   - Inline result preview after save
+//   - Admit card download link
+//   - Backward compatible (simple mode unchanged)
+// ═══════════════════════════════════════════════════════════
 
 'use client'
 
 import { useState, useEffect, use, useCallback } from 'react'
+import Link from 'next/link'
 import {
     Button, Card, PageHeader, Alert, Spinner, EmptyState,
 } from '@/components/ui'
-import { BookOpen, Save, ArrowLeft, Users, CheckCircle } from 'lucide-react'
-import Link from 'next/link'
+import {
+    BookOpen, Save, ArrowLeft, Users, CheckCircle,
+    FileText, BarChart3, Trophy, ChevronDown, ChevronUp,
+} from 'lucide-react'
+
+// ══════════════════════════════════════════════════════════
+// Types
+// ══════════════════════════════════════════════════════════
+
+interface SubjectComponent {
+    name: string
+    maxMarks: number
+}
 
 interface SubjectConfig {
     name: string
-    maxMarks: number
+    totalMaxMarks: number
     minMarks: number
     date: string
     time: string
+    duration: number
+    components: SubjectComponent[]
+    isGradeOnly: boolean
+}
+
+interface ComponentMark {
+    name: string
+    marksObtained: number
+    maxMarks: number
+}
+
+interface SubjectMark {
+    marksObtained: number   // simple mode ya composite total
+    isAbsent: boolean
+    components: ComponentMark[]
+    activityGrade: string   // nursery/kg ke liye
+    remarks: string
 }
 
 interface StudentMark {
@@ -24,30 +58,83 @@ interface StudentMark {
     name: string
     admissionNo: string
     rollNo: string
-    marks: Record<string, {
-        marksObtained: number
-        isAbsent: boolean
-    }>
+    marks: Record<string, SubjectMark>
+    // Result preview (after save)
+    savedResult?: {
+        rank: number
+        percentage: number
+        grade: string
+        isPassed: boolean
+        totalObtained: number
+        totalMarks: number
+        resultId: string
+    }
 }
 
-function calcTotal(
+// Activity grades for Nursery/KG
+const ACTIVITY_GRADES = [
+    'Outstanding',
+    'Excellent',
+    'Very Good',
+    'Good',
+    'Satisfactory',
+    'Needs Improvement',
+]
+
+// ══════════════════════════════════════════════════════════
+// Helpers
+// ══════════════════════════════════════════════════════════
+
+function calcStudentTotal(
     marks: StudentMark['marks'],
     subjects: SubjectConfig[]
 ): { obtained: number; total: number; pct: number } {
-    const total = subjects.reduce((s, sub) => s + sub.maxMarks, 0)
-    const obtained = subjects.reduce((s, sub) => {
-        const m = marks[sub.name]
-        return s + (m?.isAbsent ? 0 : (m?.marksObtained || 0))
-    }, 0)
+    const total = subjects
+        .filter(s => !s.isGradeOnly)
+        .reduce((s, sub) => s + sub.totalMaxMarks, 0)
+
+    const obtained = subjects
+        .filter(s => !s.isGradeOnly)
+        .reduce((s, sub) => {
+            const m = marks[sub.name]
+            if (!m || m.isAbsent) return s
+
+            // Composite mode: sum of components
+            if (sub.components?.length > 0 && m.components?.length > 0) {
+                return s + m.components.reduce((cs, c) => cs + (c.marksObtained || 0), 0)
+            }
+            return s + (m.marksObtained || 0)
+        }, 0)
+
     const pct = total > 0 ? Math.round((obtained / total) * 100) : 0
     return { obtained, total, pct }
 }
 
-function gradeColor(pct: number): string {
+function pctColor(pct: number): string {
     if (pct >= 75) return 'text-[var(--success-dark)]'
     if (pct >= 50) return 'text-[var(--warning-dark)]'
     return 'text-[var(--danger-dark)]'
 }
+
+function makeDefaultMark(sub: SubjectConfig): SubjectMark {
+    return {
+        marksObtained: 0,
+        isAbsent: false,
+        activityGrade: '',
+        remarks: '',
+        components: sub.components?.length > 0
+            ? sub.components.map(c => ({
+                name: c.name,
+                marksObtained: 0,
+                maxMarks: c.maxMarks,
+            }))
+            : [],
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+// Main Page
+// ══════════════════════════════════════════════════════════
 
 export default function MarksEntryPage({
     params,
@@ -65,41 +152,37 @@ export default function MarksEntryPage({
         type: 'success' | 'error'; msg: string
     } | null>(null)
 
+    // Expanded rows for mobile (show subject breakdown)
+    const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+    // ── Load Data ──────────────────────────────────────────
     const loadData = useCallback(async () => {
         setLoading(true)
         try {
-            // ── Step 1: Exam fetch ──────────────────────────────
+            // Step 1: Fetch exam
             const examRes = await fetch(`/api/exams/${examId}`)
             const examData = await examRes.json()
             if (!examRes.ok) throw new Error(examData.error || 'Exam not found')
-            setExam(examData.exam)
+            const examDoc = examData.exam
+            setExam(examDoc)
 
-            const exam = examData.exam
-
-            // ── Step 2: Students fetch ──────────────────────────
-            // ✅ BUG FIX: academicYear ab exam se aayega
-            // Pehle academicYear nahi tha → sab years ke students aate the
+            // Step 2: Fetch students + existing results in parallel
             const stuParams = new URLSearchParams({
-                class: exam.class,
-                academicYear: exam.academicYear,  // ← YE MISSING THA
+                class: examDoc.class,
+                academicYear: examDoc.academicYear,
                 status: 'active',
                 limit: '500',
             })
+            if (examDoc.section) stuParams.set('section', examDoc.section)
 
-            // Section optional hai — sirf tab add karo jab ho
-            if (exam.section) {
-                stuParams.set('section', exam.section)
-            }
-
-            // ── Step 3: Students + Existing results parallel fetch ──
             const [stuRes, resRes] = await Promise.all([
                 fetch(`/api/students?${stuParams}`),
                 fetch(`/api/exams/results?examId=${examId}`),
             ])
 
             if (!stuRes.ok) {
-                const err = await stuRes.json()
-                throw new Error(err.error || 'Failed to fetch students')
+                const e = await stuRes.json()
+                throw new Error(e.error || 'Failed to fetch students')
             }
 
             const [stuData, resData] = await Promise.all([
@@ -107,46 +190,95 @@ export default function MarksEntryPage({
                 resRes.json(),
             ])
 
-            // ── Step 4: Existing results map ───────────────────
-            const existingMap: Record<string, any> = {}
+            // Step 3: Build existing result map
+            const existingResultMap: Record<string, any> = {}
+            const resultIdMap: Record<string, string> = {}
+
             for (const r of resData.results ?? []) {
-                const sid = r.studentId?._id ?? r.studentId
-                existingMap[String(sid)] = r
+                const sid = String(r.studentId?._id ?? r.studentId)
+                existingResultMap[sid] = r
+                resultIdMap[sid] = String(r._id)
             }
 
-            // ── Step 5: Build marks grid ────────────────────────
+            // Step 4: Build marks grid
             const grid: StudentMark[] = (stuData.students ?? [])
                 .sort((a: any, b: any) => {
-                    // Roll number se sort karo
-                    const rollA = parseInt(a.rollNo) || 0
-                    const rollB = parseInt(b.rollNo) || 0
-                    return rollA - rollB
+                    const rA = parseInt(a.rollNo) || 0
+                    const rB = parseInt(b.rollNo) || 0
+                    return rA - rB
                 })
                 .map((s: any) => {
-                    const existing = existingMap[String(s._id)]
-                    const marks: StudentMark['marks'] = {}
+                    const sid = String(s._id)
+                    const existing = existingResultMap[sid]
+                    const marks: Record<string, SubjectMark> = {}
 
-                    for (const sub of exam.subjects ?? []) {
-                        const em = existing?.marks?.find(
+                    for (const sub of examDoc.subjects ?? []) {
+                        const existingMark = existing?.marks?.find(
                             (m: any) => m.subject === sub.name
                         )
-                        marks[sub.name] = {
-                            marksObtained: em?.marksObtained ?? 0,
-                            isAbsent: em?.isAbsent ?? false,
+
+                        if (sub.isGradeOnly) {
+                            marks[sub.name] = {
+                                marksObtained: 0,
+                                isAbsent: existingMark?.isAbsent ?? false,
+                                activityGrade: existingMark?.activityGrade ?? '',
+                                remarks: existingMark?.remarks ?? '',
+                                components: [],
+                            }
+                        } else if (sub.components?.length > 0) {
+                            // Composite mode
+                            marks[sub.name] = {
+                                marksObtained: existingMark?.marksObtained ?? 0,
+                                isAbsent: existingMark?.isAbsent ?? false,
+                                activityGrade: '',
+                                remarks: existingMark?.remarks ?? '',
+                                components: sub.components.map((c: SubjectComponent) => {
+                                    const ec = existingMark?.components?.find(
+                                        (ec: any) => ec.name === c.name
+                                    )
+                                    return {
+                                        name: c.name,
+                                        marksObtained: ec?.marksObtained ?? 0,
+                                        maxMarks: c.maxMarks,
+                                    }
+                                }),
+                            }
+                        } else {
+                            // Simple mode
+                            marks[sub.name] = {
+                                marksObtained: existingMark?.marksObtained ?? 0,
+                                isAbsent: existingMark?.isAbsent ?? false,
+                                activityGrade: '',
+                                remarks: existingMark?.remarks ?? '',
+                                components: [],
+                            }
                         }
                     }
 
+                    // Attach saved result preview if exists
+                    const savedResult = existing
+                        ? {
+                            rank: existing.rank ?? 0,
+                            percentage: existing.percentage ?? 0,
+                            grade: existing.grade ?? '',
+                            isPassed: existing.isPassed ?? false,
+                            totalObtained: existing.totalObtained ?? 0,
+                            totalMarks: existing.totalMarks ?? 0,
+                            resultId: resultIdMap[sid] ?? '',
+                        }
+                        : undefined
+
                     return {
-                        studentId: String(s._id),
+                        studentId: sid,
                         name: s.userId?.name ?? 'Unknown',
                         admissionNo: s.admissionNo,
                         rollNo: s.rollNo,
                         marks,
+                        savedResult,
                     }
                 })
 
             setStudents(grid)
-
         } catch (err: any) {
             console.error('[MARKS ENTRY]', err)
             setAlert({ type: 'error', msg: err.message })
@@ -157,45 +289,89 @@ export default function MarksEntryPage({
 
     useEffect(() => { loadData() }, [loadData])
 
-    const updateMark = (
+    // ── Update mark helpers ────────────────────────────────
+
+    const updateSimpleMark = (
         studentId: string,
         subject: string,
-        field: 'marksObtained' | 'isAbsent',
+        field: keyof SubjectMark,
         value: any
     ) => {
         setSaved(false)
-        setStudents(prev =>
-            prev.map(s => {
-                if (s.studentId !== studentId) return s
-                return {
-                    ...s,
-                    marks: {
-                        ...s.marks,
-                        [subject]: {
-                            ...s.marks[subject],
-                            [field]: field === 'marksObtained' ? Number(value) : value,
-                            ...(field === 'isAbsent' && value
-                                ? { marksObtained: 0 }
-                                : {}),
-                        },
-                    },
-                }
-            })
-        )
+        setStudents(prev => prev.map(s => {
+            if (s.studentId !== studentId) return s
+            const existing = s.marks[subject] ?? makeDefaultMark(
+                exam?.subjects?.find((sub: any) => sub.name === subject)
+            )
+            const updated: SubjectMark = {
+                ...existing,
+                [field]: field === 'marksObtained' ? Number(value) : value,
+            }
+            // If marked absent → reset marks
+            if (field === 'isAbsent' && value === true) {
+                updated.marksObtained = 0
+                updated.components = updated.components.map(c => ({
+                    ...c, marksObtained: 0,
+                }))
+            }
+            return { ...s, marks: { ...s.marks, [subject]: updated } }
+        }))
     }
 
+    const updateComponentMark = (
+        studentId: string,
+        subject: string,
+        compIdx: number,
+        obtained: number
+    ) => {
+        setSaved(false)
+        setStudents(prev => prev.map(s => {
+            if (s.studentId !== studentId) return s
+            const existing = s.marks[subject]
+            if (!existing) return s
+
+            const newComps = existing.components.map((c, i) =>
+                i === compIdx
+                    ? { ...c, marksObtained: Math.min(obtained, c.maxMarks) }
+                    : c
+            )
+            const total = newComps.reduce((sum, c) => sum + (c.marksObtained || 0), 0)
+
+            return {
+                ...s,
+                marks: {
+                    ...s.marks,
+                    [subject]: {
+                        ...existing,
+                        components: newComps,
+                        marksObtained: total,
+                    },
+                },
+            }
+        }))
+    }
+
+    // ── Save Marks ─────────────────────────────────────────
+
     const saveMarks = async () => {
+        if (!exam) return
         setSaving(true)
         setAlert(null)
 
         try {
             const results = students.map(s => ({
                 studentId: s.studentId,
-                marks: Object.entries(s.marks).map(([subject, m]) => ({
-                    subject,
-                    marksObtained: m.marksObtained,
-                    isAbsent: m.isAbsent,
-                })),
+                marks: exam.subjects.map((sub: SubjectConfig) => {
+                    const m = s.marks[sub.name] ?? makeDefaultMark(sub)
+                    return {
+                        subject: sub.name,
+                        marksObtained: m.isAbsent ? 0 : m.marksObtained,
+                        isAbsent: m.isAbsent,
+                        activityGrade: m.activityGrade,
+                        remarks: m.remarks,
+                        components: m.components,
+                    }
+                }),
             }))
 
             const res = await fetch('/api/exams/results', {
@@ -203,7 +379,6 @@ export default function MarksEntryPage({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ examId, results }),
             })
-
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Failed to save')
 
@@ -212,6 +387,9 @@ export default function MarksEntryPage({
                 type: 'success',
                 msg: `✅ Marks saved for ${data.saved} students! Ranks calculated.`,
             })
+
+            // Reload to get updated ranks + result IDs
+            await loadData()
         } catch (err: any) {
             setAlert({ type: 'error', msg: err.message })
         } finally {
@@ -219,7 +397,18 @@ export default function MarksEntryPage({
         }
     }
 
-    // ── Loading ──────────────────────────────────────────────
+    // ── Toggle row expand (mobile) ─────────────────────────
+
+    const toggleExpand = (sid: string) => {
+        setExpanded(prev => {
+            const next = new Set(prev)
+            next.has(sid) ? next.delete(sid) : next.add(sid)
+            return next
+        })
+    }
+
+    // ── Loading / Error states ─────────────────────────────
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -243,16 +432,23 @@ export default function MarksEntryPage({
     }
 
     const subjects: SubjectConfig[] = exam.subjects ?? []
+    const hasGradeOnly = subjects.some((s: SubjectConfig) => s.isGradeOnly)
+    const hasComposite = subjects.some(
+        (s: SubjectConfig) => !s.isGradeOnly && s.components?.length > 0
+    )
+
     const totalStudents = students.length
     const filledCount = students.filter(s =>
-        Object.values(s.marks).some(m => m.isAbsent || m.marksObtained > 0)
+        Object.values(s.marks).some(
+            m => m.isAbsent || m.marksObtained > 0 || m.activityGrade
+        )
     ).length
 
     return (
-        <div className="portal-content-enter">
+        <div className="portal-content-enter space-y-5">
 
-            {/* Back */}
-            <div className="mb-3">
+            {/* ── Back ── */}
+            <div>
                 <Link href="/admin/exams">
                     <Button variant="ghost" size="sm">
                         <ArrowLeft size={14} /> Back to Exams
@@ -260,12 +456,18 @@ export default function MarksEntryPage({
                 </Link>
             </div>
 
-            {/* Header */}
+            {/* ── Header ── */}
             <PageHeader
                 title={`Marks Entry — ${exam.name}`}
                 subtitle={`Class ${exam.class}${exam.section ? ` - ${exam.section}` : ''} · ${exam.academicYear}`}
                 action={
                     <div className="flex items-center gap-3">
+                        {/* Results dashboard link */}
+                        <Link href={`/admin/exams/${examId}/results`}>
+                            <Button variant="ghost" size="sm">
+                                <BarChart3 size={14} /> View Results
+                            </Button>
+                        </Link>
                         {saved && (
                             <span className="flex items-center gap-1.5 text-sm text-[var(--success-dark)] font-medium">
                                 <CheckCircle size={15} /> Saved
@@ -278,31 +480,39 @@ export default function MarksEntryPage({
                 }
             />
 
-            {/* Alert */}
+            {/* ── Alert ── */}
             {alert && (
-                <div className="mb-5">
-                    <Alert
-                        type={alert.type}
-                        message={alert.msg}
-                        onClose={() => setAlert(null)}
-                    />
-                </div>
+                <Alert
+                    type={alert.type}
+                    message={alert.msg}
+                    onClose={() => setAlert(null)}
+                />
             )}
 
-            {/* ✅ Academic Year Info Banner */}
-            <div className="flex items-center gap-3 mb-5 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--info-light)] border border-[rgba(59,130,246,0.2)]">
+            {/* ── Info banner ── */}
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--info-light)] border border-[rgba(59,130,246,0.2)]">
                 <span className="text-xs text-[var(--info-dark)]">
                     📚 Showing students of{' '}
-                    <strong>Class {exam.class}{exam.section ? ` - ${exam.section}` : ''}</strong>
-                    {' '}for academic year{' '}
-                    <strong>{exam.academicYear}</strong>
-                    {' '}only
+                    <strong>
+                        Class {exam.class}{exam.section ? ` - ${exam.section}` : ''}
+                    </strong>{' '}
+                    for <strong>{exam.academicYear}</strong> only.
+                    {hasComposite && (
+                        <span className="ml-2">
+                            📊 Composite marks mode active.
+                        </span>
+                    )}
+                    {hasGradeOnly && (
+                        <span className="ml-2">
+                            🎨 Activity-based grading for some subjects.
+                        </span>
+                    )}
                 </span>
             </div>
 
-            {/* Progress bar */}
-            <div className="flex items-center gap-4 mb-5 p-3 bg-[var(--bg-muted)] rounded-[var(--radius-md)] border border-[var(--border)]">
-                <Users size={16} className="text-[var(--text-muted)]" />
+            {/* ── Progress bar ── */}
+            <div className="flex items-center gap-4 p-3 bg-[var(--bg-muted)] rounded-[var(--radius-md)] border border-[var(--border)]">
+                <Users size={16} className="text-[var(--text-muted)] flex-shrink-0" />
                 <span className="text-sm text-[var(--text-secondary)]">
                     <span className="font-semibold text-[var(--primary-600)]">
                         {filledCount}
@@ -311,23 +521,23 @@ export default function MarksEntryPage({
                 </span>
                 <div className="flex-1 bg-[var(--border)] rounded-full h-1.5">
                     <div
-                        className="bg-[var(--primary-500)] h-1.5 rounded-full transition-all duration-300"
+                        className="bg-[var(--primary-500)] h-1.5 rounded-full transition-all duration-500"
                         style={{
                             width: totalStudents > 0
-                                ? `${(filledCount / totalStudents) * 100}%`
+                                ? `${Math.round((filledCount / totalStudents) * 100)}%`
                                 : '0%',
                         }}
                     />
                 </div>
-                <span className="text-xs text-[var(--text-muted)]">
+                <span className="text-xs text-[var(--text-muted)] tabular-nums flex-shrink-0">
                     {totalStudents > 0
                         ? Math.round((filledCount / totalStudents) * 100)
                         : 0}%
                 </span>
             </div>
 
-            {/* Subject Info Cards */}
-            <div className="flex gap-2 flex-wrap mb-5">
+            {/* ── Subject info chips ── */}
+            <div className="flex gap-2 flex-wrap">
                 {subjects.map(sub => (
                     <div
                         key={sub.name}
@@ -335,18 +545,28 @@ export default function MarksEntryPage({
                     >
                         <p className="text-xs font-semibold text-[var(--text-primary)]">
                             {sub.name}
+                            {sub.isGradeOnly && (
+                                <span className="ml-1.5 text-[10px] text-[var(--primary-500)] font-normal">
+                                    (Grade only)
+                                </span>
+                            )}
                         </p>
-                        <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                            Max: {sub.maxMarks} · Pass: {sub.minMarks}
-                            {sub.date && ` · ${new Date(sub.date).toLocaleDateString(
-                                'en-IN', { day: '2-digit', month: 'short' }
-                            )}`}
-                        </p>
+                        {!sub.isGradeOnly && (
+                            <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
+                                {sub.components?.length > 0
+                                    ? sub.components.map(c => `${c.name}:${c.maxMarks}`).join(' + ')
+                                    : `Max: ${sub.totalMaxMarks}`}
+                                {' '}· Pass: {sub.minMarks}
+                                {sub.date && ` · ${new Date(sub.date).toLocaleDateString(
+                                    'en-IN', { day: '2-digit', month: 'short' }
+                                )}`}
+                            </p>
+                        )}
                     </div>
                 ))}
             </div>
 
-            {/* Marks Grid */}
+            {/* ── Empty state ── */}
             {students.length === 0 ? (
                 <EmptyState
                     icon={<Users size={24} />}
@@ -354,179 +574,502 @@ export default function MarksEntryPage({
                     description={`No active students in Class ${exam.class}${exam.section ? ` - ${exam.section}` : ''} for ${exam.academicYear}`}
                     action={
                         <Link href="/admin/students">
-                            <Button variant="ghost" size="sm">
-                                Go to Students →
-                            </Button>
+                            <Button variant="ghost" size="sm">Go to Students →</Button>
                         </Link>
                     }
                 />
             ) : (
-                <Card padding={false}>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-[var(--border)] bg-[var(--bg-muted)]">
-                                    {/* Student col */}
-                                    <th className="text-left px-4 py-3 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide sticky left-0 bg-[var(--bg-muted)] min-w-[200px] z-10">
-                                        Student
-                                    </th>
+                <>
+                    {/* ── Marks Table ── */}
+                    <Card padding={false}>
+                        <div className="overflow-x-auto portal-main-scroll">
+                            <table className="w-full text-sm border-collapse">
 
-                                    {/* Subject cols */}
-                                    {subjects.map(sub => (
-                                        <th
-                                            key={sub.name}
-                                            className="text-center px-3 py-3 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide min-w-[130px]"
-                                        >
-                                            <div className="text-[var(--text-primary)]">
-                                                {sub.name}
-                                            </div>
-                                            <div className="font-normal normal-case text-[10px] text-[var(--text-muted)] mt-0.5">
-                                                /{sub.maxMarks} · pass {sub.minMarks}
-                                            </div>
+                                {/* ── Table Head ── */}
+                                <thead>
+                                    <tr className="border-b border-[var(--border)] bg-[var(--bg-muted)]">
+
+                                        {/* Student col */}
+                                        <th className="
+                      text-left px-4 py-3
+                      text-xs font-semibold text-[var(--text-muted)]
+                      uppercase tracking-wide
+                      sticky left-0 bg-[var(--bg-muted)] z-10
+                      min-w-[200px] border-r border-[var(--border)]
+                    ">
+                                            Student
                                         </th>
-                                    ))}
 
-                                    {/* Total col */}
-                                    <th className="text-center px-3 py-3 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wide min-w-[100px]">
-                                        Total
-                                    </th>
-                                </tr>
-                            </thead>
+                                        {/* Subject cols */}
+                                        {subjects.map(sub => (
+                                            <th
+                                                key={sub.name}
+                                                className="
+                          text-center px-2 py-3
+                          text-xs font-semibold text-[var(--text-muted)]
+                          uppercase tracking-wide
+                        "
+                                                style={{
+                                                    minWidth: sub.isGradeOnly
+                                                        ? '160px'
+                                                        : sub.components?.length > 0
+                                                            ? `${sub.components.length * 80 + 20}px`
+                                                            : '110px',
+                                                }}
+                                            >
+                                                <div className="text-[var(--text-primary)]">
+                                                    {sub.name}
+                                                </div>
+                                                {!sub.isGradeOnly && (
+                                                    <div className="font-normal normal-case text-[10px] text-[var(--text-muted)] mt-0.5">
+                                                        {sub.components?.length > 0
+                                                            ? sub.components.map(c => `${c.name}(${c.maxMarks})`).join(' · ')
+                                                            : `/${sub.totalMaxMarks} · pass ${sub.minMarks}`}
+                                                    </div>
+                                                )}
+                                            </th>
+                                        ))}
 
-                            <tbody className="divide-y divide-[var(--border)]">
-                                {students.map((s, rowIdx) => {
-                                    const { obtained, total, pct } = calcTotal(s.marks, subjects)
-                                    const hasAnyMark = Object.values(s.marks).some(
-                                        m => m.isAbsent || m.marksObtained > 0
-                                    )
+                                        {/* Total col */}
+                                        <th className="
+                      text-center px-3 py-3
+                      text-xs font-semibold text-[var(--text-muted)]
+                      uppercase tracking-wide min-w-[120px]
+                    ">
+                                            Total / Result
+                                        </th>
+                                    </tr>
+                                </thead>
 
-                                    return (
-                                        <tr
-                                            key={s.studentId}
-                                            className={[
-                                                'transition-colors',
-                                                rowIdx % 2 === 0
-                                                    ? 'bg-[var(--bg-card)]'
-                                                    : 'bg-[var(--bg-subtle)]',
-                                                'hover:bg-[var(--bg-muted)]',
-                                            ].join(' ')}
-                                        >
-                                            {/* Student info */}
-                                            <td className="px-4 py-2.5 sticky left-0 bg-inherit z-10 border-r border-[var(--border)]">
-                                                <p className="text-sm font-semibold text-[var(--text-primary)]">
-                                                    {s.name}
-                                                </p>
-                                                <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">
-                                                    {s.admissionNo} · Roll {s.rollNo}
-                                                </p>
-                                            </td>
+                                {/* ── Table Body ── */}
+                                <tbody className="divide-y divide-[var(--border)]">
+                                    {students.map((s, rowIdx) => {
+                                        const { obtained, total, pct } = calcStudentTotal(
+                                            s.marks, subjects
+                                        )
+                                        const hasAnyEntry = Object.values(s.marks).some(
+                                            m => m.isAbsent || m.marksObtained > 0 || m.activityGrade
+                                        )
+                                        const rowBg = rowIdx % 2 === 0
+                                            ? 'bg-[var(--bg-card)]'
+                                            : 'bg-[var(--bg-subtle)]'
 
-                                            {/* Subject marks */}
-                                            {subjects.map(sub => {
-                                                const mark = s.marks[sub.name] ?? {
-                                                    marksObtained: 0,
-                                                    isAbsent: false,
-                                                }
-                                                const isFail =
-                                                    !mark.isAbsent &&
-                                                    mark.marksObtained > 0 &&
-                                                    mark.marksObtained < sub.minMarks
+                                        return (
+                                            <tr
+                                                key={s.studentId}
+                                                className={`${rowBg} hover:bg-[var(--bg-muted)] transition-colors`}
+                                            >
+                                                {/* ── Student Info ── */}
+                                                <td className="
+                          px-4 py-3
+                          sticky left-0 bg-inherit z-10
+                          border-r border-[var(--border)]
+                        ">
+                                                    <div className="flex items-start justify-between gap-2">
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                                                                {s.name}
+                                                            </p>
+                                                            <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">
+                                                                {s.admissionNo} · Roll {s.rollNo}
+                                                            </p>
+                                                        </div>
+                                                        {/* Saved result badge */}
+                                                        {s.savedResult && (
+                                                            <div className="flex-shrink-0">
+                                                                <span className={[
+                                                                    'inline-flex items-center gap-1 text-[10px] font-bold',
+                                                                    'px-1.5 py-0.5 rounded-[var(--radius-xs)]',
+                                                                    s.savedResult.isPassed
+                                                                        ? 'bg-[var(--success-light)] text-[var(--success-dark)]'
+                                                                        : 'bg-[var(--danger-light)] text-[var(--danger-dark)]',
+                                                                ].join(' ')}>
+                                                                    {s.savedResult.isPassed ? '✓ P' : '✗ F'}
+                                                                    {s.savedResult.rank
+                                                                        ? ` · #${s.savedResult.rank}`
+                                                                        : ''}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
 
-                                                const isPass =
-                                                    !mark.isAbsent &&
-                                                    mark.marksObtained >= sub.minMarks &&
-                                                    mark.marksObtained > 0
+                                                {/* ── Subject Mark Cells ── */}
+                                                {subjects.map(sub => {
+                                                    const mark = s.marks[sub.name]
+                                                        ?? makeDefaultMark(sub)
 
-                                                return (
-                                                    <td
-                                                        key={sub.name}
-                                                        className="px-3 py-2 text-center"
-                                                    >
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <input
-                                                                type="number"
-                                                                min={0}
-                                                                max={sub.maxMarks}
-                                                                value={
-                                                                    mark.isAbsent
-                                                                        ? ''
-                                                                        : mark.marksObtained || ''
-                                                                }
-                                                                disabled={mark.isAbsent}
-                                                                placeholder={mark.isAbsent ? 'AB' : '—'}
-                                                                onChange={e =>
-                                                                    updateMark(
+                                                    // ── Grade Only (Nursery/KG) ──
+                                                    if (sub.isGradeOnly) {
+                                                        return (
+                                                            <td
+                                                                key={sub.name}
+                                                                className="px-2 py-2 text-center"
+                                                            >
+                                                                <div className="flex flex-col gap-1 items-center">
+                                                                    <select
+                                                                        value={mark.activityGrade}
+                                                                        disabled={mark.isAbsent}
+                                                                        onChange={e => updateSimpleMark(
+                                                                            s.studentId, sub.name,
+                                                                            'activityGrade', e.target.value
+                                                                        )}
+                                                                        className={[
+                                                                            'text-xs rounded-[var(--radius-sm)] border px-1.5 py-1',
+                                                                            'bg-[var(--bg-card)] text-[var(--text-primary)]',
+                                                                            'focus:border-[var(--primary-500)] focus:outline-none',
+                                                                            'transition-colors w-full max-w-[140px]',
+                                                                            mark.isAbsent
+                                                                                ? 'opacity-50 cursor-not-allowed'
+                                                                                : 'border-[var(--border)] cursor-pointer',
+                                                                        ].join(' ')}
+                                                                    >
+                                                                        <option value="">— Select —</option>
+                                                                        {ACTIVITY_GRADES.map(g => (
+                                                                            <option key={g} value={g}>{g}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <label className="flex items-center gap-1 cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={mark.isAbsent}
+                                                                            onChange={e => updateSimpleMark(
+                                                                                s.studentId, sub.name,
+                                                                                'isAbsent', e.target.checked
+                                                                            )}
+                                                                            className="w-3 h-3 rounded accent-[var(--danger)]"
+                                                                        />
+                                                                        <span className="text-[10px] text-[var(--text-muted)]">
+                                                                            Absent
+                                                                        </span>
+                                                                    </label>
+                                                                </div>
+                                                            </td>
+                                                        )
+                                                    }
+
+                                                    // ── Composite Mode ──
+                                                    if (sub.components?.length > 0) {
+                                                        const compTotal = mark.isAbsent
+                                                            ? 0
+                                                            : (mark.components?.reduce(
+                                                                (sum, c) => sum + (c.marksObtained || 0), 0
+                                                            ) ?? 0)
+                                                        const subMax = sub.totalMaxMarks
+                                                        const isFail = !mark.isAbsent
+                                                            && compTotal > 0
+                                                            && compTotal < sub.minMarks
+
+                                                        return (
+                                                            <td
+                                                                key={sub.name}
+                                                                className="px-2 py-2"
+                                                            >
+                                                                <div className="flex flex-col gap-1 items-center">
+                                                                    {/* Component inputs */}
+                                                                    <div className="flex gap-1 flex-wrap justify-center">
+                                                                        {sub.components.map((comp, ci) => {
+                                                                            const compMark = mark.components?.[ci]
+                                                                                ?? { marksObtained: 0, maxMarks: comp.maxMarks }
+                                                                            const compFail = !mark.isAbsent
+                                                                                && compMark.marksObtained > 0
+                                                                                && compMark.marksObtained < 0 // no per-component pass mark
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={comp.name}
+                                                                                    className="flex flex-col items-center"
+                                                                                >
+                                                                                    <span className="text-[9px] text-[var(--text-muted)] mb-0.5 whitespace-nowrap">
+                                                                                        {comp.name}
+                                                                                    </span>
+                                                                                    <input
+                                                                                        type="number"
+                                                                                        min={0}
+                                                                                        max={comp.maxMarks}
+                                                                                        disabled={mark.isAbsent}
+                                                                                        value={
+                                                                                            mark.isAbsent
+                                                                                                ? ''
+                                                                                                : compMark.marksObtained || ''
+                                                                                        }
+                                                                                        placeholder={
+                                                                                            mark.isAbsent ? 'AB' : `/${comp.maxMarks}`
+                                                                                        }
+                                                                                        onChange={e => updateComponentMark(
+                                                                                            s.studentId, sub.name,
+                                                                                            ci, Number(e.target.value)
+                                                                                        )}
+                                                                                        className={[
+                                                                                            'w-14 h-7 text-center text-xs',
+                                                                                            'rounded-[var(--radius-sm)] border',
+                                                                                            'focus:outline-none transition-all',
+                                                                                            mark.isAbsent
+                                                                                                ? 'bg-[var(--bg-muted)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
+                                                                                                : 'border-[var(--border)] bg-[var(--bg-card)] focus:border-[var(--primary-500)] focus:ring-1 focus:ring-[rgba(99,102,241,0.1)]',
+                                                                                        ].join(' ')}
+                                                                                    />
+                                                                                </div>
+                                                                            )
+                                                                        })}
+                                                                    </div>
+
+                                                                    {/* Composite total */}
+                                                                    {!mark.isAbsent && compTotal > 0 && (
+                                                                        <span className={[
+                                                                            'text-[10px] font-bold',
+                                                                            isFail
+                                                                                ? 'text-[var(--danger)]'
+                                                                                : 'text-[var(--success-dark)]',
+                                                                        ].join(' ')}>
+                                                                            Total: {compTotal}/{subMax}
+                                                                        </span>
+                                                                    )}
+
+                                                                    {/* Absent checkbox */}
+                                                                    <label className="flex items-center gap-1 cursor-pointer mt-0.5">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={mark.isAbsent}
+                                                                            onChange={e => updateSimpleMark(
+                                                                                s.studentId, sub.name,
+                                                                                'isAbsent', e.target.checked
+                                                                            )}
+                                                                            className="w-3 h-3 rounded accent-[var(--danger)]"
+                                                                        />
+                                                                        <span className="text-[10px] text-[var(--text-muted)]">
+                                                                            Absent
+                                                                        </span>
+                                                                    </label>
+                                                                </div>
+                                                            </td>
+                                                        )
+                                                    }
+
+                                                    // ── Simple Mode ──
+                                                    const isFail = !mark.isAbsent
+                                                        && mark.marksObtained > 0
+                                                        && mark.marksObtained < sub.minMarks
+                                                    const isPass = !mark.isAbsent
+                                                        && mark.marksObtained >= sub.minMarks
+                                                        && mark.marksObtained > 0
+
+                                                    return (
+                                                        <td
+                                                            key={sub.name}
+                                                            className="px-2 py-2 text-center"
+                                                        >
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    max={sub.totalMaxMarks}
+                                                                    disabled={mark.isAbsent}
+                                                                    value={
+                                                                        mark.isAbsent
+                                                                            ? ''
+                                                                            : mark.marksObtained || ''
+                                                                    }
+                                                                    placeholder={mark.isAbsent ? 'AB' : '—'}
+                                                                    onChange={e => updateSimpleMark(
                                                                         s.studentId, sub.name,
                                                                         'marksObtained', e.target.value
-                                                                    )
-                                                                }
-                                                                className={[
-                                                                    'w-20 h-8 text-center text-sm',
-                                                                    'rounded-[var(--radius-sm)] border transition-all',
-                                                                    'focus:outline-none',
-                                                                    mark.isAbsent
-                                                                        ? 'bg-[var(--bg-muted)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
-                                                                        : isFail
-                                                                            ? 'border-[var(--danger)] bg-red-50 text-[var(--danger-dark)] focus:ring-2 focus:ring-red-100'
-                                                                            : isPass
-                                                                                ? 'border-[var(--success)] bg-green-50 text-[var(--success-dark)] focus:ring-2 focus:ring-green-100'
-                                                                                : 'border-[var(--border)] bg-[var(--bg-card)] focus:border-[var(--primary-500)] focus:ring-2 focus:ring-[rgba(99,102,241,0.1)]',
-                                                                ].join(' ')}
-                                                            />
-                                                            <label className="flex items-center gap-1 cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={mark.isAbsent}
-                                                                    onChange={e =>
-                                                                        updateMark(
+                                                                    )}
+                                                                    className={[
+                                                                        'w-20 h-8 text-center text-sm',
+                                                                        'rounded-[var(--radius-sm)] border transition-all',
+                                                                        'focus:outline-none',
+                                                                        mark.isAbsent
+                                                                            ? 'bg-[var(--bg-muted)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
+                                                                            : isFail
+                                                                                ? 'border-[var(--danger)] bg-red-50 text-[var(--danger-dark)] focus:ring-2 focus:ring-[rgba(239,68,68,0.1)]'
+                                                                                : isPass
+                                                                                    ? 'border-[var(--success)] bg-green-50 text-[var(--success-dark)] focus:ring-2 focus:ring-[rgba(16,185,129,0.1)]'
+                                                                                    : 'border-[var(--border)] bg-[var(--bg-card)] focus:border-[var(--primary-500)] focus:ring-2 focus:ring-[rgba(99,102,241,0.1)]',
+                                                                    ].join(' ')}
+                                                                />
+                                                                <label className="flex items-center gap-1 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={mark.isAbsent}
+                                                                        onChange={e => updateSimpleMark(
                                                                             s.studentId, sub.name,
                                                                             'isAbsent', e.target.checked
-                                                                        )
-                                                                    }
-                                                                    className="w-3 h-3 rounded accent-[var(--danger)]"
-                                                                />
-                                                                <span className="text-[10px] text-[var(--text-muted)]">
-                                                                    Absent
-                                                                </span>
-                                                            </label>
+                                                                        )}
+                                                                        className="w-3 h-3 rounded accent-[var(--danger)]"
+                                                                    />
+                                                                    <span className="text-[10px] text-[var(--text-muted)]">
+                                                                        Absent
+                                                                    </span>
+                                                                </label>
+                                                            </div>
+                                                        </td>
+                                                    )
+                                                })}
+
+                                                {/* ── Total + Result Preview ── */}
+                                                <td className="px-3 py-2 text-center">
+                                                    {hasAnyEntry ? (
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            {/* Live total (non-gradeOnly subjects) */}
+                                                            {total > 0 && (
+                                                                <p className={`text-sm font-bold ${pctColor(pct)}`}>
+                                                                    {obtained}/{total}
+                                                                </p>
+                                                            )}
+                                                            {total > 0 && (
+                                                                <p className={`text-[10px] ${pctColor(pct)}`}>
+                                                                    {pct}%
+                                                                </p>
+                                                            )}
+
+                                                            {/* Saved result: rank + report card link */}
+                                                            {s.savedResult && (
+                                                                <>
+                                                                    <span className={[
+                                                                        'text-[10px] font-bold px-1.5 py-0.5',
+                                                                        'rounded-[var(--radius-xs)]',
+                                                                        s.savedResult.isPassed
+                                                                            ? 'bg-[var(--success-light)] text-[var(--success-dark)]'
+                                                                            : 'bg-[var(--danger-light)] text-[var(--danger-dark)]',
+                                                                    ].join(' ')}>
+                                                                        {s.savedResult.isPassed ? 'PASS' : 'FAIL'}
+                                                                    </span>
+                                                                    {s.savedResult.rank > 0 && (
+                                                                        <span className="flex items-center gap-0.5 text-[10px] text-amber-600 font-semibold">
+                                                                            <Trophy size={9} />
+                                                                            Rank #{s.savedResult.rank}
+                                                                        </span>
+                                                                    )}
+                                                                    {s.savedResult.resultId && (
+                                                                        <a
+                                                                            href={`/api/pdf/reportcard/${s.savedResult.resultId}`}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="flex items-center gap-0.5 text-[10px] text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium"
+                                                                        >
+                                                                            <FileText size={9} /> Report Card
+                                                                        </a>
+                                                                    )}
+                                                                </>
+                                                            )}
                                                         </div>
-                                                    </td>
-                                                )
-                                            })}
+                                                    ) : (
+                                                        <span className="text-[var(--text-muted)] text-xs">—</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
 
-                                            {/* Total */}
-                                            <td className="px-3 py-2 text-center">
-                                                {hasAnyMark ? (
-                                                    <div>
-                                                        <p className={`text-sm font-bold ${gradeColor(pct)}`}>
-                                                            {obtained}/{total}
-                                                        </p>
-                                                        <p className={`text-[10px] ${gradeColor(pct)}`}>
-                                                            {pct}%
-                                                        </p>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-[var(--text-muted)] text-xs">—</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    )
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
+                    {/* ── Remarks Section ── */}
+                    <Card>
+                        <div className="portal-card-header">
+                            <p className="portal-card-title">Student Remarks (Optional)</p>
+                            <p className="portal-card-subtitle">
+                                Per-student overall remark — report card pe show hoga
+                            </p>
+                        </div>
+                        <div className="portal-card-body">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {students.map(s => (
+                                    <div key={s.studentId} className="space-y-1">
+                                        <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                                            {s.name}
+                                            <span className="font-normal text-[var(--text-muted)] ml-1">
+                                                (Roll {s.rollNo})
+                                            </span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            className="input-clean text-xs h-8 w-full"
+                                            placeholder="e.g. Good performance, needs improvement in..."
+                                            value={
+                                                // Use first subject's remarks as student-level remark
+                                                subjects.length > 0
+                                                    ? (s.marks[subjects[0].name]?.remarks ?? '')
+                                                    : ''
+                                            }
+                                            onChange={e => {
+                                                // Store in first subject as student remark
+                                                if (subjects.length > 0) {
+                                                    updateSimpleMark(
+                                                        s.studentId,
+                                                        subjects[0].name,
+                                                        'remarks',
+                                                        e.target.value
+                                                    )
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* ── Bottom Save ── */}
+                    {students.length > 8 && (
+                        <div className="flex items-center justify-between">
+                            <p className="text-sm text-[var(--text-muted)]">
+                                {filledCount} / {totalStudents} students filled
+                            </p>
+                            <Button onClick={saveMarks} loading={saving}>
+                                <Save size={14} /> Save All Marks
+                            </Button>
+                        </div>
+                    )}
+
+                    {/* ── Admit Cards Section (if enabled) ── */}
+                    {exam.admitCardEnabled && (
+                        <Card>
+                            <div className="portal-card-header">
+                                <div>
+                                    <p className="portal-card-title">Admit Cards</p>
+                                    <p className="portal-card-subtitle">
+                                        Download individual student admit cards
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="portal-card-body">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                    {students.map(s => (
+                                        <a
+                                            key={s.studentId}
+                                            href={`/api/pdf/admitcard/${examId}?studentId=${s.studentId}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="
+                        flex items-center gap-2 p-2.5
+                        border border-[var(--border)] rounded-[var(--radius-md)]
+                        hover:border-[var(--primary-300)] hover:bg-[var(--primary-50)]
+                        transition-all group
+                      "
+                                        >
+                                            <FileText
+                                                size={14}
+                                                className="text-[var(--text-muted)] group-hover:text-[var(--primary-500)] flex-shrink-0"
+                                            />
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                                    {s.name}
+                                                </p>
+                                                <p className="text-[10px] text-[var(--text-muted)]">
+                                                    Roll {s.rollNo}
+                                                </p>
+                                            </div>
+                                        </a>
+                                    ))}
+                                </div>
+                            </div>
+                        </Card>
+                    )}
+                </>
             )}
-
-            {/* Bottom save button (long list ke liye) */}
-            {students.length > 8 && (
-                <div className="flex justify-end mt-4">
-                    <Button onClick={saveMarks} loading={saving}>
-                        <Save size={14} /> Save All Marks
-                    </Button>
-                </div>
-            )}
-
         </div>
     )
 }

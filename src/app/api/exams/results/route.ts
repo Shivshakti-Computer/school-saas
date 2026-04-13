@@ -1,12 +1,15 @@
-// FILE: src/app/api/exams/results/route.ts
-// GET  → Results fetch (with rank calculation)
-// POST → Save/update marks (bulk)
+// src/app/api/exams/results/route.ts
+// GET  → Results fetch
+// POST → Bulk marks save (composite marks support)
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import { apiGuard, apiGuardWithBody } from '@/lib/apiGuard'
 import { connectDB } from '@/lib/db'
-import { Exam, Result, calculateGrade } from '@/models/Exam'
+import {
+  Exam, Result,
+  calculateGrade, calculateActivityGrade, getClassGroup,
+} from '@/models/Exam'
 import { Student } from '@/models/Student'
 import { logAudit } from '@/lib/audit'
 
@@ -34,25 +37,24 @@ export async function GET(req: NextRequest) {
     if (examId) query.examId = examId
     if (studentId) query.studentId = studentId
 
-    // Student sirf apne results dekhe
+    // Student → sirf apne results
     if (session.user.role === 'student') {
       const student = await Student.findOne({
         userId: session.user.id,
         tenantId: session.user.tenantId,
       }).select('_id').lean()
 
-      if (student) query.studentId = student._id
+      if (student) query.studentId = (student as any)._id
       else return NextResponse.json({ results: [] })
     }
 
-    // Parent apne bachhe ke results dekhe
+    // Parent → apne bachhe ke results
     if (session.user.role === 'parent') {
-      // studentRef array from session
-      const studentRefs = session.user.studentRef || []
-      if (studentId && studentRefs.includes(studentId)) {
+      const refs = session.user.studentRef || []
+      if (studentId && refs.includes(studentId)) {
         query.studentId = studentId
-      } else if (studentRefs.length > 0) {
-        query.studentId = { $in: studentRefs }
+      } else if (refs.length > 0) {
+        query.studentId = { $in: refs }
       } else {
         return NextResponse.json({ results: [] })
       }
@@ -65,7 +67,7 @@ export async function GET(req: NextRequest) {
         populate: { path: 'userId', select: 'name' },
       })
       .populate('examId', 'name class section academicYear subjects')
-      .sort({ percentage: -1 })
+      .sort({ rank: 1, percentage: -1 })
       .lean()
 
     return NextResponse.json({ results })
@@ -80,7 +82,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ══════════════════════════════════════════════════════════
-// POST — Save Marks (Bulk)
+// POST — Save Marks (Bulk, Composite Support)
 // ══════════════════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
@@ -103,67 +105,113 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'examId is required' }, { status: 400 })
     }
     if (!Array.isArray(results) || results.length === 0) {
-      return NextResponse.json({ error: 'Results array is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Results array is required' },
+        { status: 400 }
+      )
     }
 
     const exam = await Exam.findOne({
       _id: examId,
       tenantId: session.user.tenantId,
     })
-
     if (!exam) {
       return NextResponse.json({ error: 'Exam not found' }, { status: 404 })
     }
 
+    const classGroup = getClassGroup(exam.class)
+    const isNursery = classGroup === 'nursery-kg'
+
+    // Total max marks (from exam config)
     const totalMax = exam.subjects.reduce(
-      (sum: number, sub: any) => sum + sub.maxMarks, 0
+      (sum: number, sub: any) => sum + sub.totalMaxMarks, 0
     )
 
-    const savedResults = []
+    const savedCount = { count: 0 }
 
     for (const r of results) {
       if (!r.studentId) continue
 
-      // ── Calculate totals ──
-      const totalObtained = r.marks.reduce((sum: number, m: any) => {
-        return sum + (m.isAbsent ? 0 : Number(m.marksObtained || 0))
-      }, 0)
+      let totalObtained = 0
+
+      // ── Build per-subject marks ────────────────────────
+      const marksArr = r.marks.map((m: any) => {
+        const subConfig = exam.subjects.find(
+          (s: any) => s.name === m.subject
+        )
+        const subMax = subConfig?.totalMaxMarks ?? 100
+
+        // Composite marks: sum of components
+        let subObtained = 0
+        const componentResults: Array<{
+          name: string; marksObtained: number; maxMarks: number
+        }> = []
+
+        if (
+          subConfig?.components?.length > 0 &&
+          Array.isArray(m.components) &&
+          m.components.length > 0
+        ) {
+          // Composite mode
+          for (const comp of subConfig.components) {
+            const entered = m.components.find(
+              (c: any) => c.name === comp.name
+            )
+            const obtained = m.isAbsent
+              ? 0
+              : Math.min(Number(entered?.marksObtained ?? 0), comp.maxMarks)
+
+            subObtained += obtained
+            componentResults.push({
+              name: comp.name,
+              marksObtained: obtained,
+              maxMarks: comp.maxMarks,
+            })
+          }
+        } else {
+          // Simple mode (backward compatible)
+          subObtained = m.isAbsent
+            ? 0
+            : Math.min(Number(m.marksObtained ?? 0), subMax)
+        }
+
+        totalObtained += subObtained
+
+        const subPct = subMax > 0 ? (subObtained / subMax) * 100 : 0
+        const grade = m.isAbsent ? 'AB' : calculateGrade(subPct)
+        const actGrade = m.isAbsent ? 'Absent' : calculateActivityGrade(subPct)
+
+        return {
+          subject: m.subject,
+          components: componentResults,
+          marksObtained: m.isAbsent ? 0 : subObtained,
+          maxMarks: subMax,
+          grade: isNursery ? '' : grade,
+          activityGrade: isNursery ? actGrade : '',
+          isAbsent: m.isAbsent ?? false,
+          remarks: m.remarks ?? '',
+        }
+      })
 
       const percentage = totalMax > 0
         ? Math.round((totalObtained / totalMax) * 10000) / 100
         : 0
 
-      const grade = calculateGrade(percentage)
-      const isPassed = !r.marks.some((m: any) => {
-        if (m.isAbsent) return true  // Absent = fail
+      const overallGrade = isNursery
+        ? calculateActivityGrade(percentage)
+        : calculateGrade(percentage)
+
+      // Pass/Fail: koi bhi subject fail → overall fail
+      // Absent bhi fail maana jayega
+      const isPassed = !marksArr.some((m: any) => {
+        if (m.isAbsent) return true
         const subConfig = exam.subjects.find(
           (s: any) => s.name === m.subject
         )
-        return subConfig &&
-          Number(m.marksObtained) < subConfig.minMarks
+        return subConfig && m.marksObtained < subConfig.minMarks
       })
 
-      // ── Per-subject grade ──
-      const marksWithGrades = r.marks.map((m: any) => {
-        const subConfig = exam.subjects.find(
-          (s: any) => s.name === m.subject
-        )
-        const subMax = subConfig?.maxMarks || 100
-        const subObtained = Number(m.marksObtained || 0)
-        const subPct = m.isAbsent ? 0 : (subObtained / subMax) * 100
-
-        return {
-          subject: m.subject,
-          marksObtained: m.isAbsent ? 0 : subObtained,
-          maxMarks: subMax,
-          grade: m.isAbsent ? 'AB' : calculateGrade(subPct),
-          isAbsent: m.isAbsent || false,
-          remarks: m.remarks || '',
-        }
-      })
-
-      // ── Upsert result ──
-      const saved = await Result.findOneAndUpdate(
+      await Result.findOneAndUpdate(
         {
           tenantId: session.user.tenantId,
           examId,
@@ -171,11 +219,11 @@ export async function POST(req: NextRequest) {
         },
         {
           $set: {
-            marks: marksWithGrades,
+            marks: marksArr,
             totalMarks: totalMax,
             totalObtained,
             percentage,
-            grade,
+            grade: overallGrade,
             isPassed,
             enteredBy: session.user.id,
           },
@@ -183,10 +231,10 @@ export async function POST(req: NextRequest) {
         { upsert: true, new: true }
       )
 
-      savedResults.push(saved)
+      savedCount.count++
     }
 
-    // ── Calculate & update ranks ──────────────────────────
+    // Ranks recalculate
     await calculateRanks(examId, session.user.tenantId)
 
     await logAudit({
@@ -197,7 +245,7 @@ export async function POST(req: NextRequest) {
       action: 'UPDATE',
       resource: 'Exam',
       resourceId: examId,
-      description: `Marks entered for ${savedResults.length} students — ${exam.name}`,
+      description: `Marks entered for ${savedCount.count} students — ${exam.name}`,
       ipAddress: clientInfo.ip,
       userAgent: clientInfo.userAgent,
       status: 'SUCCESS',
@@ -205,7 +253,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      saved: savedResults.length,
+      saved: savedCount.count,
     })
 
   } catch (err: any) {
@@ -217,24 +265,23 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── Rank Calculator ──────────────────────────────────────
+// ── Rank Calculator ──────────────────────────────────────────
 async function calculateRanks(
   examId: string,
   tenantId: string
 ): Promise<void> {
-  // Sort by percentage desc, then totalObtained desc
   const allResults = await Result.find({ examId, tenantId })
     .sort({ percentage: -1, totalObtained: -1 })
     .lean()
 
-  const bulkOps = allResults.map((r, index) => ({
+  if (allResults.length === 0) return
+
+  const bulkOps = allResults.map((r, i) => ({
     updateOne: {
       filter: { _id: r._id },
-      update: { $set: { rank: index + 1 } },
+      update: { $set: { rank: i + 1 } },
     },
   }))
 
-  if (bulkOps.length > 0) {
-    await Result.bulkWrite(bulkOps)
-  }
+  await Result.bulkWrite(bulkOps)
 }

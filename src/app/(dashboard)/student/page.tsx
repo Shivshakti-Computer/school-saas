@@ -159,6 +159,7 @@ export default async function StudentDashboard() {
                     { href: '/student/results', label: 'Results', icon: '📋', color: 'bg-blue-50 text-blue-700' },
                     { href: '/student/fees', label: 'Fees', icon: '₹', color: 'bg-amber-50 text-amber-700' },
                     { href: '/student/notices', label: 'Notices', icon: '🔔', color: 'bg-purple-50 text-purple-700' },
+                    { href: '/student/exams', label: 'Exams & Admit Card', icon: '🎫', color: 'bg-indigo-50 text-indigo-700' },
                 ].map(item => (
                     <Link key={item.href} href={item.href}>
                         <div className={`${item.color} rounded-xl p-4 flex items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer`}>
@@ -169,7 +170,7 @@ export default async function StudentDashboard() {
                 ))}
             </div>
 
-            {/* Recent notices */}
+            {/* Recent notices — unchanged */}
             {notices.length > 0 && (
                 <div className="bg-white border border-slate-200 rounded-xl p-5">
                     <div className="flex items-center justify-between mb-3">
