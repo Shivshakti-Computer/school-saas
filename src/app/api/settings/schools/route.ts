@@ -1,19 +1,19 @@
-// FILE: src/app/api/settings/school/route.ts
+// FILE: src/app/api/settings/schools/route.ts
 // ═══════════════════════════════════════════════════════════
-// PATCH /api/settings/school
-// Update school profile: name, email, phone, address, logo
+// PATCH /api/settings/schools  ← plural (file tree mein yahi hai)
+// GET   /api/settings/schools  ← current school profile fetch
 //
-// GET /api/settings/school/logo-upload
-// Cloudinary upload signature generate karo
+// NOTE: SchoolProfileTab '/api/settings/school' (singular) call karta tha
+// Hum dono handle karenge — schools/route.ts mein hi
+// Aur ek redirect bhi banayenge school/route.ts se
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
-import { apiGuardWithBody } from '@/lib/apiGuard'
+import { apiGuardWithBody, apiGuard } from '@/lib/apiGuard'
 import { connectDB } from '@/lib/db'
 import { School } from '@/models/School'
 import { SchoolSettings } from '@/models/SchoolSettings'
 import { logAudit } from '@/lib/audit'
-import { getClientInfo } from '@/lib/security'
 import type { UpdateSchoolProfileBody } from '@/types/settings'
 
 // ── Validation ──
@@ -30,7 +30,6 @@ function validateSchoolProfile(body: UpdateSchoolProfileBody): string | null {
     }
 
     if (body.phone !== undefined) {
-        // Indian phone — 10 digits
         const phoneRegex = /^[6-9]\d{9}$/
         const cleaned = body.phone.replace(/[\s\-\+]/g, '')
         if (!phoneRegex.test(cleaned)) return 'Invalid phone number (10 digits required)'
@@ -44,9 +43,65 @@ function validateSchoolProfile(body: UpdateSchoolProfileBody): string | null {
 }
 
 // ─────────────────────────────────────────────────────────
+// GET — Current school profile
+// ─────────────────────────────────────────────────────────
+export async function GET(req: NextRequest) {
+    const guard = await apiGuard(req, {
+        allowedRoles: ['admin'],
+        rateLimit: 'api',
+    })
+    if (guard instanceof NextResponse) return guard
+
+    const { session } = guard
+    const tenantId = session.user.tenantId
+
+    try {
+        await connectDB()
+
+        const school = await School.findById(tenantId)
+            .select('name subdomain email phone address logo plan trialEndsAt creditBalance isActive onboardingComplete theme paymentSettings modules')
+            .lean() as any
+
+        if (!school) {
+            return NextResponse.json({ error: 'School not found' }, { status: 404 })
+        }
+
+        return NextResponse.json({
+            success: true,
+            school: {
+                id: school._id.toString(),
+                name: school.name,
+                subdomain: school.subdomain,
+                email: school.email || '',
+                phone: school.phone || '',
+                address: school.address || '',
+                logo: school.logo,
+                plan: school.plan,
+                trialEndsAt: school.trialEndsAt?.toISOString() || '',
+                creditBalance: school.creditBalance || 0,
+                isActive: school.isActive,
+                onboardingComplete: school.onboardingComplete,
+                theme: {
+                    primary: school.theme?.primary || '#6366f1',
+                    secondary: school.theme?.secondary || '#f97316',
+                },
+                razorpayConfigured: Boolean(
+                    school.paymentSettings?.razorpayKeyId &&
+                    school.paymentSettings?.razorpayKeySecret
+                ),
+                modules: school.modules || [],
+            },
+        })
+
+    } catch (error: any) {
+        console.error('[GET /api/settings/schools]', error)
+        return NextResponse.json({ error: 'Failed to fetch school profile' }, { status: 500 })
+    }
+}
+
+// ─────────────────────────────────────────────────────────
 // PATCH — Update School Profile
 // ─────────────────────────────────────────────────────────
-
 export async function PATCH(req: NextRequest) {
     const guard = await apiGuardWithBody<UpdateSchoolProfileBody>(req, {
         allowedRoles: ['admin'],
@@ -59,13 +114,11 @@ export async function PATCH(req: NextRequest) {
     const { session, body, clientInfo } = guard
     const tenantId = session.user.tenantId
 
-    // ── Validate ──
     const validationError = validateSchoolProfile(body)
     if (validationError) {
         return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
-    // ── Kuch bhi update nahi ──
     const allowedFields = ['name', 'email', 'phone', 'address', 'logo', 'logoPublicId']
     const hasUpdate = allowedFields.some(
         (f) => body[f as keyof UpdateSchoolProfileBody] !== undefined
@@ -77,7 +130,6 @@ export async function PATCH(req: NextRequest) {
     try {
         await connectDB()
 
-        // ── Fetch current for audit ──
         const current = await School.findById(tenantId)
             .select('name email phone address logo')
             .lean() as any
@@ -86,24 +138,20 @@ export async function PATCH(req: NextRequest) {
             return NextResponse.json({ error: 'School not found' }, { status: 404 })
         }
 
-        // ── Build update object ──
         const updateData: Record<string, any> = {}
-
         if (body.name !== undefined) updateData.name = body.name.trim()
         if (body.email !== undefined) updateData.email = body.email.toLowerCase().trim()
         if (body.phone !== undefined) updateData.phone = body.phone.replace(/[\s\-]/g, '')
         if (body.address !== undefined) updateData.address = body.address.trim()
         if (body.logo !== undefined) updateData.logo = body.logo
 
-        // ── Update School ──
         const updated = await School.findByIdAndUpdate(
             tenantId,
             { $set: updateData },
             { new: true, runValidators: true }
         ).select('name email phone address logo').lean() as any
 
-        // ── Update appearance.schoolLogo in SchoolSettings too ──
-        // Sync karo taaki dono consistent rahein
+        // ── Sync logo to SchoolSettings.appearance ──
         if (body.logo !== undefined) {
             await SchoolSettings.findOneAndUpdate(
                 { tenantId },
@@ -117,7 +165,7 @@ export async function PATCH(req: NextRequest) {
             )
         }
 
-        // ── Update lastUpdatedBy in settings ──
+        // ── lastUpdatedBy sync ──
         await SchoolSettings.findOneAndUpdate(
             { tenantId },
             {
@@ -129,7 +177,6 @@ export async function PATCH(req: NextRequest) {
             { upsert: true }
         )
 
-        // ── Audit Log ──
         await logAudit({
             tenantId,
             userId: session.user.id,
@@ -163,7 +210,7 @@ export async function PATCH(req: NextRequest) {
         })
 
     } catch (error: any) {
-        console.error('[PATCH /api/settings/school]', error)
+        console.error('[PATCH /api/settings/schools]', error)
         return NextResponse.json(
             { error: 'Failed to update school profile' },
             { status: 500 }

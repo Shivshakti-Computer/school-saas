@@ -64,6 +64,7 @@ export interface SchoolProfileData {
         secondary: string
     }
     razorpayConfigured: boolean
+    enabledModules?: string[]
 }
 
 export interface SettingsMeta {

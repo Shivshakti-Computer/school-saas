@@ -1,11 +1,14 @@
-// Re-export everything from new config
+// FILE: src/lib/plans.ts
+// Re-export everything from config/pricing
+// Backward compatible — purani imports kaam karengi
+
 export type {
     PlanId,
     BillingCycle,
     CreditType,
-    CreditPackId,           // ← ADDED
-    ExtraStudentPackId,     // ← ADDED
-    ExtraTeacherPackId,     // ← ADDED
+    CreditPackId,
+    ExtraStudentPackId,
+    ExtraTeacherPackId,
 } from '@/config/pricing'
 
 export {
@@ -31,6 +34,8 @@ export {
     getCreditPack,
     getExtraStudentPack,
     getExtraTeacherPack,
+    // ✅ DEMO_CONFIG ab pricing.ts se aata hai — plans.ts mein duplicate nahi
+    DEMO_CONFIG,
 } from '@/config/pricing'
 
 // ── Old interface kept for backward compatibility ──
@@ -55,7 +60,6 @@ export interface Plan {
     highlighted?: boolean
 }
 
-// Old limit check types — kept for backward compat
 export interface LimitCheck {
     allowed: boolean
     current: number
@@ -65,7 +69,6 @@ export interface LimitCheck {
     message?: string
 }
 
-// ── FIX: Static import instead of require() ──
 import {
     getPlan as _getPlan,
     TRIAL_CONFIG as _TRIAL_CONFIG,
@@ -74,7 +77,6 @@ import {
 } from '@/config/pricing'
 import type { PlanId as _PlanId, BillingCycle as _BillingCycle } from '@/config/pricing'
 
-// Old helpers — still work
 export function checkStudentLimit(
     planId: string,
     currentCount: number
@@ -109,7 +111,6 @@ export function checkSmsLimit(
     _planId: string,
     currentMonthUsage: number
 ): LimitCheck {
-    // SMS is now credit-based — always allowed
     return {
         allowed: true,
         current: currentMonthUsage,
@@ -149,10 +150,6 @@ export function getTrialDurationDays(): number {
     return _TRIAL_CONFIG.durationDays
 }
 
-// ── Price breakdown types (backward compat) ──
-// NOTE: PriceBreakdown pricing.ts se re-export ho raha hai upar
-// Yahan alag define karne ki zaroorat nahi
-// Lekin agar koi purana code import karta hai to ye alias kaam karega:
 export type { PriceBreakdown } from '@/config/pricing'
 
 export function getPlanPriceBreakdown(
@@ -163,18 +160,4 @@ export function getPlanPriceBreakdown(
     return _getPriceBreakdown(price)
 }
 
-// UpgradeBreakdown — pricing.ts se re-export
 export type { UpgradeBreakdown } from '@/config/pricing'
-
-// ── DEMO_CONFIG — Public facing (plans.ts ka apna) ──
-export const DEMO_CONFIG = {
-    schoolCode: 'demo_school',
-    schoolName: 'Demo School - Skolify',
-    adminPhone: '9999999999',
-    adminPassword: 'Demo@123',
-    adminName: 'Demo Admin',
-    plan: 'enterprise' as _PlanId,
-    trialDays: 36500,
-    modules: [] as string[],
-    isDemo: true,
-} as const

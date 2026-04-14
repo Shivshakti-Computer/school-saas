@@ -1,22 +1,27 @@
 // FILE: src/components/settings/tabs/ModulesTab.tsx
-// Enable/disable modules + per-module feature toggles
+// ✅ FIX: enabledModules ab sahi source se aa raha hai (page.tsx → DB fresh)
+// initialHidden calculation correct hoga ab
 
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import {
     Users, CheckSquare, CreditCard, BookOpen, Bell,
     Globe, Image, Clock, FileText, FileCheck, BarChart2,
     MessageSquare, Library, Award, PlayCircle, Briefcase,
     Bus, Building, Package, UserPlus, Heart, GraduationCap,
-    AlertTriangle, Lock,
+    Lock, Info,
 } from 'lucide-react'
 import { SettingSection } from '../shared/SettingSection'
 import { ToggleRow, SettingRow } from '../shared/SettingRow'
 import { SaveBar } from '../shared/SaveButton'
 import { MODULE_REGISTRY } from '@/lib/moduleRegistry'
+import { getPlan } from '@/lib/plans'
 import type { IModuleSettings } from '@/types/settings'
 import type { ModuleKey } from '@/lib/moduleRegistry'
+import type { PlanId } from '@/lib/plans'
 
 const MODULE_ICONS: Record<string, React.ElementType> = {
     Users, CheckSquare, CreditCard, BookOpen, Bell,
@@ -28,6 +33,7 @@ const MODULE_ICONS: Record<string, React.ElementType> = {
 
 interface ModulesTabProps {
     modules: IModuleSettings
+    // ✅ DB se fresh: planModules - hiddenModules
     enabledModules: string[]
     plan: string
     onSaved: (updated: {
@@ -42,34 +48,47 @@ export function ModulesTab({
     plan,
     onSaved,
 }: ModulesTabProps) {
-    const [moduleSettings, setModuleSettings] = useState<IModuleSettings>({ ...modules })
-    const [activeModules, setActiveModules] = useState<string[]>([...enabledModules])
+    const router = useRouter()
+    const { update: updateSession } = useSession()
+
+    // Plan ke saare modules = base set
+    const planConfig = getPlan(plan as PlanId)
+    const planModules = planConfig.modules
+
+    // ✅ FIX: hiddenModules = planModules - enabledModules
+    // enabledModules ab sahi source se aa raha hai (DB fresh, page.tsx se)
+    const initialHidden = planModules.filter(
+        (m) => !enabledModules.includes(m)
+    )
+
+    const [moduleSettings, setModuleSettings] = useState<IModuleSettings>({
+        ...modules,
+    })
+    const [activeModules, setActiveModules] = useState<string[]>([
+        ...enabledModules,
+    ])
+    const [hiddenModules, setHiddenModules] = useState<string[]>(initialHidden)
+
     const [isDirty, setIsDirty] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
 
-    const planOrder: Record<string, number> = {
-        starter: 1, growth: 2, pro: 3, enterprise: 4,
-    }
-
-    const isPlanAllowed = (requiredPlans: string[]) => {
-        const currentOrder = planOrder[plan] || 0
-        return requiredPlans.some(
-            (p) => (planOrder[p] || 0) <= currentOrder
-        )
-    }
-
     const toggleModule = (key: string) => {
         const config = MODULE_REGISTRY[key as ModuleKey]
         if (!config || config.isCore) return
+        if (!planModules.includes(key)) return
 
-        setActiveModules((prev) => {
-            const isActive = prev.includes(key)
-            return isActive
-                ? prev.filter((m) => m !== key)
-                : [...prev, key]
-        })
+        const isCurrentlyActive = activeModules.includes(key)
+
+        if (isCurrentlyActive) {
+            setActiveModules((prev) => prev.filter((m) => m !== key))
+            setHiddenModules((prev) => [...prev, key])
+        } else {
+            setActiveModules((prev) => [...prev, key])
+            setHiddenModules((prev) => prev.filter((m) => m !== key))
+        }
+
         setIsDirty(true)
         setError(null)
     }
@@ -92,9 +111,12 @@ export function ModulesTab({
         setSuccess(null)
 
         try {
-            // Diff enabled/disabled
-            const toEnable = activeModules.filter((m) => !enabledModules.includes(m))
-            const toDisable = enabledModules.filter((m) => !activeModules.includes(m))
+            const toEnable = activeModules.filter(
+                (m) => !enabledModules.includes(m)
+            )
+            const toDisable = enabledModules.filter(
+                (m) => !activeModules.includes(m)
+            )
 
             const res = await fetch('/api/settings/modules', {
                 method: 'PATCH',
@@ -114,11 +136,25 @@ export function ModulesTab({
             if (!res.ok) throw new Error(data.error || 'Save failed')
 
             setIsDirty(false)
-            setSuccess('Module settings saved')
-            onSaved({ modules: moduleSettings, enabledModules: activeModules })
+            setSuccess('Module settings saved successfully. Sidebar will update shortly.')
+
+            onSaved({
+                modules: moduleSettings,
+                enabledModules: activeModules,
+            })
+
+            await updateSession({ modules: activeModules })
+            router.refresh()
+
+            // ✅ 3 seconds baad success message auto-remove
+            setTimeout(() => setSuccess(null), 3000)
+
         } catch (err: any) {
             setError(err.message)
-            throw err
+
+            // ✅ Error bhi 5 seconds baad auto-remove
+            setTimeout(() => setError(null), 5000)
+
         } finally {
             setSaving(false)
         }
@@ -127,86 +163,97 @@ export function ModulesTab({
     const handleDiscard = () => {
         setModuleSettings({ ...modules })
         setActiveModules([...enabledModules])
+        setHiddenModules(initialHidden)
         setIsDirty(false)
         setError(null)
         setSuccess(null)
     }
 
-    // Group modules by plan requirement
-    const modulesGrouped = {
-        core: [] as typeof allModules,
-        starter: [] as typeof allModules,
-        growth: [] as typeof allModules,
-        pro: [] as typeof allModules,
-        enterprise: [] as typeof allModules,
-    }
-
+    // ── Module cards build karo ──
     type AllModule = {
         key: string
         config: typeof MODULE_REGISTRY[ModuleKey]
         isEnabled: boolean
-        isAllowed: boolean
+        isInPlan: boolean
+        isCore: boolean
     }
-    const allModules: AllModule[] = Object.entries(MODULE_REGISTRY)
-        .filter(([, config]) => config.adminRoute && !config.comingSoon)
+
+    // Plan ke modules — toggle wale
+    const planModulesList: AllModule[] = planModules
+        .filter((key) => {
+            const config = MODULE_REGISTRY[key as ModuleKey]
+            return config && config.adminRoute && !config.comingSoon
+        })
+        .map((key) => {
+            const config = MODULE_REGISTRY[key as ModuleKey]!
+            return {
+                key,
+                config,
+                // ✅ Core modules hamesha enabled
+                isEnabled: config.isCore ? true : activeModules.includes(key),
+                isInPlan: true,
+                isCore: config.isCore || false,
+            }
+        })
+
+    // Plan me nahi hain — locked dikhao
+    const lockedModules: AllModule[] = Object.entries(MODULE_REGISTRY)
+        .filter(([key, config]) => {
+            return (
+                !planModules.includes(key) &&
+                config.adminRoute &&
+                !config.comingSoon &&
+                !config.isCore
+            )
+        })
         .map(([key, config]) => ({
             key,
             config,
-            isEnabled: activeModules.includes(key) || config.isCore,
-            isAllowed: isPlanAllowed(config.plans),
+            isEnabled: false,
+            isInPlan: false,
+            isCore: false,
         }))
-
-    allModules.forEach((mod) => {
-        if (mod.config.isCore) {
-            modulesGrouped.core.push(mod)
-        } else if (mod.config.plans.includes('starter')) {
-            modulesGrouped.starter.push(mod)
-        } else if (mod.config.plans.includes('growth')) {
-            modulesGrouped.growth.push(mod)
-        } else if (mod.config.plans.includes('pro')) {
-            modulesGrouped.pro.push(mod)
-        } else {
-            modulesGrouped.enterprise.push(mod)
-        }
-    })
 
     const renderModuleCard = (mod: AllModule) => {
         const Icon = MODULE_ICONS[mod.config.icon] || Users
-        const isCore = mod.config.isCore
 
         return (
             <div
                 key={mod.key}
                 className={`
-          flex items-center gap-3 p-3.5
-          rounded-[var(--radius-md)] border
-          transition-all duration-150
-          ${mod.isEnabled && mod.isAllowed
-                        ? 'bg-[var(--bg-card)] border-[var(--border)]'
-                        : 'bg-[var(--bg-muted)] border-[var(--border)] opacity-70'
+                    flex items-center gap-3 p-3.5
+                    rounded-[var(--radius-md)] border
+                    transition-all duration-150
+                    ${!mod.isInPlan
+                        ? 'bg-[var(--bg-muted)] border-[var(--border)] opacity-60 cursor-not-allowed'
+                        : mod.isCore
+                            ? 'bg-[var(--bg-card)] border-[var(--border)] cursor-default'
+                            : mod.isEnabled
+                                ? 'bg-[var(--bg-card)] border-[var(--border)] cursor-pointer hover:border-[var(--primary-200)]'
+                                : 'bg-[var(--bg-muted)] border-[var(--border)] cursor-pointer opacity-70 hover:opacity-90'
                     }
-          ${isCore ? 'cursor-default' : 'cursor-pointer'}
-        `}
-                onClick={() => !isCore && mod.isAllowed && toggleModule(mod.key)}
+                `}
+                onClick={() =>
+                    mod.isInPlan && !mod.isCore && toggleModule(mod.key)
+                }
             >
                 {/* Icon */}
                 <div
-                    className="
-            w-9 h-9 rounded-[var(--radius-md)]
-            flex items-center justify-center flex-shrink-0
-          "
+                    className="w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center flex-shrink-0"
                     style={{
-                        background: mod.isEnabled && mod.isAllowed
-                            ? `${mod.config.color}18`
-                            : 'var(--bg-muted)',
+                        background:
+                            mod.isEnabled && mod.isInPlan
+                                ? `${mod.config.color}18`
+                                : 'var(--bg-muted)',
                     }}
                 >
                     <Icon
                         size={17}
                         style={{
-                            color: mod.isEnabled && mod.isAllowed
-                                ? mod.config.color
-                                : 'var(--text-light)',
+                            color:
+                                mod.isEnabled && mod.isInPlan
+                                    ? mod.config.color
+                                    : 'var(--text-light)',
                         }}
                     />
                 </div>
@@ -217,9 +264,14 @@ export function ModulesTab({
                         <p className="text-sm font-600 text-[var(--text-primary)] truncate">
                             {mod.config.label}
                         </p>
-                        {isCore && (
+                        {mod.isCore && (
                             <span className="badge badge-brand text-[10px] px-1.5 py-0.5 flex-shrink-0">
                                 Core
+                            </span>
+                        )}
+                        {!mod.isEnabled && !mod.isCore && mod.isInPlan && (
+                            <span className="badge badge-neutral text-[10px] px-1.5 py-0.5 flex-shrink-0">
+                                Hidden
                             </span>
                         )}
                     </div>
@@ -228,52 +280,47 @@ export function ModulesTab({
                     </p>
                 </div>
 
-                {/* Toggle / Lock */}
+                {/* Toggle / Lock / Always On */}
                 <div className="flex-shrink-0">
-                    {!mod.isAllowed ? (
+                    {!mod.isInPlan ? (
                         <div className="flex items-center gap-1 text-[var(--text-muted)]">
                             <Lock size={13} />
                             <span className="text-xs capitalize">
                                 {mod.config.plans[0]}+
                             </span>
                         </div>
-                    ) : isCore ? (
+                    ) : mod.isCore ? (
                         <span className="text-xs text-[var(--success)] font-600">
                             Always On
                         </span>
                     ) : (
                         <div
                             className={`
-                relative inline-flex h-5 w-9 flex-shrink-0
-                rounded-full border-2 border-transparent
-                transition-colors duration-200
-                ${mod.isEnabled
+                                relative inline-flex h-5 w-9 flex-shrink-0
+                                rounded-full border-2 border-transparent
+                                transition-colors duration-200
+                                ${mod.isEnabled
                                     ? 'bg-[var(--primary-500)]'
                                     : 'bg-[var(--border-strong)]'
                                 }
-              `}
+                            `}
                         >
                             <span
                                 className={`
-                  pointer-events-none inline-block h-4 w-4
-                  transform rounded-full bg-white shadow
-                  transition duration-200
-                  ${mod.isEnabled ? 'translate-x-4' : 'translate-x-0'}
-                `}
+                                    pointer-events-none inline-block h-4 w-4
+                                    transform rounded-full bg-white shadow
+                                    transition duration-200
+                                    ${mod.isEnabled
+                                        ? 'translate-x-4'
+                                        : 'translate-x-0'
+                                    }
+                                `}
                             />
                         </div>
                     )}
                 </div>
             </div>
         )
-    }
-
-    const planLabels: Record<string, string> = {
-        core: 'Core Modules (Always Active)',
-        starter: 'Starter Plan Modules',
-        growth: 'Growth Plan Modules',
-        pro: 'Pro Plan Modules',
-        enterprise: 'Enterprise Plan Modules',
     }
 
     return (
@@ -290,31 +337,48 @@ export function ModulesTab({
                 </div>
             )}
 
-            {/* ── Module List ── */}
-            {(
-                Object.entries(modulesGrouped) as [
-                    keyof typeof modulesGrouped,
-                    AllModule[],
-                ][]
-            )
-                .filter(([, mods]) => mods.length > 0)
-                .map(([group, mods]) => (
-                    <SettingSection
-                        key={group}
-                        title={planLabels[group]}
-                        description={
-                            group === 'core'
-                                ? 'These modules cannot be disabled'
-                                : `Requires ${group} plan or above`
-                        }
-                    >
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {mods.map(renderModuleCard)}
-                        </div>
-                    </SettingSection>
-                ))}
+            {/* Info banner */}
+            <div
+                className="flex items-start gap-3 p-3.5 rounded-[var(--radius-md)] border text-sm"
+                style={{
+                    background: 'var(--info-light)',
+                    borderColor: 'rgba(59,130,246,0.2)',
+                    color: 'var(--info-dark)',
+                }}
+            >
+                <Info size={15} className="flex-shrink-0 mt-0.5" />
+                <p>
+                    All modules included in your <strong>{planConfig.name} Plan</strong> are listed below.
+                    Disable any module to hide it from the sidebar.
+                    Re-enable it anytime to restore access.
+                </p>
+            </div>
 
-            {/* ── Module Feature Settings ── */}
+            {/* Plan modules — toggle wale */}
+            <SettingSection
+                title={`${planConfig.name} Plan Modules`}
+                description={`${activeModules.length} active · ${hiddenModules.filter(
+                    (m) => !MODULE_REGISTRY[m as ModuleKey]?.isCore
+                ).length} hidden`}
+            >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {planModulesList.map(renderModuleCard)}
+                </div>
+            </SettingSection>
+
+            {/* Locked modules */}
+            {lockedModules.length > 0 && (
+                <SettingSection
+                    title="Upgrade Required"
+                    description="Ye modules aapke current plan mein available nahi hain"
+                >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {lockedModules.map(renderModuleCard)}
+                    </div>
+                </SettingSection>
+            )}
+
+            {/* Module feature settings — sirf active modules ke liye */}
             {activeModules.includes('fees') && (
                 <SettingSection
                     title="Fee Module Settings"
@@ -324,13 +388,17 @@ export function ModulesTab({
                         label="Allow Partial Payment"
                         description="Students can pay partial fee amount"
                         checked={moduleSettings.fees?.allowPartialPayment ?? false}
-                        onChange={(v) => updateModuleSetting('fees', 'allowPartialPayment', v)}
+                        onChange={(v) =>
+                            updateModuleSetting('fees', 'allowPartialPayment', v)
+                        }
                     />
                     <ToggleRow
                         label="Show Due Amount on Portal"
                         description="Students/parents can see pending dues"
                         checked={moduleSettings.fees?.showDueAmountOnPortal ?? true}
-                        onChange={(v) => updateModuleSetting('fees', 'showDueAmountOnPortal', v)}
+                        onChange={(v) =>
+                            updateModuleSetting('fees', 'showDueAmountOnPortal', v)
+                        }
                     />
                 </SettingSection>
             )}
@@ -359,7 +427,9 @@ export function ModulesTab({
                                     type="number"
                                     min={1}
                                     max={72}
-                                    value={moduleSettings.attendance?.editWindowHours ?? 24}
+                                    value={
+                                        moduleSettings.attendance?.editWindowHours ?? 24
+                                    }
                                     onChange={(e) =>
                                         updateModuleSetting(
                                             'attendance',
@@ -369,7 +439,9 @@ export function ModulesTab({
                                     }
                                     className="input-clean w-20"
                                 />
-                                <span className="text-sm text-[var(--text-muted)]">hours</span>
+                                <span className="text-sm text-[var(--text-muted)]">
+                                    hours
+                                </span>
                             </div>
                         </SettingRow>
                     )}
@@ -406,13 +478,19 @@ export function ModulesTab({
                         }
                     />
                     {moduleSettings.exams?.allowGraceMarks && (
-                        <SettingRow horizontal label="Max Grace Marks" description="Maximum %">
+                        <SettingRow
+                            horizontal
+                            label="Max Grace Marks"
+                            description="Maximum %"
+                        >
                             <div className="flex items-center gap-2">
                                 <input
                                     type="number"
                                     min={0}
                                     max={10}
-                                    value={moduleSettings.exams?.gracemarksLimit ?? 5}
+                                    value={
+                                        moduleSettings.exams?.gracemarksLimit ?? 5
+                                    }
                                     onChange={(e) =>
                                         updateModuleSetting(
                                             'exams',
@@ -440,7 +518,9 @@ export function ModulesTab({
                                 type="number"
                                 min={1}
                                 max={20}
-                                value={moduleSettings.library?.maxBooksPerStudent ?? 2}
+                                value={
+                                    moduleSettings.library?.maxBooksPerStudent ?? 2
+                                }
                                 onChange={(e) =>
                                     updateModuleSetting(
                                         'library',
@@ -494,9 +574,15 @@ export function ModulesTab({
                     <ToggleRow
                         label="Allow Student Submission"
                         description="Students can submit homework files"
-                        checked={moduleSettings.homework?.allowStudentSubmission ?? true}
+                        checked={
+                            moduleSettings.homework?.allowStudentSubmission ?? true
+                        }
                         onChange={(v) =>
-                            updateModuleSetting('homework', 'allowStudentSubmission', v)
+                            updateModuleSetting(
+                                'homework',
+                                'allowStudentSubmission',
+                                v
+                            )
                         }
                     />
                     {moduleSettings.homework?.allowStudentSubmission && (
@@ -510,7 +596,9 @@ export function ModulesTab({
                                     type="number"
                                     min={1}
                                     max={50}
-                                    value={moduleSettings.homework?.maxFileSizeMB ?? 10}
+                                    value={
+                                        moduleSettings.homework?.maxFileSizeMB ?? 10
+                                    }
                                     onChange={(e) =>
                                         updateModuleSetting(
                                             'homework',
@@ -520,7 +608,9 @@ export function ModulesTab({
                                     }
                                     className="input-clean w-20"
                                 />
-                                <span className="text-sm text-[var(--text-muted)]">MB</span>
+                                <span className="text-sm text-[var(--text-muted)]">
+                                    MB
+                                </span>
                             </div>
                         </SettingRow>
                     )}

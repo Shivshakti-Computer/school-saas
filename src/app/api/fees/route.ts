@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
         purpose: 'fee_reminder',
         recipients,
         sentBy: session.user.id,
-        sentByName: session.user.name,
+        sentByName: session.user.name ?? undefined,
         subject: 'Fee Payment Reminder',
       })
 
@@ -250,7 +250,7 @@ export async function POST(req: NextRequest) {
         recipientName: studentName,
         message: SMS_TEMPLATES.feeReminder(studentName, amount, dueDate),
         sentBy: session.user.id,
-        sentByName: session.user.name,
+        sentByName: session.user.name ?? undefined,
         metadata: { feeId: fee._id.toString(), amount, dueDate },
       })
 

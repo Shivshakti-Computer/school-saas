@@ -356,7 +356,7 @@ export async function POST(req: NextRequest) {
             recipientName: studentName,
             message,
             sentBy:        session.user.id,
-            sentByName:    session.user.name,
+            sentByName: session.user.name ?? undefined,
             metadata: {
               studentId,
               date,

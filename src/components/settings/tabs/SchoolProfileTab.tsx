@@ -1,9 +1,10 @@
 // FILE: src/components/settings/tabs/SchoolProfileTab.tsx
-// School name, email, phone, address, logo upload
+// ✅ FIX: updateSession() call after save — sidebar name turant update ho
 
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { useSession } from 'next-auth/react'
 import { Upload, X, Building2, Phone, Mail, MapPin, Globe } from 'lucide-react'
 import { SettingSection } from '../shared/SettingSection'
 import { SettingRow } from '../shared/SettingRow'
@@ -23,6 +24,9 @@ interface FormErrors {
 }
 
 export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
+    // ✅ useSession — updateSession ke liye
+    const { update: updateSession } = useSession()
+
     const [form, setForm] = useState({
         name: school.name || '',
         email: school.email || '',
@@ -37,28 +41,20 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
         type: 'success' | 'error'; msg: string
     } | null>(null)
 
-    // Logo upload state
     const [logo, setLogo] = useState<string | undefined>(school.logo)
-    const [logoPublicId, setLogoPublicId] = useState<string>('')
     const [uploading, setUploading] = useState(false)
     const [uploadError, setUploadError] = useState<string | null>(null)
     const [dragOver, setDragOver] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // ── Field change handler ──
-    const handleChange = (
-        field: keyof typeof form,
-        value: string
-    ) => {
+    const handleChange = (field: keyof typeof form, value: string) => {
         setForm((prev) => ({ ...prev, [field]: value }))
         setIsDirty(true)
-        // Clear field error on change
         if (errors[field]) {
             setErrors((prev) => ({ ...prev, [field]: undefined }))
         }
     }
 
-    // ── Client-side validation ──
     const validate = (): boolean => {
         const newErrors: FormErrors = {}
 
@@ -92,7 +88,6 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
         return Object.keys(newErrors).length === 0
     }
 
-    // ── Save handler ──
     const handleSave = async () => {
         if (!validate()) throw new Error('Validation failed')
 
@@ -106,7 +101,7 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
             if (form.phone !== school.phone) body.phone = form.phone.trim()
             if (form.address !== school.address) body.address = form.address.trim()
 
-            const res = await fetch('/api/settings/school', {
+            const res = await fetch('/api/settings/schools', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
@@ -121,6 +116,12 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
             setIsDirty(false)
             setAlert({ type: 'success', msg: 'School profile saved successfully' })
             onSaved({ ...form, logo })
+
+            // ✅ KEY FIX: Session update karo — JWT mein schoolName update ho
+            // trigger === 'update' handle hoga auth.ts mein
+            if (body.name) {
+                await updateSession({ schoolName: body.name.trim() })
+            }
 
         } catch (err: any) {
             setAlert({ type: 'error', msg: err.message || 'Save failed' })
@@ -142,7 +143,6 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
         setAlert(null)
     }
 
-    // ── Logo Upload ──
     const handleLogoUpload = useCallback(async (file: File) => {
         const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
         const MAX_MB = 2
@@ -173,16 +173,18 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
             if (!res.ok) throw new Error(data.error || 'Upload failed')
 
             setLogo(data.url)
-            setLogoPublicId(data.publicId)
             onSaved({ logo: data.url })
             setAlert({ type: 'success', msg: 'Logo uploaded successfully' })
+
+            // ✅ Logo bhi session mein update karo — sidebar mein turant dikhega
+            await updateSession({ schoolLogo: data.url })
 
         } catch (err: any) {
             setUploadError(err.message || 'Upload failed')
         } finally {
             setUploading(false)
         }
-    }, [onSaved])
+    }, [onSaved, updateSession])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -200,18 +202,15 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
     return (
         <div className="space-y-5 portal-content-enter">
 
-            {/* Alert */}
             {alert && (
-                <div
-                    className={`
-            flex items-start gap-3 p-3.5 rounded-[var(--radius-md)]
-            border text-sm
-            ${alert.type === 'success'
-                            ? 'bg-[var(--success-light)] border-[rgba(16,185,129,0.2)] text-[var(--success-dark)]'
-                            : 'bg-[var(--danger-light)] border-[rgba(239,68,68,0.2)] text-[var(--danger-dark)]'
-                        }
-          `}
-                >
+                <div className={`
+                    flex items-start gap-3 p-3.5 rounded-[var(--radius-md)]
+                    border text-sm
+                    ${alert.type === 'success'
+                        ? 'bg-[var(--success-light)] border-[rgba(16,185,129,0.2)] text-[var(--success-dark)]'
+                        : 'bg-[var(--danger-light)] border-[rgba(239,68,68,0.2)] text-[var(--danger-dark)]'
+                    }
+                `}>
                     <p className="flex-1">{alert.msg}</p>
                     <button
                         type="button"
@@ -229,17 +228,14 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
                 description="Used in portal header, reports, receipts, and print documents"
             >
                 <div className="flex flex-col sm:flex-row items-start gap-5">
-                    {/* Logo Preview */}
                     <div className="flex-shrink-0">
-                        <div
-                            className="
-                w-24 h-24 rounded-[var(--radius-lg)]
-                border-2 border-[var(--border)]
-                bg-[var(--bg-muted)]
-                flex items-center justify-center
-                overflow-hidden
-              "
-                        >
+                        <div className="
+                            w-24 h-24 rounded-[var(--radius-lg)]
+                            border-2 border-[var(--border)]
+                            bg-[var(--bg-muted)]
+                            flex items-center justify-center
+                            overflow-hidden
+                        ">
                             {logo ? (
                                 <img
                                     src={logo}
@@ -247,15 +243,11 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
                                     className="w-full h-full object-contain p-1"
                                 />
                             ) : (
-                                <Building2
-                                    size={32}
-                                    className="text-[var(--text-light)]"
-                                />
+                                <Building2 size={32} className="text-[var(--text-light)]" />
                             )}
                         </div>
                     </div>
 
-                    {/* Upload Area */}
                     <div className="flex-1 min-w-0">
                         <div
                             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -263,14 +255,13 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
                             onDrop={handleDrop}
                             onClick={() => fileInputRef.current?.click()}
                             className={`
-                relative border-2 border-dashed rounded-[var(--radius-md)]
-                p-5 text-center cursor-pointer
-                transition-all duration-150
-                ${dragOver
+                                relative border-2 border-dashed rounded-[var(--radius-md)]
+                                p-5 text-center cursor-pointer transition-all duration-150
+                                ${dragOver
                                     ? 'border-[var(--primary-400)] bg-[var(--primary-50)]'
                                     : 'border-[var(--border)] hover:border-[var(--primary-300)] hover:bg-[var(--bg-muted)]'
                                 }
-              `}
+                            `}
                         >
                             <input
                                 ref={fileInputRef}
@@ -282,22 +273,15 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
 
                             {uploading ? (
                                 <div className="flex flex-col items-center gap-2">
-                                    <div
-                                        className="
-                      w-7 h-7 border-2 border-[var(--primary-200)]
-                      border-t-[var(--primary-600)] rounded-full animate-spin
-                    "
-                                    />
-                                    <p className="text-xs text-[var(--text-muted)]">
-                                        Uploading...
-                                    </p>
+                                    <div className="
+                                        w-7 h-7 border-2 border-[var(--primary-200)]
+                                        border-t-[var(--primary-600)] rounded-full animate-spin
+                                    " />
+                                    <p className="text-xs text-[var(--text-muted)]">Uploading...</p>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-1.5">
-                                    <Upload
-                                        size={20}
-                                        className="text-[var(--text-muted)]"
-                                    />
+                                    <Upload size={20} className="text-[var(--text-muted)]" />
                                     <p className="text-sm font-500 text-[var(--text-secondary)]">
                                         Click or drag to upload logo
                                     </p>
@@ -317,13 +301,9 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
                                 type="button"
                                 onClick={() => {
                                     setLogo(undefined)
-                                    setLogoPublicId('')
                                     setIsDirty(true)
                                 }}
-                                className="
-                  mt-2 text-xs text-[var(--danger)]
-                  hover:underline flex items-center gap-1
-                "
+                                className="mt-2 text-xs text-[var(--danger)] hover:underline flex items-center gap-1"
                             >
                                 <X size={11} /> Remove logo
                             </button>
@@ -445,7 +425,7 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
                 </div>
             </SettingSection>
 
-            {/* ── Plan Info — Read only ── */}
+            {/* ── Plan Info ── */}
             <SettingSection
                 title="Subscription Info"
                 description="Your current plan and usage"
@@ -459,9 +439,11 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
                         },
                         {
                             label: 'Trial Ends',
-                            value: new Date(school.trialEndsAt).toLocaleDateString('en-IN', {
-                                day: '2-digit', month: 'short', year: 'numeric',
-                            }),
+                            value: school.trialEndsAt
+                                ? new Date(school.trialEndsAt).toLocaleDateString('en-IN', {
+                                    day: '2-digit', month: 'short', year: 'numeric',
+                                })
+                                : 'N/A',
                             color: 'text-[var(--text-primary)]',
                         },
                         {
@@ -474,23 +456,15 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
                     ].map((item) => (
                         <div
                             key={item.label}
-                            className="
-                bg-[var(--bg-muted)] rounded-[var(--radius-md)]
-                p-3 border border-[var(--border)]
-              "
+                            className="bg-[var(--bg-muted)] rounded-[var(--radius-md)] p-3 border border-[var(--border)]"
                         >
-                            <p className="text-xs text-[var(--text-muted)] mb-0.5">
-                                {item.label}
-                            </p>
-                            <p className={`text-sm font-700 ${item.color}`}>
-                                {item.value}
-                            </p>
+                            <p className="text-xs text-[var(--text-muted)] mb-0.5">{item.label}</p>
+                            <p className={`text-sm font-700 ${item.color}`}>{item.value}</p>
                         </div>
                     ))}
                 </div>
             </SettingSection>
 
-            {/* Save Bar */}
             <SaveBar
                 isDirty={isDirty}
                 onSave={handleSave}

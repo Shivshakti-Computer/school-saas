@@ -14,7 +14,9 @@ import {
 } from '@/lib/academicDefaults'
 import { getCurrentAcademicYear } from '@/lib/academicYear'
 import { SettingsClient } from './SettingsClient'
+import { getPlan } from '@/lib/plans'
 import type { SettingsResponse, SchoolProfileData } from '@/types/settings'
+import type { PlanId } from '@/config/pricing'
 
 export const metadata = {
     title: 'Settings — Skolify',
@@ -70,6 +72,20 @@ export default async function SettingsPage() {
             settingsDoc = created.toObject()
         }
 
+        // ✅ KEY FIX:
+        // planModules = plan ke saare allowed modules (base set)
+        // hiddenModules = admin ne jo disable kiye hain (SchoolSettings me stored)
+        // enabledModules = planModules - hiddenModules (jo sidebar me dikhne chahiye)
+        const planConfig = getPlan(school.plan as PlanId)
+        const planModules: string[] = planConfig.modules
+
+        const hiddenModules: string[] = settingsDoc.modules?.hiddenModules || []
+
+        // enabledModules = plan ke modules minus hidden ones
+        const enabledModules: string[] = planModules.filter(
+            (m: string) => !hiddenModules.includes(m)
+        )
+
         const razorpayConfigured = Boolean(
             school.paymentSettings?.razorpayKeyId &&
             school.paymentSettings?.razorpayKeySecret
@@ -93,6 +109,8 @@ export default async function SettingsPage() {
                 secondary: school.theme?.secondary || '#f97316',
             },
             razorpayConfigured,
+            // ✅ DB se fresh — session pe depend nahi
+            enabledModules,
         }
 
         const initialData: SettingsResponse = {
@@ -123,13 +141,16 @@ export default async function SettingsPage() {
                 ...(settingsDoc.appearance || {}),
                 schoolLogo: settingsDoc.appearance?.schoolLogo || school.logo,
                 portalTheme: {
-                    primaryColor: settingsDoc.appearance?.portalTheme?.primaryColor
-                        || school.theme?.primary
-                        || '#6366f1',
-                    accentColor: settingsDoc.appearance?.portalTheme?.accentColor
-                        || school.theme?.secondary
-                        || '#f97316',
-                    darkMode: settingsDoc.appearance?.portalTheme?.darkMode || 'light',
+                    primaryColor:
+                        settingsDoc.appearance?.portalTheme?.primaryColor ||
+                        school.theme?.primary ||
+                        '#6366f1',
+                    accentColor:
+                        settingsDoc.appearance?.portalTheme?.accentColor ||
+                        school.theme?.secondary ||
+                        '#f97316',
+                    darkMode:
+                        settingsDoc.appearance?.portalTheme?.darkMode || 'light',
                 },
                 printHeader: settingsDoc.appearance?.printHeader || {
                     showLogo: true,
@@ -148,8 +169,6 @@ export default async function SettingsPage() {
             },
         }
 
-        // ✅ Sirf SettingsClient — koi wrapper div nahi, koi header nahi
-        // Title ab SettingsClient ke sidebar mein hai
         return (
             <SettingsClient
                 initialData={initialData}
