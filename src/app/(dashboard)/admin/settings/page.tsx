@@ -1,68 +1,164 @@
-/* ============================================================
-   FILE: src/app/(dashboard)/admin/settings/page.tsx
-   School Settings — name, logo, theme
-   ============================================================ */
+// FILE: src/app/(dashboard)/admin/settings/page.tsx
 
-'use client'
-import { useState, useEffect } from 'react'
-import { Button, Input, Card, PageHeader, Alert } from '@/components/ui'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import { connectDB } from '@/lib/db'
+import { School } from '@/models/School'
+import { SchoolSettings } from '@/models/SchoolSettings'
+import {
+    DEFAULT_CLASSES,
+    DEFAULT_SECTIONS,
+    DEFAULT_SUBJECTS,
+    DEFAULT_GRADE_SCALE,
+} from '@/lib/academicDefaults'
+import { getCurrentAcademicYear } from '@/lib/academicYear'
+import { SettingsClient } from './SettingsClient'
+import type { SettingsResponse, SchoolProfileData } from '@/types/settings'
 
-export default function SettingsPage() {
-    const [form, setForm] = useState({ name: '', phone: '', email: '', address: '' })
-    const [loading, setLoading] = useState(false)
-    const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+export const metadata = {
+    title: 'Settings — Skolify',
+    description: 'Configure your school settings',
+}
 
-    useEffect(() => {
-        fetch('/api/schools/me')
-            .then(r => r.json())
-            .then(d => {
-                if (d.school) {
-                    setForm({
-                        name: d.school.name ?? '',
-                        phone: d.school.phone ?? '',
-                        email: d.school.email ?? '',
-                        address: d.school.address ?? '',
-                    })
-                }
+export const dynamic = 'force-dynamic'
+
+export default async function SettingsPage() {
+    const session = await getServerSession(authOptions)
+
+    if (!session?.user) redirect('/login')
+    if (session.user.role !== 'admin') redirect('/admin')
+
+    const tenantId = session.user.tenantId
+
+    try {
+        await connectDB()
+
+        const [school, settings] = await Promise.all([
+            School.findById(tenantId)
+                .select(
+                    'name subdomain email phone address logo plan modules ' +
+                    'trialEndsAt creditBalance isActive onboardingComplete ' +
+                    'theme paymentSettings'
+                )
+                .lean() as Promise<any>,
+
+            SchoolSettings.findOne({ tenantId }).lean() as Promise<any>,
+        ])
+
+        if (!school) redirect('/login')
+
+        // ── Create settings if not exists ──
+        let settingsDoc = settings
+        if (!settingsDoc) {
+            const created = await SchoolSettings.create({
+                tenantId,
+                academic: {
+                    classes: DEFAULT_CLASSES,
+                    sections: DEFAULT_SECTIONS,
+                    subjects: DEFAULT_SUBJECTS,
+                    gradingSystem: 'marks',
+                    passPercentage: 33,
+                    gradeScale: DEFAULT_GRADE_SCALE,
+                    attendanceThreshold: 75,
+                    workingDaysPerWeek: 6,
+                    schoolTimings: { start: '08:00', end: '14:00' },
+                    currentAcademicYear: getCurrentAcademicYear(),
+                    academicYearStartMonth: 4,
+                },
             })
-    }, [])
+            settingsDoc = created.toObject()
+        }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
-        setLoading(true)
-        const res = await fetch('/api/schools/me', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(form),
-        })
-        setLoading(false)
-        setAlert(res.ok
-            ? { type: 'success', msg: 'Settings saved!' }
-            : { type: 'error', msg: 'Failed to save' }
+        const razorpayConfigured = Boolean(
+            school.paymentSettings?.razorpayKeyId &&
+            school.paymentSettings?.razorpayKeySecret
         )
+
+        const schoolProfile: SchoolProfileData = {
+            id: school._id.toString(),
+            name: school.name,
+            subdomain: school.subdomain,
+            email: school.email || '',
+            phone: school.phone || '',
+            address: school.address || '',
+            logo: school.logo,
+            plan: school.plan,
+            trialEndsAt: school.trialEndsAt?.toISOString() || '',
+            creditBalance: school.creditBalance || 0,
+            isActive: school.isActive,
+            onboardingComplete: school.onboardingComplete,
+            theme: {
+                primary: school.theme?.primary || '#6366f1',
+                secondary: school.theme?.secondary || '#f97316',
+            },
+            razorpayConfigured,
+        }
+
+        const initialData: SettingsResponse = {
+            school: schoolProfile,
+
+            academic: settingsDoc.academic || {
+                classes: DEFAULT_CLASSES,
+                sections: DEFAULT_SECTIONS,
+                subjects: DEFAULT_SUBJECTS,
+                gradingSystem: 'marks',
+                passPercentage: 33,
+                gradeScale: DEFAULT_GRADE_SCALE,
+                attendanceThreshold: 75,
+                workingDaysPerWeek: 6,
+                schoolTimings: { start: '08:00', end: '14:00' },
+                currentAcademicYear: getCurrentAcademicYear(),
+                academicYearStartMonth: 4,
+            },
+
+            notifications: settingsDoc.notifications || {},
+
+            payment: {
+                ...(settingsDoc.payment || {}),
+                razorpayConfigured,
+            },
+
+            appearance: {
+                ...(settingsDoc.appearance || {}),
+                schoolLogo: settingsDoc.appearance?.schoolLogo || school.logo,
+                portalTheme: {
+                    primaryColor: settingsDoc.appearance?.portalTheme?.primaryColor
+                        || school.theme?.primary
+                        || '#6366f1',
+                    accentColor: settingsDoc.appearance?.portalTheme?.accentColor
+                        || school.theme?.secondary
+                        || '#f97316',
+                    darkMode: settingsDoc.appearance?.portalTheme?.darkMode || 'light',
+                },
+                printHeader: settingsDoc.appearance?.printHeader || {
+                    showLogo: true,
+                    showSchoolName: true,
+                    showAddress: true,
+                    showPhone: true,
+                },
+            },
+
+            modules: settingsDoc.modules || {},
+
+            meta: {
+                settingsId: settingsDoc._id?.toString() || '',
+                lastUpdatedBy: settingsDoc.lastUpdatedByName,
+                lastUpdatedAt: settingsDoc.updatedAt?.toISOString(),
+            },
+        }
+
+        // ✅ Sirf SettingsClient — koi wrapper div nahi, koi header nahi
+        // Title ab SettingsClient ke sidebar mein hai
+        return (
+            <SettingsClient
+                initialData={initialData}
+                lastUpdatedBy={settingsDoc.lastUpdatedByName}
+            />
+        )
+
+    } catch (error) {
+        console.error('[Settings Page]', error)
+        redirect('/admin')
     }
-
-    return (
-        <div>
-            <PageHeader title="School Settings" subtitle="Update your school information" />
-
-            {alert && (
-                <div className="mb-4">
-                    <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />
-                </div>
-            )}
-
-            <Card className="max-w-xl">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <Input label="School Name *" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
-                    <Input label="Phone *" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} required />
-                    <Input label="Email" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-                    <Input label="Address" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
-                    <div className="pt-2">
-                        <Button type="submit" loading={loading}>Save Changes</Button>
-                    </div>
-                </form>
-            </Card>
-        </div>
-    )
 }
