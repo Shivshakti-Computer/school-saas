@@ -62,10 +62,9 @@ export const authOptions: NextAuthOptions = {
                 subdomain: '',
                 plan: 'enterprise',
                 schoolName: 'Skolify Admin',
+                schoolLogo: undefined,
                 modules: [],
-                trialEndsAt: new Date(
-                  Date.now() + 365 * 86400000
-                ).toISOString(),
+                trialEndsAt: new Date(Date.now() + 365 * 86400000).toISOString(),
                 subscriptionId: null,
                 subscriptionEnd: null,
                 subscriptionStatus: 'active',
@@ -88,35 +87,28 @@ export const authOptions: NextAuthOptions = {
           // ══════════════════════════════════════
           // SCHOOL LOGIN
           // ══════════════════════════════════════
-          if (!credentials?.phone?.trim() || !credentials?.password) {
-            return null
-          }
+          if (!credentials?.phone?.trim() || !credentials?.password) return null
 
           const subdomain = credentials.subdomain?.toLowerCase().trim()
           if (!subdomain) return null
 
+          // ✅ FIX: +creditBalance +addonLimits = explicit select (extra fields)
+          // logo bhi + ke saath add karo taaki default fields bhi aayein
+          // trialEndsAt default field hai — automatically aayegi
           const school = await School.findOne({ subdomain, isActive: true })
-            .select('+creditBalance +addonLimits')
+            .select('+creditBalance +addonLimits +logo')  // ✅ sab + prefix ke saath
             .lean() as any
 
           if (!school) return null
 
           const loginId = credentials.phone.trim()
 
-          // ✅ Phone SE ya AdmissionNo SE login — dono support
           const user = await User.findOne({
             tenantId: school._id,
             $or: [
-              // Phone se login (bade student / teacher / admin)
               { phone: loginId },
-              // Email se login
               { email: loginId.toLowerCase() },
-              // ✅ AdmissionNo se login (chote bachhe)
-              // Sirf student role ke liye
-              {
-                admissionNo: loginId,
-                role: 'student',
-              },
+              { admissionNo: loginId, role: 'student' },
             ],
             isActive: true,
           })
@@ -129,10 +121,7 @@ export const authOptions: NextAuthOptions = {
             return null
           }
 
-          const match = await bcrypt.compare(
-            credentials.password,
-            user.password
-          )
+          const match = await bcrypt.compare(credentials.password, user.password)
           if (!match) {
             await logLogin(
               user._id.toString(), user.name, user.role,
@@ -181,10 +170,7 @@ export const authOptions: NextAuthOptions = {
               employeeId = staffRecord.employeeId
               staffCategory = staffRecord.staffCategory
             }
-            if (
-              allowedModules.length === 0 &&
-              user.allowedModules?.length
-            ) {
+            if (allowedModules.length === 0 && user.allowedModules?.length) {
               allowedModules = user.allowedModules
             }
           }
@@ -201,7 +187,12 @@ export const authOptions: NextAuthOptions = {
           }).sort({ createdAt: -1 }).lean() as any
 
           const now = new Date()
-          const trialEnd = new Date(school.trialEndsAt)
+
+          // ✅ Safe parse — trialEndsAt undefined bhi ho sakta hai
+          const trialEnd = school.trialEndsAt
+            ? new Date(school.trialEndsAt)
+            : new Date(Date.now() + TRIAL_CONFIG.durationDays * 86400000)
+
           const hasPaidSub = Boolean(activeSub)
           const subEnd = activeSub?.currentPeriodEnd
             ? new Date(activeSub.currentPeriodEnd)
@@ -214,10 +205,9 @@ export const authOptions: NextAuthOptions = {
           if (hasPaidSub && subEnd && subEnd > now) {
             effectivePlan = activeSub.plan
             effectiveModules = school.modules || []
-            subscriptionStatus =
-              activeSub.status === 'scheduled_cancel'
-                ? 'scheduled_cancel'
-                : 'active'
+            subscriptionStatus = activeSub.status === 'scheduled_cancel'
+              ? 'scheduled_cancel'
+              : 'active'
           } else if (!hasPaidSub && trialEnd > now) {
             effectivePlan = TRIAL_PLAN
             effectiveModules = TRIAL_MODULES
@@ -237,8 +227,9 @@ export const authOptions: NextAuthOptions = {
             subdomain: school.subdomain,
             plan: effectivePlan,
             schoolName: school.name,
+            schoolLogo: school.logo || undefined,       // ✅ NEW — logo field
             modules: effectiveModules,
-            trialEndsAt: school.trialEndsAt.toISOString(),
+            trialEndsAt: trialEnd.toISOString(),         // ✅ safe
             subscriptionId: school.subscriptionId ?? null,
             subscriptionEnd: subEnd ? subEnd.toISOString() : null,
             subscriptionStatus,
@@ -270,13 +261,13 @@ export const authOptions: NextAuthOptions = {
         token.subdomain = (user as any).subdomain
         token.plan = (user as any).plan
         token.schoolName = (user as any).schoolName
+        token.schoolLogo = (user as any).schoolLogo     // ✅ NEW
         token.modules = (user as any).modules
         token.trialEndsAt = (user as any).trialEndsAt
         token.subscriptionId = (user as any).subscriptionId
         token.subscriptionEnd = (user as any).subscriptionEnd
         token.subscriptionStatus = (user as any).subscriptionStatus
-        token.twoFactorRequired =
-          (user as any).twoFactorRequired || false
+        token.twoFactorRequired = (user as any).twoFactorRequired || false
         token.lastDbCheck = Date.now()
         token.allowedModules = (user as any).allowedModules || []
         token.employeeId = (user as any).employeeId
@@ -299,9 +290,11 @@ export const authOptions: NextAuthOptions = {
         try {
           await connectDB()
 
+          // ✅ logo bhi select karo refresh mein
           const school = await School.findById(token.tenantId)
             .select(
-              'plan modules subscriptionId trialEndsAt isActive name creditBalance addonLimits'
+              'plan modules subscriptionId trialEndsAt isActive ' +
+              'name creditBalance addonLimits logo'              // ✅ logo added
             )
             .lean() as any
 
@@ -322,7 +315,10 @@ export const authOptions: NextAuthOptions = {
           }).sort({ createdAt: -1 }).lean() as any
 
           const now = new Date()
-          const trialEnd = new Date(school.trialEndsAt)
+          const trialEnd = school.trialEndsAt
+            ? new Date(school.trialEndsAt)
+            : new Date(Date.now() + 30 * 86400000) // ✅ safe fallback
+
           const hasPaidSub = Boolean(activeSub)
           const subEnd = activeSub?.currentPeriodEnd
             ? new Date(activeSub.currentPeriodEnd)
@@ -333,10 +329,9 @@ export const authOptions: NextAuthOptions = {
             token.modules = school.modules || []
             token.subscriptionId = school.subscriptionId
             token.subscriptionEnd = subEnd.toISOString()
-            token.subscriptionStatus =
-              activeSub.status === 'scheduled_cancel'
-                ? 'scheduled_cancel'
-                : 'active'
+            token.subscriptionStatus = activeSub.status === 'scheduled_cancel'
+              ? 'scheduled_cancel'
+              : 'active'
           } else if (!hasPaidSub && trialEnd > now) {
             token.plan = TRIAL_PLAN
             token.modules = TRIAL_MODULES
@@ -371,9 +366,8 @@ export const authOptions: NextAuthOptions = {
             extraTeachers: 0,
           }
           token.schoolName = school.name || token.schoolName
-          token.trialEndsAt = school.trialEndsAt
-            ? new Date(school.trialEndsAt).toISOString()
-            : token.trialEndsAt
+          token.schoolLogo = school.logo || undefined           // ✅ NEW
+          token.trialEndsAt = trialEnd.toISOString()            // ✅ safe
 
         } catch (err) {
           console.error('JWT refresh error:', err)
@@ -392,24 +386,17 @@ export const authOptions: NextAuthOptions = {
         session.user.subdomain = token.subdomain as string
         session.user.plan = token.plan as string
         session.user.schoolName = token.schoolName as string
+        session.user.schoolLogo = token.schoolLogo as string | undefined  // ✅ NEW
         session.user.modules = token.modules as string[]
         session.user.trialEndsAt = token.trialEndsAt as string
-        session.user.subscriptionId =
-          token.subscriptionId as string | null
-        session.user.subscriptionEnd =
-          token.subscriptionEnd as string | null
-        session.user.subscriptionStatus =
-          token.subscriptionStatus as string
-        session.user.twoFactorRequired =
-          token.twoFactorRequired as boolean
-        session.user.allowedModules =
-          (token.allowedModules as string[]) || []
-        session.user.employeeId =
-          token.employeeId as string | undefined
-        session.user.staffCategory =
-          token.staffCategory as string | undefined
-        session.user.creditBalance =
-          (token.creditBalance as number) ?? 0
+        session.user.subscriptionId = token.subscriptionId as string | null
+        session.user.subscriptionEnd = token.subscriptionEnd as string | null
+        session.user.subscriptionStatus = token.subscriptionStatus as string
+        session.user.twoFactorRequired = token.twoFactorRequired as boolean
+        session.user.allowedModules = (token.allowedModules as string[]) || []
+        session.user.employeeId = token.employeeId as string | undefined
+        session.user.staffCategory = token.staffCategory as string | undefined
+        session.user.creditBalance = (token.creditBalance as number) ?? 0
         session.user.addonLimits = (token.addonLimits as any) ?? {
           extraStudents: 0,
           extraTeachers: 0,

@@ -1,60 +1,63 @@
 // FILE: src/types/next-auth.d.ts
-// UPDATED: Added allowedModules for staff role-based access
+// ═══════════════════════════════════════════════════════════
+// NextAuth type extensions
+// logo field add kiya — backward compatible
+// ═══════════════════════════════════════════════════════════
 
-import NextAuth, { DefaultSession, DefaultUser } from 'next-auth'
-import { JWT as DefaultJWT } from 'next-auth/jwt'
+import 'next-auth'
+import 'next-auth/jwt'
 
 declare module 'next-auth' {
+    interface User {
+        id: string
+        role: string
+        tenantId: string
+        subdomain: string
+        plan: string
+        schoolName: string
+        schoolLogo?: string          // ← NEW
+        modules: string[]
+        trialEndsAt: string
+        subscriptionId: string | null
+        subscriptionEnd: string | null
+        subscriptionStatus: string
+        twoFactorRequired: boolean
+        allowedModules: string[]
+        employeeId?: string
+        staffCategory?: string
+        creditBalance: number
+        addonLimits: {
+            extraStudents: number
+            extraTeachers: number
+        }
+    }
+
     interface Session {
         user: {
             id: string
-            name: string
-            email: string
+            name?: string | null
+            email?: string | null
             role: string
             tenantId: string
             subdomain: string
             plan: string
             schoolName: string
+            schoolLogo?: string        // ← NEW
             modules: string[]
             trialEndsAt: string
             subscriptionId: string | null
             subscriptionEnd: string | null
             subscriptionStatus: string
             twoFactorRequired: boolean
-            // ── NEW ──
-            allowedModules: string[]   // Staff-specific module permissions
+            allowedModules: string[]
             employeeId?: string
-            staffCategory?: string     // 'teaching' | 'non_teaching' | 'admin' | 'support'
-            // ── NEW ──
+            staffCategory?: string
             creditBalance: number
             addonLimits: {
                 extraStudents: number
                 extraTeachers: number
             }
-        } & DefaultSession['user']
-    }
-}
-
-interface User extends DefaultUser {
-    role: string
-    tenantId: string
-    subdomain: string
-    plan: string
-    schoolName: string
-    modules: string[]
-    trialEndsAt: string
-    subscriptionId: string | null
-    subscriptionEnd: string | null
-    subscriptionStatus: string
-    twoFactorRequired: boolean
-    allowedModules: string[]
-    employeeId?: string
-    staffCategory?: string
-    // ── NEW ──
-    creditBalance: number
-    addonLimits: {
-        extraStudents: number
-        extraTeachers: number
+        }
     }
 }
 
@@ -66,6 +69,7 @@ declare module 'next-auth/jwt' {
         subdomain: string
         plan: string
         schoolName: string
+        schoolLogo?: string          // ← NEW
         modules: string[]
         trialEndsAt: string
         subscriptionId: string | null
@@ -73,11 +77,9 @@ declare module 'next-auth/jwt' {
         subscriptionStatus: string
         twoFactorRequired: boolean
         lastDbCheck: number
-        // ── NEW ──
         allowedModules: string[]
         employeeId?: string
         staffCategory?: string
-        // ── NEW ──
         creditBalance: number
         addonLimits: {
             extraStudents: number

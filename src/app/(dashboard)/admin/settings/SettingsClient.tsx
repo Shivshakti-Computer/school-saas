@@ -1,4 +1,10 @@
 // FILE: src/app/(dashboard)/admin/settings/SettingsClient.tsx
+// ═══════════════════════════════════════════════════════════
+// MERGED:
+// - New: schoolName prop AppearanceTab mein
+// - Old: Sticky sidebar + title in sidebar + lastUpdatedBy
+// - Backward Compatible: dono page.tsx versions ke saath kaam karta hai
+// ═══════════════════════════════════════════════════════════
 
 'use client'
 
@@ -16,7 +22,7 @@ import type { SettingsResponse, SettingsTab } from '@/types/settings'
 
 interface SettingsClientProps {
     initialData: SettingsResponse
-    lastUpdatedBy?: string          // ✅ page.tsx se pass hoga
+    lastUpdatedBy?: string        // ✅ optional — page.tsx se pass hoga
 }
 
 function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
@@ -26,6 +32,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
 
     const renderTab = () => {
         switch (activeTab) {
+
             case 'school':
                 return (
                     <SchoolProfileTab
@@ -38,6 +45,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                         }
                     />
                 )
+
             case 'academic':
                 return (
                     <AcademicTab
@@ -47,6 +55,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                         }
                     />
                 )
+
             case 'notifications':
                 return (
                     <NotificationsTab
@@ -56,6 +65,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                         }
                     />
                 )
+
             case 'payment':
                 return (
                     <PaymentTab
@@ -69,32 +79,33 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                         }
                     />
                 )
+
             case 'appearance':
                 return (
                     <AppearanceTab
                         appearance={data.appearance}
+                        schoolName={data.school.name}   // ✅ NEW — from new file
                         onSaved={(updated) =>
                             setData((prev) => ({ ...prev, appearance: updated }))
                         }
                     />
                 )
+
             case 'modules':
                 return (
                     <ModulesTab
                         modules={data.modules}
-                        enabledModules={
-                            data.school.id
-                                ? (initialData.school as any).modules || []
-                                : []
-                        }
+                        enabledModules={(data.school as any).modules || []}
                         plan={data.school.plan}
                         onSaved={({ modules }) =>
                             setData((prev) => ({ ...prev, modules }))
                         }
                     />
                 )
+
             case 'data':
                 return <DataTab />
+
             default:
                 return (
                     <SchoolProfileTab
@@ -113,63 +124,54 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
     return (
         <div className="flex gap-6 items-start">
 
-            {/* ════════════════════════════════════════════════
-                DESKTOP SIDEBAR — Sticky
-                
-                Scroll container = <main> in SidebarLayout
-                  → overflow-y-auto
-                  → padding: p-4 md:p-6
-                
-                top-0 = main scroll container ke bilkul top se
-                        chipkayega — koi header scroll issue nahi
-                        kyunki page title ab yahan hai
-                
-                max-h = 100vh - topbar(3.75rem) - padding(3rem)
-                ════════════════════════════════════════════════ */}
+            {/* ══════════════════════════════════════════════
+          DESKTOP SIDEBAR — Sticky
+          Scroll container = <main> in SidebarLayout
+          top-0 = main scroll container ke top se
+          max-h = 100vh - topbar(3.75rem) - padding(3rem)
+          ══════════════════════════════════════════════ */}
             <aside
                 className="
-                    hidden md:flex
-                    flex-col
-                    w-52 lg:w-56
-                    flex-shrink-0
-                    sticky
-                    top-6
-                    self-start
-                    max-h-[calc(100vh-3.75rem-3rem)]
-                    overflow-y-auto
-                    scrollbar-hide
-                "
+          hidden md:flex
+          flex-col
+          w-52 lg:w-56
+          flex-shrink-0
+          sticky
+          top-0
+          self-start
+          max-h-[calc(100vh-3.75rem-3rem)]
+          overflow-y-auto
+          scrollbar-hide
+        "
             >
-                {/* ✅ Title sidebar ke andar — scroll nahi hogi */}
+                {/* Title — sticky ke saath scroll nahi hogi */}
                 <div className="
-                    pb-3 mb-1
-                    border-b border-[var(--border)]
-                    flex-shrink-0
-                ">
+          pb-3 mb-1
+          border-b border-[var(--border)]
+          flex-shrink-0
+        ">
                     <h1 className="
-                        text-base font-700
-                        text-[var(--text-primary)]
-                        leading-tight
-                    ">
+            text-base font-700
+            text-[var(--text-primary)]
+            leading-tight
+          ">
                         Settings
                     </h1>
                     <p className="
-                        text-xs text-[var(--text-muted)]
-                        mt-0.5 leading-tight
-                    ">
+            text-xs text-[var(--text-muted)]
+            mt-0.5 leading-tight
+          ">
                         School configuration
                     </p>
-                    {/* Last updated info */}
+
+                    {/* Last updated — optional */}
                     {lastUpdatedBy && (
                         <p className="
-                            text-[10px] text-[var(--text-muted)]
-                            mt-1.5 leading-tight
-                        ">
+              text-[10px] text-[var(--text-muted)]
+              mt-1.5 leading-tight
+            ">
                             Updated by{' '}
-                            <span className="
-                                font-600
-                                text-[var(--text-secondary)]
-                            ">
+                            <span className="font-600 text-[var(--text-secondary)]">
                                 {lastUpdatedBy}
                             </span>
                         </p>
@@ -185,23 +187,18 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 </div>
             </aside>
 
-            {/* ════════════════════════════════════════════════
-                MOBILE — Title + Nav stacked
-                ════════════════════════════════════════════════ */}
+            {/* ══════════════════════════════════════════════
+          MOBILE — Title + Nav stacked
+          ══════════════════════════════════════════════ */}
             <div className="md:hidden w-full">
-                {/* Mobile Title */}
                 <div className="mb-4">
-                    <h1 className="
-                        text-xl font-700
-                        text-[var(--text-primary)]
-                    ">
+                    <h1 className="text-xl font-700 text-[var(--text-primary)]">
                         Settings
                     </h1>
                     <p className="text-sm text-[var(--text-muted)] mt-0.5">
                         School configuration
                     </p>
                 </div>
-                {/* Mobile Nav */}
                 <div className="mb-4">
                     <SettingsNav
                         activeTab={activeTab}
@@ -210,9 +207,9 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 </div>
             </div>
 
-            {/* ════════════════════════════════════════════════
-                TAB CONTENT — freely scrolls with page
-                ════════════════════════════════════════════════ */}
+            {/* ══════════════════════════════════════════════
+          TAB CONTENT
+          ══════════════════════════════════════════════ */}
             <main className="flex-1 min-w-0 pb-10">
                 {renderTab()}
             </main>
@@ -227,12 +224,14 @@ export function SettingsClient({ initialData, lastUpdatedBy }: SettingsClientPro
             fallback={
                 <div className="flex items-center justify-center py-20">
                     <div className="flex flex-col items-center gap-3">
-                        <div className="
-                            w-8 h-8 border-2
-                            border-[var(--primary-200)]
-                            border-t-[var(--primary-600)]
-                            rounded-full animate-spin
-                        " />
+                        <div
+                            className="
+                w-8 h-8 border-2
+                border-[var(--primary-200)]
+                border-t-[var(--primary-600)]
+                rounded-full animate-spin
+              "
+                        />
                         <p className="text-sm text-[var(--text-muted)]">
                             Loading settings...
                         </p>
