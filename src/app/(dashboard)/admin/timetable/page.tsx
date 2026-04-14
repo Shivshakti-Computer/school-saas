@@ -5,7 +5,7 @@ import { connectDB } from '@/lib/db'
 import { Timetable } from '@/models/Timetable'
 import { getCurrentAcademicYear } from '@/lib/academicYear'
 import { TimetableClient } from './TimetableClient'
-import { requireModule } from '@/lib/planGaurd'
+import { requireModule } from '@/lib/planGuard'
 
 export const metadata = {
     title: 'Timetable | Skolify',

@@ -6,7 +6,7 @@ import { LibraryBook, LibraryIssue } from '@/models/Library'
 import { LibraryClient }    from './LibraryClient'
 import '@/models/Student'
 import '@/models/User'
-import { requireModule } from '@/lib/planGaurd'
+import { requireModule } from '@/lib/planGuard'
 
 export const metadata = {
   title: 'Library | Skolify',
