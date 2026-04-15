@@ -1,5 +1,5 @@
 // -------------------------------------------------------------
-// FILE: src/app/api/student/notices/route.ts
+// FILE: src/app/api/students/notices/route.ts
 // GET → student/parent ke liye notices
 // -------------------------------------------------------------
 

@@ -111,6 +111,7 @@ export default async function SettingsPage() {
             razorpayConfigured,
             // ✅ DB se fresh — session pe depend nahi
             enabledModules,
+            hiddenModules
         }
 
         const initialData: SettingsResponse = {

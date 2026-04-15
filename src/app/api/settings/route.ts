@@ -1,8 +1,8 @@
 // FILE: src/app/api/settings/route.ts
 // ═══════════════════════════════════════════════════════════
 // GET /api/settings
-// Fetch all settings for the logged-in admin's school
-// Returns: school profile + all settings in one response
+// ✅ UPDATED: Complete academic config with enabledModules
+// ✅ Returns all settings for real-time consumption
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -13,9 +13,9 @@ import { SchoolSettings } from '@/models/SchoolSettings'
 import type { SettingsResponse, SchoolProfileData } from '@/types/settings'
 
 export async function GET(req: NextRequest) {
-    // ── Auth Guard — only admin ──
+    // ── Auth Guard — admin, teacher, staff (read-only for teachers) ──
     const guard = await apiGuard(req, {
-        allowedRoles: ['admin'],
+        allowedRoles: ['admin', 'teacher', 'staff'],
         rateLimit: 'mutation',
     })
     if (guard instanceof NextResponse) return guard
@@ -32,11 +32,10 @@ export async function GET(req: NextRequest) {
                 .select(
                     'name subdomain email phone address logo plan ' +
                     'trialEndsAt creditBalance isActive onboardingComplete ' +
-                    'theme paymentSettings modules'
+                    'theme paymentSettings enabledModules hiddenModules'
                 )
                 .lean() as Promise<any>,
 
-            // getOrCreate — agar settings nahi hai toh defaults ke saath create karo
             SchoolSettings.findOne({ tenantId }).lean() as Promise<any>,
         ])
 
@@ -50,8 +49,12 @@ export async function GET(req: NextRequest) {
         // ── Settings nahi hai — defaults ke saath create karo ──
         let settingsDoc = settings
         if (!settingsDoc) {
-            const { DEFAULT_CLASSES, DEFAULT_SECTIONS, DEFAULT_SUBJECTS, DEFAULT_GRADE_SCALE } =
-                await import('@/models/SchoolSettings')
+            const {
+                DEFAULT_CLASSES,
+                DEFAULT_SECTIONS,
+                DEFAULT_SUBJECTS,
+                DEFAULT_GRADE_SCALE,
+            } = await import('@/models/SchoolSettings')
             const { getCurrentAcademicYear } = await import('@/lib/academicYear')
 
             settingsDoc = await SchoolSettings.create({
@@ -71,7 +74,6 @@ export async function GET(req: NextRequest) {
                 },
             })
 
-            // lean() ke liye plain object chahiye
             settingsDoc = settingsDoc.toObject()
         }
 
@@ -97,26 +99,27 @@ export async function GET(req: NextRequest) {
                 school.paymentSettings?.razorpayKeyId &&
                 school.paymentSettings?.razorpayKeySecret
             ),
+            // ✅ FIX: enabledModules return karo
+            enabledModules: school.enabledModules || [],
+            hiddenModules: school.hiddenModules || [],
         }
 
         // ── Build Response ──
-        // Razorpay keys KABHI return nahi karenge — security
         const response: SettingsResponse = {
             school: schoolProfile,
 
+            // ✅ FIX: Complete academic config with all fields
             academic: settingsDoc.academic || {},
 
             notifications: settingsDoc.notifications || {},
 
             payment: {
                 ...(settingsDoc.payment || {}),
-                // Razorpay configured status School model se
                 razorpayConfigured: schoolProfile.razorpayConfigured,
             },
 
             appearance: {
                 ...(settingsDoc.appearance || {}),
-                // Agar appearance.schoolLogo nahi → school.logo use karo
                 schoolLogo: settingsDoc.appearance?.schoolLogo || school.logo,
             },
 

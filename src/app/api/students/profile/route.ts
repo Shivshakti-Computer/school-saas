@@ -1,5 +1,5 @@
 // -------------------------------------------------------------
-// FILE: src/app/api/student/profile/route.ts
+// FILE: src/app/api/students/profile/route.ts
 // GET → student apna profile dekhe
 // PUT → profile update (limited fields)
 // -------------------------------------------------------------

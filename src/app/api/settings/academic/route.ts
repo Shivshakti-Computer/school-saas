@@ -1,7 +1,7 @@
 // FILE: src/app/api/settings/academic/route.ts
 // ═══════════════════════════════════════════════════════════
 // PATCH /api/settings/academic
-// Classes, sections, subjects, grading system, timings
+// ✅ UPDATED: Track affectedModules, return complete response
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -36,7 +36,9 @@ function validateAcademic(body: UpdateAcademicBody): string | null {
         const { start, end, lunchBreak } = body.schoolTimings
         if (start && !isValidTime(start)) return 'Invalid school start time'
         if (end && !isValidTime(end)) return 'Invalid school end time'
-        if (start && end && start >= end) return 'Start time must be before end time'
+        if (start && end && start >= end) {
+            return 'Start time must be before end time'
+        }
         if (lunchBreak) {
             if (lunchBreak.start && !isValidTime(lunchBreak.start)) {
                 return 'Invalid lunch break start time'
@@ -54,13 +56,17 @@ function validateAcademic(body: UpdateAcademicBody): string | null {
         for (const cls of body.classes) {
             if (!cls.name?.trim()) return 'Class name cannot be empty'
             if (!cls.group) return `Class group required for ${cls.name}`
-            if (!cls.displayName?.trim()) return `Display name required for ${cls.name}`
+            if (!cls.displayName?.trim()) {
+                return `Display name required for ${cls.name}`
+            }
         }
     }
 
     if (body.sections !== undefined) {
         if (!Array.isArray(body.sections)) return 'Sections must be an array'
-        if (body.sections.length === 0) return 'At least one section is required'
+        if (body.sections.length === 0) {
+            return 'At least one section is required'
+        }
 
         for (const sec of body.sections) {
             if (!sec.name?.trim()) return 'Section name cannot be empty'
@@ -93,7 +99,10 @@ function validateAcademic(body: UpdateAcademicBody): string | null {
     }
 
     if (body.academicYearStartMonth !== undefined) {
-        if (body.academicYearStartMonth < 1 || body.academicYearStartMonth > 12) {
+        if (
+            body.academicYearStartMonth < 1 ||
+            body.academicYearStartMonth > 12
+        ) {
             return 'Academic year start month must be 1-12'
         }
     }
@@ -122,56 +131,85 @@ export async function PATCH(req: NextRequest) {
     try {
         await connectDB()
 
-        // ── Build $set object — only provided fields update karo ──
+        // ── Build $set object ──
         const setFields: Record<string, any> = {
             lastUpdatedBy: session.user.id,
             lastUpdatedByName: session.user.name,
         }
 
-        if (body.classes !== undefined)
+        // ✅ Track which modules are affected
+        const affectedModules: string[] = []
+
+        if (body.classes !== undefined) {
             setFields['academic.classes'] = body.classes
+            affectedModules.push('attendance', 'students', 'timetable', 'exams')
+        }
 
-        if (body.sections !== undefined)
+        if (body.sections !== undefined) {
             setFields['academic.sections'] = body.sections
+            affectedModules.push('attendance', 'students', 'timetable', 'exams')
+        }
 
-        if (body.subjects !== undefined)
+        if (body.subjects !== undefined) {
             setFields['academic.subjects'] = body.subjects
+            affectedModules.push('timetable', 'exams')
+        }
 
-        if (body.gradingSystem !== undefined)
+        if (body.gradingSystem !== undefined) {
             setFields['academic.gradingSystem'] = body.gradingSystem
+            affectedModules.push('exams', 'results')
+        }
 
-        if (body.passPercentage !== undefined)
+        if (body.passPercentage !== undefined) {
             setFields['academic.passPercentage'] = body.passPercentage
+            affectedModules.push('exams', 'results')
+        }
 
-        if (body.gradeScale !== undefined)
+        if (body.gradeScale !== undefined) {
             setFields['academic.gradeScale'] = body.gradeScale
+            affectedModules.push('exams', 'results')
+        }
 
-        if (body.cgpaScale !== undefined)
+        if (body.cgpaScale !== undefined) {
             setFields['academic.cgpaScale'] = body.cgpaScale
+            affectedModules.push('results')
+        }
 
-        if (body.attendanceThreshold !== undefined)
+        if (body.attendanceThreshold !== undefined) {
             setFields['academic.attendanceThreshold'] = body.attendanceThreshold
+            affectedModules.push('attendance')
+        }
 
-        if (body.workingDaysPerWeek !== undefined)
+        if (body.workingDaysPerWeek !== undefined) {
             setFields['academic.workingDaysPerWeek'] = body.workingDaysPerWeek
+            affectedModules.push('attendance', 'timetable')
+        }
 
-        if (body.schoolTimings !== undefined)
+        if (body.schoolTimings !== undefined) {
             setFields['academic.schoolTimings'] = body.schoolTimings
+            affectedModules.push('timetable')
+        }
 
-        if (body.currentAcademicYear !== undefined)
+        if (body.currentAcademicYear !== undefined) {
             setFields['academic.currentAcademicYear'] = body.currentAcademicYear
+            affectedModules.push('all')
+        }
 
-        if (body.academicYearStartMonth !== undefined)
-            setFields['academic.academicYearStartMonth'] = body.academicYearStartMonth
+        if (body.academicYearStartMonth !== undefined) {
+            setFields['academic.academicYearStartMonth'] =
+                body.academicYearStartMonth
+        }
 
-        // ── Upsert — agar settings nahi hai toh create karo ──
+        // ── Update settings ──
         const updated = await SchoolSettings.findOneAndUpdate(
             { tenantId },
             { $set: setFields },
             { new: true, upsert: true, runValidators: false }
-        ).select('academic').lean() as any
+        )
+            .select('academic')
+            .lean() as any
 
-        // ── Audit ──
+        // ── Audit log ──
         await logAudit({
             tenantId,
             userId: session.user.id,
@@ -186,10 +224,13 @@ export async function PATCH(req: NextRequest) {
             userAgent: clientInfo.userAgent,
         })
 
+        // ✅ FIX: Return affected modules
         return NextResponse.json({
             success: true,
             message: 'Academic settings updated successfully',
             academic: updated?.academic,
+            // Unique modules
+            affectedModules: [...new Set(affectedModules)],
         })
 
     } catch (error: any) {

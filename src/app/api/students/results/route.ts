@@ -1,5 +1,5 @@
 // -------------------------------------------------------------
-// FILE: src/app/api/student/results/route.ts
+// FILE: src/app/api/students/results/route.ts
 // GET → student ke exam results
 // -------------------------------------------------------------
 import { authOptions } from '@/lib/auth'

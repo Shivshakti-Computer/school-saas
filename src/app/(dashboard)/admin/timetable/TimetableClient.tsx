@@ -1,15 +1,24 @@
+// FILE: src/app/(dashboard)/admin/timetable/TimetableClient.tsx
+// ═══════════════════════════════════════════════════════════
+// ✅ PRODUCTION READY - Timetable Module
+// ✅ Dynamic classes/sections/subjects from academic settings
+// ✅ Real-time sync with settings updates
+// ✅ Period management, Copy timetable, Print support
+// ═══════════════════════════════════════════════════════════
+
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
 import {
     Clock, Plus, Save, Trash2, X,
     ChevronDown, Copy, Printer,
-    AlertTriangle, CheckCircle2,
     Coffee, BookOpen,
+    CheckCircle2,
+    AlertTriangle,
 } from 'lucide-react'
-import { PageHeader, Button, Spinner, EmptyState } from '@/components/ui'
 import { getCurrentAcademicYear } from '@/lib/academicYear'
 import { Portal } from '@/components/ui/Portal'
+import { useAcademicSettings } from '@/hooks/useAcademicSettings'
 
 // ─────────────────────────────────────────────
 // Constants
@@ -20,27 +29,13 @@ const DAYS = [
 ] as const
 
 const DAY_LABELS: Record<string, string> = {
-    monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday',
-    thursday: 'Thursday', friday: 'Friday', saturday: 'Saturday',
+    monday: 'Monday',
+    tuesday: 'Tuesday',
+    wednesday: 'Wednesday',
+    thursday: 'Thursday',
+    friday: 'Friday',
+    saturday: 'Saturday',
 }
-
-// Indian school standard classes
-const CLASSES = [
-    'Nursery', 'LKG', 'UKG',
-    '1', '2', '3', '4', '5', '6',
-    '7', '8', '9', '10', '11', '12',
-]
-const SECTIONS = ['A', 'B', 'C', 'D', 'E', 'F']
-
-// Common subjects
-const COMMON_SUBJECTS = [
-    'Mathematics', 'English', 'Hindi', 'Science',
-    'Social Studies', 'Computer', 'Physical Education',
-    'Art & Craft', 'Music', 'Sanskrit', 'Moral Science',
-    'EVS', 'Biology', 'Physics', 'Chemistry',
-    'Accountancy', 'Economics', 'History', 'Geography',
-    'Lunch Break', 'Recess', 'Assembly',
-]
 
 type Day = typeof DAYS[number]
 
@@ -112,6 +107,35 @@ const isBreakSubject = (subject: string) =>
     ['Lunch Break', 'Recess', 'Assembly', 'Break'].includes(subject)
 
 // ─────────────────────────────────────────────
+// Spinner
+// ─────────────────────────────────────────────
+function Spinner({ size = 'sm' }: { size?: 'sm' | 'md' }) {
+    const cls = size === 'sm' ? 'w-3.5 h-3.5' : 'w-5 h-5'
+    return (
+        <svg
+            className={`${cls} animate-spin flex-shrink-0`}
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+        >
+            <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+            />
+            <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
+        </svg>
+    )
+}
+
+// ─────────────────────────────────────────────
 // Period Card
 // ─────────────────────────────────────────────
 function PeriodCard({
@@ -136,7 +160,6 @@ function PeriodCard({
                 minHeight: '88px',
             }}
         >
-            {/* Remove btn */}
             {canEdit && (
                 <button
                     onClick={onRemove}
@@ -149,7 +172,6 @@ function PeriodCard({
                 </button>
             )}
 
-            {/* Period number */}
             <div className="flex items-center justify-between mb-1.5">
                 <span
                     className="text-[0.5625rem] font-bold uppercase tracking-wider"
@@ -171,7 +193,6 @@ function PeriodCard({
                 )}
             </div>
 
-            {/* Subject */}
             <p
                 className="text-[0.8125rem] font-bold leading-tight mb-1 truncate"
                 style={{ color: color.text }}
@@ -179,7 +200,6 @@ function PeriodCard({
                 {period.subject}
             </p>
 
-            {/* Time */}
             <p
                 className="text-[0.625rem] font-medium flex items-center gap-1"
                 style={{ color: color.text, opacity: 0.65 }}
@@ -188,7 +208,6 @@ function PeriodCard({
                 {period.startTime}–{period.endTime}
             </p>
 
-            {/* Teacher */}
             {period.teacherName && !isBreak && (
                 <p
                     className="text-[0.5625rem] mt-1 truncate"
@@ -208,12 +227,14 @@ function AddPeriodModal({
     day,
     nextPeriodNo,
     teachers,
+    subjects,
     onAdd,
     onClose,
 }: {
     day: string
     nextPeriodNo: number
     teachers: Teacher[]
+    subjects: string[]
     onAdd: (p: IPeriod) => void
     onClose: () => void
 }) {
@@ -234,9 +255,8 @@ function AddPeriodModal({
     })
     const [error, setError] = useState('')
 
-    const finalSubject = form.subject === '__custom__'
-        ? form.customSubj.trim()
-        : form.subject
+    const finalSubject =
+        form.subject === '__custom__' ? form.customSubj.trim() : form.subject
 
     const handleAdd = () => {
         setError('')
@@ -254,7 +274,7 @@ function AddPeriodModal({
         }
 
         const isBreak = form.isBreak || isBreakSubject(finalSubject)
-        const teacher = teachers.find(t => t._id === form.teacherId)
+        const teacher = teachers.find((t) => t._id === form.teacherId)
 
         onAdd({
             periodNo: nextPeriodNo,
@@ -271,7 +291,10 @@ function AddPeriodModal({
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(30,27,75,0.45)', backdropFilter: 'blur(6px)' }}
+            style={{
+                background: 'rgba(30,27,75,0.45)',
+                backdropFilter: 'blur(6px)',
+            }}
         >
             <div
                 className="w-full max-w-md rounded-2xl overflow-hidden"
@@ -282,7 +305,6 @@ function AddPeriodModal({
                     animation: 'scaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1) forwards',
                 }}
             >
-                {/* Header */}
                 <div
                     className="flex items-center justify-between px-5 py-4 border-b"
                     style={{ borderColor: 'var(--border)' }}
@@ -294,33 +316,39 @@ function AddPeriodModal({
                         >
                             Add Period
                         </h3>
-                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        <p
+                            className="text-xs mt-0.5"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
                             {DAY_LABELS[day]} · Period {nextPeriodNo}
                         </p>
                     </div>
                     <button
                         onClick={onClose}
                         className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ background: 'var(--bg-muted)', color: 'var(--text-muted)' }}
+                        style={{
+                            background: 'var(--bg-muted)',
+                            color: 'var(--text-muted)',
+                        }}
                     >
                         <X size={15} />
                     </button>
                 </div>
 
-                {/* Body */}
                 <div className="px-5 py-4 space-y-4">
-
                     {error && (
                         <div
                             className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
-                            style={{ background: 'var(--danger-light)', color: 'var(--danger-dark)' }}
+                            style={{
+                                background: 'var(--danger-light)',
+                                color: 'var(--danger-dark)',
+                            }}
                         >
                             <AlertTriangle size={14} />
                             {error}
                         </div>
                     )}
 
-                    {/* Subject */}
                     <div>
                         <label
                             className="block text-xs font-semibold mb-1.5 font-display"
@@ -331,9 +359,9 @@ function AddPeriodModal({
                         <div className="relative">
                             <select
                                 value={form.subject}
-                                onChange={e => {
+                                onChange={(e) => {
                                     const v = e.target.value
-                                    setForm(f => ({
+                                    setForm((f) => ({
                                         ...f,
                                         subject: v,
                                         isBreak: isBreakSubject(v),
@@ -348,15 +376,19 @@ function AddPeriodModal({
                                 }}
                             >
                                 <option value="">Select subject</option>
-                                <optgroup label="Common Subjects">
-                                    {COMMON_SUBJECTS.filter(s => !isBreakSubject(s)).map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                    ))}
+                                <optgroup label="Subjects">
+                                    {subjects
+                                        .filter((s) => !isBreakSubject(s))
+                                        .map((s) => (
+                                            <option key={s} value={s}>
+                                                {s}
+                                            </option>
+                                        ))}
                                 </optgroup>
                                 <optgroup label="Breaks">
-                                    {COMMON_SUBJECTS.filter(s => isBreakSubject(s)).map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                    ))}
+                                    <option value="Lunch Break">Lunch Break</option>
+                                    <option value="Recess">Recess</option>
+                                    <option value="Assembly">Assembly</option>
                                 </optgroup>
                                 <option value="__custom__">+ Custom Subject</option>
                             </select>
@@ -367,13 +399,14 @@ function AddPeriodModal({
                             />
                         </div>
 
-                        {/* Custom subject input */}
                         {form.subject === '__custom__' && (
                             <input
                                 type="text"
                                 placeholder="Enter subject name"
                                 value={form.customSubj}
-                                onChange={e => setForm(f => ({ ...f, customSubj: e.target.value }))}
+                                onChange={(e) =>
+                                    setForm((f) => ({ ...f, customSubj: e.target.value }))
+                                }
                                 className="mt-2 w-full h-10 px-3 text-sm rounded-[var(--radius-md)] border-[1.5px]
                            focus:outline-none"
                                 style={{
@@ -386,9 +419,8 @@ function AddPeriodModal({
                         )}
                     </div>
 
-                    {/* Time row */}
                     <div className="grid grid-cols-2 gap-3">
-                        {(['startTime', 'endTime'] as const).map(field => (
+                        {(['startTime', 'endTime'] as const).map((field) => (
                             <div key={field}>
                                 <label
                                     className="block text-xs font-semibold mb-1.5 font-display"
@@ -399,7 +431,9 @@ function AddPeriodModal({
                                 <input
                                     type="time"
                                     value={form[field]}
-                                    onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, [field]: e.target.value }))
+                                    }
                                     className="w-full h-10 px-3 text-sm rounded-[var(--radius-md)] border-[1.5px]
                              focus:outline-none"
                                     style={{
@@ -412,27 +446,37 @@ function AddPeriodModal({
                         ))}
                     </div>
 
-                    {/* Duration preview */}
-                    {form.startTime && form.endTime &&
+                    {form.startTime &&
+                        form.endTime &&
                         timeToMins(form.endTime) > timeToMins(form.startTime) && (
                             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                Duration: <strong>{calcDuration(form.startTime, form.endTime)}</strong>
+                                Duration:{' '}
+                                <strong>{calcDuration(form.startTime, form.endTime)}</strong>
                             </p>
                         )}
 
-                    {/* Teacher — only for non-break */}
                     {!form.isBreak && !isBreakSubject(finalSubject) && teachers.length > 0 && (
                         <div>
                             <label
                                 className="block text-xs font-semibold mb-1.5 font-display"
                                 style={{ color: 'var(--text-primary)' }}
                             >
-                                Teacher <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>(optional)</span>
+                                Teacher{' '}
+                                <span
+                                    style={{
+                                        color: 'var(--text-muted)',
+                                        fontWeight: 400,
+                                    }}
+                                >
+                                    (optional)
+                                </span>
                             </label>
                             <div className="relative">
                                 <select
                                     value={form.teacherId}
-                                    onChange={e => setForm(f => ({ ...f, teacherId: e.target.value }))}
+                                    onChange={(e) =>
+                                        setForm((f) => ({ ...f, teacherId: e.target.value }))
+                                    }
                                     className="w-full h-10 px-3 pr-8 text-sm rounded-[var(--radius-md)] border-[1.5px]
                              focus:outline-none appearance-none"
                                     style={{
@@ -442,8 +486,10 @@ function AddPeriodModal({
                                     }}
                                 >
                                     <option value="">Select teacher</option>
-                                    {teachers.map(t => (
-                                        <option key={t._id} value={t._id}>{t.name}</option>
+                                    {teachers.map((t) => (
+                                        <option key={t._id} value={t._id}>
+                                            {t.name}
+                                        </option>
                                     ))}
                                 </select>
                                 <ChevronDown
@@ -456,7 +502,6 @@ function AddPeriodModal({
                     )}
                 </div>
 
-                {/* Footer */}
                 <div
                     className="flex gap-2.5 px-5 py-4 border-t"
                     style={{
@@ -478,7 +523,8 @@ function AddPeriodModal({
                         onClick={handleAdd}
                         className="flex-1 h-10 rounded-[var(--radius-md)] text-sm font-semibold text-white transition-all"
                         style={{
-                            background: 'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
+                            background:
+                                'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
                         }}
                     >
                         Add Period
@@ -508,13 +554,16 @@ function CopyModal({
     const [selected, setSelected] = useState('')
 
     const others = timetables.filter(
-        t => !(t.class === currentClass && t.section === currentSection)
+        (t) => !(t.class === currentClass && t.section === currentSection)
     )
 
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ background: 'rgba(30,27,75,0.45)', backdropFilter: 'blur(6px)' }}
+            style={{
+                background: 'rgba(30,27,75,0.45)',
+                backdropFilter: 'blur(6px)',
+            }}
         >
             <div
                 className="w-full max-w-sm rounded-2xl overflow-hidden"
@@ -529,17 +578,27 @@ function CopyModal({
                     className="flex items-center justify-between px-5 py-4 border-b"
                     style={{ borderColor: 'var(--border)' }}
                 >
-                    <h3 className="text-base font-bold font-display" style={{ color: 'var(--text-primary)' }}>
+                    <h3
+                        className="text-base font-bold font-display"
+                        style={{ color: 'var(--text-primary)' }}
+                    >
                         Copy from Another Class
                     </h3>
-                    <button onClick={onClose} className="p-1" style={{ color: 'var(--text-muted)' }}>
+                    <button
+                        onClick={onClose}
+                        className="p-1"
+                        style={{ color: 'var(--text-muted)' }}
+                    >
                         <X size={16} />
                     </button>
                 </div>
 
                 <div className="px-5 py-4 space-y-3">
                     {others.length === 0 ? (
-                        <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>
+                        <p
+                            className="text-sm text-center py-4"
+                            style={{ color: 'var(--text-muted)' }}
+                        >
                             No other timetables found
                         </p>
                     ) : (
@@ -548,16 +607,19 @@ function CopyModal({
                                 Select a class to copy its timetable structure:
                             </p>
                             <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                                {others.map(t => (
+                                {others.map((t) => (
                                     <label
                                         key={t._id}
                                         className="flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors"
                                         style={{
-                                            background: selected === t._id
-                                                ? 'var(--primary-50)' : 'var(--bg-muted)',
-                                            border: selected === t._id
-                                                ? '1.5px solid var(--primary-300)'
-                                                : '1.5px solid transparent',
+                                            background:
+                                                selected === t._id
+                                                    ? 'var(--primary-50)'
+                                                    : 'var(--bg-muted)',
+                                            border:
+                                                selected === t._id
+                                                    ? '1.5px solid var(--primary-300)'
+                                                    : '1.5px solid transparent',
                                         }}
                                     >
                                         <input
@@ -568,11 +630,19 @@ function CopyModal({
                                             onChange={() => setSelected(t._id)}
                                             className="accent-[var(--primary-500)]"
                                         />
-                                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                            Class {t.class}{t.section ? `-${t.section}` : ''}
+                                        <span
+                                            className="text-sm font-medium"
+                                            style={{ color: 'var(--text-primary)' }}
+                                        >
+                                            Class {t.class}
+                                            {t.section ? `-${t.section}` : ''}
                                         </span>
-                                        <span className="text-xs ml-auto" style={{ color: 'var(--text-muted)' }}>
-                                            {t.days.reduce((acc, d) => acc + d.periods.length, 0)} periods
+                                        <span
+                                            className="text-xs ml-auto"
+                                            style={{ color: 'var(--text-muted)' }}
+                                        >
+                                            {t.days.reduce((acc, d) => acc + d.periods.length, 0)}{' '}
+                                            periods
                                         </span>
                                     </label>
                                 ))}
@@ -583,25 +653,32 @@ function CopyModal({
 
                 <div
                     className="flex gap-2.5 px-5 py-3 border-t"
-                    style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                    style={{
+                        borderColor: 'var(--border)',
+                        background: 'var(--bg-subtle)',
+                    }}
                 >
                     <button
                         onClick={onClose}
                         className="flex-1 h-9 rounded-[var(--radius-md)] text-sm font-medium border-[1.5px]"
-                        style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                        style={{
+                            borderColor: 'var(--border)',
+                            color: 'var(--text-secondary)',
+                        }}
                     >
                         Cancel
                     </button>
                     <button
                         onClick={() => {
-                            const tt = timetables.find(t => t._id === selected)
+                            const tt = timetables.find((t) => t._id === selected)
                             if (tt) onCopy(tt.days)
                             onClose()
                         }}
                         disabled={!selected}
                         className="flex-1 h-9 rounded-[var(--radius-md)] text-sm font-semibold text-white disabled:opacity-50"
                         style={{
-                            background: 'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
+                            background:
+                                'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
                         }}
                     >
                         Copy Timetable
@@ -626,18 +703,70 @@ export function TimetableClient({
 }) {
     const canEdit = userRole === 'admin' || userRole === 'staff'
 
+    // ✅ Fetch academic settings
+    const { settings: academicSettings, loading: settingsLoading } =
+        useAcademicSettings()
+
+    // ✅ Derive classes, sections, subjects
+    const CLASSES =
+        academicSettings?.classes
+            ?.filter((c) => c.isActive)
+            .map((c) => c.name)
+            .filter((name, idx, arr) => arr.indexOf(name) === idx) // Unique
+            .sort((a, b) => {
+                const prePrimary = ['Nursery', 'LKG', 'UKG']
+                const aIdx = prePrimary.indexOf(a)
+                const bIdx = prePrimary.indexOf(b)
+
+                if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx
+                if (aIdx !== -1) return -1
+                if (bIdx !== -1) return 1
+
+                const aNum = parseInt(a)
+                const bNum = parseInt(b)
+                if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum
+
+                return a.localeCompare(b)
+            }) || []
+
+    const SECTIONS =
+        academicSettings?.sections
+            ?.filter((s) => s.isActive)
+            .map((s) => s.name) || []
+
+    // ✅ Get subjects for selected class
+    const getSubjectsForClass = useCallback(
+        (className: string) => {
+            if (!academicSettings) return []
+
+            const classConfig = academicSettings.classes.find((c) => c.name === className)
+            if (!classConfig) return []
+
+            const subjectConfig = academicSettings.subjects.find(
+                (s) => s.classGroup === classConfig.group
+            )
+
+            return subjectConfig?.subjectList || []
+        },
+        [academicSettings]
+    )
+
     // ── State ──
     const [allTimetables, setAllTimetables] = useState<ITimetableDoc[]>(initialTimetables)
-    const [selectedClass, setSelectedClass] = useState(CLASSES[3]) // default '1'
-    const [selectedSection, setSelectedSection] = useState('A')
+    const [selectedClass, setSelectedClass] = useState(CLASSES[3] || CLASSES[0] || '')
+    const [selectedSection, setSelectedSection] = useState(SECTIONS[0] || 'A')
     const [teachers, setTeachers] = useState<Teacher[]>([])
     const [teachersLoaded, setTeachersLoaded] = useState(false)
 
-    const [days, setDays] = useState<IDaySchedule[]>(() => initDays(initialTimetables, CLASSES[3], 'A'))
+    const [days, setDays] = useState<IDaySchedule[]>(() =>
+        initDays(initialTimetables, CLASSES[3] || CLASSES[0] || '', SECTIONS[0] || 'A')
+    )
     const [dirty, setDirty] = useState(false)
     const [saving, setSaving] = useState(false)
     const [deleting, setDeleting] = useState(false)
-    const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+    const [toast, setToast] = useState<{ type: 'success' | 'error'; msg: string } | null>(
+        null
+    )
 
     const [addPeriodDay, setAddPeriodDay] = useState<string | null>(null)
     const [showCopy, setShowCopy] = useState(false)
@@ -646,37 +775,38 @@ export function TimetableClient({
 
     const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+    const COMMON_SUBJECTS = getSubjectsForClass(selectedClass)
+
     // ── Init days helper ──
     function initDays(
         tts: ITimetableDoc[],
         cls: string,
         sec: string
     ): IDaySchedule[] {
-        const found = tts.find(t => t.class === cls && t.section === sec)
+        const found = tts.find((t) => t.class === cls && t.section === sec)
         if (found) return found.days
 
-        return DAYS.map(day => ({ day, periods: [] }))
+        return DAYS.map((day) => ({ day, periods: [] }))
     }
 
     // ── Show toast ──
-    const showToast = useCallback(
-        (type: 'success' | 'error', msg: string) => {
-            setToast({ type, msg })
-            if (toastTimer.current) clearTimeout(toastTimer.current)
-            toastTimer.current = setTimeout(() => setToast(null), 3500)
-        },
-        []
-    )
+    const showToast = useCallback((type: 'success' | 'error', msg: string) => {
+        setToast({ type, msg })
+        if (toastTimer.current) clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast(null), 3500)
+    }, [])
 
-    // ── Load teachers (lazy — only when needed) ──
+    // ── Load teachers ──
     const loadTeachers = useCallback(async () => {
         if (teachersLoaded) return
         try {
             const res = await fetch('/api/staff?role=teacher&limit=100')
             const data = await res.json()
             setTeachers(
-                Array.isArray(data) ? data
-                    : Array.isArray(data.data) ? data.data
+                Array.isArray(data)
+                    ? data
+                    : Array.isArray(data.data)
+                        ? data.data
                         : []
             )
         } catch {
@@ -704,8 +834,8 @@ export function TimetableClient({
     // ── Add period ──
     const handleAddPeriod = useCallback(
         (period: IPeriod) => {
-            setDays(prev =>
-                prev.map(d => {
+            setDays((prev) =>
+                prev.map((d) => {
                     if (d.day !== addPeriodDay) return d
                     const maxNo = d.periods.reduce((m, p) => Math.max(m, p.periodNo), 0)
                     return {
@@ -721,22 +851,19 @@ export function TimetableClient({
     )
 
     // ── Remove period ──
-    const handleRemovePeriod = useCallback(
-        (day: Day, periodNo: number) => {
-            setDays(prev =>
-                prev.map(d => {
-                    if (d.day !== day) return d
-                    const filtered = d.periods.filter(p => p.periodNo !== periodNo)
-                    return {
-                        ...d,
-                        periods: filtered.map((p, i) => ({ ...p, periodNo: i + 1 })),
-                    }
-                })
-            )
-            setDirty(true)
-        },
-        []
-    )
+    const handleRemovePeriod = useCallback((day: Day, periodNo: number) => {
+        setDays((prev) =>
+            prev.map((d) => {
+                if (d.day !== day) return d
+                const filtered = d.periods.filter((p) => p.periodNo !== periodNo)
+                return {
+                    ...d,
+                    periods: filtered.map((p, i) => ({ ...p, periodNo: i + 1 })),
+                }
+            })
+        )
+        setDirty(true)
+    }, [])
 
     // ── Save ──
     const handleSave = async () => {
@@ -755,12 +882,16 @@ export function TimetableClient({
             const json = await res.json()
             if (!res.ok) throw new Error(json.error || 'Save failed')
 
-            // Update local cache
-            setAllTimetables(prev => {
+            setAllTimetables((prev) => {
                 const idx = prev.findIndex(
-                    t => t.class === selectedClass && t.section === selectedSection
+                    (t) => t.class === selectedClass && t.section === selectedSection
                 )
-                const updated = { ...json.data, class: selectedClass, section: selectedSection, days }
+                const updated = {
+                    ...json.data,
+                    class: selectedClass,
+                    section: selectedSection,
+                    days,
+                }
                 if (idx >= 0) {
                     const next = [...prev]
                     next[idx] = updated
@@ -791,12 +922,12 @@ export function TimetableClient({
             const json = await res.json()
             if (!res.ok) throw new Error(json.error || 'Delete failed')
 
-            setAllTimetables(prev =>
+            setAllTimetables((prev) =>
                 prev.filter(
-                    t => !(t.class === selectedClass && t.section === selectedSection)
+                    (t) => !(t.class === selectedClass && t.section === selectedSection)
                 )
             )
-            setDays(DAYS.map(day => ({ day, periods: [] })))
+            setDays(DAYS.map((day) => ({ day, periods: [] })))
             setDirty(false)
             setShowDelete(false)
             showToast('success', 'Timetable deleted')
@@ -810,26 +941,82 @@ export function TimetableClient({
     // ── Print ──
     const handlePrint = () => window.print()
 
-    // ── Copy from another class ──
+    // ── Copy ──
     const handleCopy = (sourceDays: IDaySchedule[]) => {
-        setDays(sourceDays.map(d => ({ ...d })))
+        setDays(sourceDays.map((d) => ({ ...d })))
         setDirty(true)
         showToast('success', 'Timetable copied — remember to save!')
     }
 
     // ── Stats ──
-    const currentDay = days.find(d => d.day === activeDay)
+    const currentDay = days.find((d) => d.day === activeDay)
     const totalPeriods = days.reduce((s, d) => s + d.periods.length, 0)
     const hasTimetable = totalPeriods > 0
 
-    // ── Existing timetable for current class ──
     const existingTT = allTimetables.find(
-        t => t.class === selectedClass && t.section === selectedSection
+        (t) => t.class === selectedClass && t.section === selectedSection
     )
+
+    // ✅ Loading state
+    if (settingsLoading) {
+        return (
+            <div className="space-y-5 pb-8 max-w-[1280px] mx-auto">
+                <div className="flex justify-center py-20">
+                    <Spinner size="md" />
+                    <p className="text-sm text-text-muted ml-3">
+                        Loading timetable settings...
+                    </p>
+                </div>
+            </div>
+        )
+    }
+
+    // ✅ No classes configured
+    if (CLASSES.length === 0 || SECTIONS.length === 0) {
+        return (
+            <div className="space-y-5 pb-8 max-w-[1280px] mx-auto portal-content-enter">
+                <div className="portal-page-header no-print">
+                    <div>
+                        <div className="portal-breadcrumb mb-1">
+                            <span style={{ color: 'var(--text-muted)' }}>Admin</span>
+                            <span className="bc-sep">/</span>
+                            <span className="bc-current">Timetable</span>
+                        </div>
+                        <h1 className="portal-page-title">Timetable Management</h1>
+                        <p className="portal-page-subtitle">
+                            Class-wise period scheduling · {academicYear}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="portal-card">
+                    <div className="portal-empty">
+                        <div className="portal-empty-icon">
+                            <AlertTriangle
+                                size={28}
+                                className="text-warning-500"
+                                aria-hidden
+                            />
+                        </div>
+                        <p className="portal-empty-title">Academic Settings Required</p>
+                        <p className="portal-empty-text">
+                            Please configure classes and sections in Settings before creating
+                            timetables.
+                        </p>
+                        <a
+                            href="/admin/settings?tab=academic"
+                            className="btn-primary mt-4"
+                        >
+                            Configure Settings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <>
-            {/* ── Print styles ── */}
             <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -839,7 +1026,6 @@ export function TimetableClient({
       `}</style>
 
             <div className="space-y-5 pb-8 max-w-[1280px] mx-auto">
-
                 {/* ── PAGE HEADER ── */}
                 <div className="portal-page-header no-print">
                     <div>
@@ -856,7 +1042,6 @@ export function TimetableClient({
 
                     {canEdit && (
                         <div className="flex flex-wrap items-center gap-2">
-                            {/* Copy */}
                             <button
                                 onClick={() => setShowCopy(true)}
                                 className="flex items-center gap-1.5 px-3 h-9 rounded-[var(--radius-md)]
@@ -870,7 +1055,6 @@ export function TimetableClient({
                                 <Copy size={14} /> Copy from
                             </button>
 
-                            {/* Print */}
                             <button
                                 onClick={handlePrint}
                                 className="flex items-center gap-1.5 px-3 h-9 rounded-[var(--radius-md)]
@@ -884,7 +1068,6 @@ export function TimetableClient({
                                 <Printer size={14} /> Print
                             </button>
 
-                            {/* Delete */}
                             {existingTT && (
                                 <button
                                     onClick={() => setShowDelete(true)}
@@ -900,7 +1083,6 @@ export function TimetableClient({
                                 </button>
                             )}
 
-                            {/* Save */}
                             <button
                                 onClick={handleSave}
                                 disabled={saving || !dirty}
@@ -931,13 +1113,8 @@ export function TimetableClient({
                 </div>
 
                 {/* ── FILTERS ── */}
-                <div
-                    className="portal-card no-print"
-                    style={{ overflow: 'visible' }}
-                >
+                <div className="portal-card no-print" style={{ overflow: 'visible' }}>
                     <div className="portal-card-body-sm flex flex-wrap items-end gap-4">
-
-                        {/* Class selector */}
                         <div>
                             <label
                                 className="block text-xs font-semibold mb-1.5 font-display"
@@ -946,18 +1123,24 @@ export function TimetableClient({
                                 Class
                             </label>
                             <div className="flex flex-wrap gap-1.5">
-                                {CLASSES.map(cls => (
+                                {CLASSES.map((cls, idx) => (
                                     <button
-                                        key={cls}
+                                        key={`${cls}-${idx}`}
                                         onClick={() => handleClassChange(cls, selectedSection)}
                                         className="h-8 px-3 rounded-lg text-xs font-semibold transition-all border-[1.5px]"
                                         style={{
-                                            background: selectedClass === cls
-                                                ? 'var(--primary-500)' : 'var(--bg-muted)',
-                                            color: selectedClass === cls
-                                                ? '#fff' : 'var(--text-secondary)',
-                                            borderColor: selectedClass === cls
-                                                ? 'var(--primary-500)' : 'transparent',
+                                            background:
+                                                selectedClass === cls
+                                                    ? 'var(--primary-500)'
+                                                    : 'var(--bg-muted)',
+                                            color:
+                                                selectedClass === cls
+                                                    ? '#fff'
+                                                    : 'var(--text-secondary)',
+                                            borderColor:
+                                                selectedClass === cls
+                                                    ? 'var(--primary-500)'
+                                                    : 'transparent',
                                         }}
                                     >
                                         {cls}
@@ -966,7 +1149,6 @@ export function TimetableClient({
                             </div>
                         </div>
 
-                        {/* Section selector */}
                         <div>
                             <label
                                 className="block text-xs font-semibold mb-1.5 font-display"
@@ -975,18 +1157,26 @@ export function TimetableClient({
                                 Section
                             </label>
                             <div className="flex gap-1.5">
-                                {SECTIONS.map(sec => (
+                                {SECTIONS.map((sec) => (
                                     <button
                                         key={sec}
-                                        onClick={() => handleClassChange(selectedClass, sec)}
+                                        onClick={() =>
+                                            handleClassChange(selectedClass, sec)
+                                        }
                                         className="w-9 h-8 rounded-lg text-xs font-bold transition-all border-[1.5px]"
                                         style={{
-                                            background: selectedSection === sec
-                                                ? 'var(--primary-500)' : 'var(--bg-muted)',
-                                            color: selectedSection === sec
-                                                ? '#fff' : 'var(--text-secondary)',
-                                            borderColor: selectedSection === sec
-                                                ? 'var(--primary-500)' : 'transparent',
+                                            background:
+                                                selectedSection === sec
+                                                    ? 'var(--primary-500)'
+                                                    : 'var(--bg-muted)',
+                                            color:
+                                                selectedSection === sec
+                                                    ? '#fff'
+                                                    : 'var(--text-secondary)',
+                                            borderColor:
+                                                selectedSection === sec
+                                                    ? 'var(--primary-500)'
+                                                    : 'transparent',
                                         }}
                                     >
                                         {sec}
@@ -995,7 +1185,6 @@ export function TimetableClient({
                             </div>
                         </div>
 
-                        {/* Stats */}
                         <div className="ml-auto flex items-center gap-3">
                             <div className="text-right">
                                 <p
@@ -1004,7 +1193,10 @@ export function TimetableClient({
                                 >
                                     {totalPeriods}
                                 </p>
-                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                <p
+                                    className="text-xs"
+                                    style={{ color: 'var(--text-muted)' }}
+                                >
                                     Total Periods
                                 </p>
                             </div>
@@ -1017,9 +1209,12 @@ export function TimetableClient({
                                     className="text-lg font-extrabold tabular-nums"
                                     style={{ color: 'var(--text-primary)' }}
                                 >
-                                    {days.filter(d => d.periods.length > 0).length}
+                                    {days.filter((d) => d.periods.length > 0).length}
                                 </p>
-                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                <p
+                                    className="text-xs"
+                                    style={{ color: 'var(--text-muted)' }}
+                                >
                                     Days Scheduled
                                 </p>
                             </div>
@@ -1049,8 +1244,8 @@ export function TimetableClient({
                         className="flex gap-1 p-1 rounded-[var(--radius-lg)] overflow-x-auto scrollbar-hide"
                         style={{ background: 'var(--bg-muted)' }}
                     >
-                        {DAYS.map(day => {
-                            const dayData = days.find(d => d.day === day)
+                        {DAYS.map((day) => {
+                            const dayData = days.find((d) => d.day === day)
                             const periodCount = dayData?.periods.length ?? 0
                             const isActive = activeDay === day
                             return (
@@ -1061,8 +1256,12 @@ export function TimetableClient({
                              rounded-[var(--radius-md)] text-xs font-semibold transition-all
                              whitespace-nowrap"
                                     style={{
-                                        background: isActive ? 'var(--bg-card)' : 'transparent',
-                                        color: isActive ? 'var(--primary-600)' : 'var(--text-muted)',
+                                        background: isActive
+                                            ? 'var(--bg-card)'
+                                            : 'transparent',
+                                        color: isActive
+                                            ? 'var(--primary-600)'
+                                            : 'var(--text-muted)',
                                         boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
                                     }}
                                 >
@@ -1071,8 +1270,12 @@ export function TimetableClient({
                                         <span
                                             className="text-[0.5rem] px-1.5 py-0.5 rounded-full font-bold"
                                             style={{
-                                                background: isActive ? 'var(--primary-100)' : 'var(--border)',
-                                                color: isActive ? 'var(--primary-600)' : 'var(--text-muted)',
+                                                background: isActive
+                                                    ? 'var(--primary-100)'
+                                                    : 'var(--border)',
+                                                color: isActive
+                                                    ? 'var(--primary-600)'
+                                                    : 'var(--text-muted)',
                                             }}
                                         >
                                             {periodCount}
@@ -1086,7 +1289,6 @@ export function TimetableClient({
 
                 {/* ── ACTIVE DAY CONTENT ── */}
                 <div className="portal-card print-area">
-                    {/* Card Header */}
                     <div className="portal-card-header">
                         <div>
                             <h2 className="portal-card-title">
@@ -1107,7 +1309,8 @@ export function TimetableClient({
                                 className="flex items-center gap-1.5 px-3 h-8 rounded-[var(--radius-md)]
                            text-xs font-semibold text-white no-print"
                                 style={{
-                                    background: 'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
+                                    background:
+                                        'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
                                 }}
                             >
                                 <Plus size={13} /> Add Period
@@ -1115,14 +1318,18 @@ export function TimetableClient({
                         )}
                     </div>
 
-                    {/* Periods Grid */}
                     <div className="portal-card-body">
                         {!currentDay || currentDay.periods.length === 0 ? (
                             <div className="portal-empty">
                                 <div className="portal-empty-icon">
-                                    <Clock size={22} style={{ color: 'var(--text-muted)' }} />
+                                    <Clock
+                                        size={22}
+                                        style={{ color: 'var(--text-muted)' }}
+                                    />
                                 </div>
-                                <p className="portal-empty-title">No periods for {DAY_LABELS[activeDay]}</p>
+                                <p className="portal-empty-title">
+                                    No periods for {DAY_LABELS[activeDay]}
+                                </p>
                                 <p className="portal-empty-text">
                                     {canEdit
                                         ? 'Add periods to build the timetable for this day.'
@@ -1137,7 +1344,8 @@ export function TimetableClient({
                                         className="mt-4 flex items-center gap-1.5 px-4 h-9
                                rounded-[var(--radius-md)] text-sm font-semibold text-white"
                                         style={{
-                                            background: 'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
+                                            background:
+                                                'linear-gradient(135deg, var(--primary-500), var(--primary-600))',
                                         }}
                                     >
                                         <Plus size={14} /> Add First Period
@@ -1148,7 +1356,7 @@ export function TimetableClient({
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                                 {[...currentDay.periods]
                                     .sort((a, b) => a.periodNo - b.periodNo)
-                                    .map(period => (
+                                    .map((period) => (
                                         <PeriodCard
                                             key={period.periodNo}
                                             period={period}
@@ -1159,7 +1367,6 @@ export function TimetableClient({
                                         />
                                     ))}
 
-                                {/* Add period placeholder */}
                                 {canEdit && (
                                     <button
                                         onClick={() => {
@@ -1173,12 +1380,14 @@ export function TimetableClient({
                                             color: 'var(--text-muted)',
                                             minHeight: '88px',
                                         }}
-                                        onMouseEnter={e => {
-                                            e.currentTarget.style.borderColor = 'var(--primary-300)'
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor =
+                                                'var(--primary-300)'
                                             e.currentTarget.style.color = 'var(--primary-500)'
-                                            e.currentTarget.style.background = 'var(--primary-50)'
+                                            e.currentTarget.style.background =
+                                                'var(--primary-50)'
                                         }}
-                                        onMouseLeave={e => {
+                                        onMouseLeave={(e) => {
                                             e.currentTarget.style.borderColor = 'var(--border)'
                                             e.currentTarget.style.color = 'var(--text-muted)'
                                             e.currentTarget.style.background = 'transparent'
@@ -1199,16 +1408,18 @@ export function TimetableClient({
                         Timetable — Class {selectedClass}
                         {selectedSection ? `-${selectedSection}` : ''} ({academicYear})
                     </h2>
-                    {days.map(d => (
+                    {days.map((d) => (
                         <div key={d.day} className="mb-6">
-                            <h3 className="text-sm font-bold mb-2 uppercase">{DAY_LABELS[d.day]}</h3>
+                            <h3 className="text-sm font-bold mb-2 uppercase">
+                                {DAY_LABELS[d.day]}
+                            </h3>
                             {d.periods.length === 0 ? (
                                 <p className="text-xs text-gray-400">No periods</p>
                             ) : (
                                 <div className="flex flex-wrap gap-2">
                                     {[...d.periods]
                                         .sort((a, b) => a.periodNo - b.periodNo)
-                                        .map(p => (
+                                        .map((p) => (
                                             <div
                                                 key={p.periodNo}
                                                 className="border rounded-lg p-2 text-xs"
@@ -1216,9 +1427,13 @@ export function TimetableClient({
                                             >
                                                 <div className="font-bold">P{p.periodNo}</div>
                                                 <div>{p.subject}</div>
-                                                <div className="text-gray-500">{p.startTime}–{p.endTime}</div>
+                                                <div className="text-gray-500">
+                                                    {p.startTime}–{p.endTime}
+                                                </div>
                                                 {p.teacherName && (
-                                                    <div className="text-gray-400">{p.teacherName}</div>
+                                                    <div className="text-gray-400">
+                                                        {p.teacherName}
+                                                    </div>
                                                 )}
                                             </div>
                                         ))}
@@ -1227,24 +1442,23 @@ export function TimetableClient({
                         </div>
                     ))}
                 </div>
-
             </div>
 
             <Portal>
-                {/* ── MODALS ── */}
-
-                {/* Add Period */}
                 {addPeriodDay && (
                     <AddPeriodModal
                         day={addPeriodDay}
-                        nextPeriodNo={(days.find(d => d.day === addPeriodDay)?.periods.length ?? 0) + 1}
+                        nextPeriodNo={
+                            (days.find((d) => d.day === addPeriodDay)?.periods.length ?? 0) +
+                            1
+                        }
                         teachers={teachers}
+                        subjects={COMMON_SUBJECTS}
                         onAdd={handleAddPeriod}
                         onClose={() => setAddPeriodDay(null)}
                     />
                 )}
 
-                {/* Copy */}
                 {showCopy && (
                     <CopyModal
                         currentClass={selectedClass}
@@ -1255,12 +1469,13 @@ export function TimetableClient({
                     />
                 )}
 
-
-                {/* Delete Confirm */}
                 {showDelete && (
                     <div
                         className="fixed inset-0 z-50 flex items-center justify-center p-4"
-                        style={{ background: 'rgba(30,27,75,0.45)', backdropFilter: 'blur(6px)' }}
+                        style={{
+                            background: 'rgba(30,27,75,0.45)',
+                            backdropFilter: 'blur(6px)',
+                        }}
                     >
                         <div
                             className="w-full max-w-sm rounded-2xl overflow-hidden"
@@ -1276,7 +1491,10 @@ export function TimetableClient({
                                     className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
                                     style={{ background: 'var(--danger-light)' }}
                                 >
-                                    <Trash2 size={22} style={{ color: 'var(--danger)' }} />
+                                    <Trash2
+                                        size={22}
+                                        style={{ color: 'var(--danger)' }}
+                                    />
                                 </div>
                                 <h3
                                     className="text-base font-bold font-display mb-1.5"
@@ -1284,21 +1502,32 @@ export function TimetableClient({
                                 >
                                     Delete Timetable?
                                 </h3>
-                                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                <p
+                                    className="text-sm"
+                                    style={{ color: 'var(--text-secondary)' }}
+                                >
                                     This will permanently delete the timetable for{' '}
-                                    <strong>Class {selectedClass}-{selectedSection}</strong>.
-                                    This action cannot be undone.
+                                    <strong>
+                                        Class {selectedClass}-{selectedSection}
+                                    </strong>
+                                    . This action cannot be undone.
                                 </p>
                             </div>
                             <div
                                 className="flex gap-2.5 px-5 py-3 border-t"
-                                style={{ borderColor: 'var(--border)', background: 'var(--bg-subtle)' }}
+                                style={{
+                                    borderColor: 'var(--border)',
+                                    background: 'var(--bg-subtle)',
+                                }}
                             >
                                 <button
                                     onClick={() => setShowDelete(false)}
                                     className="flex-1 h-10 rounded-[var(--radius-md)] text-sm font-semibold
                            border-[1.5px]"
-                                    style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
+                                    style={{
+                                        borderColor: 'var(--border)',
+                                        color: 'var(--text-secondary)',
+                                    }}
                                 >
                                     Cancel
                                 </button>
@@ -1308,10 +1537,15 @@ export function TimetableClient({
                                     className="flex-1 h-10 rounded-[var(--radius-md)] text-sm font-semibold
                            text-white flex items-center justify-center gap-2"
                                     style={{
-                                        background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                                        background:
+                                            'linear-gradient(135deg, #EF4444, #DC2626)',
                                     }}
                                 >
-                                    {deleting ? <Spinner size="sm" /> : <Trash2 size={14} />}
+                                    {deleting ? (
+                                        <Spinner size="sm" />
+                                    ) : (
+                                        <Trash2 size={14} />
+                                    )}
                                     {deleting ? 'Deleting…' : 'Delete'}
                                 </button>
                             </div>
@@ -1319,8 +1553,6 @@ export function TimetableClient({
                     </div>
                 )}
 
-
-                {/* ── TOAST ── */}
                 {toast && (
                     <div
                         className="fixed bottom-5 right-5 z-[70] flex items-center gap-3
@@ -1329,15 +1561,25 @@ export function TimetableClient({
                         style={{
                             background: 'var(--bg-card)',
                             borderColor: 'var(--border)',
-                            animation: 'toastIn 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+                            animation:
+                                'toastIn 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
                         }}
                     >
                         {toast.type === 'success' ? (
-                            <CheckCircle2 size={18} style={{ color: 'var(--success)', flexShrink: 0 }} />
+                            <CheckCircle2
+                                size={18}
+                                style={{ color: 'var(--success)', flexShrink: 0 }}
+                            />
                         ) : (
-                            <AlertTriangle size={18} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+                            <AlertTriangle
+                                size={18}
+                                style={{ color: 'var(--danger)', flexShrink: 0 }}
+                            />
                         )}
-                        <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                        <p
+                            className="text-sm font-medium"
+                            style={{ color: 'var(--text-primary)' }}
+                        >
                             {toast.msg}
                         </p>
                         <button

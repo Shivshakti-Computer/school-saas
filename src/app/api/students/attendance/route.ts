@@ -1,5 +1,5 @@
 // -------------------------------------------------------------
-// FILE: src/app/api/student/attendance/route.ts
+// FILE: src/app/api/students/attendance/route.ts
 // GET → student ki attendance history (monthly/all)
 // -------------------------------------------------------------
 import { authOptions } from '@/lib/auth'
