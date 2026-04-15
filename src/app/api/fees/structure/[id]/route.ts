@@ -1,9 +1,4 @@
-// -------------------------------------------------------------
 // FILE: src/app/api/fees/structure/[id]/route.ts
-// GET  → single structure
-// PUT  → update structure (amount, due date, etc.)
-// DELETE → deactivate structure
-// -------------------------------------------------------------
 
 import { authOptions } from "@/lib/auth"
 import { connectDB } from "@/lib/db"
@@ -22,8 +17,13 @@ export async function GET(
     }
     const { id } = await params
     await connectDB()
-    const structure = await FeeStructure.findOne({ _id: id, tenantId: session.user.tenantId }).lean()
-    if (!structure) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const structure = await FeeStructure.findOne({
+        _id: id,
+        tenantId: session.user.tenantId,
+    }).lean()
+    if (!structure) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
     return NextResponse.json({ structure })
 }
 
@@ -39,9 +39,13 @@ export async function PUT(
     await connectDB()
     const body = await req.json()
 
-    // Recalculate total if items changed
+    // ✅ FIX 1 — Sirf MANDATORY items ka total calculate karo
     if (body.items) {
-        body.totalAmount = body.items.reduce((s: number, i: any) => s + Number(i.amount), 0)
+        const mandatoryTotal = body.items
+            .filter((i: any) => !i.isOptional)       // ← KEY FIX
+            .reduce((s: number, i: any) => s + Number(i.amount), 0)
+
+        body.totalAmount = mandatoryTotal
     }
 
     const structure = await FeeStructure.findOneAndUpdate(
@@ -49,20 +53,30 @@ export async function PUT(
         { $set: body },
         { new: true }
     )
-    if (!structure) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!structure) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
 
-    // If amount or dueDate changed, update pending fees too
+    // ✅ FIX 2 — Sirf NON-OPTIONAL fees update karo
     if (body.items || body.dueDate) {
         const updateFields: any = {}
+
         if (body.items) {
-            updateFields.amount = structure.totalAmount
-            updateFields.finalAmount = structure.totalAmount
+            updateFields.amount = structure.totalAmount  // ✅ now correct
+            updateFields.finalAmount = structure.totalAmount  // ✅ now correct
         }
         if (body.dueDate) {
             updateFields.dueDate = new Date(body.dueDate)
         }
+
         await Fee.updateMany(
-            { tenantId: session.user.tenantId, structureId: id, status: 'pending' },
+            {
+                tenantId: session.user.tenantId,
+                structureId: id,
+                status: 'pending',
+                // ✅ FIX 3 — Optional fee records touch mat karo
+                isOptionalFee: { $ne: true },
+            },
             { $set: updateFields }
         )
     }

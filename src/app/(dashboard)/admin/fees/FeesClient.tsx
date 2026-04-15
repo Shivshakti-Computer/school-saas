@@ -1,4 +1,4 @@
-// FILE: src/app/(dashboard)/admin/fees/page.tsx
+// FILE: src/app/(dashboard)/admin/fees/FeesClient.tsx
 'use client'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
@@ -6,11 +6,12 @@ import {
     ChevronRight, X, AlertCircle, Search,
     TrendingUp, AlertTriangle, CheckSquare,
     IndianRupee, Receipt, Settings,
-    Zap, Clock, BarChart2, Eye, Download,
+    Zap, Clock, BarChart2,
     Sparkles, Info, Printer,
 } from 'lucide-react'
 import { Spinner, Alert } from '@/components/ui'
 import { Portal } from '@/components/ui/Portal'
+import { useAcademicSettings } from '@/hooks/useAcademicSettings'
 
 /* ═══ Types ═══ */
 interface FeeStructure {
@@ -69,9 +70,14 @@ interface PaymentSettings {
     hasKey?: boolean
 }
 
-/* ═══ Constants ═══ */
-const CLASSES = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
-const SECTIONS = ['A', 'B', 'C', 'D', 'E']
+interface AcademicDerivedConfig {
+    classes: string[]
+    sections: string[]
+    currentAcademicYear: string
+    academicYears: string[]
+}
+
+/* ═══ Fees-specific constants ═══ */
 const TERMS = ['Term 1', 'Term 2', 'Term 3', 'Annual', 'Monthly', 'Quarterly', 'Half Yearly']
 const STREAMS = [
     { value: 'science', label: 'Science', color: '#2563EB', bg: '#EFF6FF' },
@@ -80,10 +86,15 @@ const STREAMS = [
     { value: 'vocational', label: 'Vocational', color: '#D97706', bg: '#FFFBEB' },
 ]
 
+/* ═══ Fallback constants ═══ */
+const FALLBACK_CLASSES = ['Nursery', 'LKG', 'UKG', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+const FALLBACK_SECTIONS = ['A', 'B', 'C', 'D', 'E']
+
+/* ═══ Academic Year Helpers ═══ */
 function getAcademicYears(): string[] {
-    const years: string[] = []
     const now = new Date()
     const yr = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
+    const years: string[] = []
     for (let y = yr + 1; y >= yr - 2; y--) {
         years.push(`${y}-${String(y + 1).slice(-2)}`)
     }
@@ -96,32 +107,29 @@ function getCurrentAcademicYear(): string {
     return `${yr}-${String(yr + 1).slice(-2)}`
 }
 
-
 /* ═══ Reusable Form Components ═══ */
 const FormInput = ({
     label, value, onChange, type = 'text',
     required = false, placeholder = '', helper, disabled = false,
 }: {
     label: string; value: string | number; onChange: (val: string) => void
-    type?: string; required?: boolean; placeholder?: string; helper?: string; disabled?: boolean
+    type?: string; required?: boolean; placeholder?: string
+    helper?: string; disabled?: boolean
 }) => (
     <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold" style={{ color: '#475569' }}>
-            {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
+        <label className="input-label">
+            {label}{required && <span className="text-[var(--danger)]"> *</span>}
         </label>
         <input
             type={type}
-            className="h-9 px-3 text-sm rounded-lg outline-none transition-all"
-            style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: disabled ? '#F8FAFC' : '#FFFFFF' }}
+            className="input-clean"
             placeholder={placeholder}
             value={value}
             required={required}
             disabled={disabled}
             onChange={e => onChange(e.target.value)}
-            onFocus={e => { e.target.style.borderColor = '#2563EB'; e.target.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)' }}
-            onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = 'none' }}
         />
-        {helper && <p className="text-[0.625rem]" style={{ color: '#94A3B8' }}>{helper}</p>}
+        {helper && <p className="input-hint">{helper}</p>}
     </div>
 )
 
@@ -133,40 +141,36 @@ const FormSelect = ({
     required?: boolean; helper?: string
 }) => (
     <div className="flex flex-col gap-1">
-        <label className="text-xs font-semibold" style={{ color: '#475569' }}>
-            {label}{required && <span style={{ color: '#EF4444' }}> *</span>}
+        <label className="input-label">
+            {label}{required && <span className="text-[var(--danger)]"> *</span>}
         </label>
         <select
-            className="h-9 px-3 text-sm rounded-lg outline-none cursor-pointer"
-            style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#FFFFFF' }}
+            className="input-clean"
             value={value}
             required={required}
             onChange={e => onChange(e.target.value)}
         >
             {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        {helper && <p className="text-[0.625rem]" style={{ color: '#94A3B8' }}>{helper}</p>}
+        {helper && <p className="input-hint">{helper}</p>}
     </div>
 )
 
 /* ═══ Status Badge ═══ */
 function FeeBadge({ status, dueDate }: { status: string; dueDate: string }) {
     const isOverdue = status === 'pending' && new Date(dueDate) < new Date()
-    const cfg: Record<string, { bg: string; color: string; label: string }> = {
-        paid: { bg: '#ECFDF5', color: '#059669', label: 'Paid' },
-        waived: { bg: '#F1F5F9', color: '#64748B', label: 'Waived' },
-        partial: { bg: '#FFF7ED', color: '#EA580C', label: 'Partial' },
+    const cfg: Record<string, { cls: string; label: string }> = {
+        paid: { cls: 'badge-success', label: 'Paid' },
+        waived: { cls: 'badge-neutral', label: 'Waived' },
+        partial: { cls: 'badge-warning', label: 'Partial' },
         pending: isOverdue
-            ? { bg: '#FEF2F2', color: '#DC2626', label: 'Overdue' }
-            : { bg: '#FFFBEB', color: '#D97706', label: 'Pending' },
+            ? { cls: 'badge-danger', label: 'Overdue' }
+            : { cls: 'badge-warning', label: 'Pending' },
     }
     const c = cfg[status] || cfg.pending
     return (
-        <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold"
-            style={{ backgroundColor: c.bg, color: c.color }}
-        >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: c.color }} />
+        <span className={`badge ${c.cls}`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
             {c.label}
         </span>
     )
@@ -179,7 +183,7 @@ function StreamBadge({ stream }: { stream?: string }) {
     if (!cfg) return null
     return (
         <span
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[0.625rem] font-semibold"
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[var(--radius-sm)] text-[0.625rem] font-semibold"
             style={{ backgroundColor: cfg.bg, color: cfg.color }}
         >
             <Sparkles size={9} />
@@ -196,27 +200,22 @@ function MiniStatCard({
     icon: React.ReactNode; iconBg: string; iconColor: string; valueColor?: string
 }) {
     return (
-        <div
-            className="rounded-2xl p-4 transition-all duration-300"
-            style={{ backgroundColor: '#FFFFFF', border: '1px solid #E2E8F0' }}
-            onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 8px 25px -5px rgba(0,0,0,0.08)'
-            }}
-            onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
-            }}
-        >
+        <div className="portal-stat-card">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: iconBg }}>
+                <div
+                    className="stat-icon"
+                    style={{ backgroundColor: iconBg }}
+                >
                     <span style={{ color: iconColor }}>{icon}</span>
                 </div>
                 <div>
-                    <p className="text-xl font-extrabold tracking-tight leading-none tabular-nums" style={{ color: valueColor || '#0F172A' }}>
+                    <p
+                        className="stat-value"
+                        style={{ color: valueColor || 'var(--text-primary)' }}
+                    >
                         {value}
                     </p>
-                    <p className="text-[0.6875rem] mt-0.5 font-medium" style={{ color: '#94A3B8' }}>{label}</p>
+                    <p className="stat-label">{label}</p>
                 </div>
             </div>
         </div>
@@ -224,9 +223,9 @@ function MiniStatCard({
 }
 
 /* ═══════════════════════════════════════════
-   MAIN PAGE COMPONENT
+   MAIN CLIENT COMPONENT
    ═══════════════════════════════════════════ */
-export default function FeesPage() {
+export default function FeesClient() {
     const [tab, setTab] = useState<'fees' | 'structures' | 'settings'>('fees')
     const [fees, setFees] = useState<Fee[]>([])
     const [structures, setStructures] = useState<FeeStructure[]>([])
@@ -234,14 +233,53 @@ export default function FeesPage() {
     const [alert, setAlert] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
     const [onlinePayEnabled, setOnlinePayEnabled] = useState(false)
 
-    // Filters
+    /* ── Academic settings hook ── */
+    const { settings: academicSettings } = useAcademicSettings()
+
+    /* ── Derived academic config ── */
+    const academicConfig = useMemo((): AcademicDerivedConfig => {
+        if (!academicSettings) {
+            return {
+                classes: FALLBACK_CLASSES,
+                sections: FALLBACK_SECTIONS,
+                currentAcademicYear: getCurrentAcademicYear(),
+                academicYears: getAcademicYears(),
+            }
+        }
+
+        const uniqueClasses = [
+            ...new Set(
+                academicSettings.classes
+                    .filter(c => c.isActive)
+                    .sort((a, b) => a.order - b.order)
+                    .map(c => c.name)
+            ),
+        ]
+
+        const activeSections = academicSettings.sections
+            .filter(s => s.isActive)
+            .map(s => s.name)
+
+        const currentYear = academicSettings.currentAcademicYear || getCurrentAcademicYear()
+        const years = getAcademicYears()
+        if (!years.includes(currentYear)) years.unshift(currentYear)
+
+        return {
+            classes: uniqueClasses.length > 0 ? uniqueClasses : FALLBACK_CLASSES,
+            sections: activeSections.length > 0 ? activeSections : FALLBACK_SECTIONS,
+            currentAcademicYear: currentYear,
+            academicYears: years,
+        }
+    }, [academicSettings])
+
+    /* ── Filters ── */
     const [filterStatus, setFilterStatus] = useState('')
     const [filterClass, setFilterClass] = useState('')
     const [filterSearch, setFilterSearch] = useState('')
     const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
     const [structureClass, setStructureClass] = useState('')
 
-    // Modals
+    /* ── Modals ── */
     const [showStructureModal, setShowStructureModal] = useState(false)
     const [editStructure, setEditStructure] = useState<FeeStructure | null>(null)
     const [showPayModal, setShowPayModal] = useState(false)
@@ -251,7 +289,7 @@ export default function FeesPage() {
     const [showOptionalModal, setShowOptionalModal] = useState(false)
     const [selectedStructure, setSelectedStructure] = useState<FeeStructure | null>(null)
 
-    /* ── Stats (include partial in calculations) ── */
+    /* ── Stats ── */
     const totalDue = fees
         .filter(f => ['pending', 'partial'].includes(f.status))
         .reduce((s, f) => s + (f.finalAmount - f.paidAmount), 0)
@@ -263,17 +301,15 @@ export default function FeesPage() {
         .length
     const partialCount = fees.filter(f => f.status === 'partial').length
 
-    /* ── Check payment settings ── */
+    /* ── Payment settings check ── */
     useEffect(() => {
         fetch('/api/payment-settings')
             .then(r => r.json())
-            .then(d => {
-                setOnlinePayEnabled(d.settings?.enableOnlinePayment && d.settings?.hasKey)
-            })
+            .then(d => setOnlinePayEnabled(d.settings?.enableOnlinePayment && d.settings?.hasKey))
             .catch(() => { })
     }, [])
 
-    /* ── Fetch Fees ── */
+    /* ── Fetch fees ── */
     const fetchFees = useCallback(async () => {
         setLoading(true)
         try {
@@ -289,7 +325,7 @@ export default function FeesPage() {
         }
     }, [filterStatus, filterClass, filterSearch])
 
-    /* ── Fetch Structures ── */
+    /* ── Fetch structures ── */
     const fetchStructures = useCallback(async () => {
         setLoading(true)
         try {
@@ -309,13 +345,28 @@ export default function FeesPage() {
         else setLoading(false)
     }, [tab, fetchFees, fetchStructures])
 
-    // Debounced search
+    /* ── Debounced search ── */
     useEffect(() => {
         if (tab !== 'fees') return
         if (searchTimeout.current) clearTimeout(searchTimeout.current)
         searchTimeout.current = setTimeout(() => fetchFees(), 300)
         return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current) }
     }, [filterSearch, fetchFees, tab])
+
+    /* ── BroadcastChannel — academic settings update ── */
+    useEffect(() => {
+        const channel = new BroadcastChannel('settings-update')
+        channel.onmessage = (event) => {
+            if (event.data.type === 'academic-updated') {
+                const affected: string[] = event.data.affectedModules || []
+                if (affected.includes('all') || affected.includes('students')) {
+                    if (tab === 'fees') fetchFees()
+                    if (tab === 'structures') fetchStructures()
+                }
+            }
+        }
+        return () => channel.close()
+    }, [tab, fetchFees, fetchStructures])
 
     const showSuccess = (msg: string) => {
         setAlert({ type: 'success', msg })
@@ -353,8 +404,10 @@ export default function FeesPage() {
         } else showError('Failed to assign fees')
     }
 
-    /* ── Record Payment (Partial/Full) ── */
-    const recordPayment = async (feeId: string, paymentMode: string, amount: number, notes?: string) => {
+    /* ── Record payment ── */
+    const recordPayment = async (
+        feeId: string, paymentMode: string, amount: number, notes?: string
+    ) => {
         const res = await fetch(`/api/fees/${feeId}/mark-paid`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -366,7 +419,6 @@ export default function FeesPage() {
             setShowPayModal(false)
             setSelectedFee(null)
             fetchFees()
-            // Show receipt
             if (data.receipt) {
                 setReceiptData(data.receipt)
                 setShowReceiptModal(true)
@@ -376,19 +428,15 @@ export default function FeesPage() {
         }
     }
 
-    /* ── View Receipt ── */
+    /* ── View receipt ── */
     const viewReceipt = async (feeId: string, paymentIndex?: number) => {
         try {
             const params = paymentIndex !== undefined ? `?paymentIndex=${paymentIndex}` : ''
             const res = await fetch(`/api/fees/${feeId}/receipt${params}`)
             const data = await res.json()
-            if (res.ok) {
-                setReceiptData(data.receipt)
-                setShowReceiptModal(true)
-            } else showError('Failed to load receipt')
-        } catch {
-            showError('Failed to load receipt')
-        }
+            if (res.ok) { setReceiptData(data.receipt); setShowReceiptModal(true) }
+            else showError('Failed to load receipt')
+        } catch { showError('Failed to load receipt') }
     }
 
     const TABS = [
@@ -399,13 +447,14 @@ export default function FeesPage() {
 
     return (
         <div className="space-y-5 pb-8">
+
             {/* ═══ PAGE HEADER ═══ */}
             <div className="portal-page-header">
                 <div>
                     <div className="portal-breadcrumb mb-1.5">
                         <span>Dashboard</span>
                         <ChevronRight size={12} />
-                        <span className="current">Fee Management</span>
+                        <span className="bc-current">Fee Management</span>
                     </div>
                     <h1 className="portal-page-title">Fee Management</h1>
                     <p className="portal-page-subtitle">
@@ -416,8 +465,7 @@ export default function FeesPage() {
                     {tab === 'structures' && (
                         <button
                             onClick={() => { setEditStructure(null); setShowStructureModal(true) }}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-[0.8125rem] font-semibold transition-all active:scale-[0.98]"
-                            style={{ backgroundColor: '#2563EB', color: '#FFFFFF', boxShadow: '0 1px 3px rgba(37,99,235,0.3)' }}
+                            className="btn-primary btn-sm"
                         >
                             <Plus size={14} strokeWidth={2.5} />
                             New Structure
@@ -426,8 +474,8 @@ export default function FeesPage() {
                     {tab === 'fees' && (
                         <button
                             onClick={() => fetchFees()}
-                            className="h-9 w-9 rounded-xl border flex items-center justify-center transition-colors"
-                            style={{ border: '1.5px solid #E2E8F0', color: '#94A3B8' }}
+                            className="btn-icon"
+                            aria-label="Refresh fees"
                         >
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                         </button>
@@ -435,22 +483,29 @@ export default function FeesPage() {
                 </div>
             </div>
 
-            {alert && <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />}
+            {alert && (
+                <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />
+            )}
 
             {/* ═══ TABS ═══ */}
-            <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ backgroundColor: '#F1F5F9' }}>
+            <div
+                className="flex gap-1 p-1 rounded-[var(--radius-md)] w-fit"
+                style={{ backgroundColor: 'var(--bg-muted)' }}
+            >
                 {TABS.map(t => (
                     <button
                         key={t.id}
                         onClick={() => setTab(t.id)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[0.8125rem] font-medium transition-all"
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] text-[0.8125rem] font-medium transition-all"
                         style={{
-                            backgroundColor: tab === t.id ? '#FFFFFF' : 'transparent',
-                            color: tab === t.id ? '#0F172A' : '#64748B',
-                            boxShadow: tab === t.id ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                            backgroundColor: tab === t.id ? 'var(--bg-card)' : 'transparent',
+                            color: tab === t.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                            boxShadow: tab === t.id ? 'var(--shadow-sm)' : 'none',
                         }}
                     >
-                        <span style={{ color: tab === t.id ? '#2563EB' : '#94A3B8' }}>{t.icon}</span>
+                        <span style={{ color: tab === t.id ? 'var(--primary-500)' : 'var(--text-light)' }}>
+                            {t.icon}
+                        </span>
                         {t.label}
                     </button>
                 ))}
@@ -459,34 +514,59 @@ export default function FeesPage() {
             {/* ═══ TAB: STUDENT FEES ═══ */}
             {tab === 'fees' && (
                 <div className="space-y-4">
+
+                    {/* Stats */}
                     {!loading && (
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                            <MiniStatCard label="Total Due" value={`₹${totalDue.toLocaleString('en-IN')}`} icon={<AlertTriangle size={18} />} iconBg="#FEF2F2" iconColor="#DC2626" valueColor="#DC2626" />
-                            <MiniStatCard label="Total Collected" value={`₹${totalPaid.toLocaleString('en-IN')}`} icon={<TrendingUp size={18} />} iconBg="#ECFDF5" iconColor="#059669" valueColor="#059669" />
-                            <MiniStatCard label="Overdue" value={overdueCount} icon={<Clock size={18} />} iconBg="#FFF7ED" iconColor="#EA580C" valueColor="#EA580C" />
-                            <MiniStatCard label="Partial Paid" value={partialCount} icon={<IndianRupee size={18} />} iconBg="#EFF6FF" iconColor="#2563EB" />
+                            <MiniStatCard
+                                label="Total Due"
+                                value={`₹${totalDue.toLocaleString('en-IN')}`}
+                                icon={<AlertTriangle size={18} />}
+                                iconBg="var(--danger-50)"
+                                iconColor="var(--danger)"
+                                valueColor="var(--danger)"
+                            />
+                            <MiniStatCard
+                                label="Total Collected"
+                                value={`₹${totalPaid.toLocaleString('en-IN')}`}
+                                icon={<TrendingUp size={18} />}
+                                iconBg="var(--success-50)"
+                                iconColor="var(--success)"
+                                valueColor="var(--success)"
+                            />
+                            <MiniStatCard
+                                label="Overdue"
+                                value={overdueCount}
+                                icon={<Clock size={18} />}
+                                iconBg="var(--warning-50)"
+                                iconColor="var(--warning)"
+                                valueColor="var(--warning)"
+                            />
+                            <MiniStatCard
+                                label="Partial Paid"
+                                value={partialCount}
+                                icon={<IndianRupee size={18} />}
+                                iconBg="var(--info-50)"
+                                iconColor="var(--info)"
+                            />
                         </div>
                     )}
 
                     {/* Filters */}
                     <div className="portal-card">
-                        <div className="p-4">
+                        <div className="portal-card-body-sm">
                             <div className="flex flex-wrap gap-3">
-                                <div className="flex-1 min-w-[200px] relative">
-                                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: '#94A3B8' }} />
+                                <div className="portal-search flex-1 min-w-[200px]">
+                                    <Search size={14} className="search-icon" />
                                     <input
-                                        className="w-full h-9 pl-8 pr-3 text-sm rounded-lg outline-none transition-all"
-                                        style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#FFFFFF' }}
                                         placeholder="Search student name, admission no..."
                                         value={filterSearch}
                                         onChange={e => setFilterSearch(e.target.value)}
-                                        onFocus={e => { e.target.style.borderColor = '#2563EB' }}
-                                        onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
                                     />
                                 </div>
                                 <select
-                                    className="h-9 px-3 text-sm rounded-lg outline-none cursor-pointer"
-                                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', minWidth: '120px' }}
+                                    className="input-clean"
+                                    style={{ minWidth: '120px' }}
                                     value={filterStatus}
                                     onChange={e => setFilterStatus(e.target.value)}
                                 >
@@ -497,13 +577,15 @@ export default function FeesPage() {
                                     <option value="waived">Waived</option>
                                 </select>
                                 <select
-                                    className="h-9 px-3 text-sm rounded-lg outline-none cursor-pointer"
-                                    style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', minWidth: '120px' }}
+                                    className="input-clean"
+                                    style={{ minWidth: '120px' }}
                                     value={filterClass}
                                     onChange={e => setFilterClass(e.target.value)}
                                 >
                                     <option value="">All Classes</option>
-                                    {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
+                                    {academicConfig.classes.map(c => (
+                                        <option key={c} value={c}>Class {c}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -512,9 +594,9 @@ export default function FeesPage() {
                     {/* Fees Table */}
                     <div className="portal-card overflow-hidden">
                         {loading ? (
-                            <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <div className="portal-empty py-20">
                                 <Spinner size="lg" />
-                                <p className="text-sm" style={{ color: '#94A3B8' }}>Loading fees...</p>
+                                <p className="portal-empty-text mt-3">Loading fees...</p>
                             </div>
                         ) : fees.length === 0 ? (
                             <div className="portal-empty py-20">
@@ -526,13 +608,16 @@ export default function FeesPage() {
                                         : 'Pehle fee structure banao, phir students ko assign hoga'}
                                 </p>
                                 {!filterStatus && !filterClass && !filterSearch && (
-                                    <button onClick={() => setTab('structures')} className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold" style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}>
+                                    <button
+                                        onClick={() => setTab('structures')}
+                                        className="btn-primary btn-sm mt-4"
+                                    >
                                         <Plus size={14} /> Create Fee Structure
                                     </button>
                                 )}
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
+                            <div className="table-wrapper">
                                 <table className="portal-table">
                                     <thead>
                                         <tr>
@@ -550,74 +635,102 @@ export default function FeesPage() {
                                             const student = f.studentId
                                             const structure = f.structureId
                                             const remaining = f.finalAmount - f.paidAmount
-                                            const isOverdue = ['pending', 'partial'].includes(f.status) && new Date(f.dueDate) < new Date()
-                                            const daysOverdue = isOverdue ? Math.floor((Date.now() - new Date(f.dueDate).getTime()) / 86400000) : 0
+                                            const isOverdue = ['pending', 'partial'].includes(f.status)
+                                                && new Date(f.dueDate) < new Date()
+                                            const daysOverdue = isOverdue
+                                                ? Math.floor((Date.now() - new Date(f.dueDate).getTime()) / 86400000)
+                                                : 0
 
                                             return (
-                                                <tr key={f._id} className="group">
-                                                    <td className="px-4 py-3">
+                                                <tr key={f._id}>
+                                                    <td>
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}>
+                                                            <div className="avatar avatar-sm"
+                                                                style={{
+                                                                    background: 'var(--primary-100)',
+                                                                    color: 'var(--primary-700)',
+                                                                }}
+                                                            >
                                                                 {student?.userId?.name?.charAt(0) ?? '?'}
                                                             </div>
                                                             <div>
-                                                                <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>{student?.userId?.name ?? 'N/A'}</p>
-                                                                <p className="text-[0.6875rem] font-mono" style={{ color: '#94A3B8' }}>{student?.admissionNo} · Class {student?.class}-{student?.section}</p>
+                                                                <p className="text-sm font-semibold text-[var(--text-primary)]">
+                                                                    {student?.userId?.name ?? 'N/A'}
+                                                                </p>
+                                                                <p className="text-[0.6875rem] font-mono text-[var(--text-muted)]">
+                                                                    {student?.admissionNo} · Class {student?.class}-{student?.section}
+                                                                </p>
                                                             </div>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <p className="text-sm font-medium" style={{ color: '#475569' }}>{structure?.name ?? '—'}</p>
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <p className="text-sm font-bold tabular-nums" style={{ color: '#0F172A' }}>₹{f.finalAmount.toLocaleString('en-IN')}</p>
-                                                        {f.discount > 0 && <p className="text-[0.6875rem]" style={{ color: '#059669' }}>Discount: ₹{f.discount}</p>}
-                                                        {f.lateFine > 0 && <p className="text-[0.6875rem]" style={{ color: '#DC2626' }}>Fine: +₹{f.lateFine}</p>}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <p className="text-sm font-bold tabular-nums" style={{ color: f.paidAmount > 0 ? '#059669' : '#94A3B8' }}>₹{f.paidAmount.toLocaleString('en-IN')}</p>
-                                                        {remaining > 0 && f.status !== 'waived' && (
-                                                            <p className="text-[0.6875rem]" style={{ color: '#DC2626' }}>Due: ₹{remaining.toLocaleString('en-IN')}</p>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3">
-                                                        <p className="text-sm" style={{ color: '#475569' }}>
-                                                            {new Date(f.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                                    <td>
+                                                        <p className="text-sm font-medium text-[var(--text-secondary)]">
+                                                            {structure?.name ?? '—'}
                                                         </p>
-                                                        {isOverdue && <p className="text-[0.6875rem] font-semibold" style={{ color: '#DC2626' }}>{daysOverdue}d overdue</p>}
                                                     </td>
-                                                    <td className="px-4 py-3">
-                                                        <FeeBadge status={f.status} dueDate={f.dueDate} />
-                                                        {f.paidAt && (
-                                                            <p className="text-[0.625rem] mt-0.5" style={{ color: '#94A3B8' }}>
-                                                                Paid: {new Date(f.paidAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                                    <td>
+                                                        <p className="text-sm font-bold tabular-nums text-[var(--text-primary)]">
+                                                            ₹{f.finalAmount.toLocaleString('en-IN')}
+                                                        </p>
+                                                        {f.discount > 0 && (
+                                                            <p className="text-[0.6875rem] text-[var(--success)]">
+                                                                Discount: ₹{f.discount}
+                                                            </p>
+                                                        )}
+                                                        {f.lateFine > 0 && (
+                                                            <p className="text-[0.6875rem] text-[var(--danger)]">
+                                                                Fine: +₹{f.lateFine}
                                                             </p>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td>
+                                                        <p className={`text-sm font-bold tabular-nums ${f.paidAmount > 0 ? 'text-[var(--success)]' : 'text-[var(--text-muted)]'}`}>
+                                                            ₹{f.paidAmount.toLocaleString('en-IN')}
+                                                        </p>
+                                                        {remaining > 0 && f.status !== 'waived' && (
+                                                            <p className="text-[0.6875rem] text-[var(--danger)]">
+                                                                Due: ₹{remaining.toLocaleString('en-IN')}
+                                                            </p>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <p className="text-sm text-[var(--text-secondary)]">
+                                                            {new Date(f.dueDate).toLocaleDateString('en-IN', {
+                                                                day: 'numeric', month: 'short', year: '2-digit',
+                                                            })}
+                                                        </p>
+                                                        {isOverdue && (
+                                                            <p className="text-[0.6875rem] font-semibold text-[var(--danger)]">
+                                                                {daysOverdue}d overdue
+                                                            </p>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <FeeBadge status={f.status} dueDate={f.dueDate} />
+                                                        {f.paidAt && (
+                                                            <p className="text-[0.625rem] mt-0.5 text-[var(--text-muted)]">
+                                                                Paid: {new Date(f.paidAt).toLocaleDateString('en-IN', {
+                                                                    day: 'numeric', month: 'short',
+                                                                })}
+                                                            </p>
+                                                        )}
+                                                    </td>
+                                                    <td>
                                                         <div className="flex items-center gap-1 justify-end">
-                                                            {/* Record Payment — show for pending and partial */}
                                                             {['pending', 'partial'].includes(f.status) && (
                                                                 <button
                                                                     onClick={() => { setSelectedFee(f); setShowPayModal(true) }}
-                                                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                                                                    style={{ backgroundColor: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}
-                                                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#059669'; e.currentTarget.style.color = '#FFFFFF' }}
-                                                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#ECFDF5'; e.currentTarget.style.color = '#059669' }}
+                                                                    className="badge badge-success cursor-pointer hover:opacity-80 transition-opacity"
                                                                 >
                                                                     <CheckSquare size={11} />
                                                                     {f.status === 'partial' ? 'Pay More' : 'Record Payment'}
                                                                 </button>
                                                             )}
-                                                            {/* View Receipt */}
                                                             {(f.status === 'paid' || f.status === 'partial') && (
                                                                 <button
                                                                     onClick={() => viewReceipt(f._id)}
-                                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                                                                    style={{ color: '#94A3B8' }}
+                                                                    className="btn-icon btn-icon-sm"
                                                                     title="View Receipt"
-                                                                    onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#EFF6FF'; e.currentTarget.style.color = '#2563EB' }}
-                                                                    onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94A3B8' }}
                                                                 >
                                                                     <Receipt size={13} />
                                                                 </button>
@@ -634,71 +747,56 @@ export default function FeesPage() {
                     </div>
                 </div>
             )}
-            {/* ═══════════════════════════════════════════
-                TAB: FEE STRUCTURES
-               ═══════════════════════════════════════════ */}
+
+            {/* ═══ TAB: FEE STRUCTURES ═══ */}
             {tab === 'structures' && (
                 <div className="space-y-4">
-                    {/* Structure Filters */}
                     <div className="portal-card">
-                        <div className="p-4 flex flex-wrap gap-3">
+                        <div className="portal-card-body-sm flex flex-wrap gap-3">
                             <select
-                                className="h-9 px-3 text-sm rounded-lg outline-none cursor-pointer"
-                                style={{
-                                    border: '1.5px solid #E2E8F0',
-                                    color: '#0F172A',
-                                    minWidth: '140px',
-                                }}
+                                className="input-clean"
+                                style={{ minWidth: '140px' }}
                                 value={structureClass}
                                 onChange={e => setStructureClass(e.target.value)}
                             >
                                 <option value="">All Classes</option>
                                 <option value="all">Global (All Classes)</option>
-                                {CLASSES.map(c => (
+                                {academicConfig.classes.map(c => (
                                     <option key={c} value={c}>Class {c}</option>
                                 ))}
                             </select>
                             <button
                                 onClick={() => fetchStructures()}
-                                className="h-9 w-9 rounded-lg border flex items-center justify-center transition-colors"
-                                style={{ border: '1.5px solid #E2E8F0', color: '#94A3B8' }}
+                                className="btn-icon"
+                                aria-label="Refresh structures"
                             >
                                 <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
                             </button>
                         </div>
                     </div>
 
-                    {/* Structures Table */}
                     <div className="portal-card overflow-hidden">
                         {loading ? (
-                            <div className="flex flex-col items-center justify-center py-20 gap-3">
+                            <div className="portal-empty py-20">
                                 <Spinner size="lg" />
-                                <p className="text-sm" style={{ color: '#94A3B8' }}>
-                                    Loading structures...
-                                </p>
+                                <p className="portal-empty-text mt-3">Loading structures...</p>
                             </div>
                         ) : structures.length === 0 ? (
                             <div className="portal-empty py-20">
-                                <div className="portal-empty-icon">
-                                    <BarChart2 size={24} />
-                                </div>
+                                <div className="portal-empty-icon"><BarChart2 size={24} /></div>
                                 <p className="portal-empty-title">No fee structures</p>
                                 <p className="portal-empty-text">
                                     Fee structure banao — class-wise fees define karein
                                 </p>
                                 <button
-                                    onClick={() => {
-                                        setEditStructure(null)
-                                        setShowStructureModal(true)
-                                    }}
-                                    className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold"
-                                    style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
+                                    onClick={() => { setEditStructure(null); setShowStructureModal(true) }}
+                                    className="btn-primary btn-sm mt-4"
                                 >
                                     <Plus size={14} /> Create First Structure
                                 </button>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
+                            <div className="table-wrapper">
                                 <table className="portal-table">
                                     <thead>
                                         <tr>
@@ -714,220 +812,102 @@ export default function FeesPage() {
                                     </thead>
                                     <tbody>
                                         {structures.map(s => (
-                                            <tr key={s._id} className="group">
-                                                <td className="px-4 py-3">
-                                                    <p
-                                                        className="text-sm font-semibold"
-                                                        style={{ color: '#0F172A' }}
-                                                    >
+                                            <tr key={s._id}>
+                                                <td>
+                                                    <p className="text-sm font-semibold text-[var(--text-primary)]">
                                                         {s.name}
                                                     </p>
-                                                    <p
-                                                        className="text-[0.6875rem]"
-                                                        style={{ color: '#94A3B8' }}
-                                                    >
+                                                    <p className="text-[0.6875rem] text-[var(--text-muted)]">
                                                         {s.academicYear}
                                                     </p>
                                                 </td>
-                                                <td className="px-4 py-3">
+                                                <td>
                                                     <div className="flex flex-col gap-1">
-                                                        <span
-                                                            className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold w-fit"
-                                                            style={{
-                                                                backgroundColor: '#EEF2FF',
-                                                                color: '#4F46E5',
-                                                            }}
-                                                        >
-                                                            {s.class === 'all'
-                                                                ? 'All Classes'
-                                                                : `Class ${s.class}`}
-                                                            {s.section && s.section !== 'all'
-                                                                ? `-${s.section}`
-                                                                : ''}
+                                                        <span className="badge badge-brand">
+                                                            {s.class === 'all' ? 'All Classes' : `Class ${s.class}`}
+                                                            {s.section && s.section !== 'all' ? `-${s.section}` : ''}
                                                         </span>
-                                                        {s.stream && (
-                                                            <StreamBadge stream={s.stream} />
-                                                        )}
+                                                        {s.stream && <StreamBadge stream={s.stream} />}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-3">
+                                                <td>
                                                     <span
-                                                        className="text-xs font-medium px-2 py-1 rounded-lg"
+                                                        className="text-xs font-medium px-2 py-1 rounded-[var(--radius-sm)]"
                                                         style={{
-                                                            backgroundColor: '#F8FAFC',
-                                                            color: '#475569',
+                                                            backgroundColor: 'var(--bg-subtle)',
+                                                            color: 'var(--text-secondary)',
                                                         }}
                                                     >
                                                         {s.term}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <p
-                                                        className="text-sm font-bold tabular-nums"
-                                                        style={{ color: '#0F172A' }}
-                                                    >
+                                                <td>
+                                                    <p className="text-sm font-bold tabular-nums text-[var(--text-primary)]">
                                                         ₹{s.totalAmount.toLocaleString('en-IN')}
                                                     </p>
                                                     {s.lateFinePerDay > 0 && (
-                                                        <p
-                                                            className="text-[0.625rem]"
-                                                            style={{ color: '#D97706' }}
-                                                        >
+                                                        <p className="text-[0.625rem] text-[var(--warning)]">
                                                             +₹{s.lateFinePerDay}/
                                                             {s.lateFineType === 'percent' ? '%' : 'day'} late
                                                         </p>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <p
-                                                        className="text-sm"
-                                                        style={{ color: '#475569' }}
-                                                    >
-                                                        {new Date(s.dueDate).toLocaleDateString(
-                                                            'en-IN',
-                                                            {
-                                                                day: 'numeric',
-                                                                month: 'short',
-                                                                year: '2-digit',
-                                                            }
-                                                        )}
+                                                <td>
+                                                    <p className="text-sm text-[var(--text-secondary)]">
+                                                        {new Date(s.dueDate).toLocaleDateString('en-IN', {
+                                                            day: 'numeric', month: 'short', year: '2-digit',
+                                                        })}
                                                     </p>
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <span
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
-                                                        style={{
-                                                            backgroundColor:
-                                                                s.assignedCount > 0 ? '#ECFDF5' : '#F8FAFC',
-                                                            color:
-                                                                s.assignedCount > 0 ? '#059669' : '#94A3B8',
-                                                        }}
-                                                    >
+                                                <td>
+                                                    <span className={`badge ${s.assignedCount > 0 ? 'badge-success' : 'badge-neutral'}`}>
                                                         <Users size={10} />
                                                         {s.assignedCount} students
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3">
-                                                    <span
-                                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[0.6875rem] font-semibold"
-                                                        style={{
-                                                            backgroundColor: s.isActive
-                                                                ? '#ECFDF5'
-                                                                : '#F1F5F9',
-                                                            color: s.isActive ? '#059669' : '#64748B',
-                                                        }}
-                                                    >
-                                                        <span
-                                                            className="w-1.5 h-1.5 rounded-full"
-                                                            style={{
-                                                                backgroundColor: s.isActive
-                                                                    ? '#059669'
-                                                                    : '#94A3B8',
-                                                            }}
-                                                        />
+                                                <td>
+                                                    <span className={`status-pill ${s.isActive ? 'status-active' : 'status-inactive'}`}>
                                                         {s.isActive ? 'Active' : 'Inactive'}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3">
+                                                <td>
                                                     <div className="flex items-center gap-1 justify-end">
-                                                        {/* Edit */}
                                                         <button
-                                                            onClick={() => {
-                                                                setEditStructure(s)
-                                                                setShowStructureModal(true)
-                                                            }}
-                                                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                                                            style={{ color: '#94A3B8' }}
+                                                            onClick={() => { setEditStructure(s); setShowStructureModal(true) }}
+                                                            className="btn-icon btn-icon-sm"
                                                             title="Edit Structure"
-                                                            onMouseEnter={e => {
-                                                                e.currentTarget.style.backgroundColor = '#EFF6FF'
-                                                                e.currentTarget.style.color = '#2563EB'
-                                                            }}
-                                                            onMouseLeave={e => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent'
-                                                                e.currentTarget.style.color = '#94A3B8'
-                                                            }}
                                                         >
                                                             <Edit2 size={13} />
                                                         </button>
-
-                                                        {/* Assign to All */}
                                                         <button
                                                             onClick={() => assignToAll(s._id, s.name)}
-                                                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                                                            style={{ color: '#94A3B8' }}
-                                                            title="Assign to all students in class"
-                                                            onMouseEnter={e => {
-                                                                e.currentTarget.style.backgroundColor = '#ECFDF5'
-                                                                e.currentTarget.style.color = '#059669'
-                                                            }}
-                                                            onMouseLeave={e => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent'
-                                                                e.currentTarget.style.color = '#94A3B8'
-                                                            }}
+                                                            className="btn-icon btn-icon-sm"
+                                                            title="Assign to all students"
                                                         >
                                                             <Users size={13} />
                                                         </button>
-
-                                                        {/* Apply Late Fine */}
                                                         {s.lateFinePerDay > 0 && (
                                                             <button
-                                                                onClick={() =>
-                                                                    applyLateFine(s._id, s.name)
-                                                                }
-                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                                                                style={{ color: '#94A3B8' }}
+                                                                onClick={() => applyLateFine(s._id, s.name)}
+                                                                className="btn-icon btn-icon-sm"
                                                                 title="Apply late fine"
-                                                                onMouseEnter={e => {
-                                                                    e.currentTarget.style.backgroundColor = '#FFFBEB'
-                                                                    e.currentTarget.style.color = '#D97706'
-                                                                }}
-                                                                onMouseLeave={e => {
-                                                                    e.currentTarget.style.backgroundColor = 'transparent'
-                                                                    e.currentTarget.style.color = '#94A3B8'
-                                                                }}
                                                             >
                                                                 <Clock size={13} />
                                                             </button>
                                                         )}
-
-                                                        {/* Optional fees hain toh yeh button show karo */}
                                                         {s.items.some((i: any) => i.isOptional) && (
                                                             <button
-                                                                onClick={() => {
-                                                                    setSelectedStructure(s)
-                                                                    setShowOptionalModal(true)
-                                                                }}
-                                                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                                                                style={{ color: '#94A3B8' }}
+                                                                onClick={() => { setSelectedStructure(s); setShowOptionalModal(true) }}
+                                                                className="btn-icon btn-icon-sm"
                                                                 title="Assign optional fees"
-                                                                onMouseEnter={e => {
-                                                                    e.currentTarget.style.backgroundColor = '#FFFBEB'
-                                                                    e.currentTarget.style.color = '#D97706'
-                                                                }}
-                                                                onMouseLeave={e => {
-                                                                    e.currentTarget.style.backgroundColor = 'transparent'
-                                                                    e.currentTarget.style.color = '#94A3B8'
-                                                                }}
                                                             >
                                                                 <Sparkles size={13} />
                                                             </button>
                                                         )}
-
-                                                        {/* Deactivate */}
                                                         <button
                                                             onClick={() => deleteStructure(s._id)}
-                                                            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
-                                                            style={{ color: '#94A3B8' }}
+                                                            className="btn-icon btn-icon-sm"
                                                             title="Deactivate"
-                                                            onMouseEnter={e => {
-                                                                e.currentTarget.style.backgroundColor = '#FEF2F2'
-                                                                e.currentTarget.style.color = '#DC2626'
-                                                            }}
-                                                            onMouseLeave={e => {
-                                                                e.currentTarget.style.backgroundColor = 'transparent'
-                                                                e.currentTarget.style.color = '#94A3B8'
-                                                            }}
                                                         >
                                                             <Trash2 size={13} />
                                                         </button>
@@ -953,8 +933,14 @@ export default function FeesPage() {
                 <FeeStructureModal
                     open={showStructureModal}
                     editItem={editStructure}
+                    academicConfig={academicConfig}
                     onClose={() => { setShowStructureModal(false); setEditStructure(null) }}
-                    onSuccess={msg => { setShowStructureModal(false); setEditStructure(null); fetchStructures(); showSuccess(msg) }}
+                    onSuccess={msg => {
+                        setShowStructureModal(false)
+                        setEditStructure(null)
+                        fetchStructures()
+                        showSuccess(msg)
+                    }}
                 />
 
                 {selectedFee && (
@@ -964,9 +950,14 @@ export default function FeesPage() {
                         onlinePayEnabled={onlinePayEnabled}
                         onClose={() => { setShowPayModal(false); setSelectedFee(null) }}
                         onPaid={recordPayment}
+                        // ✅ NEW prop — online payment complete
+                        onPaymentComplete={(feeId: string) => {
+                            setShowPayModal(false)
+                            setSelectedFee(null)
+                            fetchFees()
+                        }}
                     />
                 )}
-
                 {receiptData && (
                     <ReceiptModal
                         open={showReceiptModal}
@@ -974,13 +965,16 @@ export default function FeesPage() {
                         onClose={() => { setShowReceiptModal(false); setReceiptData(null) }}
                     />
                 )}
-
                 {selectedStructure && (
                     <OptionalFeeModal
                         open={showOptionalModal}
                         structure={selectedStructure}
                         onClose={() => { setShowOptionalModal(false); setSelectedStructure(null) }}
-                        onSuccess={msg => { setShowOptionalModal(false); setSelectedStructure(null); showSuccess(msg) }}
+                        onSuccess={msg => {
+                            setShowOptionalModal(false)
+                            setSelectedStructure(null)
+                            showSuccess(msg)
+                        }}
                     />
                 )}
             </Portal>
@@ -989,22 +983,19 @@ export default function FeesPage() {
 }
 
 
+
 /* ════════════════════════════════════════════
-   RECORD PAYMENT MODAL 
-   - Partial payment support
-   - Payment mode selection  
-   - Online Razorpay — FULLY WORKING ✨
-   - Notes field
-   - Print receipt after payment
+   RECORD PAYMENT MODAL
    ════════════════════════════════════════════ */
 function RecordPaymentModal({
-    open, fee, onlinePayEnabled, onClose, onPaid,
+    open, fee, onlinePayEnabled, onClose, onPaid, onPaymentComplete,
 }: {
     open: boolean
     fee: Fee
     onlinePayEnabled: boolean
     onClose: () => void
     onPaid: (feeId: string, mode: string, amount: number, notes?: string) => void
+    onPaymentComplete: (feeId: string) => void  // ✅ NEW — online only
 }) {
     const remaining = fee.finalAmount - fee.paidAmount
     const [mode, setMode] = useState('cash')
@@ -1012,7 +1003,7 @@ function RecordPaymentModal({
     const [partialAmount, setPartialAmount] = useState('')
     const [notes, setNotes] = useState('')
     const [loading, setLoading] = useState(false)
-    const [rzpLoading, setRzpLoading] = useState(false) // separate loader for Razorpay
+    const [rzpLoading, setRzpLoading] = useState(false)
     const [paymentSuccess, setPaymentSuccess] = useState<{
         amount: number
         mode: string
@@ -1021,16 +1012,15 @@ function RecordPaymentModal({
     } | null>(null)
     const [successPaperSize, setSuccessPaperSize] = useState<'A4' | 'A5'>('A4')
 
-    // ✅ FIX: MODES useMemo se banao, onlinePayEnabled pe depend karo
     const MODES = useMemo(() => {
         const base = [
-            { value: 'cash', label: 'Cash', icon: '💵', color: '#059669', bg: '#ECFDF5' },
-            { value: 'cheque', label: 'Cheque', icon: '📝', color: '#7C3AED', bg: '#F5F3FF' },
-            { value: 'dd', label: 'DD', icon: '🏛️', color: '#D97706', bg: '#FFFBEB' },
+            { value: 'cash', label: 'Cash', icon: '💵', color: 'var(--success)', bg: 'var(--success-50)' },
+            { value: 'cheque', label: 'Cheque', icon: '📝', color: 'var(--color-violet)', bg: 'var(--color-violet-50)' },
+            { value: 'dd', label: 'DD', icon: '🏛️', color: 'var(--warning)', bg: 'var(--warning-50)' },
         ]
         if (onlinePayEnabled) {
             return [
-                { value: 'online', label: 'Online (Razorpay)', icon: '💳', color: '#2563EB', bg: '#EFF6FF' },
+                { value: 'online', label: 'Online (Razorpay)', icon: '💳', color: 'var(--info)', bg: 'var(--info-50)' },
                 ...base,
             ]
         }
@@ -1041,7 +1031,6 @@ function RecordPaymentModal({
         ? remaining
         : Math.min(Number(partialAmount) || 0, remaining)
 
-    // ─── Reset on close ───
     const handleClose = () => {
         setPaymentSuccess(null)
         setPayType('full')
@@ -1053,21 +1042,14 @@ function RecordPaymentModal({
         onClose()
     }
 
-    // ─── Load Razorpay Script ───
     const loadRazorpayScript = (): Promise<boolean> => {
         return new Promise(resolve => {
             const rzpWindow = window as any
-            if (rzpWindow.Razorpay) {
-                resolve(true)
-                return
-            }
-            const existingScript = document.querySelector(
+            if (rzpWindow.Razorpay) { resolve(true); return }
+            const existing = document.querySelector(
                 'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
             )
-            if (existingScript) {
-                existingScript.addEventListener('load', () => resolve(true))
-                return
-            }
+            if (existing) { existing.addEventListener('load', () => resolve(true)); return }
             const script = document.createElement('script')
             script.src = 'https://checkout.razorpay.com/v1/checkout.js'
             script.onload = () => resolve(true)
@@ -1076,45 +1058,37 @@ function RecordPaymentModal({
         })
     }
 
-    // ─── Razorpay Online Payment Handler ───
+    // ✅ FIXED — onPaid call removed from online handler
     const handleOnlinePayment = async () => {
         if (effectiveAmount <= 0) return
         setRzpLoading(true)
-
         try {
-            // Step 1: Order create
             const orderRes = await fetch('/api/fees/pay', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    feeId: fee._id,
-                    amount: effectiveAmount,
-                }),
+                body: JSON.stringify({ feeId: fee._id, amount: effectiveAmount }),
             })
             const orderData = await orderRes.json()
-
             if (!orderRes.ok) {
                 alert(orderData.needsSetup
-                    ? '❌ Online payment setup nahi hai. Payment Settings mein Razorpay keys add karein.'
+                    ? '❌ Online payment is not configured. Please add Razorpay keys in Payment Settings.'
                     : orderData.error || 'Failed to create payment order'
                 )
                 setRzpLoading(false)
                 return
             }
 
-            // Step 2: Razorpay script load
             const scriptLoaded = await loadRazorpayScript()
             if (!scriptLoaded) {
-                alert('Razorpay load nahi hua. Internet connection check karein.')
+                alert('Failed to load Razorpay. Please check your internet connection.')
                 setRzpLoading(false)
                 return
             }
 
             const studentName = (fee.studentId as any)?.userId?.name || 'Student'
             const studentPhone = (fee.studentId as any)?.userId?.phone || ''
-
-            // Step 3: Razorpay checkout open
             const rzpWindow = window as any
+
             const rzp = new rzpWindow.Razorpay({
                 key: orderData.keyId,
                 amount: orderData.amount,
@@ -1122,20 +1096,15 @@ function RecordPaymentModal({
                 name: 'Fee Payment',
                 description: `Fee payment — ${studentName}`,
                 order_id: orderData.orderId,
-                prefill: {
-                    name: studentName,
-                    contact: studentPhone,
-                },
-                theme: { color: '#2563EB' },
+                prefill: { name: studentName, contact: studentPhone },
+                theme: { color: 'var(--primary-600)' },
 
-                // ✅ Payment success — verify route call karo
                 handler: async function (response: {
                     razorpay_payment_id: string
                     razorpay_order_id: string
                     razorpay_signature: string
                 }) {
                     try {
-                        // Step 4: Verify (same pattern as subscription/verify)
                         const verifyRes = await fetch('/api/fees/verify', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -1150,34 +1119,34 @@ function RecordPaymentModal({
                         const verifyData = await verifyRes.json()
 
                         if (verifyRes.ok && verifyData.success) {
-                            // ✅ Success screen dikhao
+                            // ✅ FIX — Only set success UI
+                            // verify route already updated DB
+                            // onPaid (mark-paid) NOT called — prevents double payment
                             setPaymentSuccess({
                                 amount: effectiveAmount,
                                 mode: 'online',
                                 receiptNumber: verifyData.receiptNumber,
                                 paidAt: new Date().toISOString(),
                             })
-                            // Parent ko refresh karo — modal band mat karo
-                            onPaid(
-                                fee._id,
-                                'online',
-                                effectiveAmount,
-                                `Razorpay: ${response.razorpay_payment_id}`
-                            )
+                            // ✅ Sirf fees list refresh karo
+                            onPaymentComplete(fee._id)
                         } else {
-                            alert('Payment verify nahi hua: ' + (verifyData.error || 'Unknown error'))
+                            alert(
+                                'Payment verification failed: ' +
+                                (verifyData.error || 'Unknown error. Please contact support.')
+                            )
                         }
-                    } catch {
-                        // Network error — webhook handle kar lega
-                        // Optimistic success dikhao
+                    } catch (err) {
+                        console.error('Verify error:', err)
+                        // ✅ Fallback — show success with payment ID as receipt
+                        // DB already updated by verify route (if it succeeded before network error)
                         setPaymentSuccess({
                             amount: effectiveAmount,
                             mode: 'online',
                             receiptNumber: response.razorpay_payment_id,
                             paidAt: new Date().toISOString(),
                         })
-                        onPaid(fee._id, 'online', effectiveAmount,
-                            `Razorpay: ${response.razorpay_payment_id}`)
+                        onPaymentComplete(fee._id)
                     } finally {
                         setRzpLoading(false)
                     }
@@ -1194,59 +1163,47 @@ function RecordPaymentModal({
                 alert(`Payment failed: ${response.error.description}`)
                 setRzpLoading(false)
             })
-
             rzp.open()
 
         } catch (err) {
             console.error('Online payment error:', err)
-            alert('Payment initiate nahi hua. Dobara try karein.')
+            alert('Could not initiate payment. Please try again.')
             setRzpLoading(false)
         }
     }
 
-    // ─── Offline Payment Handler ───
+    // ✅ Offline — onPaid call karo (mark-paid API)
     const handleOfflinePayment = async () => {
         if (effectiveAmount <= 0) return
         setLoading(true)
         try {
             await onPaid(fee._id, mode, effectiveAmount, notes)
-            // Note: onPaid (recordPayment in parent) sets paymentSuccess
-            // via the success screen — but here we show it directly
-            // because onPaid closes modal via parent state
-            // So we show success before parent closes:
             setPaymentSuccess({
                 amount: effectiveAmount,
-                mode: mode,
+                mode,
                 receiptNumber: `RCP-${Date.now().toString(36).toUpperCase()}`,
                 paidAt: new Date().toISOString(),
             })
         } catch {
-            alert('Payment record nahi hua. Dobara try karein.')
+            alert('Failed to record payment. Please try again.')
         } finally {
             setLoading(false)
         }
     }
 
-    // ─── Main Submit Handler ───
     const handleSubmit = () => {
         if (effectiveAmount <= 0) return
-        if (mode === 'online') {
-            handleOnlinePayment()
-        } else {
-            handleOfflinePayment()
-        }
+        if (mode === 'online') handleOnlinePayment()
+        else handleOfflinePayment()
     }
 
-    // ─── Print after success ───
     const handlePrintSuccessReceipt = () => {
         if (!paymentSuccess) return
-
         const school = (fee as any).school || {}
         const student = fee.studentId as any
         const newRemaining = Math.max(0, remaining - paymentSuccess.amount)
         const totalPaidSoFar = fee.paidAmount + paymentSuccess.amount
         const status = newRemaining <= 0 ? 'paid' : 'partial'
-
         printSingleReceipt({
             school,
             student: {
@@ -1276,76 +1233,79 @@ function RecordPaymentModal({
 
     if (!open) return null
 
-    // ══════════════════════════════════════
-    // SUCCESS SCREEN
-    // ══════════════════════════════════════
+    /* ── Success Screen ── */
     if (paymentSuccess) {
         const isOnline = paymentSuccess.mode === 'online'
         return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
-                <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md" style={{ border: '1px solid #E2E8F0' }}>
+            <div className="modal-backdrop">
+                <div
+                    className="modal-panel"
+                    style={{ maxWidth: 'var(--width-modal-sm)' }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Top accent bar */}
+                    <div
+                        className="h-1.5 rounded-t-[var(--radius-2xl)]"
+                        style={{ background: 'var(--bg-gradient-success)' }}
+                    />
 
-                    {/* Top Accent Bar */}
-                    <div className="h-1.5 rounded-t-2xl" style={{ background: 'linear-gradient(90deg, #059669, #10B981, #34D399)' }} />
-
-                    {/* Success Header */}
+                    {/* Success header */}
                     <div className="text-center pt-7 pb-4 px-5">
                         <div
                             className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
                             style={{
-                                background: 'linear-gradient(135deg, #059669, #10B981)',
-                                boxShadow: '0 8px 24px rgba(5, 150, 105, 0.3)',
+                                background: 'var(--bg-gradient-success)',
+                                boxShadow: '0 8px 24px rgba(16,185,129,0.3)',
                             }}
                         >
-                            <CheckSquare size={28} style={{ color: '#FFFFFF' }} />
+                            <CheckSquare size={28} className="text-white" />
                         </div>
-                        <h3 className="text-xl font-extrabold" style={{ color: '#059669' }}>
+                        <h3 className="text-xl font-extrabold text-[var(--success-dark)]">
                             Payment Successful! 🎉
                         </h3>
-                        <p className="text-sm mt-1" style={{ color: '#64748B' }}>
+                        <p className="text-sm mt-1 text-[var(--text-secondary)]">
                             ₹{paymentSuccess.amount.toLocaleString('en-IN')} received via{' '}
                             <span className="font-semibold capitalize">{paymentSuccess.mode}</span>
                         </p>
                         {isOnline && (
-                            <div
-                                className="inline-flex items-center gap-1 mt-2 px-3 py-1 rounded-full text-[11px] font-semibold"
-                                style={{ backgroundColor: '#EFF6FF', color: '#2563EB' }}
-                            >
-                                💳 Razorpay se verified
+                            <div className="badge badge-brand mt-2 mx-auto">
+                                💳 Verified via Razorpay
                             </div>
                         )}
                     </div>
 
-                    {/* Receipt Summary Card */}
-                    <div className="mx-5 mb-4 rounded-xl overflow-hidden" style={{ border: '1.5px solid #E2E8F0' }}>
+                    {/* Receipt summary */}
+                    <div
+                        className="mx-5 mb-4 rounded-[var(--radius-lg)] overflow-hidden"
+                        style={{ border: '1.5px solid var(--border)' }}
+                    >
                         <div
                             className="px-4 py-2.5"
                             style={{
-                                background: 'linear-gradient(135deg, #F0F9FF, #E0F2FE)',
-                                borderBottom: '1px solid #BAE6FD',
+                                background: 'linear-gradient(135deg, var(--info-50), var(--info-100))',
+                                borderBottom: '1px solid var(--border)',
                             }}
                         >
-                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#0369A1' }}>
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--info-dark)]">
                                 Receipt Summary
                             </span>
                         </div>
-                        <div className="px-4 py-3 space-y-2.5">
+                        <div className="px-4 py-3 space-y-2.5 bg-[var(--bg-card)]">
                             <div className="flex justify-between text-sm">
-                                <span style={{ color: '#64748B' }}>Receipt No.</span>
-                                <span className="font-bold font-mono text-xs" style={{ color: '#0F172A' }}>
+                                <span className="text-[var(--text-muted)]">Receipt No.</span>
+                                <span className="font-bold font-mono text-xs text-[var(--text-primary)]">
                                     {paymentSuccess.receiptNumber}
                                 </span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span style={{ color: '#64748B' }}>Student</span>
-                                <span className="font-semibold" style={{ color: '#0F172A' }}>
+                                <span className="text-[var(--text-muted)]">Student</span>
+                                <span className="font-semibold text-[var(--text-primary)]">
                                     {(fee.studentId as any)?.userId?.name || 'N/A'}
                                 </span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span style={{ color: '#64748B' }}>Date & Time</span>
-                                <span className="font-semibold" style={{ color: '#0F172A' }}>
+                                <span className="text-[var(--text-muted)]">Date & Time</span>
+                                <span className="font-semibold text-[var(--text-primary)]">
                                     {new Date(paymentSuccess.paidAt).toLocaleString('en-IN', {
                                         day: '2-digit', month: 'short', year: 'numeric',
                                         hour: '2-digit', minute: '2-digit',
@@ -1353,27 +1313,26 @@ function RecordPaymentModal({
                                 </span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span style={{ color: '#64748B' }}>Payment Mode</span>
-                                <span className="font-semibold capitalize" style={{ color: '#0F172A' }}>
-                                    {paymentSuccess.mode}
+                                <span className="text-[var(--text-muted)]">Payment Mode</span>
+                                <span className="font-semibold capitalize text-[var(--text-primary)]">
+                                    {paymentSuccess.mode === 'online' ? 'Online (Razorpay)' : paymentSuccess.mode}
                                 </span>
                             </div>
                             <div
                                 className="flex justify-between items-center pt-2"
-                                style={{ borderTop: '1px dashed #E2E8F0' }}
+                                style={{ borderTop: '1px dashed var(--border)' }}
                             >
-                                <span className="text-sm font-semibold" style={{ color: '#059669' }}>
+                                <span className="text-sm font-semibold text-[var(--success)]">
                                     Amount Paid
                                 </span>
-                                <span className="text-2xl font-black font-mono" style={{ color: '#059669' }}>
+                                <span className="text-2xl font-black font-mono text-[var(--success)]">
                                     ₹{paymentSuccess.amount.toLocaleString('en-IN')}
                                 </span>
                             </div>
-                            {/* Remaining amount info */}
                             {remaining - paymentSuccess.amount > 0 && (
                                 <div className="flex justify-between items-center text-sm">
-                                    <span style={{ color: '#DC2626' }}>Still Remaining</span>
-                                    <span className="font-bold font-mono" style={{ color: '#DC2626' }}>
+                                    <span className="text-[var(--danger)]">Still Remaining</span>
+                                    <span className="font-bold font-mono text-[var(--danger)]">
                                         ₹{(remaining - paymentSuccess.amount).toLocaleString('en-IN')}
                                     </span>
                                 </div>
@@ -1381,19 +1340,15 @@ function RecordPaymentModal({
                         </div>
                     </div>
 
-                    {/* Print Section */}
+                    {/* Print section */}
                     <div className="mx-5 mb-4">
-                        <p
-                            className="text-[10px] font-semibold mb-2 uppercase tracking-wider"
-                            style={{ color: '#94A3B8' }}
-                        >
+                        <p className="text-[10px] font-semibold mb-2 uppercase tracking-wider text-[var(--text-muted)]">
                             Print Receipt
                         </p>
                         <div className="flex gap-2">
-                            {/* Paper Size Toggle */}
                             <div
-                                className="flex items-center rounded-lg overflow-hidden flex-shrink-0"
-                                style={{ border: '1px solid #E2E8F0' }}
+                                className="flex items-center rounded-[var(--radius-md)] overflow-hidden flex-shrink-0"
+                                style={{ border: '1px solid var(--border)' }}
                             >
                                 {(['A4', 'A5'] as const).map((size, i) => (
                                     <button
@@ -1401,9 +1356,13 @@ function RecordPaymentModal({
                                         onClick={() => setSuccessPaperSize(size)}
                                         className="px-3 py-2 text-xs font-bold transition-colors"
                                         style={{
-                                            backgroundColor: successPaperSize === size ? '#2563EB' : '#F8FAFC',
-                                            color: successPaperSize === size ? '#FFFFFF' : '#64748B',
-                                            borderLeft: i > 0 ? '1px solid #E2E8F0' : 'none',
+                                            backgroundColor: successPaperSize === size
+                                                ? 'var(--primary-600)'
+                                                : 'var(--bg-subtle)',
+                                            color: successPaperSize === size
+                                                ? '#ffffff'
+                                                : 'var(--text-secondary)',
+                                            borderLeft: i > 0 ? '1px solid var(--border)' : 'none',
                                         }}
                                     >
                                         {size}
@@ -1412,8 +1371,7 @@ function RecordPaymentModal({
                             </div>
                             <button
                                 onClick={handlePrintSuccessReceipt}
-                                className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
-                                style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
+                                className="btn-primary flex-1"
                             >
                                 <Printer size={14} />
                                 Print Receipt ({successPaperSize})
@@ -1422,11 +1380,14 @@ function RecordPaymentModal({
                     </div>
 
                     {/* Footer */}
-                    <div className="px-5 py-4 flex gap-2" style={{ borderTop: '1px solid #F1F5F9' }}>
+                    <div
+                        className="px-5 py-4"
+                        style={{ borderTop: '1px solid var(--border)' }}
+                    >
                         <button
                             onClick={handleClose}
-                            className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                            style={{ backgroundColor: '#059669', color: '#FFFFFF' }}
+                            className="btn-primary btn-block"
+                            style={{ background: 'var(--bg-gradient-success)' }}
                         >
                             ✓ Done
                         </button>
@@ -1436,93 +1397,77 @@ function RecordPaymentModal({
         )
     }
 
-    // ══════════════════════════════════════
-    // PAYMENT FORM
-    // ══════════════════════════════════════
+    /* ── Payment Form ── */
     const isOnlineMode = mode === 'online'
     const isSubmitDisabled = loading || rzpLoading || effectiveAmount <= 0
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
+        <div className="modal-backdrop">
             <div
-                className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
-                style={{ border: '1px solid #E2E8F0' }}
+                className="modal-panel"
+                style={{ maxWidth: 'var(--width-modal-sm)' }}
+                onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div
-                    className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-                    style={{ borderBottom: '1px solid #F1F5F9' }}
-                >
+                <div className="modal-header">
                     <div className="flex items-center gap-3">
                         <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center"
-                            style={{ backgroundColor: '#ECFDF5' }}
+                            className="w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center"
+                            style={{ backgroundColor: 'var(--success-50)' }}
                         >
-                            <IndianRupee size={16} style={{ color: '#059669' }} />
+                            <IndianRupee size={16} style={{ color: 'var(--success)' }} />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold" style={{ color: '#0F172A' }}>
-                                Record Payment
-                            </h3>
-                            <p className="text-xs" style={{ color: '#94A3B8' }}>
+                            <h3 className="modal-title">Record Payment</h3>
+                            <p className="text-xs text-[var(--text-muted)]">
                                 {(fee.studentId as any)?.userId?.name || 'Student'}
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={handleClose}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}
-                    >
+                    <button onClick={handleClose} className="modal-close">
                         <X size={14} />
                     </button>
                 </div>
 
-                {/* Scrollable Body */}
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+                {/* Body */}
+                <div className="modal-body space-y-4">
 
-                    {/* Fee Summary */}
+                    {/* Fee summary */}
                     <div
-                        className="rounded-xl p-4"
+                        className="rounded-[var(--radius-lg)] p-4"
                         style={{
-                            background: 'linear-gradient(135deg, #F8FAFC, #F1F5F9)',
-                            border: '1px solid #E2E8F0',
+                            background: 'linear-gradient(135deg, var(--bg-muted), var(--surface-100))',
+                            border: '1px solid var(--border)',
                         }}
                     >
                         <div className="flex justify-between mb-2">
-                            <span className="text-xs" style={{ color: '#64748B' }}>Total Fee</span>
-                            <span className="text-sm font-bold" style={{ color: '#0F172A' }}>
+                            <span className="text-xs text-[var(--text-muted)]">Total Fee</span>
+                            <span className="text-sm font-bold text-[var(--text-primary)]">
                                 ₹{fee.finalAmount.toLocaleString('en-IN')}
                             </span>
                         </div>
                         {fee.paidAmount > 0 && (
                             <div className="flex justify-between mb-2">
-                                <span className="text-xs" style={{ color: '#059669' }}>Already Paid</span>
-                                <span className="text-sm font-bold" style={{ color: '#059669' }}>
+                                <span className="text-xs text-[var(--success)]">Already Paid</span>
+                                <span className="text-sm font-bold text-[var(--success)]">
                                     ₹{fee.paidAmount.toLocaleString('en-IN')}
                                 </span>
                             </div>
                         )}
                         <div
                             className="flex justify-between pt-2"
-                            style={{ borderTop: '1px dashed #CBD5E1' }}
+                            style={{ borderTop: '1px dashed var(--border-strong)' }}
                         >
-                            <span className="text-xs font-semibold" style={{ color: '#DC2626' }}>
-                                Remaining
-                            </span>
-                            <span
-                                className="text-lg font-extrabold tabular-nums"
-                                style={{ color: '#DC2626' }}
-                            >
+                            <span className="text-xs font-semibold text-[var(--danger)]">Remaining</span>
+                            <span className="text-lg font-extrabold tabular-nums text-[var(--danger)]">
                                 ₹{remaining.toLocaleString('en-IN')}
                             </span>
                         </div>
                     </div>
 
-                    {/* Payment Type */}
+                    {/* Payment type */}
                     <div>
-                        <p className="text-xs font-semibold mb-2" style={{ color: '#475569' }}>
+                        <p className="text-xs font-semibold mb-2 text-[var(--text-secondary)]">
                             Payment Type
                         </p>
                         <div className="grid grid-cols-2 gap-2">
@@ -1531,25 +1476,25 @@ function RecordPaymentModal({
                                     val: 'full' as const,
                                     label: 'Full Payment',
                                     sub: `₹${remaining.toLocaleString('en-IN')}`,
-                                    activeColor: '#059669',
-                                    activeBg: '#ECFDF5',
+                                    activeColor: 'var(--success)',
+                                    activeBg: 'var(--success-50)',
                                 },
                                 {
                                     val: 'partial' as const,
                                     label: 'Partial Payment',
                                     sub: 'Custom amount',
-                                    activeColor: '#D97706',
-                                    activeBg: '#FFFBEB',
+                                    activeColor: 'var(--warning)',
+                                    activeBg: 'var(--warning-50)',
                                 },
                             ].map(opt => (
                                 <button
                                     key={opt.val}
                                     onClick={() => setPayType(opt.val)}
-                                    className="px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-center"
+                                    className="px-3 py-2.5 rounded-[var(--radius-lg)] text-sm font-semibold transition-all text-center"
                                     style={{
-                                        border: `2px solid ${payType === opt.val ? opt.activeColor : '#E2E8F0'}`,
-                                        backgroundColor: payType === opt.val ? opt.activeBg : '#FFFFFF',
-                                        color: payType === opt.val ? opt.activeColor : '#64748B',
+                                        border: `2px solid ${payType === opt.val ? opt.activeColor : 'var(--border)'}`,
+                                        backgroundColor: payType === opt.val ? opt.activeBg : 'var(--bg-card)',
+                                        color: payType === opt.val ? opt.activeColor : 'var(--text-secondary)',
                                     }}
                                 >
                                     {opt.label}
@@ -1560,7 +1505,7 @@ function RecordPaymentModal({
                         </div>
                     </div>
 
-                    {/* Partial Amount Input */}
+                    {/* Partial amount input */}
                     {payType === 'partial' && (
                         <FormInput
                             label="Enter Amount (₹)"
@@ -1573,9 +1518,9 @@ function RecordPaymentModal({
                         />
                     )}
 
-                    {/* Payment Mode */}
+                    {/* Payment mode */}
                     <div>
-                        <p className="text-xs font-semibold mb-2" style={{ color: '#475569' }}>
+                        <p className="text-xs font-semibold mb-2 text-[var(--text-secondary)]">
                             Payment Mode
                         </p>
                         <div className="grid grid-cols-2 gap-2">
@@ -1583,11 +1528,11 @@ function RecordPaymentModal({
                                 <button
                                     key={m.value}
                                     onClick={() => setMode(m.value)}
-                                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                                    className="flex items-center gap-2 px-3 py-2.5 rounded-[var(--radius-lg)] text-sm font-semibold transition-all"
                                     style={{
-                                        border: `2px solid ${mode === m.value ? m.color : '#E2E8F0'}`,
-                                        backgroundColor: mode === m.value ? m.bg : '#FFFFFF',
-                                        color: mode === m.value ? m.color : '#64748B',
+                                        border: `2px solid ${mode === m.value ? m.color : 'var(--border)'}`,
+                                        backgroundColor: mode === m.value ? m.bg : 'var(--bg-card)',
+                                        color: mode === m.value ? m.color : 'var(--text-secondary)',
                                     }}
                                 >
                                     <span>{m.icon}</span>
@@ -1599,19 +1544,21 @@ function RecordPaymentModal({
                         {/* Online mode info banner */}
                         {isOnlineMode && (
                             <div
-                                className="mt-2 px-3 py-2.5 rounded-xl text-xs"
+                                className="mt-2 px-3 py-2.5 rounded-[var(--radius-lg)] text-xs"
                                 style={{
-                                    backgroundColor: '#EFF6FF',
-                                    border: '1px solid #BFDBFE',
-                                    color: '#1D4ED8',
+                                    backgroundColor: 'var(--info-50)',
+                                    border: '1px solid var(--info-200)',
+                                    color: 'var(--info-dark)',
                                 }}
                             >
                                 <div className="flex items-start gap-2">
                                     <span className="text-base leading-none mt-0.5">💳</span>
                                     <div>
                                         <p className="font-semibold mb-0.5">Razorpay Payment Gateway</p>
-                                        <p className="leading-relaxed" style={{ color: '#3B82F6' }}>
-                                            Student ko Razorpay checkout window mein UPI, Card, Net Banking se pay karna hoga. Payment confirm hone ke baad receipt automatically generate hogi.
+                                        <p className="leading-relaxed text-[var(--info-600)]">
+                                            Student can pay via UPI, Card, or Net Banking through
+                                            the Razorpay checkout window. Receipt will be generated
+                                            automatically after payment confirmation.
                                         </p>
                                     </div>
                                 </div>
@@ -1619,7 +1566,7 @@ function RecordPaymentModal({
                         )}
                     </div>
 
-                    {/* Notes — only for offline modes */}
+                    {/* Notes — offline only */}
                     {!isOnlineMode && (
                         <FormInput
                             label="Notes (optional)"
@@ -1629,24 +1576,21 @@ function RecordPaymentModal({
                         />
                     )}
 
-                    {/* Amount Preview */}
+                    {/* Amount preview */}
                     {effectiveAmount > 0 && (
                         <div
-                            className="rounded-xl p-3 text-center"
+                            className="rounded-[var(--radius-lg)] p-3 text-center"
                             style={{
-                                backgroundColor: isOnlineMode ? '#EFF6FF' : '#ECFDF5',
-                                border: `1px solid ${isOnlineMode ? '#BFDBFE' : '#A7F3D0'}`,
+                                backgroundColor: isOnlineMode ? 'var(--info-50)' : 'var(--success-50)',
+                                border: `1px solid ${isOnlineMode ? 'var(--info-200)' : 'var(--success-200)'}`,
                             }}
                         >
-                            <p
-                                className="text-xs"
-                                style={{ color: isOnlineMode ? '#2563EB' : '#059669' }}
-                            >
-                                {isOnlineMode ? 'Razorpay se collect hoga' : 'You are collecting'}
+                            <p className="text-xs" style={{ color: isOnlineMode ? 'var(--info)' : 'var(--success)' }}>
+                                {isOnlineMode ? 'Will be collected via Razorpay' : 'You are collecting'}
                             </p>
                             <p
                                 className="text-2xl font-extrabold tabular-nums"
-                                style={{ color: isOnlineMode ? '#1D4ED8' : '#047857' }}
+                                style={{ color: isOnlineMode ? 'var(--info-dark)' : 'var(--success-dark)' }}
                             >
                                 ₹{effectiveAmount.toLocaleString('en-IN')}
                             </p>
@@ -1655,29 +1599,18 @@ function RecordPaymentModal({
                 </div>
 
                 {/* Footer */}
-                <div
-                    className="px-5 py-4 flex gap-2 flex-shrink-0"
-                    style={{ borderTop: '1px solid #F1F5F9' }}
-                >
-                    <button
-                        onClick={handleClose}
-                        className="flex-1 py-2 rounded-xl text-sm font-medium"
-                        style={{
-                            backgroundColor: '#F8FAFC',
-                            color: '#475569',
-                            border: '1px solid #E2E8F0',
-                        }}
-                    >
+                <div className="modal-footer">
+                    <button onClick={handleClose} className="btn-ghost flex-1">
                         Cancel
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitDisabled}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-60 transition-all active:scale-[0.98]"
-                        style={{
-                            backgroundColor: isOnlineMode ? '#2563EB' : '#059669',
-                            color: '#FFFFFF',
-                        }}
+                        className="flex-1 btn-primary"
+                        style={isOnlineMode
+                            ? {}
+                            : { background: 'var(--bg-gradient-success)' }
+                        }
                     >
                         {(loading || rzpLoading) ? (
                             <Spinner size="sm" />
@@ -1701,23 +1634,18 @@ function RecordPaymentModal({
 
 
 /* ════════════════════════════════════════════
-   SHARED PRINT FUNCTION — Single Receipt
-   Used by both ReceiptModal & RecordPaymentModal
+   SHARED PRINT FUNCTION
    ════════════════════════════════════════════ */
 function printSingleReceipt({
-    school,
-    student,
-    payment,
-    fee,
-    academicYear,
-    paperSize,
-    allPayments,
-    feeBreakdown,
+    school, student, payment, fee, academicYear, paperSize, allPayments, feeBreakdown,
 }: {
     school: any
     student: { name: string; admissionNo: string; class: string; section: string; fatherName?: string }
     payment: { receiptNumber: string; amount: number; mode: string; paidAt: string }
-    fee: { totalAmount: number; totalPaidSoFar?: number; remaining?: number; status: string; feeType?: string; discount?: number }
+    fee: {
+        totalAmount: number; totalPaidSoFar?: number; remaining?: number
+        status: string; feeType?: string; discount?: number
+    }
     academicYear?: string
     paperSize: 'A4' | 'A5'
     allPayments?: any[]
@@ -1738,9 +1666,7 @@ function printSingleReceipt({
             size: ${isA5 ? '148mm 210mm' : '210mm 297mm'};
             margin: ${isA5 ? '8mm' : '15mm'};
           }
-
           * { margin: 0; padding: 0; box-sizing: border-box; }
-
           body {
             font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
             color: #1E293B;
@@ -1748,45 +1674,39 @@ function printSingleReceipt({
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-
           .receipt-wrapper {
             max-width: ${isA5 ? '130mm' : '180mm'};
             margin: 0 auto;
             padding: ${isA5 ? '12px' : '24px'};
           }
-
           .receipt-top-bar {
             height: 4px;
-            background: linear-gradient(90deg, #1D4ED8, #3B82F6, #60A5FA, #3B82F6, #1D4ED8);
+            background: linear-gradient(90deg, #4338CA, #6366F1, #818CF8, #6366F1, #4338CA);
             border-radius: 2px 2px 0 0;
             margin-bottom: ${isA5 ? '12px' : '20px'};
           }
-
           .school-header {
             text-align: center;
             padding-bottom: ${isA5 ? '10px' : '16px'};
-            border-bottom: 2px solid #1D4ED8;
+            border-bottom: 2px solid #4338CA;
             margin-bottom: ${isA5 ? '10px' : '16px'};
           }
-
           .school-logo-circle {
             width: ${isA5 ? '44px' : '56px'};
             height: ${isA5 ? '44px' : '56px'};
             border-radius: 50%;
-            background: linear-gradient(135deg, #1D4ED8, #3B82F6);
+            background: linear-gradient(135deg, #4338CA, #6366F1);
             display: inline-flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 8px;
           }
-
           .school-logo-circle span {
             color: #FFFFFF;
             font-weight: 800;
             font-size: ${isA5 ? '16px' : '20px'};
             letter-spacing: 1px;
           }
-
           .school-name {
             font-size: ${isA5 ? '16px' : '22px'};
             font-weight: 800;
@@ -1795,22 +1715,19 @@ function printSingleReceipt({
             text-transform: uppercase;
             margin-bottom: 2px;
           }
-
           .school-address {
             font-size: ${isA5 ? '9px' : '11px'};
             color: #64748B;
             margin-bottom: 4px;
             line-height: 1.4;
           }
-
           .school-contact {
             font-size: ${isA5 ? '8px' : '10px'};
             color: #94A3B8;
           }
-
           .receipt-title-badge {
             display: inline-block;
-            background: linear-gradient(135deg, #1D4ED8, #2563EB);
+            background: linear-gradient(135deg, #4338CA, #6366F1);
             color: #FFFFFF;
             font-size: ${isA5 ? '10px' : '12px'};
             font-weight: 700;
@@ -1820,7 +1737,6 @@ function printSingleReceipt({
             border-radius: 20px;
             margin-top: 8px;
           }
-
           .receipt-meta {
             display: flex;
             justify-content: space-between;
@@ -1831,10 +1747,6 @@ function printSingleReceipt({
             border: 1px solid #E2E8F0;
             border-radius: 8px;
           }
-
-          .receipt-meta .meta-group { text-align: left; }
-          .receipt-meta .meta-group:last-child { text-align: right; }
-
           .meta-label {
             font-size: ${isA5 ? '8px' : '9px'};
             color: #94A3B8;
@@ -1842,7 +1754,6 @@ function printSingleReceipt({
             letter-spacing: 0.8px;
             font-weight: 600;
           }
-
           .meta-value {
             font-size: ${isA5 ? '11px' : '13px'};
             font-weight: 700;
@@ -1850,43 +1761,36 @@ function printSingleReceipt({
             font-family: 'Courier New', monospace;
             margin-top: 2px;
           }
-
           .student-info-card {
             border: 1.5px solid #E2E8F0;
             border-radius: 10px;
             overflow: hidden;
             margin-bottom: ${isA5 ? '10px' : '16px'};
           }
-
           .student-info-header {
-            background: linear-gradient(135deg, #F0F9FF, #E0F2FE);
+            background: linear-gradient(135deg, #EEF2FF, #E0E7FF);
             padding: ${isA5 ? '6px 10px' : '8px 14px'};
-            border-bottom: 1px solid #BAE6FD;
+            border-bottom: 1px solid #C7D2FE;
           }
-
           .student-info-header span {
             font-size: ${isA5 ? '8px' : '10px'};
             font-weight: 700;
-            color: #0369A1;
+            color: #3730A3;
             text-transform: uppercase;
             letter-spacing: 1px;
           }
-
           .student-info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0;
           }
-
           .student-info-cell {
             padding: ${isA5 ? '6px 10px' : '8px 14px'};
             border-bottom: 1px solid #F1F5F9;
             border-right: 1px solid #F1F5F9;
           }
-
-          .student-info-cell:nth-child(even) { border-right: none; }
-          .student-info-cell:nth-last-child(-n+2) { border-bottom: none; }
-
+          .student-info-cell:nth-child(even)      { border-right: none; }
+          .student-info-cell:nth-last-child(-n+2)  { border-bottom: none; }
           .cell-label {
             font-size: ${isA5 ? '7px' : '9px'};
             color: #94A3B8;
@@ -1895,24 +1799,20 @@ function printSingleReceipt({
             font-weight: 600;
             margin-bottom: 2px;
           }
-
           .cell-value {
             font-size: ${isA5 ? '10px' : '12px'};
             font-weight: 700;
             color: #1E293B;
           }
-
           .fee-table-wrapper {
             margin-bottom: ${isA5 ? '10px' : '16px'};
             border: 1.5px solid #E2E8F0;
             border-radius: 10px;
             overflow: hidden;
           }
-
           .fee-table { width: 100%; border-collapse: collapse; }
-
           .fee-table thead th {
-            background: linear-gradient(135deg, #1E293B, #334155);
+            background: linear-gradient(135deg, #1E1B4B, #312E81);
             color: #FFFFFF;
             font-size: ${isA5 ? '8px' : '10px'};
             font-weight: 700;
@@ -1921,32 +1821,26 @@ function printSingleReceipt({
             padding: ${isA5 ? '8px 10px' : '10px 14px'};
             text-align: left;
           }
-
           .fee-table thead th:last-child { text-align: right; }
-
           .fee-table tbody td {
             padding: ${isA5 ? '7px 10px' : '9px 14px'};
             font-size: ${isA5 ? '10px' : '12px'};
             color: #334155;
             border-bottom: 1px solid #F1F5F9;
           }
-
           .fee-table tbody td:last-child {
             text-align: right;
             font-family: 'Courier New', monospace;
             font-weight: 600;
           }
-
-          .fee-table tbody tr:last-child td { border-bottom: none; }
-          .fee-table tbody tr:nth-child(even) { background: #FAFBFC; }
-
+          .fee-table tbody tr:last-child td        { border-bottom: none; }
+          .fee-table tbody tr:nth-child(even)       { background: #FAFBFC; }
           .amount-summary {
             border: 2px solid #E2E8F0;
             border-radius: 10px;
             overflow: hidden;
             margin-bottom: ${isA5 ? '10px' : '16px'};
           }
-
           .summary-row {
             display: flex;
             justify-content: space-between;
@@ -1954,17 +1848,14 @@ function printSingleReceipt({
             padding: ${isA5 ? '7px 12px' : '9px 16px'};
             border-bottom: 1px solid #F1F5F9;
           }
-
-          .summary-row:last-child { border-bottom: none; }
-          .summary-row .sr-label { font-size: ${isA5 ? '10px' : '12px'}; color: #475569; font-weight: 500; }
-          .summary-row .sr-value { font-size: ${isA5 ? '10px' : '12px'}; font-weight: 700; color: #1E293B; font-family: 'Courier New', monospace; }
-
+          .summary-row:last-child  { border-bottom: none; }
+          .summary-row .sr-label   { font-size: ${isA5 ? '10px' : '12px'}; color: #475569; font-weight: 500; }
+          .summary-row .sr-value   { font-size: ${isA5 ? '10px' : '12px'}; font-weight: 700; color: #1E293B; font-family: 'Courier New', monospace; }
           .summary-row.total-row {
             background: linear-gradient(135deg, #F0FDF4, #DCFCE7);
             border-bottom: none;
             padding: ${isA5 ? '10px 12px' : '12px 16px'};
           }
-
           .summary-row.total-row .sr-label {
             font-size: ${isA5 ? '11px' : '13px'};
             font-weight: 800;
@@ -1972,17 +1863,14 @@ function printSingleReceipt({
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
-
           .summary-row.total-row .sr-value {
             font-size: ${isA5 ? '14px' : '18px'};
             font-weight: 900;
             color: #15803D;
           }
-
           .summary-row.remaining-row { background: #FEF2F2; }
           .summary-row.remaining-row .sr-label { color: #DC2626; font-weight: 600; }
           .summary-row.remaining-row .sr-value { color: #DC2626; font-weight: 700; }
-
           .amount-words {
             font-size: ${isA5 ? '9px' : '11px'};
             color: #475569;
@@ -1994,7 +1882,6 @@ function printSingleReceipt({
             margin-bottom: ${isA5 ? '10px' : '14px'};
             text-align: center;
           }
-
           .status-badge {
             display: inline-block;
             padding: ${isA5 ? '3px 12px' : '4px 16px'};
@@ -2004,14 +1891,11 @@ function printSingleReceipt({
             letter-spacing: 0.5px;
             text-transform: uppercase;
           }
-
-          .status-paid { background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; }
+          .status-paid    { background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; }
           .status-partial { background: #FEF9C3; color: #854D0E; border: 1px solid #FDE68A; }
-          .status-unpaid { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
+          .status-unpaid,
           .status-overdue { background: #FEE2E2; color: #991B1B; border: 1px solid #FECACA; }
-
           .payment-history { margin-bottom: ${isA5 ? '10px' : '16px'}; }
-
           .payment-history-title {
             font-size: ${isA5 ? '8px' : '10px'};
             font-weight: 700;
@@ -2020,9 +1904,13 @@ function printSingleReceipt({
             letter-spacing: 1px;
             margin-bottom: 6px;
           }
-
-          .history-table { width: 100%; border-collapse: collapse; border: 1px solid #E2E8F0; border-radius: 6px; overflow: hidden; }
-
+          .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            overflow: hidden;
+          }
           .history-table th {
             background: #F1F5F9;
             font-size: ${isA5 ? '7px' : '9px'};
@@ -2033,33 +1921,21 @@ function printSingleReceipt({
             text-transform: uppercase;
             letter-spacing: 0.5px;
           }
-
           .history-table th:last-child { text-align: right; }
-
           .history-table td {
             font-size: ${isA5 ? '9px' : '10px'};
             padding: ${isA5 ? '4px 8px' : '5px 10px'};
             border-top: 1px solid #F1F5F9;
             color: #334155;
           }
-
           .history-table td:last-child {
             text-align: right;
             font-family: 'Courier New', monospace;
             font-weight: 600;
             color: #15803D;
           }
-
-          /* Highlight current receipt row */
-          .history-table tr.current-receipt {
-            background: #ECFDF5;
-          }
-
-          .history-table tr.current-receipt td {
-            font-weight: 700;
-            color: #059669;
-          }
-
+          .history-table tr.current-receipt { background: #ECFDF5; }
+          .history-table tr.current-receipt td { font-weight: 700; color: #059669; }
           .signature-section {
             display: flex;
             justify-content: space-between;
@@ -2067,11 +1943,9 @@ function printSingleReceipt({
             margin-top: ${isA5 ? '20px' : '36px'};
             padding-top: ${isA5 ? '10px' : '16px'};
           }
-
-          .signature-box { text-align: center; width: 40%; }
-          .signature-line { border-top: 1.5px solid #94A3B8; margin-bottom: 4px; }
-          .signature-label { font-size: ${isA5 ? '8px' : '10px'}; color: #64748B; font-weight: 600; }
-
+          .signature-box       { text-align: center; width: 40%; }
+          .signature-line      { border-top: 1.5px solid #94A3B8; margin-bottom: 4px; }
+          .signature-label     { font-size: ${isA5 ? '8px' : '10px'}; color: #64748B; font-weight: 600; }
           .seal-area {
             width: ${isA5 ? '50px' : '70px'};
             height: ${isA5 ? '50px' : '70px'};
@@ -2081,41 +1955,43 @@ function printSingleReceipt({
             align-items: center;
             justify-content: center;
           }
-
-          .seal-area span { font-size: ${isA5 ? '7px' : '8px'}; color: #CBD5E1; text-transform: uppercase; font-weight: 600; }
-
+          .seal-area span {
+            font-size: ${isA5 ? '7px' : '8px'};
+            color: #CBD5E1;
+            text-transform: uppercase;
+            font-weight: 600;
+          }
           .receipt-footer {
             margin-top: ${isA5 ? '12px' : '20px'};
             padding-top: ${isA5 ? '8px' : '12px'};
             border-top: 1.5px solid #E2E8F0;
             text-align: center;
           }
-
-          .footer-note { font-size: ${isA5 ? '7px' : '9px'}; color: #94A3B8; line-height: 1.6; }
+          .footer-note {
+            font-size: ${isA5 ? '7px' : '9px'};
+            color: #94A3B8;
+            line-height: 1.6;
+          }
           .footer-note strong { color: #64748B; }
-
           .receipt-bottom-bar {
             height: 4px;
-            background: linear-gradient(90deg, #1D4ED8, #3B82F6, #60A5FA, #3B82F6, #1D4ED8);
+            background: linear-gradient(90deg, #4338CA, #6366F1, #818CF8, #6366F1, #4338CA);
             border-radius: 0 0 2px 2px;
             margin-top: ${isA5 ? '12px' : '20px'};
           }
-
           .watermark {
             position: fixed;
-            top: 50%;
-            left: 50%;
+            top: 50%; left: 50%;
             transform: translate(-50%, -50%) rotate(-30deg);
             font-size: ${isA5 ? '60px' : '80px'};
             font-weight: 900;
-            color: rgba(0, 0, 0, 0.03);
+            color: rgba(0,0,0,0.03);
             text-transform: uppercase;
             letter-spacing: 10px;
             pointer-events: none;
             z-index: 0;
             white-space: nowrap;
           }
-
           @media print {
             body { padding: 0; background: #FFFFFF; }
             .receipt-wrapper { max-width: 100%; }
@@ -2133,24 +2009,38 @@ function printSingleReceipt({
               <span>${(school.name || student.name || 'S').charAt(0).toUpperCase()}</span>
             </div>
             <div class="school-name">${school.name || 'School Name'}</div>
-            ${school.address ? `<div class="school-address">${school.address}</div>` : ''}
-            ${school.phone || school.email ? `<div class="school-contact">${school.phone ? 'Ph: ' + school.phone : ''}${school.phone && school.email ? ' | ' : ''}${school.email ? 'Email: ' + school.email : ''}</div>` : ''}
+            ${school.address
+            ? `<div class="school-address">${school.address}</div>`
+            : ''}
+            ${school.phone || school.email
+            ? `<div class="school-contact">
+                    ${school.phone ? 'Ph: ' + school.phone : ''}
+                    ${school.phone && school.email ? ' | ' : ''}
+                    ${school.email ? 'Email: ' + school.email : ''}
+                   </div>`
+            : ''}
             <div class="receipt-title-badge">Fee Receipt</div>
           </div>
 
           <!-- Receipt Meta -->
           <div class="receipt-meta">
-            <div class="meta-group">
+            <div>
               <div class="meta-label">Receipt No.</div>
               <div class="meta-value">${payment.receiptNumber || 'N/A'}</div>
             </div>
-            <div class="meta-group">
+            <div>
               <div class="meta-label">Academic Year</div>
-              <div class="meta-value">${academicYear || school.academicYear || new Date().getFullYear() + '-' + (new Date().getFullYear() + 1).toString().slice(-2)}</div>
+              <div class="meta-value">${academicYear || ''}</div>
             </div>
-            <div class="meta-group" style="text-align: right;">
+            <div style="text-align:right">
               <div class="meta-label">Date</div>
-              <div class="meta-value">${payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</div>
+              <div class="meta-value">
+                ${payment.paidAt
+            ? new Date(payment.paidAt).toLocaleDateString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric',
+            })
+            : 'N/A'}
+              </div>
             </div>
           </div>
 
@@ -2164,22 +2054,28 @@ function printSingleReceipt({
               </div>
               <div class="student-info-cell">
                 <div class="cell-label">Admission No.</div>
-                <div class="cell-value" style="font-family: 'Courier New', monospace;">${student.admissionNo || 'N/A'}</div>
+                <div class="cell-value" style="font-family:'Courier New',monospace">
+                  ${student.admissionNo || 'N/A'}
+                </div>
               </div>
               <div class="student-info-cell">
                 <div class="cell-label">Class & Section</div>
-                <div class="cell-value">${student.class || 'N/A'}${student.section ? ' - ' + student.section : ''}</div>
+                <div class="cell-value">
+                  ${student.class || 'N/A'}${student.section ? ' - ' + student.section : ''}
+                </div>
               </div>
               <div class="student-info-cell">
                 <div class="cell-label">Payment Mode</div>
-                <div class="cell-value" style="text-transform: capitalize;">${payment.mode || 'N/A'}</div>
+                <div class="cell-value" style="text-transform:capitalize">
+                  ${payment.mode || 'N/A'}
+                </div>
               </div>
-              ${student.fatherName ? `
-              <div class="student-info-cell" style="grid-column: span 2; border-bottom: none;">
-                <div class="cell-label">Father's Name</div>
-                <div class="cell-value">${student.fatherName}</div>
-              </div>
-              ` : ''}
+              ${student.fatherName
+            ? `<div class="student-info-cell" style="grid-column:span 2;border-bottom:none">
+                       <div class="cell-label">Father's Name</div>
+                       <div class="cell-value">${student.fatherName}</div>
+                     </div>`
+            : ''}
             </div>
           </div>
 
@@ -2188,27 +2084,24 @@ function printSingleReceipt({
             <table class="fee-table">
               <thead>
                 <tr>
-                  <th style="width: 40px;">#</th>
+                  <th style="width:40px">#</th>
                   <th>Description</th>
-                  <th style="text-align: right;">Amount (₹)</th>
+                  <th style="text-align:right">Amount (₹)</th>
                 </tr>
               </thead>
               <tbody>
                 ${feeBreakdown && feeBreakdown.length > 0
             ? feeBreakdown.map((item: any, i: number) => `
-                    <tr>
-                      <td>${i + 1}</td>
-                      <td>${item.name || item.description || 'Fee'}</td>
-                      <td>₹${(item.amount || 0).toLocaleString('en-IN')}</td>
-                    </tr>
-                  `).join('')
-            : `
-                    <tr>
-                      <td>1</td>
-                      <td>${fee.feeType || 'Tuition Fee'}</td>
-                      <td>₹${(fee.totalAmount || 0).toLocaleString('en-IN')}</td>
-                    </tr>
-                  `
+                        <tr>
+                          <td>${i + 1}</td>
+                          <td>${item.name || item.description || 'Fee'}</td>
+                          <td style="text-align:right">₹${(item.amount || 0).toLocaleString('en-IN')}</td>
+                        </tr>`).join('')
+            : `<tr>
+                         <td>1</td>
+                         <td>${fee.feeType || 'Tuition Fee'}</td>
+                         <td style="text-align:right">₹${(fee.totalAmount || 0).toLocaleString('en-IN')}</td>
+                       </tr>`
         }
               </tbody>
             </table>
@@ -2220,68 +2113,77 @@ function printSingleReceipt({
               <span class="sr-label">Total Fee Amount</span>
               <span class="sr-value">₹${(fee.totalAmount || 0).toLocaleString('en-IN')}</span>
             </div>
-            ${fee.discount ? `
-            <div class="summary-row">
-              <span class="sr-label">Discount</span>
-              <span class="sr-value" style="color: #2563EB;">- ₹${(fee.discount || 0).toLocaleString('en-IN')}</span>
-            </div>
-            ` : ''}
-            ${fee.totalPaidSoFar ? `
-            <div class="summary-row">
-              <span class="sr-label">Total Paid So Far</span>
-              <span class="sr-value">₹${(fee.totalPaidSoFar || 0).toLocaleString('en-IN')}</span>
-            </div>
-            ` : ''}
+            ${fee.discount
+            ? `<div class="summary-row">
+                     <span class="sr-label">Discount</span>
+                     <span class="sr-value" style="color:#6366F1">
+                       - ₹${(fee.discount || 0).toLocaleString('en-IN')}
+                     </span>
+                   </div>`
+            : ''}
+            ${fee.totalPaidSoFar
+            ? `<div class="summary-row">
+                     <span class="sr-label">Total Paid So Far</span>
+                     <span class="sr-value">₹${(fee.totalPaidSoFar || 0).toLocaleString('en-IN')}</span>
+                   </div>`
+            : ''}
             <div class="summary-row total-row">
               <span class="sr-label">💰 Amount Paid (This Receipt)</span>
               <span class="sr-value">₹${(payment.amount || 0).toLocaleString('en-IN')}</span>
             </div>
-            ${(fee.remaining || 0) > 0 ? `
-            <div class="summary-row remaining-row">
-              <span class="sr-label">Balance Remaining</span>
-              <span class="sr-value">₹${(fee.remaining || 0).toLocaleString('en-IN')}</span>
-            </div>
-            ` : ''}
+            ${(fee.remaining || 0) > 0
+            ? `<div class="summary-row remaining-row">
+                     <span class="sr-label">Balance Remaining</span>
+                     <span class="sr-value">₹${(fee.remaining || 0).toLocaleString('en-IN')}</span>
+                   </div>`
+            : ''}
           </div>
 
           <!-- Amount in Words -->
           <div class="amount-words">
-            <strong>Amount in words:</strong> ${numberToWords(payment.amount || 0)} Rupees Only
+            <strong>Amount in words:</strong>
+            ${numberToWords(payment.amount || 0)} Rupees Only
           </div>
 
           <!-- Status Badge -->
-          <div style="text-align: center; margin-bottom: ${isA5 ? '10px' : '14px'};">
+          <div style="text-align:center;margin-bottom:${isA5 ? '10px' : '14px'}">
             <span class="status-badge status-${statusClass}">
               ${(fee.status || 'paid').toUpperCase()}
             </span>
           </div>
 
           <!-- Payment History -->
-          ${allPayments && allPayments.length > 1 ? `
-          <div class="payment-history">
-            <div class="payment-history-title">📋 Payment History</div>
-            <table class="history-table">
-              <thead>
-                <tr>
-                  <th>Receipt No.</th>
-                  <th>Date</th>
-                  <th>Mode</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${allPayments.map((p: any) => `
-                  <tr class="${p.receiptNumber === payment.receiptNumber ? 'current-receipt' : ''}">
-                    <td style="font-family: 'Courier New', monospace;">${p.receiptNumber || '-'}${p.receiptNumber === payment.receiptNumber ? ' ◄' : ''}</td>
-                    <td>${new Date(p.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                    <td style="text-transform: capitalize;">${p.mode || p.paymentMode || '-'}</td>
-                    <td>₹${(p.amount || 0).toLocaleString('en-IN')}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-          ` : ''}
+          ${allPayments && allPayments.length > 1
+            ? `<div class="payment-history">
+                   <div class="payment-history-title">📋 Payment History</div>
+                   <table class="history-table">
+                     <thead>
+                       <tr>
+                         <th>Receipt No.</th>
+                         <th>Date</th>
+                         <th>Mode</th>
+                         <th>Amount</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       ${allPayments.map((p: any) => `
+                         <tr class="${p.receiptNumber === payment.receiptNumber ? 'current-receipt' : ''}">
+                           <td style="font-family:'Courier New',monospace">
+                             ${p.receiptNumber || '-'}
+                             ${p.receiptNumber === payment.receiptNumber ? ' ◄' : ''}
+                           </td>
+                           <td>${new Date(p.paidAt).toLocaleDateString('en-IN', {
+                day: '2-digit', month: 'short', year: 'numeric',
+            })}</td>
+                           <td style="text-transform:capitalize">
+                             ${p.mode || p.paymentMode || '-'}
+                           </td>
+                           <td>₹${(p.amount || 0).toLocaleString('en-IN')}</td>
+                         </tr>`).join('')}
+                     </tbody>
+                   </table>
+                 </div>`
+            : ''}
 
           <!-- Signature Section -->
           <div class="signature-section">
@@ -2299,9 +2201,14 @@ function printSingleReceipt({
           <!-- Footer -->
           <div class="receipt-footer">
             <div class="footer-note">
-              <strong>Note:</strong> This is a computer-generated receipt and does not require a physical signature.<br/>
+              <strong>Note:</strong> This is a computer-generated receipt and does not
+              require a physical signature.<br/>
               Fee once paid is non-refundable. Please retain this receipt for future reference.<br/>
-              <span style="color: #CBD5E1;">Printed on: ${new Date().toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })}</span>
+              <span style="color:#CBD5E1">
+                Printed on: ${new Date().toLocaleString('en-IN', {
+                dateStyle: 'full', timeStyle: 'short',
+            })}
+              </span>
             </div>
           </div>
 
@@ -2311,15 +2218,53 @@ function printSingleReceipt({
     </html>
   `)
     printWindow.document.close()
-    setTimeout(() => {
-        printWindow.print()
-    }, 300)
+    setTimeout(() => printWindow.print(), 300)
 }
 
 
 /* ════════════════════════════════════════════
-   RECEIPT MODAL — View & Print Receipt
-   Now with per-payment print buttons ✨
+   NUMBER TO WORDS (Indian)
+   ════════════════════════════════════════════ */
+function numberToWords(num: number): string {
+    if (num === 0) return 'Zero'
+
+    const ones = [
+        '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+        'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+        'Seventeen', 'Eighteen', 'Nineteen',
+    ]
+    const tens = [
+        '', '', 'Twenty', 'Thirty', 'Forty', 'Fifty',
+        'Sixty', 'Seventy', 'Eighty', 'Ninety',
+    ]
+
+    function convertLessThanThousand(n: number): string {
+        if (n === 0) return ''
+        if (n < 20) return ones[n]
+        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '')
+        return ones[Math.floor(n / 100)] + ' Hundred' +
+            (n % 100 ? ' and ' + convertLessThanThousand(n % 100) : '')
+    }
+
+    const absNum = Math.abs(Math.floor(num))
+    if (absNum < 1000) return convertLessThanThousand(absNum)
+
+    const crore = Math.floor(absNum / 10000000)
+    const lakh = Math.floor((absNum % 10000000) / 100000)
+    const thousand = Math.floor((absNum % 100000) / 1000)
+    const remainder = absNum % 1000
+
+    let result = ''
+    if (crore) result += convertLessThanThousand(crore) + ' Crore '
+    if (lakh) result += convertLessThanThousand(lakh) + ' Lakh '
+    if (thousand) result += convertLessThanThousand(thousand) + ' Thousand '
+    if (remainder) result += convertLessThanThousand(remainder)
+    return result.trim()
+}
+
+
+/* ════════════════════════════════════════════
+   RECEIPT MODAL
    ════════════════════════════════════════════ */
 function ReceiptModal({
     open, data, onClose,
@@ -2332,13 +2277,11 @@ function ReceiptModal({
 
     const [paperSize, setPaperSize] = useState<'A4' | 'A5'>('A4')
 
-    // Support both direct receipt data and API receipt data
     const school = data.school || {}
     const student = data.student || data
     const feeInfo = data.fee || data
     const payment = data.payment || data
 
-    // ─── Build common params for printing ───
     const buildPrintParams = (paymentData: any) => ({
         school,
         student: {
@@ -2368,16 +2311,13 @@ function ReceiptModal({
         feeBreakdown: data.feeBreakdown,
     })
 
-    // Print current/main receipt
-    const handlePrint = () => {
-        printSingleReceipt(buildPrintParams(payment))
-    }
+    const handlePrint = () => printSingleReceipt(buildPrintParams(payment))
 
-    // Print a specific payment from history
     const handlePrintSpecificPayment = (paymentItem: any) => {
-        // Calculate cumulative paid up to this payment
         const allPayments = data.allPayments || []
-        const paymentIndex = allPayments.findIndex((p: any) => p.receiptNumber === paymentItem.receiptNumber)
+        const paymentIndex = allPayments.findIndex(
+            (p: any) => p.receiptNumber === paymentItem.receiptNumber
+        )
         let cumulativePaid = 0
         for (let i = 0; i <= paymentIndex; i++) {
             cumulativePaid += allPayments[i]?.amount || 0
@@ -2402,7 +2342,7 @@ function ReceiptModal({
                 paidAt: paymentItem.paidAt || new Date().toISOString(),
             },
             fee: {
-                totalAmount: totalAmount,
+                totalAmount,
                 totalPaidSoFar: cumulativePaid,
                 remaining: Math.max(0, remainingAtThatPoint),
                 status: statusAtThatPoint,
@@ -2417,151 +2357,262 @@ function ReceiptModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" style={{ border: '1px solid #E2E8F0' }}>
+        <div className="modal-backdrop">
+            <div
+                className="modal-panel"
+                style={{ maxWidth: 'var(--width-modal-md)' }}
+                onClick={e => e.stopPropagation()}
+            >
                 {/* Header */}
-                <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid #F1F5F9' }}>
+                <div className="modal-header">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#EFF6FF' }}>
-                            <Receipt size={16} style={{ color: '#2563EB' }} />
+                        <div
+                            className="w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center"
+                            style={{ backgroundColor: 'var(--info-50)' }}
+                        >
+                            <Receipt size={16} style={{ color: 'var(--info)' }} />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold" style={{ color: '#0F172A' }}>Fee Receipt</h3>
-                            <p className="text-xs" style={{ color: '#94A3B8' }}>{payment.receiptNumber || 'N/A'}</p>
+                            <h3 className="modal-title">Fee Receipt</h3>
+                            <p className="text-xs text-[var(--text-muted)]">
+                                {payment.receiptNumber || 'N/A'}
+                            </p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        {/* Paper Size Toggle */}
-                        <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid #E2E8F0' }}>
-                            <button
-                                onClick={() => setPaperSize('A4')}
-                                className="px-2.5 py-1.5 text-[10px] font-bold transition-colors"
-                                style={{
-                                    backgroundColor: paperSize === 'A4' ? '#2563EB' : '#F8FAFC',
-                                    color: paperSize === 'A4' ? '#FFFFFF' : '#64748B',
-                                }}
-                            >
-                                A4
-                            </button>
-                            <button
-                                onClick={() => setPaperSize('A5')}
-                                className="px-2.5 py-1.5 text-[10px] font-bold transition-colors"
-                                style={{
-                                    backgroundColor: paperSize === 'A5' ? '#2563EB' : '#F8FAFC',
-                                    color: paperSize === 'A5' ? '#FFFFFF' : '#64748B',
-                                    borderLeft: '1px solid #E2E8F0',
-                                }}
-                            >
-                                A5
-                            </button>
+                        {/* Paper size toggle */}
+                        <div
+                            className="flex items-center rounded-[var(--radius-md)] overflow-hidden"
+                            style={{ border: '1px solid var(--border)' }}
+                        >
+                            {(['A4', 'A5'] as const).map((size, i) => (
+                                <button
+                                    key={size}
+                                    onClick={() => setPaperSize(size)}
+                                    className="px-2.5 py-1.5 text-[10px] font-bold transition-colors"
+                                    style={{
+                                        backgroundColor: paperSize === size
+                                            ? 'var(--primary-600)'
+                                            : 'var(--bg-subtle)',
+                                        color: paperSize === size
+                                            ? '#ffffff'
+                                            : 'var(--text-secondary)',
+                                        borderLeft: i > 0 ? '1px solid var(--border)' : 'none',
+                                    }}
+                                >
+                                    {size}
+                                </button>
+                            ))}
                         </div>
                         <button
                             onClick={handlePrint}
-                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-                            style={{ color: '#2563EB', backgroundColor: '#EFF6FF' }}
+                            className="btn-icon btn-icon-sm"
                             title="Print Receipt"
+                            style={{ color: 'var(--info)', backgroundColor: 'var(--info-50)' }}
                         >
                             <Printer size={14} />
                         </button>
-                        <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}>
+                        <button onClick={onClose} className="modal-close">
                             <X size={14} />
                         </button>
                     </div>
                 </div>
 
-                {/* Receipt Content */}
-                <div className="flex-1 overflow-y-auto px-5 py-4" id="receipt-content">
-                    {/* School Header */}
-                    <div className="text-center mb-4 pb-4" style={{ borderBottom: '2px solid #1D4ED8' }}>
-                        <div className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)' }}>
+                {/* Body */}
+                <div className="modal-body">
+
+                    {/* School header */}
+                    <div
+                        className="text-center mb-4 pb-4"
+                        style={{ borderBottom: '2px solid var(--primary-700)' }}
+                    >
+                        <div
+                            className="w-12 h-12 rounded-full mx-auto mb-2 flex items-center justify-center"
+                            style={{ background: 'var(--bg-gradient-primary)' }}
+                        >
                             <span className="text-white font-extrabold text-base">
                                 {(school.name || student.schoolName || 'S').charAt(0).toUpperCase()}
                             </span>
                         </div>
-                        <h2 className="text-lg font-extrabold uppercase tracking-wide" style={{ color: '#0F172A' }}>
+                        <h2 className="text-lg font-extrabold uppercase tracking-wide text-[var(--text-primary)]">
                             {school.name || student.schoolName || 'School Name'}
                         </h2>
-                        {school.address && <p className="text-[11px] mt-1" style={{ color: '#64748B' }}>{school.address}</p>}
-                        <div className="inline-block mt-2 px-4 py-1 rounded-full text-[10px] font-bold tracking-widest text-white uppercase" style={{ background: 'linear-gradient(135deg, #1D4ED8, #2563EB)' }}>
+                        {school.address && (
+                            <p className="text-[11px] mt-1 text-[var(--text-secondary)]">
+                                {school.address}
+                            </p>
+                        )}
+                        <div
+                            className="inline-block mt-2 px-4 py-1 rounded-full text-[10px] font-bold tracking-widest text-white uppercase"
+                            style={{ background: 'var(--bg-gradient-primary)' }}
+                        >
                             Fee Receipt
                         </div>
                     </div>
 
-                    {/* Receipt Info */}
-                    <div className="flex justify-between items-start mb-3 p-3 rounded-lg" style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                    {/* Receipt info */}
+                    <div
+                        className="flex justify-between items-start mb-3 p-3 rounded-[var(--radius-md)]"
+                        style={{
+                            backgroundColor: 'var(--bg-subtle)',
+                            border: '1px solid var(--border)',
+                        }}
+                    >
                         <div>
-                            <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Receipt No.</span>
-                            <p className="font-bold font-mono text-sm" style={{ color: '#0F172A' }}>{payment.receiptNumber || 'N/A'}</p>
+                            <span className="text-[8px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                                Receipt No.
+                            </span>
+                            <p className="font-bold font-mono text-sm text-[var(--text-primary)]">
+                                {payment.receiptNumber || 'N/A'}
+                            </p>
                         </div>
                         <div className="text-right">
-                            <span className="text-[8px] font-semibold uppercase tracking-wider" style={{ color: '#94A3B8' }}>Date</span>
-                            <p className="font-bold text-sm" style={{ color: '#0F172A' }}>
-                                {payment.paidAt ? new Date(payment.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                            <span className="text-[8px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                                Date
+                            </span>
+                            <p className="font-bold text-sm text-[var(--text-primary)]">
+                                {payment.paidAt
+                                    ? new Date(payment.paidAt).toLocaleDateString('en-IN', {
+                                        day: '2-digit', month: 'short', year: 'numeric',
+                                    })
+                                    : 'N/A'}
                             </p>
                         </div>
                     </div>
 
-                    {/* Student Info Card */}
-                    <div className="rounded-xl mb-3 overflow-hidden" style={{ border: '1.5px solid #E2E8F0' }}>
-                        <div className="px-3 py-2" style={{ background: 'linear-gradient(135deg, #F0F9FF, #E0F2FE)', borderBottom: '1px solid #BAE6FD' }}>
-                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#0369A1' }}>Student Details</span>
+                    {/* Student info */}
+                    <div
+                        className="rounded-[var(--radius-lg)] mb-3 overflow-hidden"
+                        style={{ border: '1.5px solid var(--border)' }}
+                    >
+                        <div
+                            className="px-3 py-2"
+                            style={{
+                                background: 'linear-gradient(135deg, var(--primary-50), var(--primary-100))',
+                                borderBottom: '1px solid var(--primary-200)',
+                            }}
+                        >
+                            <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--primary-900)]">
+                                Student Details
+                            </span>
                         </div>
-                        <div className="grid grid-cols-2">
-                            <div className="px-3 py-2" style={{ borderBottom: '1px solid #F1F5F9', borderRight: '1px solid #F1F5F9' }}>
-                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Student Name</span>
-                                <p className="text-xs font-bold" style={{ color: '#1E293B' }}>{student.studentName || student.name || 'N/A'}</p>
+                        <div className="grid grid-cols-2 bg-[var(--bg-card)]">
+                            <div
+                                className="px-3 py-2"
+                                style={{ borderBottom: '1px solid var(--border)', borderRight: '1px solid var(--border)' }}
+                            >
+                                <span className="text-[8px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                                    Student Name
+                                </span>
+                                <p className="text-xs font-bold text-[var(--text-primary)]">
+                                    {student.studentName || student.name || 'N/A'}
+                                </p>
                             </div>
-                            <div className="px-3 py-2" style={{ borderBottom: '1px solid #F1F5F9' }}>
-                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Admission No.</span>
-                                <p className="text-xs font-bold font-mono" style={{ color: '#1E293B' }}>{student.admissionNo || 'N/A'}</p>
+                            <div
+                                className="px-3 py-2"
+                                style={{ borderBottom: '1px solid var(--border)' }}
+                            >
+                                <span className="text-[8px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                                    Admission No.
+                                </span>
+                                <p className="text-xs font-bold font-mono text-[var(--text-primary)]">
+                                    {student.admissionNo || 'N/A'}
+                                </p>
                             </div>
-                            <div className="px-3 py-2" style={{ borderRight: '1px solid #F1F5F9' }}>
-                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Class & Section</span>
-                                <p className="text-xs font-bold" style={{ color: '#1E293B' }}>{student.class}{student.section ? ' - ' + student.section : ''}</p>
+                            <div
+                                className="px-3 py-2"
+                                style={{ borderRight: '1px solid var(--border)' }}
+                            >
+                                <span className="text-[8px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                                    Class & Section
+                                </span>
+                                <p className="text-xs font-bold text-[var(--text-primary)]">
+                                    {student.class}{student.section ? ' - ' + student.section : ''}
+                                </p>
                             </div>
                             <div className="px-3 py-2">
-                                <span className="text-[8px] font-semibold uppercase tracking-wide" style={{ color: '#94A3B8' }}>Payment Mode</span>
-                                <p className="text-xs font-bold capitalize" style={{ color: '#1E293B' }}>{payment.mode || payment.paymentMode || 'N/A'}</p>
+                                <span className="text-[8px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                                    Payment Mode
+                                </span>
+                                <p className="text-xs font-bold capitalize text-[var(--text-primary)]">
+                                    {payment.mode || payment.paymentMode || 'N/A'}
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Amount Summary */}
-                    <div className="rounded-xl mb-3 overflow-hidden" style={{ border: '2px solid #E2E8F0' }}>
-                        <div className="flex justify-between items-center px-4 py-2.5" style={{ borderBottom: '1px solid #F1F5F9' }}>
-                            <span className="text-xs" style={{ color: '#475569' }}>Total Fee Amount</span>
-                            <span className="text-xs font-bold font-mono" style={{ color: '#1E293B' }}>₹{(feeInfo.totalAmount || data.totalAmount || 0).toLocaleString('en-IN')}</span>
+                    {/* Amount summary */}
+                    <div
+                        className="rounded-[var(--radius-lg)] mb-3 overflow-hidden"
+                        style={{ border: '2px solid var(--border)' }}
+                    >
+                        <div
+                            className="flex justify-between items-center px-4 py-2.5"
+                            style={{ borderBottom: '1px solid var(--border)' }}
+                        >
+                            <span className="text-xs text-[var(--text-secondary)]">Total Fee Amount</span>
+                            <span className="text-xs font-bold font-mono text-[var(--text-primary)]">
+                                ₹{(feeInfo.totalAmount || data.totalAmount || 0).toLocaleString('en-IN')}
+                            </span>
                         </div>
-                        <div className="flex justify-between items-center px-4 py-3" style={{ background: 'linear-gradient(135deg, #F0FDF4, #DCFCE7)' }}>
-                            <span className="text-sm font-extrabold uppercase tracking-wide" style={{ color: '#166534' }}>Amount Paid</span>
-                            <span className="text-xl font-black font-mono" style={{ color: '#15803D' }}>₹{(payment.amount || data.paidAmount || 0).toLocaleString('en-IN')}</span>
+                        <div
+                            className="flex justify-between items-center px-4 py-3"
+                            style={{ background: 'linear-gradient(135deg, var(--success-50), var(--success-100))' }}
+                        >
+                            <span className="text-sm font-extrabold uppercase tracking-wide text-[var(--success-dark)]">
+                                Amount Paid
+                            </span>
+                            <span className="text-xl font-black font-mono text-[var(--success-dark)]">
+                                ₹{(payment.amount || data.paidAmount || 0).toLocaleString('en-IN')}
+                            </span>
                         </div>
                         {(feeInfo.totalPaidSoFar || data.totalPaidSoFar) && (
-                            <div className="flex justify-between items-center px-4 py-2" style={{ borderTop: '1px solid #E2E8F0' }}>
-                                <span className="text-xs" style={{ color: '#475569' }}>Total Paid So Far</span>
-                                <span className="text-xs font-bold font-mono" style={{ color: '#1E293B' }}>₹{(feeInfo.totalPaidSoFar || data.totalPaidSoFar || 0).toLocaleString('en-IN')}</span>
+                            <div
+                                className="flex justify-between items-center px-4 py-2"
+                                style={{ borderTop: '1px solid var(--border)' }}
+                            >
+                                <span className="text-xs text-[var(--text-secondary)]">Total Paid So Far</span>
+                                <span className="text-xs font-bold font-mono text-[var(--text-primary)]">
+                                    ₹{(feeInfo.totalPaidSoFar || data.totalPaidSoFar || 0).toLocaleString('en-IN')}
+                                </span>
                             </div>
                         )}
                         {(feeInfo.remaining || data.remainingAmount) > 0 && (
-                            <div className="flex justify-between items-center px-4 py-2" style={{ backgroundColor: '#FEF2F2', borderTop: '1px solid #FECACA' }}>
-                                <span className="text-xs font-semibold" style={{ color: '#DC2626' }}>Balance Remaining</span>
-                                <span className="text-xs font-bold font-mono" style={{ color: '#DC2626' }}>₹{(feeInfo.remaining || data.remainingAmount || 0).toLocaleString('en-IN')}</span>
+                            <div
+                                className="flex justify-between items-center px-4 py-2"
+                                style={{
+                                    backgroundColor: 'var(--danger-50)',
+                                    borderTop: '1px solid var(--danger-200)',
+                                }}
+                            >
+                                <span className="text-xs font-semibold text-[var(--danger)]">
+                                    Balance Remaining
+                                </span>
+                                <span className="text-xs font-bold font-mono text-[var(--danger)]">
+                                    ₹{(feeInfo.remaining || data.remainingAmount || 0).toLocaleString('en-IN')}
+                                </span>
                             </div>
                         )}
                     </div>
 
                     {/* Status */}
                     <div className="text-center mb-3">
-                        <FeeBadge status={feeInfo.status || data.status || 'paid'} dueDate={new Date().toISOString()} />
+                        <FeeBadge
+                            status={feeInfo.status || data.status || 'paid'}
+                            dueDate={new Date().toISOString()}
+                        />
                     </div>
 
-                    {/* Payment History — with individual print buttons */}
+                    {/* Payment history */}
                     {data.allPayments && data.allPayments.length > 1 && (
                         <div className="mt-3">
                             <div className="flex items-center justify-between mb-2">
-                                <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: '#475569' }}>📋 Payment History</p>
-                                <p className="text-[8px]" style={{ color: '#94A3B8' }}>Click 🖨️ to print individual receipt</p>
+                                <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                                    📋 Payment History
+                                </p>
+                                <p className="text-[8px] text-[var(--text-muted)]">
+                                    Click 🖨️ to print individual receipt
+                                </p>
                             </div>
                             <div className="space-y-1.5">
                                 {data.allPayments.map((p: any, i: number) => {
@@ -2569,61 +2620,76 @@ function ReceiptModal({
                                     return (
                                         <div
                                             key={i}
-                                            className="flex justify-between items-center px-3 py-2.5 rounded-xl text-xs transition-all"
+                                            className="flex justify-between items-center px-3 py-2.5 rounded-[var(--radius-lg)] text-xs transition-all"
                                             style={{
-                                                backgroundColor: isCurrentReceipt ? '#ECFDF5' : '#F8FAFC',
-                                                border: isCurrentReceipt ? '1.5px solid #A7F3D0' : '1px solid #F1F5F9',
+                                                backgroundColor: isCurrentReceipt
+                                                    ? 'var(--success-50)'
+                                                    : 'var(--bg-subtle)',
+                                                border: isCurrentReceipt
+                                                    ? '1.5px solid var(--success-200)'
+                                                    : '1px solid var(--border)',
                                             }}
                                         >
                                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                {/* Payment Index Circle */}
                                                 <div
                                                     className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
                                                     style={{
-                                                        backgroundColor: isCurrentReceipt ? '#059669' : '#E2E8F0',
-                                                        color: isCurrentReceipt ? '#FFFFFF' : '#64748B',
+                                                        backgroundColor: isCurrentReceipt
+                                                            ? 'var(--success)'
+                                                            : 'var(--border)',
+                                                        color: isCurrentReceipt
+                                                            ? '#ffffff'
+                                                            : 'var(--text-secondary)',
                                                     }}
                                                 >
                                                     {i + 1}
                                                 </div>
                                                 <div className="min-w-0">
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="font-mono font-semibold truncate" style={{ color: isCurrentReceipt ? '#059669' : '#334155' }}>
+                                                        <span
+                                                            className="font-mono font-semibold truncate"
+                                                            style={{
+                                                                color: isCurrentReceipt
+                                                                    ? 'var(--success)'
+                                                                    : 'var(--text-primary)',
+                                                            }}
+                                                        >
                                                             {p.receiptNumber}
                                                         </span>
                                                         {isCurrentReceipt && (
-                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[7px] font-bold uppercase tracking-wider" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                                                            <span className="badge badge-success text-[7px]">
                                                                 Current
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-2 mt-0.5">
-                                                        <span style={{ color: '#94A3B8' }}>
-                                                            {new Date(p.paidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    <div className="flex items-center gap-2 mt-0.5 text-[var(--text-muted)]">
+                                                        <span>
+                                                            {new Date(p.paidAt).toLocaleDateString('en-IN', {
+                                                                day: '2-digit', month: 'short', year: 'numeric',
+                                                            })}
                                                         </span>
-                                                        <span className="capitalize" style={{ color: '#94A3B8' }}>
+                                                        <span className="capitalize">
                                                             • {p.mode || p.paymentMode || '-'}
                                                         </span>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
-                                                <span className="font-bold font-mono" style={{ color: '#15803D' }}>
+                                                <span className="font-bold font-mono text-[var(--success-dark)]">
                                                     ₹{p.amount.toLocaleString('en-IN')}
                                                 </span>
-                                                {/* Individual Print Button */}
                                                 <button
-                                                    onClick={(e) => {
+                                                    onClick={e => {
                                                         e.stopPropagation()
                                                         handlePrintSpecificPayment(p)
                                                     }}
-                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:scale-110"
-                                                    style={{
-                                                        backgroundColor: '#EFF6FF',
-                                                        color: '#2563EB',
-                                                        border: '1px solid #BFDBFE',
-                                                    }}
+                                                    className="btn-icon btn-icon-sm"
                                                     title={`Print receipt ${p.receiptNumber}`}
+                                                    style={{
+                                                        backgroundColor: 'var(--info-50)',
+                                                        color: 'var(--info)',
+                                                        border: '1px solid var(--info-200)',
+                                                    }}
                                                 >
                                                     <Printer size={12} />
                                                 </button>
@@ -2633,18 +2699,18 @@ function ReceiptModal({
                                 })}
                             </div>
 
-                            {/* Print All Receipts Button */}
+                            {/* Print all button */}
                             <button
                                 onClick={() => {
                                     data.allPayments.forEach((p: any, i: number) => {
                                         setTimeout(() => handlePrintSpecificPayment(p), i * 500)
                                     })
                                 }}
-                                className="w-full mt-2 py-2 rounded-xl text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
+                                className="w-full mt-2 py-2 rounded-[var(--radius-lg)] text-[11px] font-semibold inline-flex items-center justify-center gap-1.5 transition-colors"
                                 style={{
-                                    backgroundColor: '#F8FAFC',
-                                    color: '#475569',
-                                    border: '1px dashed #CBD5E1',
+                                    backgroundColor: 'var(--bg-subtle)',
+                                    color: 'var(--text-secondary)',
+                                    border: '1px dashed var(--border-strong)',
                                 }}
                             >
                                 <Printer size={12} />
@@ -2655,15 +2721,11 @@ function ReceiptModal({
                 </div>
 
                 {/* Footer */}
-                <div className="px-5 py-4 flex gap-2 flex-shrink-0" style={{ borderTop: '1px solid #F1F5F9' }}>
-                    <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors" style={{ backgroundColor: '#F8FAFC', color: '#475569', border: '1px solid #E2E8F0' }}>
+                <div className="modal-footer">
+                    <button onClick={onClose} className="btn-ghost flex-1">
                         Close
                     </button>
-                    <button
-                        onClick={handlePrint}
-                        className="flex-1 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors"
-                        style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
-                    >
+                    <button onClick={handlePrint} className="btn-primary flex-1">
                         <Printer size={14} />
                         Print {paperSize}
                     </button>
@@ -2674,50 +2736,16 @@ function ReceiptModal({
 }
 
 
-/* ════════════════════════════════════════════
-   HELPER — Convert Number to Words (Indian)
-   ════════════════════════════════════════════ */
-function numberToWords(num: number): string {
-    if (num === 0) return 'Zero'
-
-    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
-        'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
-        'Seventeen', 'Eighteen', 'Nineteen']
-    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
-
-    function convertLessThanThousand(n: number): string {
-        if (n === 0) return ''
-        if (n < 20) return ones[n]
-        if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '')
-        return ones[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' and ' + convertLessThanThousand(n % 100) : '')
-    }
-
-    const absNum = Math.abs(Math.floor(num))
-
-    if (absNum < 1000) return convertLessThanThousand(absNum)
-
-    const crore = Math.floor(absNum / 10000000)
-    const lakh = Math.floor((absNum % 10000000) / 100000)
-    const thousand = Math.floor((absNum % 100000) / 1000)
-    const remainder = absNum % 1000
-
-    let result = ''
-    if (crore) result += convertLessThanThousand(crore) + ' Crore '
-    if (lakh) result += convertLessThanThousand(lakh) + ' Lakh '
-    if (thousand) result += convertLessThanThousand(thousand) + ' Thousand '
-    if (remainder) result += convertLessThanThousand(remainder)
-
-    return result.trim()
-}
 
 /* ═══════════════════════════════════════════════════════════════
-   FEE STRUCTURE MODAL — Create / Edit
+   FEE STRUCTURE MODAL
    ═══════════════════════════════════════════════════════════════ */
 function FeeStructureModal({
-    open, editItem, onClose, onSuccess,
+    open, editItem, academicConfig, onClose, onSuccess,
 }: {
     open: boolean
     editItem: FeeStructure | null
+    academicConfig: AcademicDerivedConfig
     onClose: () => void
     onSuccess: (msg: string) => void
 }) {
@@ -2726,7 +2754,7 @@ function FeeStructureModal({
         class: '',
         section: 'all',
         stream: '',
-        academicYear: getCurrentAcademicYear(),
+        academicYear: academicConfig.currentAcademicYear,
         term: 'Term 1',
         dueDate: '',
         lateFinePerDay: 0,
@@ -2741,6 +2769,14 @@ function FeeStructureModal({
     const [error, setError] = useState('')
 
     const isHigherSecondary = ['11', '12'].includes(form.class)
+
+    const mandatoryTotal = form.items
+        .filter(i => !i.isOptional)
+        .reduce((s, i) => s + Number(i.amount), 0)
+
+    const optionalTotal = form.items
+        .filter(i => i.isOptional)
+        .reduce((s, i) => s + Number(i.amount), 0)
 
     useEffect(() => {
         if (editItem) {
@@ -2762,20 +2798,11 @@ function FeeStructureModal({
             setForm(initForm())
         }
         setError('')
-    }, [editItem, open])
-
-    const mandatoryTotal = form.items
-        .filter(i => !i.isOptional)
-        .reduce((s, i) => s + Number(i.amount), 0)
-
-    const optionalTotal = form.items
-        .filter(i => i.isOptional)
-        .reduce((s, i) => s + Number(i.amount), 0)
+    }, [editItem, open, academicConfig.currentAcademicYear])
 
     const setField = (key: string, val: any) => {
         setForm(f => {
             const updated = { ...f, [key]: val }
-            // Clear stream if class changed to non-11/12
             if (key === 'class' && !['11', '12'].includes(val)) {
                 updated.stream = ''
             }
@@ -2784,18 +2811,12 @@ function FeeStructureModal({
     }
 
     const addItem = () =>
-        setField('items', [
-            ...form.items,
-            { label: '', amount: 0, isOptional: false },
-        ])
+        setField('items', [...form.items, { label: '', amount: 0, isOptional: false }])
 
     const updateItem = (idx: number, key: string, val: any) =>
-        setField(
-            'items',
-            form.items.map((item, i) =>
-                i === idx ? { ...item, [key]: val } : item
-            )
-        )
+        setField('items', form.items.map((item, i) =>
+            i === idx ? { ...item, [key]: val } : item
+        ))
 
     const removeItem = (idx: number) =>
         setField('items', form.items.filter((_, i) => i !== idx))
@@ -2816,50 +2837,43 @@ function FeeStructureModal({
             return
         }
 
-        // ✅ Mandatory aur optional alag calculate karo
-        const mandatoryTotal = form.items
+        const mTotal = form.items
             .filter(i => !i.isOptional)
             .reduce((s, i) => s + Number(i.amount), 0)
-
-        const optionalTotal = form.items
+        const oTotal = form.items
             .filter(i => i.isOptional)
             .reduce((s, i) => s + Number(i.amount), 0)
 
-        if (mandatoryTotal <= 0) {
+        if (mTotal <= 0) {
             setError('Kam se kam ek mandatory fee item hona chahiye')
             return
         }
 
         setLoading(true)
         try {
-            const url = editItem
-                ? `/api/fees/structure/${editItem._id}`
-                : '/api/fees/structure'
+            const url = editItem ? `/api/fees/structure/${editItem._id}` : '/api/fees/structure'
             const method = editItem ? 'PUT' : 'POST'
-
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     ...form,
-                    totalAmount: mandatoryTotal,  // ✅ Sirf mandatory
-                    optionalTotal,                  // ✅ Info ke liye send karo
+                    totalAmount: mTotal,
+                    optionalTotal: oTotal,
                     stream: isHigherSecondary ? form.stream : undefined,
                 }),
             })
             const data = await res.json()
-            if (!res.ok) {
-                setError(data.error ?? 'Something went wrong')
-                return
-            }
+            if (!res.ok) { setError(data.error ?? 'Something went wrong'); return }
+
             onSuccess(
                 editItem
                     ? 'Fee structure updated successfully!'
                     : `Fee structure created!${data.feesCreated > 0
-                        ? ` ${data.feesCreated} students ko ₹${mandatoryTotal.toLocaleString('en-IN')} auto-assign ho gaya`
+                        ? ` ${data.feesCreated} students ko ₹${mTotal.toLocaleString('en-IN')} auto-assign ho gaya`
                         : ''
-                    }${optionalTotal > 0
-                        ? ` | ₹${optionalTotal.toLocaleString('en-IN')} optional fees manually assign karni hogi`
+                    }${oTotal > 0
+                        ? ` | ₹${oTotal.toLocaleString('en-IN')} optional fees manually assign karni hogi`
                         : ''
                     }`
             )
@@ -2871,524 +2885,451 @@ function FeeStructureModal({
     if (!open) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="modal-backdrop">
             <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                onClick={onClose}
-            />
-            <div
-                className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
-                style={{ border: '1px solid #E2E8F0' }}
+                className="modal-panel"
+                style={{ maxWidth: 'var(--width-modal-lg)' }}
+                onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div
-                    className="flex items-center justify-between px-6 py-4 flex-shrink-0"
-                    style={{ borderBottom: '1px solid #F1F5F9' }}
-                >
+                <div className="modal-header">
                     <div>
-                        <h3 className="text-base font-bold" style={{ color: '#0F172A' }}>
+                        <h3 className="modal-title">
                             {editItem ? `Edit: ${editItem.name}` : 'Create Fee Structure'}
                         </h3>
-                        <p className="text-xs mt-0.5" style={{ color: '#94A3B8' }}>
-                            {editItem
-                                ? 'Fee structure update karein'
-                                : 'Class-wise fees define karein'}
+                        <p className="text-xs mt-0.5 text-[var(--text-muted)]">
+                            {editItem ? 'Fee structure update karein' : 'Class-wise fees define karein'}
                         </p>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ color: '#94A3B8', backgroundColor: '#F8FAFC' }}
-                    >
+                    <button onClick={onClose} className="modal-close">
                         <X size={16} />
                     </button>
                 </div>
 
                 {/* Form */}
-                <form
-                    onSubmit={handleSubmit}
-                    className="flex flex-col flex-1 min-h-0"
-                >
-                    <div className="flex-1 overflow-y-auto portal-scrollbar px-6 py-5">
-                        <div className="space-y-5">
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+                    <div className="modal-body space-y-5">
 
-                            {/* ── Basic Info ── */}
-                            <div>
-                                <h4
-                                    className="text-xs font-bold uppercase tracking-wider mb-3"
-                                    style={{ color: '#94A3B8' }}
-                                >
-                                    Basic Info
-                                </h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="col-span-2">
-                                        <FormInput
-                                            label="Fee Structure Name"
-                                            value={form.name}
-                                            onChange={val => setField('name', val)}
-                                            required
-                                            placeholder="e.g. Term 1 Fee 2025-26"
-                                        />
-                                    </div>
-                                    <FormSelect
-                                        label="Academic Year"
-                                        value={form.academicYear}
-                                        onChange={val => setField('academicYear', val)}
-                                        required
-                                        options={getAcademicYears().map(y => ({
-                                            value: y,
-                                            label: y,
-                                        }))}
-                                    />
-                                    <FormSelect
-                                        label="Term"
-                                        value={form.term}
-                                        onChange={val => setField('term', val)}
-                                        required
-                                        options={TERMS.map(t => ({ value: t, label: t }))}
-                                    />
-                                    <FormSelect
-                                        label="For Class"
-                                        value={form.class}
-                                        onChange={val => setField('class', val)}
-                                        required
-                                        options={[
-                                            { value: '', label: 'Select Class' },
-                                            { value: 'all', label: 'All Classes' },
-                                            ...CLASSES.map(c => ({
-                                                value: c,
-                                                label: `Class ${c}`,
-                                            })),
-                                        ]}
-                                    />
-                                    <FormSelect
-                                        label="Section"
-                                        value={form.section}
-                                        onChange={val => setField('section', val)}
-                                        options={[
-                                            { value: 'all', label: 'All Sections' },
-                                            ...SECTIONS.map(s => ({
-                                                value: s,
-                                                label: `Section ${s}`,
-                                            })),
-                                        ]}
-                                    />
+                        {/* ── Basic Info ── */}
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider mb-3 text-[var(--text-muted)]">
+                                Basic Info
+                            </p>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2">
                                     <FormInput
-                                        label="Due Date"
-                                        value={form.dueDate}
-                                        onChange={val => setField('dueDate', val)}
-                                        type="date"
+                                        label="Fee Structure Name"
+                                        value={form.name}
+                                        onChange={val => setField('name', val)}
                                         required
+                                        placeholder="e.g. Term 1 Fee 2025-26"
                                     />
                                 </div>
 
-                                {/* ✅ Stream Selector — Only for 11/12 */}
-                                {isHigherSecondary && (
-                                    <div className="mt-4">
-                                        <label
-                                            className="text-xs font-semibold mb-2 block"
-                                            style={{ color: '#475569' }}
+                                {/* ✅ Academic Year — academicConfig se */}
+                                <FormSelect
+                                    label="Academic Year"
+                                    value={form.academicYear}
+                                    onChange={val => setField('academicYear', val)}
+                                    required
+                                    options={academicConfig.academicYears.map(y => ({
+                                        value: y, label: y,
+                                    }))}
+                                />
+
+                                <FormSelect
+                                    label="Term"
+                                    value={form.term}
+                                    onChange={val => setField('term', val)}
+                                    required
+                                    options={TERMS.map(t => ({ value: t, label: t }))}
+                                />
+
+                                {/* ✅ Classes — academicConfig se */}
+                                <FormSelect
+                                    label="For Class"
+                                    value={form.class}
+                                    onChange={val => setField('class', val)}
+                                    required
+                                    options={[
+                                        { value: '', label: 'Select Class' },
+                                        { value: 'all', label: 'All Classes' },
+                                        ...academicConfig.classes.map(c => ({
+                                            value: c, label: `Class ${c}`,
+                                        })),
+                                    ]}
+                                />
+
+                                {/* ✅ Sections — academicConfig se */}
+                                <FormSelect
+                                    label="Section"
+                                    value={form.section}
+                                    onChange={val => setField('section', val)}
+                                    options={[
+                                        { value: 'all', label: 'All Sections' },
+                                        ...academicConfig.sections.map(s => ({
+                                            value: s, label: `Section ${s}`,
+                                        })),
+                                    ]}
+                                />
+
+                                <FormInput
+                                    label="Due Date"
+                                    value={form.dueDate}
+                                    onChange={val => setField('dueDate', val)}
+                                    type="date"
+                                    required
+                                />
+                            </div>
+
+                            {/* Stream selector — only Class 11/12 */}
+                            {isHigherSecondary && (
+                                <div className="mt-4">
+                                    <label className="input-label mb-2 block">
+                                        Stream / Faculty{' '}
+                                        <span className="text-[var(--danger)]">*</span>
+                                        <span className="ml-1 font-normal text-[var(--text-muted)]">
+                                            (optional — leave blank for all streams)
+                                        </span>
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {/* All streams option */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setField('stream', '')}
+                                            className="flex items-center gap-2.5 px-3 py-2.5 rounded-[var(--radius-lg)] text-left transition-all"
+                                            style={{
+                                                border: `2px solid ${!form.stream ? 'var(--text-secondary)' : 'var(--border)'}`,
+                                                backgroundColor: !form.stream ? 'var(--bg-subtle)' : 'var(--bg-card)',
+                                            }}
                                         >
-                                            Stream / Faculty{' '}
-                                            <span style={{ color: '#EF4444' }}>*</span>
-                                            <span
-                                                className="ml-1 font-normal"
-                                                style={{ color: '#94A3B8' }}
-                                            >
-                                                (optional — leave blank for all streams)
-                                            </span>
-                                        </label>
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {/* "All Streams" option */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setField('stream', '')}
-                                                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all"
+                                            <div
+                                                className="w-7 h-7 rounded-[var(--radius-md)] flex items-center justify-center text-xs font-bold flex-shrink-0"
                                                 style={{
-                                                    border: `2px solid ${!form.stream ? '#475569' : '#E2E8F0'}`,
-                                                    backgroundColor: !form.stream ? '#F8FAFC' : '#FFFFFF',
+                                                    backgroundColor: !form.stream
+                                                        ? 'var(--text-secondary)'
+                                                        : 'var(--bg-muted)',
+                                                    color: !form.stream
+                                                        ? '#ffffff'
+                                                        : 'var(--text-muted)',
+                                                }}
+                                            >
+                                                *
+                                            </div>
+                                            <p
+                                                className="text-xs font-semibold"
+                                                style={{
+                                                    color: !form.stream
+                                                        ? 'var(--text-primary)'
+                                                        : 'var(--text-secondary)',
+                                                }}
+                                            >
+                                                All Streams
+                                            </p>
+                                            {!form.stream && (
+                                                <div
+                                                    className="w-4 h-4 rounded-full flex items-center justify-center ml-auto"
+                                                    style={{ backgroundColor: 'var(--text-secondary)' }}
+                                                >
+                                                    <span className="text-white text-[0.5rem]">✓</span>
+                                                </div>
+                                            )}
+                                        </button>
+
+                                        {STREAMS.map(s => (
+                                            <button
+                                                key={s.value}
+                                                type="button"
+                                                onClick={() => setField('stream', s.value)}
+                                                className="flex items-center gap-2.5 px-3 py-2.5 rounded-[var(--radius-lg)] text-left transition-all"
+                                                style={{
+                                                    border: `2px solid ${form.stream === s.value ? s.color : 'var(--border)'}`,
+                                                    backgroundColor: form.stream === s.value
+                                                        ? s.bg
+                                                        : 'var(--bg-card)',
                                                 }}
                                             >
                                                 <div
-                                                    className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                                    className="w-7 h-7 rounded-[var(--radius-md)] flex items-center justify-center text-xs font-bold flex-shrink-0"
                                                     style={{
-                                                        backgroundColor: !form.stream ? '#475569' : '#F1F5F9',
-                                                        color: !form.stream ? '#FFFFFF' : '#94A3B8',
+                                                        backgroundColor: form.stream === s.value
+                                                            ? s.color
+                                                            : 'var(--bg-muted)',
+                                                        color: form.stream === s.value
+                                                            ? '#ffffff'
+                                                            : 'var(--text-muted)',
                                                     }}
                                                 >
-                                                    *
+                                                    {s.label.charAt(0)}
                                                 </div>
                                                 <p
                                                     className="text-xs font-semibold"
                                                     style={{
-                                                        color: !form.stream ? '#0F172A' : '#64748B',
+                                                        color: form.stream === s.value
+                                                            ? s.color
+                                                            : 'var(--text-primary)',
                                                     }}
                                                 >
-                                                    All Streams
+                                                    {s.label}
                                                 </p>
-                                                {!form.stream && (
+                                                {form.stream === s.value && (
                                                     <div
                                                         className="w-4 h-4 rounded-full flex items-center justify-center ml-auto"
-                                                        style={{ backgroundColor: '#475569' }}
+                                                        style={{ backgroundColor: s.color }}
                                                     >
                                                         <span className="text-white text-[0.5rem]">✓</span>
                                                     </div>
                                                 )}
                                             </button>
-
-                                            {STREAMS.map(s => (
-                                                <button
-                                                    key={s.value}
-                                                    type="button"
-                                                    onClick={() => setField('stream', s.value)}
-                                                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all"
-                                                    style={{
-                                                        border: `2px solid ${form.stream === s.value ? s.color : '#E2E8F0'}`,
-                                                        backgroundColor:
-                                                            form.stream === s.value ? s.bg : '#FFFFFF',
-                                                    }}
-                                                >
-                                                    <div
-                                                        className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-                                                        style={{
-                                                            backgroundColor:
-                                                                form.stream === s.value
-                                                                    ? s.color
-                                                                    : '#F1F5F9',
-                                                            color:
-                                                                form.stream === s.value
-                                                                    ? '#FFFFFF'
-                                                                    : '#94A3B8',
-                                                        }}
-                                                    >
-                                                        {s.label.charAt(0)}
-                                                    </div>
-                                                    <p
-                                                        className="text-xs font-semibold"
-                                                        style={{
-                                                            color:
-                                                                form.stream === s.value
-                                                                    ? s.color
-                                                                    : '#0F172A',
-                                                        }}
-                                                    >
-                                                        {s.label}
-                                                    </p>
-                                                    {form.stream === s.value && (
-                                                        <div
-                                                            className="w-4 h-4 rounded-full flex items-center justify-center ml-auto"
-                                                            style={{ backgroundColor: s.color }}
-                                                        >
-                                                            <span className="text-white text-[0.5rem]">
-                                                                ✓
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </button>
-                                            ))}
-                                        </div>
+                                        ))}
                                     </div>
-                                )}
-                            </div>
-
-                            {/* ── Late Fine Settings ── */}
-                            <div>
-                                <h4
-                                    className="text-xs font-bold uppercase tracking-wider mb-3"
-                                    style={{ color: '#94A3B8' }}
-                                >
-                                    Late Fine Settings
-                                </h4>
-                                <div
-                                    className="rounded-xl p-4"
-                                    style={{
-                                        backgroundColor: '#FFFBEB',
-                                        border: '1px solid #FDE68A',
-                                    }}
-                                >
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <FormInput
-                                            label="Fine per day"
-                                            value={form.lateFinePerDay || ''}
-                                            onChange={val =>
-                                                setField('lateFinePerDay', Number(val))
-                                            }
-                                            type="number"
-                                            placeholder="10"
-                                            helper="0 = no late fine"
-                                        />
-                                        <FormSelect
-                                            label="Fine type"
-                                            value={form.lateFineType}
-                                            onChange={val => setField('lateFineType', val)}
-                                            options={[
-                                                { value: 'fixed', label: '₹ Fixed amount' },
-                                                { value: 'percent', label: '% Percentage' },
-                                            ]}
-                                        />
-                                        <FormInput
-                                            label="Max fine cap (₹)"
-                                            value={form.maxLateFine || ''}
-                                            onChange={val =>
-                                                setField('maxLateFine', Number(val))
-                                            }
-                                            type="number"
-                                            placeholder="500"
-                                            helper="0 = no cap"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* ── Fee Items ── */}
-                            <div>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h4
-                                        className="text-xs font-bold uppercase tracking-wider"
-                                        style={{ color: '#94A3B8' }}
-                                    >
-                                        Fee Items
-                                    </h4>
-                                    <button
-                                        type="button"
-                                        onClick={addItem}
-                                        className="inline-flex items-center gap-1 text-xs font-semibold transition-colors"
-                                        style={{ color: '#2563EB' }}
-                                    >
-                                        <Plus size={12} /> Add Item
-                                    </button>
-                                </div>
-
-                                <div className="space-y-2">
-                                    {form.items.map((item, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="flex gap-2 items-center p-3 rounded-xl"
-                                            style={{
-                                                backgroundColor: '#F8FAFC',
-                                                border: '1px solid #F1F5F9',
-                                            }}
-                                        >
-                                            <input
-                                                className="flex-1 h-8 px-3 text-sm rounded-lg outline-none"
-                                                style={{
-                                                    border: '1.5px solid #E2E8F0',
-                                                    color: '#0F172A',
-                                                    backgroundColor: '#FFFFFF',
-                                                }}
-                                                placeholder="Fee label (e.g., Tuition Fee)"
-                                                value={item.label}
-                                                onChange={e =>
-                                                    updateItem(idx, 'label', e.target.value)
-                                                }
-                                                onFocus={e => {
-                                                    e.target.style.borderColor = '#2563EB'
-                                                }}
-                                                onBlur={e => {
-                                                    e.target.style.borderColor = '#E2E8F0'
-                                                }}
-                                                required
-                                            />
-                                            <input
-                                                className="w-28 h-8 px-3 text-sm rounded-lg outline-none tabular-nums"
-                                                style={{
-                                                    border: '1.5px solid #E2E8F0',
-                                                    color: '#0F172A',
-                                                    backgroundColor: '#FFFFFF',
-                                                }}
-                                                type="number"
-                                                placeholder="Amount ₹"
-                                                value={item.amount || ''}
-                                                onChange={e =>
-                                                    updateItem(idx, 'amount', Number(e.target.value))
-                                                }
-                                                onFocus={e => {
-                                                    e.target.style.borderColor = '#2563EB'
-                                                }}
-                                                onBlur={e => {
-                                                    e.target.style.borderColor = '#E2E8F0'
-                                                }}
-                                                required
-                                            />
-                                            <label
-                                                className="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap"
-                                                style={{ color: '#64748B' }}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    className="rounded"
-                                                    checked={item.isOptional}
-                                                    onChange={e =>
-                                                        updateItem(idx, 'isOptional', e.target.checked)
-                                                    }
-                                                />
-                                                Optional
-                                            </label>
-                                            {form.items.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeItem(idx)}
-                                                    className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
-                                                    style={{ color: '#94A3B8' }}
-                                                    onMouseEnter={e => {
-                                                        e.currentTarget.style.backgroundColor = '#FEF2F2'
-                                                        e.currentTarget.style.color = '#DC2626'
-                                                    }}
-                                                    onMouseLeave={e => {
-                                                        e.currentTarget.style.backgroundColor = 'transparent'
-                                                        e.currentTarget.style.color = '#94A3B8'
-                                                    }}
-                                                >
-                                                    <X size={13} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* Total */}
-                                <div className="mt-3 space-y-2">
-                                    {/* Mandatory Total */}
-                                    <div
-                                        className="flex items-center justify-between px-4 py-3 rounded-xl"
-                                        style={{
-                                            backgroundColor: '#EFF6FF',
-                                            border: '1px solid #BFDBFE',
-                                        }}
-                                    >
-                                        <div>
-                                            <span className="text-xs font-semibold" style={{ color: '#1D4ED8' }}>
-                                                Mandatory Total
-                                            </span>
-                                            <p className="text-[0.625rem] mt-0.5" style={{ color: '#60A5FA' }}>
-                                                Yeh amount sabhi students ko assign hogi
-                                            </p>
-                                        </div>
-                                        <span className="text-lg font-extrabold tabular-nums" style={{ color: '#1D4ED8' }}>
-                                            ₹{mandatoryTotal.toLocaleString('en-IN')}
-                                        </span>
-                                    </div>
-
-                                    {/* Optional Total — sirf tab show karo jab optional items hon */}
-                                    {optionalTotal > 0 && (
-                                        <div
-                                            className="flex items-center justify-between px-4 py-3 rounded-xl"
-                                            style={{
-                                                backgroundColor: '#FFFBEB',
-                                                border: '1px solid #FDE68A',
-                                            }}
-                                        >
-                                            <div>
-                                                <span className="text-xs font-semibold" style={{ color: '#D97706' }}>
-                                                    Optional Fees
-                                                </span>
-                                                <p className="text-[0.625rem] mt-0.5" style={{ color: '#F59E0B' }}>
-                                                    Manually assign karni padegi selected students ko
-                                                </p>
-                                            </div>
-                                            <span className="text-lg font-extrabold tabular-nums" style={{ color: '#D97706' }}>
-                                                ₹{optionalTotal.toLocaleString('en-IN')}
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Grand Total — sirf show karo context ke liye */}
-                                    {optionalTotal > 0 && (
-                                        <div
-                                            className="flex items-center justify-between px-3 py-2 rounded-lg"
-                                            style={{ backgroundColor: '#F8FAFC' }}
-                                        >
-                                            <span className="text-xs" style={{ color: '#94A3B8' }}>
-                                                Grand Total (if all applicable)
-                                            </span>
-                                            <span className="text-sm font-bold tabular-nums" style={{ color: '#64748B' }}>
-                                                ₹{(mandatoryTotal + optionalTotal).toLocaleString('en-IN')}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* ── Auto Assign Toggle ── */}
-                            {!editItem && (
-                                <div>
-                                    <h4
-                                        className="text-xs font-bold uppercase tracking-wider mb-3"
-                                        style={{ color: '#94A3B8' }}
-                                    >
-                                        Assignment
-                                    </h4>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            setField('autoAssign', !form.autoAssign)
-                                        }
-                                        className="w-full flex items-center gap-3 p-4 rounded-xl text-left transition-all"
-                                        style={{
-                                            backgroundColor: form.autoAssign
-                                                ? '#EFF6FF'
-                                                : '#F8FAFC',
-                                            border: `1.5px solid ${form.autoAssign ? '#BFDBFE' : '#E2E8F0'}`,
-                                        }}
-                                    >
-                                        {/* Toggle Switch */}
-                                        <div
-                                            className="w-10 h-5 rounded-full relative flex-shrink-0 transition-colors"
-                                            style={{
-                                                backgroundColor: form.autoAssign
-                                                    ? '#2563EB'
-                                                    : '#CBD5E1',
-                                            }}
-                                        >
-                                            <div
-                                                className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-                                                style={{
-                                                    transform: form.autoAssign
-                                                        ? 'translateX(1.25rem)'
-                                                        : 'translateX(0.125rem)',
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <p
-                                                className="text-sm font-semibold"
-                                                style={{
-                                                    color: form.autoAssign
-                                                        ? '#1D4ED8'
-                                                        : '#475569',
-                                                }}
-                                            >
-                                                Auto-assign to existing students
-                                            </p>
-                                            <p
-                                                className="text-[0.6875rem] mt-0.5"
-                                                style={{ color: '#94A3B8' }}
-                                            >
-                                                Is class ke saare active students ko yeh fee
-                                                automatically assign hogi
-                                            </p>
-                                        </div>
-                                        <Zap
-                                            size={16}
-                                            style={{
-                                                color: form.autoAssign ? '#2563EB' : '#CBD5E1',
-                                            }}
-                                        />
-                                    </button>
                                 </div>
                             )}
                         </div>
+
+                        {/* ── Late Fine Settings ── */}
+                        <div>
+                            <p className="text-xs font-bold uppercase tracking-wider mb-3 text-[var(--text-muted)]">
+                                Late Fine Settings
+                            </p>
+                            <div
+                                className="rounded-[var(--radius-lg)] p-4"
+                                style={{
+                                    backgroundColor: 'var(--warning-50)',
+                                    border: '1px solid var(--warning-200)',
+                                }}
+                            >
+                                <div className="grid grid-cols-3 gap-3">
+                                    <FormInput
+                                        label="Fine per day"
+                                        value={form.lateFinePerDay || ''}
+                                        onChange={val => setField('lateFinePerDay', Number(val))}
+                                        type="number"
+                                        placeholder="10"
+                                        helper="0 = no late fine"
+                                    />
+                                    <FormSelect
+                                        label="Fine type"
+                                        value={form.lateFineType}
+                                        onChange={val => setField('lateFineType', val)}
+                                        options={[
+                                            { value: 'fixed', label: '₹ Fixed amount' },
+                                            { value: 'percent', label: '% Percentage' },
+                                        ]}
+                                    />
+                                    <FormInput
+                                        label="Max fine cap (₹)"
+                                        value={form.maxLateFine || ''}
+                                        onChange={val => setField('maxLateFine', Number(val))}
+                                        type="number"
+                                        placeholder="500"
+                                        helper="0 = no cap"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── Fee Items ── */}
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                                    Fee Items
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={addItem}
+                                    className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--primary-500)] hover:text-[var(--primary-700)] transition-colors"
+                                >
+                                    <Plus size={12} /> Add Item
+                                </button>
+                            </div>
+
+                            <div className="space-y-2">
+                                {form.items.map((item, idx) => (
+                                    <div
+                                        key={idx}
+                                        className="flex gap-2 items-center p-3 rounded-[var(--radius-lg)]"
+                                        style={{
+                                            backgroundColor: 'var(--bg-subtle)',
+                                            border: '1px solid var(--border)',
+                                        }}
+                                    >
+                                        <input
+                                            className="input-clean flex-1"
+                                            placeholder="Fee label (e.g., Tuition Fee)"
+                                            value={item.label}
+                                            onChange={e => updateItem(idx, 'label', e.target.value)}
+                                            required
+                                        />
+                                        <input
+                                            className="input-clean w-28 tabular-nums"
+                                            type="number"
+                                            placeholder="Amount ₹"
+                                            value={item.amount || ''}
+                                            onChange={e => updateItem(idx, 'amount', Number(e.target.value))}
+                                            required
+                                        />
+                                        <label
+                                            className="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap text-[var(--text-secondary)]"
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                className="rounded"
+                                                checked={item.isOptional}
+                                                onChange={e => updateItem(idx, 'isOptional', e.target.checked)}
+                                            />
+                                            Optional
+                                        </label>
+                                        {form.items.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => removeItem(idx)}
+                                                className="btn-icon btn-icon-sm flex-shrink-0 hover:bg-[var(--danger-50)] hover:text-[var(--danger)] hover:border-[var(--danger-200)]"
+                                            >
+                                                <X size={13} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Totals */}
+                            <div className="mt-3 space-y-2">
+                                {/* Mandatory total */}
+                                <div
+                                    className="flex items-center justify-between px-4 py-3 rounded-[var(--radius-lg)]"
+                                    style={{
+                                        backgroundColor: 'var(--info-50)',
+                                        border: '1px solid var(--info-200)',
+                                    }}
+                                >
+                                    <div>
+                                        <span className="text-xs font-semibold text-[var(--info-dark)]">
+                                            Mandatory Total
+                                        </span>
+                                        <p className="text-[0.625rem] mt-0.5 text-[var(--info-500)]">
+                                            Yeh amount sabhi students ko assign hogi
+                                        </p>
+                                    </div>
+                                    <span className="text-lg font-extrabold tabular-nums text-[var(--info-dark)]">
+                                        ₹{mandatoryTotal.toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+
+                                {/* Optional total — only when optional items exist */}
+                                {optionalTotal > 0 && (
+                                    <>
+                                        <div
+                                            className="flex items-center justify-between px-4 py-3 rounded-[var(--radius-lg)]"
+                                            style={{
+                                                backgroundColor: 'var(--warning-50)',
+                                                border: '1px solid var(--warning-200)',
+                                            }}
+                                        >
+                                            <div>
+                                                <span className="text-xs font-semibold text-[var(--warning-dark)]">
+                                                    Optional Fees
+                                                </span>
+                                                <p className="text-[0.625rem] mt-0.5 text-[var(--warning-500)]">
+                                                    Manually assign karni padegi selected students ko
+                                                </p>
+                                            </div>
+                                            <span className="text-lg font-extrabold tabular-nums text-[var(--warning-dark)]">
+                                                ₹{optionalTotal.toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+
+                                        <div
+                                            className="flex items-center justify-between px-3 py-2 rounded-[var(--radius-md)]"
+                                            style={{ backgroundColor: 'var(--bg-subtle)' }}
+                                        >
+                                            <span className="text-xs text-[var(--text-muted)]">
+                                                Grand Total (if all applicable)
+                                            </span>
+                                            <span className="text-sm font-bold tabular-nums text-[var(--text-secondary)]">
+                                                ₹{(mandatoryTotal + optionalTotal).toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ── Auto Assign Toggle ── */}
+                        {!editItem && (
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-wider mb-3 text-[var(--text-muted)]">
+                                    Assignment
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setField('autoAssign', !form.autoAssign)}
+                                    className="w-full flex items-center gap-3 p-4 rounded-[var(--radius-lg)] text-left transition-all"
+                                    style={{
+                                        backgroundColor: form.autoAssign
+                                            ? 'var(--info-50)'
+                                            : 'var(--bg-subtle)',
+                                        border: `1.5px solid ${form.autoAssign
+                                            ? 'var(--info-200)'
+                                            : 'var(--border)'}`,
+                                    }}
+                                >
+                                    {/* Toggle switch */}
+                                    <div
+                                        className="w-10 h-5 rounded-full relative flex-shrink-0 transition-colors"
+                                        style={{
+                                            backgroundColor: form.autoAssign
+                                                ? 'var(--primary-500)'
+                                                : 'var(--border-strong)',
+                                        }}
+                                    >
+                                        <div
+                                            className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                                            style={{
+                                                transform: form.autoAssign
+                                                    ? 'translateX(1.25rem)'
+                                                    : 'translateX(0.125rem)',
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p
+                                            className="text-sm font-semibold"
+                                            style={{
+                                                color: form.autoAssign
+                                                    ? 'var(--info-dark)'
+                                                    : 'var(--text-secondary)',
+                                            }}
+                                        >
+                                            Auto-assign to existing students
+                                        </p>
+                                        <p className="text-[0.6875rem] mt-0.5 text-[var(--text-muted)]">
+                                            Is class ke saare active students ko yeh fee
+                                            automatically assign hogi
+                                        </p>
+                                    </div>
+                                    <Zap
+                                        size={16}
+                                        style={{
+                                            color: form.autoAssign
+                                                ? 'var(--primary-500)'
+                                                : 'var(--border-strong)',
+                                        }}
+                                    />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Error */}
                     {error && (
                         <div className="mx-6 mb-2">
                             <div
-                                className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm"
+                                className="flex items-center gap-2 px-4 py-3 rounded-[var(--radius-md)] text-sm"
                                 style={{
-                                    backgroundColor: '#FEF2F2',
-                                    color: '#DC2626',
-                                    border: '1px solid #FECACA',
+                                    backgroundColor: 'var(--danger-50)',
+                                    color: 'var(--danger)',
+                                    border: '1px solid var(--danger-200)',
                                 }}
                             >
                                 <AlertCircle size={15} />
@@ -3398,34 +3339,27 @@ function FeeStructureModal({
                     )}
 
                     {/* Footer */}
-                    <div
-                        className="px-6 py-4 flex justify-end gap-2 flex-shrink-0"
-                        style={{ borderTop: '1px solid #F1F5F9' }}
-                    >
+                    <div className="modal-footer">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 rounded-xl text-sm font-medium"
-                            style={{
-                                backgroundColor: '#F8FAFC',
-                                color: '#475569',
-                                border: '1px solid #E2E8F0',
-                            }}
+                            className="btn-ghost"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl text-sm font-semibold disabled:opacity-60 active:scale-[0.98] transition-all"
-                            style={{ backgroundColor: '#2563EB', color: '#FFFFFF' }}
+                            className="btn-primary"
                         >
-                            {loading ? <Spinner size="sm" /> : editItem ? <Edit2 size={14} /> : <Plus size={14} />}
+                            {loading
+                                ? <Spinner size="sm" />
+                                : editItem ? <Edit2 size={14} /> : <Plus size={14} />
+                            }
                             {loading
                                 ? 'Saving...'
-                                : editItem
-                                    ? 'Update Structure'
-                                    : 'Create & Assign'}
+                                : editItem ? 'Update Structure' : 'Create & Assign'
+                            }
                         </button>
                     </div>
                 </form>
@@ -3435,13 +3369,11 @@ function FeeStructureModal({
 }
 
 
-
-// Optional Fee Assign Modal
+/* ════════════════════════════════════════════
+   OPTIONAL FEE MODAL
+   ════════════════════════════════════════════ */
 function OptionalFeeModal({
-    open,
-    structure,
-    onClose,
-    onSuccess,
+    open, structure, onClose, onSuccess,
 }: {
     open: boolean
     structure: FeeStructure | null
@@ -3450,7 +3382,7 @@ function OptionalFeeModal({
 }) {
     const [students, setStudents] = useState<any[]>([])
     const [selectedIds, setSelectedIds] = useState<string[]>([])
-    const [selectedItem, setSelectedItem] = useState<string>('')
+    const [selectedItems, setSelectedItems] = useState<string[]>([]) // ✅ array
     const [loading, setLoading] = useState(false)
     const [fetching, setFetching] = useState(false)
 
@@ -3460,9 +3392,8 @@ function OptionalFeeModal({
         if (!open || !structure) return
         setFetching(true)
         setSelectedIds([])
-        setSelectedItem(optionalItems[0]?.label ?? '')
+        setSelectedItems([])  // ✅ reset array
 
-        // Is class ke students fetch karo
         const params = new URLSearchParams()
         if (structure.class !== 'all') params.set('class', structure.class)
         if (structure.section && structure.section !== 'all') {
@@ -3477,28 +3408,45 @@ function OptionalFeeModal({
             .finally(() => setFetching(false))
     }, [open, structure])
 
-    const selectedItemData = optionalItems.find(i => i.label === selectedItem)
+    // ✅ Selected items ka data array
+    const selectedItemsData = optionalItems.filter(i =>
+        selectedItems.includes(i.label)
+    )
+
+    // ✅ Selected items ka total amount
+    const selectedOptionalTotal = selectedItemsData.reduce(
+        (sum, i) => sum + i.amount, 0
+    )
+
+    // ✅ Toggle item selection
+    const toggleItem = (label: string) => {
+        setSelectedItems(prev =>
+            prev.includes(label)
+                ? prev.filter(l => l !== label)
+                : [...prev, label]
+        )
+    }
 
     const handleAssign = async () => {
-        if (!structure || !selectedIds.length || !selectedItemData) return
+        if (!structure || !selectedIds.length || !selectedItemsData.length) return
         setLoading(true)
         try {
-            // Ek naya fee structure create karo sirf is optional item ke liye
-            // Ya existing structure pe additional fee add karo
             const res = await fetch('/api/fees/optional-assign', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     structureId: structure._id,
                     studentIds: selectedIds,
-                    item: selectedItemData,
+                    items: selectedItemsData,  // ✅ array of items
                     dueDate: structure.dueDate,
                     academicYear: structure.academicYear,
                 }),
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error)
-            onSuccess(`${data.assigned} students ko ${selectedItemData.label} assign ho gaya`)
+            onSuccess(
+                `${data.assigned} students ko ${selectedItemsData.map(i => i.label).join(', ')} assign ho gaya`
+            )
             onClose()
         } catch (err: any) {
             console.error(err)
@@ -3510,121 +3458,124 @@ function OptionalFeeModal({
     if (!open || !structure) return null
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="modal-backdrop">
             <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                onClick={onClose}
-            />
-            <div
-                className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col"
-                style={{ border: '1px solid #E2E8F0' }}
+                className="modal-panel"
+                style={{ maxWidth: 'var(--width-modal-md)' }}
+                onClick={e => e.stopPropagation()}
             >
                 {/* Header */}
-                <div
-                    className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-                    style={{ borderBottom: '1px solid #F1F5F9' }}
-                >
+                <div className="modal-header">
                     <div className="flex items-center gap-3">
                         <div
-                            className="w-9 h-9 rounded-xl flex items-center justify-center"
-                            style={{ backgroundColor: '#FFFBEB' }}
+                            className="w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center"
+                            style={{ backgroundColor: 'var(--warning-50)' }}
                         >
-                            <Sparkles size={16} style={{ color: '#D97706' }} />
+                            <Sparkles size={16} style={{ color: 'var(--warning)' }} />
                         </div>
                         <div>
-                            <h3 className="text-sm font-bold" style={{ color: '#0F172A' }}>
-                                Assign Optional Fee
-                            </h3>
-                            <p className="text-xs" style={{ color: '#94A3B8' }}>
+                            <h3 className="modal-title">Assign Optional Fee</h3>
+                            <p className="text-xs text-[var(--text-muted)]">
                                 {structure.name} · Class {structure.class}
                             </p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ color: '#94A3B8' }}
-                    >
+                    <button onClick={onClose} className="modal-close">
                         <X size={14} />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto portal-scrollbar px-5 py-4 space-y-4">
-                    {/* Select Optional Item */}
+                {/* Body */}
+                <div className="modal-body space-y-4">
+
+                    {/* ✅ Multi-select optional items */}
                     <div>
-                        <label
-                            className="text-xs font-semibold mb-2 block"
-                            style={{ color: '#475569' }}
-                        >
-                            Kaunsi optional fee assign karni hai?
+                        <label className="input-label mb-2 block">
+                            Kaunsi optional fees assign karni hain?{' '}
+                            <span className="font-normal text-[var(--text-muted)]">
+                                (multiple select kar sakte ho)
+                            </span>
                         </label>
                         <div className="space-y-2">
-                            {optionalItems.map(item => (
-                                <button
-                                    key={item.label}
-                                    onClick={() => setSelectedItem(item.label)}
-                                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-all"
-                                    style={{
-                                        border: `2px solid ${selectedItem === item.label ? '#D97706' : '#E2E8F0'}`,
-                                        backgroundColor: selectedItem === item.label
-                                            ? '#FFFBEB'
-                                            : '#FFFFFF',
-                                    }}
-                                >
-                                    <div className="flex items-center gap-2">
-                                        <div
-                                            className="w-2 h-2 rounded-full"
-                                            style={{
-                                                backgroundColor: selectedItem === item.label
-                                                    ? '#D97706'
-                                                    : '#CBD5E1',
-                                            }}
-                                        />
-                                        <span
-                                            className="text-sm font-medium"
-                                            style={{
-                                                color: selectedItem === item.label
-                                                    ? '#92400E'
-                                                    : '#475569',
-                                            }}
-                                        >
-                                            {item.label}
-                                        </span>
-                                    </div>
-                                    <span
-                                        className="text-sm font-bold tabular-nums"
+                            {optionalItems.map(item => {
+                                const isSelected = selectedItems.includes(item.label)
+                                return (
+                                    <button
+                                        key={item.label}
+                                        onClick={() => toggleItem(item.label)}
+                                        className="w-full flex items-center justify-between px-4 py-3 rounded-[var(--radius-lg)] text-left transition-all"
                                         style={{
-                                            color: selectedItem === item.label
-                                                ? '#D97706'
-                                                : '#64748B',
+                                            border: `2px solid ${isSelected
+                                                    ? 'var(--warning)'
+                                                    : 'var(--border)'
+                                                }`,
+                                            backgroundColor: isSelected
+                                                ? 'var(--warning-50)'
+                                                : 'var(--bg-card)',
                                         }}
                                     >
-                                        ₹{item.amount.toLocaleString('en-IN')}
-                                    </span>
-                                </button>
-                            ))}
+                                        <div className="flex items-center gap-2">
+                                            {/* ✅ Checkbox visual — not radio */}
+                                            <div
+                                                className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-all"
+                                                style={{
+                                                    backgroundColor: isSelected
+                                                        ? 'var(--warning)'
+                                                        : 'transparent',
+                                                    border: `2px solid ${isSelected
+                                                            ? 'var(--warning)'
+                                                            : 'var(--border-strong)'
+                                                        }`,
+                                                }}
+                                            >
+                                                {isSelected && (
+                                                    <span className="text-white text-[0.5rem] font-bold">
+                                                        ✓
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span
+                                                className="text-sm font-medium"
+                                                style={{
+                                                    color: isSelected
+                                                        ? 'var(--warning-dark)'
+                                                        : 'var(--text-secondary)',
+                                                }}
+                                            >
+                                                {item.label}
+                                            </span>
+                                        </div>
+                                        <span
+                                            className="text-sm font-bold tabular-nums"
+                                            style={{
+                                                color: isSelected
+                                                    ? 'var(--warning)'
+                                                    : 'var(--text-secondary)',
+                                            }}
+                                        >
+                                            ₹{item.amount.toLocaleString('en-IN')}
+                                        </span>
+                                    </button>
+                                )
+                            })}
                         </div>
                     </div>
 
-                    {/* Select Students */}
+                    {/* Students select */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <label
-                                className="text-xs font-semibold"
-                                style={{ color: '#475569' }}
-                            >
+                            <label className="input-label">
                                 Students select karo ({selectedIds.length} selected)
                             </label>
                             <button
                                 onClick={() => {
-                                    if (selectedIds.length === students.length) {
+                                    if (selectedIds.length === students.length)
                                         setSelectedIds([])
-                                    } else {
+                                    else
                                         setSelectedIds(students.map(s => s._id))
-                                    }
                                 }}
-                                className="text-xs font-medium"
-                                style={{ color: '#2563EB' }}
+                                className="text-xs font-medium text-[var(--primary-500)]
+                                           hover:text-[var(--primary-700)] transition-colors"
                             >
                                 {selectedIds.length === students.length
                                     ? 'Deselect All'
@@ -3633,7 +3584,7 @@ function OptionalFeeModal({
                         </div>
 
                         {fetching ? (
-                            <div className="flex justify-center py-8">
+                            <div className="portal-empty py-8">
                                 <Spinner size="lg" />
                             </div>
                         ) : students.length === 0 ? (
@@ -3642,22 +3593,26 @@ function OptionalFeeModal({
                             </div>
                         ) : (
                             <div
-                                className="divide-y divide-slate-100"  // ← Tailwind class mein rakho
+                                className="rounded-[var(--radius-lg)] overflow-hidden"
                                 style={{
-                                    border: '1px solid #E2E8F0',
-                                    maxHeight: '280px',
+                                    border: '1px solid var(--border)',
+                                    maxHeight: '240px',
                                     overflowY: 'auto',
                                 }}
                             >
                                 {students.map((s, idx) => (
                                     <label
                                         key={s._id}
-                                        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-slate-50 transition-colors"
+                                        className="flex items-center gap-3 px-4 py-2.5
+                                                   cursor-pointer transition-colors
+                                                   hover:bg-[var(--bg-muted)]"
                                         style={{
-                                            // ✅ divideColor ki jagah borderBottom inline
                                             borderBottom: idx < students.length - 1
-                                                ? '1px solid #F1F5F9'
+                                                ? '1px solid var(--border)'
                                                 : 'none',
+                                            backgroundColor: selectedIds.includes(s._id)
+                                                ? 'var(--primary-50)'
+                                                : undefined,
                                         }}
                                     >
                                         <input
@@ -3673,26 +3628,16 @@ function OptionalFeeModal({
                                             }}
                                         />
                                         <div className="flex-1 min-w-0">
-                                            <p
-                                                className="text-sm font-medium truncate"
-                                                style={{ color: '#0F172A' }}
-                                            >
+                                            <p className="text-sm font-medium truncate
+                                                          text-[var(--text-primary)]">
                                                 {s.userId?.name}
                                             </p>
-                                            <p
-                                                className="text-xs font-mono"
-                                                style={{ color: '#94A3B8' }}
-                                            >
+                                            <p className="text-xs font-mono
+                                                          text-[var(--text-muted)]">
                                                 {s.admissionNo} · Roll #{s.rollNo}
                                             </p>
                                         </div>
-                                        <span
-                                            className="text-xs font-semibold px-2 py-0.5 rounded-lg flex-shrink-0"
-                                            style={{
-                                                backgroundColor: '#EEF2FF',
-                                                color: '#4F46E5',
-                                            }}
-                                        >
+                                        <span className="badge badge-brand flex-shrink-0">
                                             {s.class}-{s.section}
                                         </span>
                                     </label>
@@ -3701,59 +3646,71 @@ function OptionalFeeModal({
                         )}
                     </div>
 
-                    {/* Summary */}
-                    {selectedIds.length > 0 && selectedItemData && (
+                    {/* ✅ Assignment summary — multi-item */}
+                    {selectedIds.length > 0 && selectedItemsData.length > 0 && (
                         <div
-                            className="rounded-xl p-4"
+                            className="rounded-[var(--radius-lg)] p-4 space-y-2"
                             style={{
-                                backgroundColor: '#FFFBEB',
-                                border: '1px solid #FDE68A',
+                                backgroundColor: 'var(--warning-50)',
+                                border: '1px solid var(--warning-200)',
                             }}
                         >
-                            <p
-                                className="text-xs font-semibold mb-1"
-                                style={{ color: '#92400E' }}
-                            >
+                            <p className="text-xs font-semibold text-[var(--warning-dark)]">
                                 Assignment Summary
                             </p>
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm" style={{ color: '#B45309' }}>
-                                    {selectedIds.length} students ×
-                                    ₹{selectedItemData.amount.toLocaleString('en-IN')}
-                                </span>
-                                <span
-                                    className="text-base font-bold tabular-nums"
-                                    style={{ color: '#D97706' }}
+
+                            {/* Per-item breakdown */}
+                            {selectedItemsData.map(item => (
+                                <div
+                                    key={item.label}
+                                    className="flex items-center justify-between text-xs"
                                 >
-                                    ₹{(selectedIds.length * selectedItemData.amount)
-                                        .toLocaleString('en-IN')}
-                                </span>
-                            </div>
+                                    <span className="text-[var(--warning-600)]">
+                                        {item.label} × {selectedIds.length} students
+                                    </span>
+                                    <span className="font-semibold tabular-nums
+                                                      text-[var(--warning-dark)]">
+                                        ₹{(selectedIds.length * item.amount)
+                                            .toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+                            ))}
+
+                            {/* Grand total */}
+                            {selectedItemsData.length > 1 && (
+                                <div
+                                    className="flex items-center justify-between pt-2"
+                                    style={{ borderTop: '1px dashed var(--warning-300)' }}
+                                >
+                                    <span className="text-sm font-semibold
+                                                      text-[var(--warning-dark)]">
+                                        Total
+                                    </span>
+                                    <span className="text-base font-bold tabular-nums
+                                                      text-[var(--warning)]">
+                                        ₹{(selectedIds.length * selectedOptionalTotal)
+                                            .toLocaleString('en-IN')}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                <div
-                    className="px-5 py-4 flex gap-2 flex-shrink-0"
-                    style={{ borderTop: '1px solid #F1F5F9' }}
-                >
-                    <button
-                        onClick={onClose}
-                        className="flex-1 py-2 rounded-xl text-sm font-medium"
-                        style={{
-                            backgroundColor: '#F8FAFC',
-                            color: '#475569',
-                            border: '1px solid #E2E8F0',
-                        }}
-                    >
+                <div className="modal-footer">
+                    <button onClick={onClose} className="btn-ghost flex-1">
                         Cancel
                     </button>
                     <button
                         onClick={handleAssign}
-                        disabled={loading || !selectedIds.length || !selectedItem}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold disabled:opacity-50"
-                        style={{ backgroundColor: '#D97706', color: '#FFFFFF' }}
+                        disabled={
+                            loading ||
+                            !selectedIds.length ||
+                            !selectedItems.length  // ✅ array check
+                        }
+                        className="btn-accent flex-1"
+                        style={{ backgroundColor: 'var(--warning)', color: '#ffffff' }}
                     >
                         {loading ? <Spinner size="sm" /> : <Sparkles size={14} />}
                         {loading
@@ -3812,21 +3769,16 @@ function PaymentSettingsPanel({
                 razorpayKeyId: form.razorpayKeyId,
                 enableOnlinePayment: form.enableOnlinePayment,
             }
-            // Only send secret if it's not the masked value
             if (!form.razorpayKeySecret.includes('•')) {
                 body.razorpayKeySecret = form.razorpayKeySecret
             }
-
             const res = await fetch('/api/payment-settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             })
-            if (res.ok) {
-                onAlert({ type: 'success', msg: 'Payment settings saved successfully!' })
-            } else {
-                onAlert({ type: 'error', msg: 'Failed to save settings' })
-            }
+            if (res.ok) onAlert({ type: 'success', msg: 'Payment settings saved successfully!' })
+            else onAlert({ type: 'error', msg: 'Failed to save settings' })
         } finally {
             setSaving(false)
         }
@@ -3834,7 +3786,7 @@ function PaymentSettingsPanel({
 
     if (loading) {
         return (
-            <div className="flex justify-center py-12">
+            <div className="portal-empty py-12">
                 <Spinner size="lg" />
             </div>
         )
@@ -3842,39 +3794,32 @@ function PaymentSettingsPanel({
 
     return (
         <div className="max-w-2xl space-y-4">
-            {/* Online Payment Toggle Card */}
+
+            {/* Online payment card */}
             <div className="portal-card">
-                <div className="p-5">
+                <div className="portal-card-body">
+
+                    {/* Toggle row */}
                     <div className="flex items-center justify-between mb-4">
                         <div>
-                            <h3
-                                className="text-sm font-bold"
-                                style={{ color: '#0F172A' }}
-                            >
-                                Online Payment
-                            </h3>
-                            <p
-                                className="text-xs mt-0.5"
-                                style={{ color: '#94A3B8' }}
-                            >
+                            <h3 className="portal-card-title">Online Payment</h3>
+                            <p className="portal-card-subtitle">
                                 Students/Parents apne phone se fee pay kar sakein
                             </p>
                         </div>
                         <button
-                            onClick={() =>
-                                setForm(f => ({
-                                    ...f,
-                                    enableOnlinePayment: !f.enableOnlinePayment,
-                                }))
-                            }
+                            onClick={() => setForm(f => ({
+                                ...f, enableOnlinePayment: !f.enableOnlinePayment,
+                            }))}
                             className="flex items-center gap-2"
+                            aria-pressed={form.enableOnlinePayment}
                         >
                             <div
                                 className="w-12 h-6 rounded-full relative transition-colors"
                                 style={{
                                     backgroundColor: form.enableOnlinePayment
-                                        ? '#2563EB'
-                                        : '#CBD5E1',
+                                        ? 'var(--primary-500)'
+                                        : 'var(--border-strong)',
                                 }}
                             >
                                 <div
@@ -3889,7 +3834,9 @@ function PaymentSettingsPanel({
                             <span
                                 className="text-sm font-semibold"
                                 style={{
-                                    color: form.enableOnlinePayment ? '#2563EB' : '#94A3B8',
+                                    color: form.enableOnlinePayment
+                                        ? 'var(--primary-500)'
+                                        : 'var(--text-muted)',
                                 }}
                             >
                                 {form.enableOnlinePayment ? 'Enabled' : 'Disabled'}
@@ -3897,28 +3844,23 @@ function PaymentSettingsPanel({
                         </button>
                     </div>
 
-                    {/* Razorpay Config */}
+                    {/* Razorpay config */}
                     {form.enableOnlinePayment && (
-                        <div className="space-y-4 mt-4 pt-4" style={{ borderTop: '1px solid #F1F5F9' }}>
+                        <div
+                            className="space-y-4 mt-4 pt-4"
+                            style={{ borderTop: '1px solid var(--border)' }}
+                        >
                             <FormInput
                                 label="Razorpay Key ID"
                                 value={form.razorpayKeyId}
-                                onChange={val =>
-                                    setForm(f => ({ ...f, razorpayKeyId: val }))
-                                }
+                                onChange={val => setForm(f => ({ ...f, razorpayKeyId: val }))}
                                 placeholder="rzp_live_xxxxxxxxxx"
                                 helper="Razorpay dashboard → Settings → API Keys"
                             />
                             <FormInput
                                 label="Razorpay Key Secret"
-                                value={
-                                    form.razorpayKeySecret.includes('•')
-                                        ? ''
-                                        : form.razorpayKeySecret
-                                }
-                                onChange={val =>
-                                    setForm(f => ({ ...f, razorpayKeySecret: val }))
-                                }
+                                value={form.razorpayKeySecret.includes('•') ? '' : form.razorpayKeySecret}
+                                onChange={val => setForm(f => ({ ...f, razorpayKeySecret: val }))}
                                 type="password"
                                 placeholder={
                                     settings?.hasKey
@@ -3928,26 +3870,22 @@ function PaymentSettingsPanel({
                                 helper="Secret key encrypted store hoti hai"
                             />
 
-                            {/* Razorpay Setup Guide */}
+                            {/* Setup guide */}
                             <div
-                                className="rounded-xl p-4"
+                                className="rounded-[var(--radius-lg)] p-4"
                                 style={{
-                                    backgroundColor: '#EFF6FF',
-                                    border: '1px solid #BFDBFE',
+                                    backgroundColor: 'var(--info-50)',
+                                    border: '1px solid var(--info-200)',
                                 }}
                             >
                                 <div className="flex items-center gap-2 mb-2">
-                                    <Info size={13} style={{ color: '#2563EB' }} />
-                                    <p
-                                        className="text-xs font-semibold"
-                                        style={{ color: '#1D4ED8' }}
-                                    >
+                                    <Info size={13} style={{ color: 'var(--info)' }} />
+                                    <p className="text-xs font-semibold text-[var(--info-dark)]">
                                         Razorpay account setup guide
                                     </p>
                                 </div>
                                 <ol
-                                    className="text-[0.6875rem] space-y-1 list-decimal list-inside"
-                                    style={{ color: '#3B82F6' }}
+                                    className="text-[0.6875rem] space-y-1 list-decimal list-inside text-[var(--info-600)]"
                                 >
                                     <li>razorpay.com pe jaayein → Sign Up karein</li>
                                     <li>KYC complete karein (business verification)</li>
@@ -3960,72 +3898,70 @@ function PaymentSettingsPanel({
                 </div>
             </div>
 
-            {/* ════ Student Partial Payment ════ */}
+            {/* Student partial payment card */}
             <div
-                className="rounded-xl p-4 mt-4"
-                style={{ border: '1.5px solid #E2E8F0', backgroundColor: '#FAFAFA' }}
+                className="portal-card"
             >
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-sm font-bold" style={{ color: '#0F172A' }}>
-                            Student Partial Payment
-                        </p>
-                        <p className="text-xs mt-0.5" style={{ color: '#64748B' }}>
-                            Students ko apni marzi se partial amount pay karne do
-                        </p>
-                    </div>
-                    {/* Toggle */}
-                    <button
-                        type="button"
-                        onClick={() => setAllowPartial(p => !p)}
-                        className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
-                        style={{ backgroundColor: allowPartial ? '#059669' : '#E2E8F0' }}
-                    >
-                        <span
-                            className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform"
-                            style={{ transform: allowPartial ? 'translateX(20px)' : 'translateX(0)' }}
-                        />
-                    </button>
-                </div>
-
-                {/* Minimum amount — sirf tab dikhao jab allowPartial ON ho */}
-                {allowPartial && (
-                    <div className="mt-3 pt-3" style={{ borderTop: '1px dashed #E2E8F0' }}>
-                        <label
-                            className="text-xs font-semibold mb-1.5 block"
-                            style={{ color: '#475569' }}
+                <div className="portal-card-body">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h3 className="portal-card-title">Student Partial Payment</h3>
+                            <p className="portal-card-subtitle">
+                                Students ko apni marzi se partial amount pay karne do
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setAllowPartial(p => !p)}
+                            className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                            style={{
+                                backgroundColor: allowPartial
+                                    ? 'var(--success)'
+                                    : 'var(--border-strong)',
+                            }}
+                            aria-pressed={allowPartial}
                         >
-                            Minimum Partial Amount (₹)
-                        </label>
-                        <input
-                            type="number"
-                            value={minPartialAmt}
-                            onChange={e => setMinPartialAmt(e.target.value)}
-                            placeholder="0 = koi minimum nahi"
-                            min={0}
-                            className="w-full h-9 px-3 text-sm rounded-lg outline-none transition-all"
-                            style={{ border: '1.5px solid #E2E8F0', color: '#0F172A', backgroundColor: '#FFFFFF' }}
-                            onFocus={e => { e.target.style.borderColor = '#2563EB' }}
-                            onBlur={e => { e.target.style.borderColor = '#E2E8F0' }}
-                        />
-                        <p className="text-[11px] mt-1.5" style={{ color: '#94A3B8' }}>
-                            Example: ₹500 set karo → student kam se kam ₹500 dega.
-                            0 rakho → koi limit nahi.
-                        </p>
+                            <span
+                                className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform"
+                                style={{
+                                    transform: allowPartial
+                                        ? 'translateX(20px)'
+                                        : 'translateX(0)',
+                                }}
+                            />
+                        </button>
                     </div>
-                )}
+
+                    {allowPartial && (
+                        <div
+                            className="mt-3 pt-3"
+                            style={{ borderTop: '1px dashed var(--border)' }}
+                        >
+                            <label className="input-label mb-1.5 block">
+                                Minimum Partial Amount (₹)
+                            </label>
+                            <input
+                                type="number"
+                                value={minPartialAmt}
+                                onChange={e => setMinPartialAmt(e.target.value)}
+                                placeholder="0 = koi minimum nahi"
+                                min={0}
+                                className="input-clean w-full"
+                            />
+                            <p className="input-hint mt-1.5">
+                                Example: ₹500 set karo → student kam se kam ₹500 dega.
+                                0 rakho → koi limit nahi.
+                            </p>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Save Button */}
+            {/* Save button */}
             <button
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-60 transition-all active:scale-[0.98]"
-                style={{
-                    backgroundColor: '#2563EB',
-                    color: '#FFFFFF',
-                    boxShadow: '0 1px 3px rgba(37,99,235,0.3)',
-                }}
+                className="btn-primary"
             >
                 {saving ? <Spinner size="sm" /> : <Settings size={14} />}
                 {saving ? 'Saving...' : 'Save Settings'}

@@ -1,4 +1,4 @@
-// FILE: src/app/api/fees/optional-assign/route.ts — NEW FILE
+// FILE: src/app/api/fees/optional-assign/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -16,69 +16,119 @@ export async function POST(req: NextRequest) {
 
         await connectDB()
 
-        const { structureId, studentIds, item, dueDate, academicYear } = await req.json()
+        const body = await req.json()
+        const { structureId, studentIds, dueDate, academicYear } = body
 
-        if (!structureId || !studentIds?.length || !item) {
+        const items: Array<{ label: string; amount: number; isOptional: boolean }> =
+            body.items
+                ? body.items
+                : body.item
+                    ? [body.item]
+                    : []
+
+        if (!structureId || !studentIds?.length || !items.length) {
             return NextResponse.json(
-                { error: 'structureId, studentIds, item required' },
+                { error: 'structureId, studentIds, aur kam se kam ek item required hai' },
                 { status: 400 }
             )
         }
 
         const structure = await FeeStructure.findOne({
-            _id: structureId,
+            _id:      structureId,
             tenantId: session.user.tenantId,
         })
         if (!structure) {
             return NextResponse.json({ error: 'Structure not found' }, { status: 404 })
         }
 
-        // Har selected student ke liye Fee create karo
-        // ✅ Check karo pehle se exist toh nahi karta
-        let assigned = 0
-        let skipped = 0
+        // Validate optional items
+        const structureOptionalLabels = structure.items
+            .filter((i: any) => i.isOptional)
+            .map((i: any) => i.label)
 
-        const ops = []
+        const invalidItems = items.filter(
+            (i: any) => !structureOptionalLabels.includes(i.label)
+        )
+        if (invalidItems.length > 0) {
+            return NextResponse.json(
+                { error: `Invalid optional items: ${invalidItems.map((i: any) => i.label).join(', ')}` },
+                { status: 400 }
+            )
+        }
+
+        const selectedLabels = items.map((i: any) => i.label)
+
+        let assigned   = 0
+        let skipped    = 0
+        let alreadyHad = 0
 
         for (const studentId of studentIds) {
-            // Same structure + same optional item label check
-            const existing = await Fee.findOne({
-                tenantId: session.user.tenantId,
+
+            const existingFee = await Fee.findOne({
+                tenantId:      session.user.tenantId,
                 studentId,
                 structureId,
-                notes: `optional:${item.label}`, // tag se identify karo
+                isOptionalFee: { $ne: true },
             })
 
-            if (existing) {
+            if (!existingFee) {
                 skipped++
                 continue
             }
 
-            ops.push({
-                insertOne: {
-                    document: {
-                        tenantId: session.user.tenantId,
-                        studentId,
-                        structureId,
-                        amount: item.amount,
-                        discount: 0,
-                        lateFine: 0,
-                        finalAmount: item.amount,
-                        dueDate: new Date(dueDate),
-                        status: 'pending',
-                        paidAmount: 0,
-                        notes: `optional:${item.label}`, // identify karo
+            // ✅ Null-safe — purane docs mein null ho sakta hai
+            const alreadyAdded: string[] = Array.isArray(existingFee.optionalItemLabels)
+                ? existingFee.optionalItemLabels
+                : []
+
+            const newLabels = selectedLabels.filter(
+                (label: string) => !alreadyAdded.includes(label)
+            )
+
+            if (newLabels.length === 0) {
+                alreadyHad++
+                continue
+            }
+
+            const newItemsAmount = items
+                .filter((i: any) => newLabels.includes(i.label))
+                .reduce((sum: number, i: any) => sum + Number(i.amount), 0)
+
+            // ✅ FIX 1 — Simple approach: do alag operations
+            // Step A: amount increment karo
+            await Fee.findByIdAndUpdate(
+                existingFee._id,
+                {
+                    $inc: {
+                        amount:      newItemsAmount,
+                        finalAmount: newItemsAmount,
                     },
-                },
-            })
+                }
+            )
+
+            // Step B: ✅ FIX 2 — optionalItemLabels safely set karo
+            // Pehle current value lo (already fetched hai)
+            const updatedLabels = [...alreadyAdded, ...newLabels]
+
+            await Fee.findByIdAndUpdate(
+                existingFee._id,
+                {
+                    $set: {
+                        // ✅ Direct set — null issue nahi hoga
+                        optionalItemLabels: updatedLabels,
+                    },
+                }
+            )
+
             assigned++
         }
 
-        if (ops.length > 0) {
-            await Fee.bulkWrite(ops)
-        }
-
-        return NextResponse.json({ assigned, skipped })
+        return NextResponse.json({
+            assigned,
+            skipped,
+            alreadyHad,
+            message: `${assigned} students ko optional fees add ho gayi`,
+        })
 
     } catch (err: any) {
         console.error('[Optional Fee Assign Error]', err)

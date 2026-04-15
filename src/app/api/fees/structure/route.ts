@@ -38,6 +38,7 @@ export async function GET(req: NextRequest) {
         const assignedCount = await Fee.countDocuments({
           tenantId: session.user.tenantId,
           structureId: s._id,
+          isOptionalFee: { $ne: true},
         })
         return { ...s, assignedCount }
       })

@@ -31,8 +31,11 @@ export interface IFee extends Document {
   collectedBy?: mongoose.Types.ObjectId
   reminderSentAt?: Date
   notes?: string
-  // NEW: Payment history for partial payments
   payments: IFeePayment[]
+  // ✅ NEW — optional fee tracking
+  isOptionalFee: boolean
+  optionalItemLabels?: string
+  academicYear?: string
 }
 
 const FeePaymentSchema = new Schema({
@@ -57,7 +60,9 @@ const FeeSchema = new Schema<IFee>({
   finalAmount: { type: Number, required: true },
   dueDate: { type: Date, required: true },
   status: {
-    type: String, enum: ['pending', 'paid', 'partial', 'waived'], default: 'pending',
+    type: String,
+    enum: ['pending', 'paid', 'partial', 'waived'],
+    default: 'pending',
   },
   paidAmount: { type: Number, default: 0 },
   paidAt: { type: Date },
@@ -70,11 +75,30 @@ const FeeSchema = new Schema<IFee>({
   reminderSentAt: { type: Date },
   notes: { type: String },
   payments: [FeePaymentSchema],
+
+  // ✅ NEW — optional fee fields
+  isOptionalFee: {
+    type: Boolean,
+    default: false,
+  },
+  optionalItemLabels: {
+    type: [String],
+    default: null,
+  },
+  academicYear: {
+    type: String,
+  },
+
 }, { timestamps: true })
 
+// Existing indexes
 FeeSchema.index({ tenantId: 1, studentId: 1, status: 1 })
 FeeSchema.index({ tenantId: 1, dueDate: 1, status: 1 })
 FeeSchema.index({ razorpayOrderId: 1 })
+
+// ✅ NEW indexes — optional fee queries fast honge
+FeeSchema.index({ tenantId: 1, structureId: 1, optionalItemLabel: 1 })
+FeeSchema.index({ tenantId: 1, isOptionalFee: 1, status: 1 })
 
 export const Fee =
   mongoose.models.Fee ||

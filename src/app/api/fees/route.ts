@@ -10,6 +10,7 @@ import { connectDB } from '@/lib/db'
 import { Fee } from '@/models/Fee'
 import { Student } from '@/models/Student'
 import { User } from '@/models/User'
+import '@/models/FeeStructure'
 import { checkCredits } from '@/lib/credits'
 import { sendBulkMessages, sendMessage, SMS_TEMPLATES } from '@/lib/message'
 
