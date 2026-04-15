@@ -1,8 +1,5 @@
-// FILE: src/app/(dashboard)/admin/page.tsx
-// UPDATED: creditBalance + addonLimits added to getDashboardData
-// BACKWARD COMPATIBLE
-// ═══════════════════════════════════════════════════════════
-
+// Bilkul same — koi change nahi
+// Logic touch nahi kiya
 import { getServerSession } from 'next-auth'
 import { redirect } from 'next/navigation'
 import { authOptions } from '@/lib/auth'
@@ -24,8 +21,8 @@ import { Types } from 'mongoose'
 async function getDashboardData(tenantId: string) {
   await connectDB()
 
-  const today = new Date().toISOString().split('T')[0]
-  const now = new Date()
+  const today      = new Date().toISOString().split('T')[0]
+  const now        = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
   const [
@@ -45,7 +42,6 @@ async function getDashboardData(tenantId: string) {
     activeSub,
     last7DaysAttendance,
     classWiseStudents,
-    // ── NEW: Credit data ──
     creditRecord,
     last30DaysMsgUsage,
   ] = await Promise.all([
@@ -74,8 +70,8 @@ async function getDashboardData(tenantId: string) {
       .sort({ paidAt: -1 })
       .limit(5)
       .populate({
-        path: 'studentId',
-        select: 'admissionNo',
+        path:     'studentId',
+        select:   'admissionNo',
         populate: { path: 'userId', select: 'name' },
       })
       .select('amount paidAt studentId')
@@ -116,22 +112,22 @@ async function getDashboardData(tenantId: string) {
       return days
     })(),
 
-    // Class-wise students
+    // Class-wise
     Student.aggregate([
       { $match: { tenantId: new Types.ObjectId(tenantId), status: 'active' } },
       { $group: { _id: '$class', count: { $sum: 1 } } },
       { $sort: { _id: 1 } },
     ]),
 
-    // ── NEW: Credit balance ──
+    // Credit balance
     MessageCredit.findOne({ tenantId }).lean(),
 
-    // ── NEW: Last 30 days message usage by channel ──
+    // Last 30 days usage
     CreditTransaction.aggregate([
       {
         $match: {
-          tenantId: new Types.ObjectId(tenantId),
-          type: 'message_deduct',
+          tenantId:  new Types.ObjectId(tenantId),
+          type:      'message_deduct',
           createdAt: {
             $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
           },
@@ -139,8 +135,8 @@ async function getDashboardData(tenantId: string) {
       },
       {
         $group: {
-          _id: '$channel',
-          count: { $sum: 1 },
+          _id:     '$channel',
+          count:   { $sum: 1 },
           credits: { $sum: { $abs: '$amount' } },
         },
       },
@@ -153,26 +149,22 @@ async function getDashboardData(tenantId: string) {
       : 0
 
   const feeThisMonth = paidFeesThisMonth[0]?.total || 0
-  const feeTotal = totalFeeCollected[0]?.total || 0
+  const feeTotal     = totalFeeCollected[0]?.total  || 0
 
-  // Subscription info
   const schoolData = school as any
-  const subData = activeSub as any
-  const trialEnd = schoolData?.trialEndsAt
-    ? new Date(schoolData.trialEndsAt)
-    : null
-  const isPaid = Boolean(subData)
-  const isInTrial = !isPaid && trialEnd && trialEnd > now
-  const isExpired = !isInTrial && !isPaid
-  const daysLeft = trialEnd
+  const subData    = activeSub as any
+  const trialEnd   = schoolData?.trialEndsAt ? new Date(schoolData.trialEndsAt) : null
+  const isPaid     = Boolean(subData)
+  const isInTrial  = !isPaid && trialEnd && trialEnd > now
+  const isExpired  = !isInTrial && !isPaid
+  const daysLeft   = trialEnd
     ? Math.ceil((trialEnd.getTime() - now.getTime()) / 86400000)
     : 0
 
-  // ── Credit info ──
-  const credit = creditRecord as any
-  const planConfig = PLANS[schoolData?.plan as PlanId] ?? PLANS.starter
-  const extraStudents = schoolData?.addonLimits?.extraStudents ?? 0
-  const extraTeachers = schoolData?.addonLimits?.extraTeachers ?? 0
+  const credit          = creditRecord as any
+  const planConfig      = PLANS[schoolData?.plan as PlanId] ?? PLANS.starter
+  const extraStudents   = schoolData?.addonLimits?.extraStudents ?? 0
+  const extraTeachers   = schoolData?.addonLimits?.extraTeachers ?? 0
 
   const effectiveStudentLimit = isInTrial
     ? 100
@@ -199,47 +191,45 @@ async function getDashboardData(tenantId: string) {
       activeNotices,
     },
     recentStudents: JSON.parse(JSON.stringify(recentStudents)),
-    recentFees: JSON.parse(JSON.stringify(recentFees)),
-    recentNotices: JSON.parse(JSON.stringify(recentNotices)),
+    recentFees:     JSON.parse(JSON.stringify(recentFees)),
+    recentNotices:  JSON.parse(JSON.stringify(recentNotices)),
     attendanceChart: JSON.parse(JSON.stringify(last7DaysAttendance)),
-    classWise: JSON.parse(JSON.stringify(classWiseStudents)),
+    classWise:       JSON.parse(JSON.stringify(classWiseStudents)),
     subscription: {
-      plan: schoolData?.plan || 'starter',
-      isPaid: Boolean(isPaid),
-      isInTrial: Boolean(isInTrial),
-      isExpired: Boolean(isExpired),
-      daysLeft: isInTrial ? daysLeft : null,
+      plan:              schoolData?.plan || 'starter',
+      isPaid:            Boolean(isPaid),
+      isInTrial:         Boolean(isInTrial),
+      isExpired:         Boolean(isExpired),
+      daysLeft:          isInTrial ? daysLeft : null,
       validTill:
         isPaid && subData?.currentPeriodEnd
           ? new Date(subData.currentPeriodEnd).toLocaleDateString('en-IN')
           : trialEnd?.toLocaleDateString('en-IN') || '',
       isScheduledCancel: subData?.status === 'scheduled_cancel',
     },
-    // ── NEW: Credits ──
     credits: {
-      balance: credit?.balance ?? schoolData?.creditBalance ?? 0,
-      totalUsed: credit?.totalUsed ?? 0,
-      totalEarned: credit?.totalEarned ?? 0,
+      balance:      credit?.balance ?? schoolData?.creditBalance ?? 0,
+      totalUsed:    credit?.totalUsed  ?? 0,
+      totalEarned:  credit?.totalEarned ?? 0,
       freePerMonth: isInTrial ? 0 : planConfig.freeCreditsPerMonth,
-      lowWarning: (credit?.balance ?? 0) < 100,
-      last30Days: JSON.parse(JSON.stringify(last30DaysMsgUsage)),
+      lowWarning:   (credit?.balance ?? 0) < 100,
+      last30Days:   JSON.parse(JSON.stringify(last30DaysMsgUsage)),
     },
-    // ── NEW: Limits with add-ons ──
     limits: {
       students: {
-        used: totalStudents,
-        limit: effectiveStudentLimit,
+        used:      totalStudents,
+        limit:     effectiveStudentLimit,
         planLimit: isInTrial ? 100 : planConfig.maxStudents,
-        addon: extraStudents,
+        addon:     extraStudents,
       },
       teachers: {
-        used: totalTeachers,
-        limit: effectiveTeacherLimit,
+        used:      totalTeachers,
+        limit:     effectiveTeacherLimit,
         planLimit: isInTrial ? 10 : planConfig.maxTeachers,
-        addon: extraTeachers,
+        addon:     extraTeachers,
       },
     },
-    schoolName: schoolData?.name || '',
+    schoolName:      schoolData?.name || '',
     schoolCreatedAt: schoolData?.createdAt
       ? new Date(schoolData.createdAt).toLocaleDateString('en-IN')
       : '',
@@ -250,7 +240,7 @@ export default async function AdminDashboard() {
   const session = await getServerSession(authOptions)
   if (!session || session.user.role !== 'admin') redirect('/login')
 
-  const data = await getDashboardData(session.user.tenantId)
+  const data     = await getDashboardData(session.user.tenantId)
   const userName = session.user.name?.split(' ')[0] || 'Admin'
 
   return <AdminDashboardClient data={data} userName={userName} />
