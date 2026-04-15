@@ -1,11 +1,10 @@
 // src/app/(dashboard)/admin/exams/[examId]/results/page.tsx
-// NEW: Admin results view
-// Shows: pass/fail stats, rank list, subject-wise analysis
+// ✅ UPDATED: gradeScale aur passPercentage settings se sync
 // ═══════════════════════════════════════════════════════════
 
 'use client'
 
-import { useState, useEffect, use, useCallback } from 'react'
+import { useState, useEffect, use, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import {
     Button, Card, PageHeader, Spinner, EmptyState, Badge,
@@ -14,6 +13,10 @@ import {
     ArrowLeft, Trophy, Users, CheckCircle, XCircle,
     TrendingUp, Download, FileText, BarChart3,
 } from 'lucide-react'
+import { useAcademicSettings } from '@/hooks/useAcademicSettings'
+import type { IGradeScale } from '@/types/settings'
+
+// ── Types — unchanged ────────────────────────────────────────
 
 interface SubjectResult {
     subject: string
@@ -22,7 +25,11 @@ interface SubjectResult {
     grade: string
     activityGrade: string
     isAbsent: boolean
-    components: Array<{ name: string; marksObtained: number; maxMarks: number }>
+    components: Array<{
+        name: string
+        marksObtained: number
+        maxMarks: number
+    }>
 }
 
 interface StudentResult {
@@ -54,6 +61,49 @@ interface ExamData {
     admitCardEnabled: boolean
 }
 
+// ── Helpers ──────────────────────────────────────────────────
+
+/**
+ * Settings ki gradeScale se grade labels nikalo
+ * Fallback: hardcoded list
+ */
+function getGradeLabels(gradeScale: IGradeScale[]): string[] {
+    if (!gradeScale?.length) {
+        return ['A+', 'A', 'B+', 'B', 'C+', 'C', 'D', 'F']
+    }
+    // minMarks descending order se sort karo
+    return [...gradeScale]
+        .sort((a, b) => b.minMarks - a.minMarks)
+        .map(g => g.grade)
+}
+
+/**
+ * Percentage ke basis pe color class
+ * Settings ka passPercentage use karo threshold ke liye
+ */
+function getPctColorClass(
+    pct: number,
+    passPercentage: number
+): string {
+    if (pct >= 75) return 'text-[var(--success)]'
+    if (pct >= passPercentage) return 'text-[var(--warning)]'
+    return 'text-[var(--danger)]'
+}
+
+/**
+ * Percentage ke basis pe color class — bg wala
+ */
+function getPctBgColorClass(
+    pct: number,
+    passPercentage: number
+): string {
+    if (pct >= 75) return 'bg-[var(--success)]'
+    if (pct >= passPercentage) return 'bg-[var(--warning)]'
+    return 'bg-[var(--danger)]'
+}
+
+// ── Main Component ───────────────────────────────────────────
+
 export default function ResultsDashboardPage({
     params,
 }: {
@@ -64,7 +114,25 @@ export default function ResultsDashboardPage({
     const [exam, setExam] = useState<ExamData | null>(null)
     const [results, setResults] = useState<StudentResult[]>([])
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState<'overview' | 'ranklist' | 'subjects'>('overview')
+    const [activeTab, setActiveTab] = useState<
+        'overview' | 'ranklist' | 'subjects'
+    >('overview')
+
+    // ✅ Academic settings
+    const { settings: academicSettings } = useAcademicSettings()
+
+    // ✅ Derived from settings
+    const passPercentage = academicSettings?.passPercentage ?? 33
+    const gradeScale = academicSettings?.gradeScale ?? []
+    const gradingSystem = academicSettings?.gradingSystem ?? 'marks'
+
+    // ✅ Dynamic grade labels
+    const gradeLabels = useMemo(
+        () => getGradeLabels(gradeScale),
+        [gradeScale]
+    )
+
+    // ── Load data ────────────────────────────────────────────
 
     const load = useCallback(async () => {
         setLoading(true)
@@ -74,7 +142,8 @@ export default function ResultsDashboardPage({
                 fetch(`/api/exams/results?examId=${examId}`),
             ])
             const [examData, resData] = await Promise.all([
-                examRes.json(), resRes.json(),
+                examRes.json(),
+                resRes.json(),
             ])
             setExam(examData.exam)
             setResults(resData.results ?? [])
@@ -87,47 +156,88 @@ export default function ResultsDashboardPage({
 
     useEffect(() => { load() }, [load])
 
-    // ── Stats ────────────────────────────────────────────────
+    // ── BroadcastChannel — settings update pe re-derive ──────
+
+    useEffect(() => {
+        const channel = new BroadcastChannel('settings-update')
+        channel.onmessage = (event) => {
+            if (event.data.type === 'academic-updated') {
+                // useAcademicSettings hook khud update karega
+                // gradeLabels, passPercentage useMemo se auto-update honge
+                console.log('[ResultsDashboard] Academic settings updated')
+            }
+        }
+        return () => channel.close()
+    }, [])
+
+    // ── Stats ─────────────────────────────────────────────────
+
     const total = results.length
     const passed = results.filter(r => r.isPassed).length
     const failed = total - passed
     const avgPct = total > 0
-        ? Math.round(results.reduce((s, r) => s + r.percentage, 0) / total)
+        ? Math.round(
+            results.reduce((s, r) => s + r.percentage, 0) / total
+        )
         : 0
     const topScore = results.length > 0
         ? Math.max(...results.map(r => r.percentage))
         : 0
 
-    // Subject-wise pass analysis
-    const subjectStats = exam?.subjects.map((sub: any) => {
-        const subResults = results.map(r =>
-            r.marks.find(m => m.subject === sub.name)
-        ).filter(Boolean) as SubjectResult[]
+    // ── Grade distribution — settings se dynamic ──────────────
 
-        const subPassed = subResults.filter(
-            m => !m.isAbsent && m.marksObtained >= sub.minMarks
-        ).length
-        const subAbsent = subResults.filter(m => m.isAbsent).length
-        const subAvg = subResults.length > 0
-            ? Math.round(
-                subResults.reduce((s, m) => s + (m.isAbsent ? 0 : m.marksObtained), 0)
-                / subResults.length
-            )
-            : 0
+    const gradeDistribution = useMemo(() => {
+        return gradeLabels
+            .map(g => ({
+                grade: g,
+                count: results.filter(r => r.grade === g).length,
+            }))
+            .filter(item => item.count > 0)
+    }, [gradeLabels, results])
 
-        return {
-            name: sub.name,
-            maxMarks: sub.totalMaxMarks,
-            passed: subPassed,
-            failed: subResults.length - subPassed - subAbsent,
-            absent: subAbsent,
-            total: subResults.length,
-            avg: subAvg,
-            passRate: subResults.length > 0
+    // ── Subject-wise analysis ─────────────────────────────────
+
+    const subjectStats = useMemo(() => {
+        if (!exam?.subjects) return []
+
+        return exam.subjects.map((sub: any) => {
+            const subResults = results
+                .map(r => r.marks.find(m => m.subject === sub.name))
+                .filter(Boolean) as SubjectResult[]
+
+            const subPassed = subResults.filter(
+                m => !m.isAbsent && m.marksObtained >= sub.minMarks
+            ).length
+            const subAbsent = subResults.filter(m => m.isAbsent).length
+            const subFailed = subResults.length - subPassed - subAbsent
+
+            const subAvg = subResults.length > 0
+                ? Math.round(
+                    subResults.reduce(
+                        (s, m) => s + (m.isAbsent ? 0 : m.marksObtained), 0
+                    ) / subResults.length
+                )
+                : 0
+
+            const passRate = subResults.length > 0
                 ? Math.round((subPassed / subResults.length) * 100)
-                : 0,
-        }
-    }) ?? []
+                : 0
+
+            return {
+                name: sub.name,
+                maxMarks: sub.totalMaxMarks,
+                isGradeOnly: sub.isGradeOnly ?? false,
+                passed: subPassed,
+                failed: subFailed,
+                absent: subAbsent,
+                total: subResults.length,
+                avg: subAvg,
+                passRate,
+            }
+        })
+    }, [exam?.subjects, results])
+
+    // ── Render ────────────────────────────────────────────────
 
     if (loading) {
         return (
@@ -236,10 +346,14 @@ export default function ResultsDashboardPage({
                     </div>
                     <p className="stat-value">{topScore}%</p>
                 </div>
+
             </div>
 
             {/* ── Tabs ── */}
-            <div className="flex gap-1 mb-5 p-1 bg-[var(--bg-muted)] rounded-[var(--radius-md)] w-fit">
+            <div className="
+        flex gap-1 mb-5 p-1
+        bg-[var(--bg-muted)] rounded-[var(--radius-md)] w-fit
+      ">
                 {[
                     { key: 'overview', label: 'Overview' },
                     { key: 'ranklist', label: 'Rank List' },
@@ -249,7 +363,8 @@ export default function ResultsDashboardPage({
                         key={tab.key}
                         onClick={() => setActiveTab(tab.key as any)}
                         className={[
-                            'px-4 py-1.5 rounded-[var(--radius-sm)] text-sm font-medium transition-all',
+                            'px-4 py-1.5 rounded-[var(--radius-sm)]',
+                            'text-sm font-medium transition-all',
                             activeTab === tab.key
                                 ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm'
                                 : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]',
@@ -260,7 +375,9 @@ export default function ResultsDashboardPage({
                 ))}
             </div>
 
-            {/* ── Overview Tab ── */}
+            {/* ══════════════════════════════════════════════════ */}
+            {/* Overview Tab                                       */}
+            {/* ══════════════════════════════════════════════════ */}
             {activeTab === 'overview' && (
                 <div className="space-y-4">
 
@@ -270,23 +387,35 @@ export default function ResultsDashboardPage({
                             <div>
                                 <p className="portal-card-title">Pass / Fail Distribution</p>
                                 <p className="portal-card-subtitle">
-                                    {total} students attempted
+                                    {total} students attempted ·{' '}
+                                    {/* ✅ Settings ka passPercentage show karo */}
+                                    Pass threshold: {passPercentage}%
                                 </p>
                             </div>
                         </div>
                         <div className="portal-card-body">
                             <div className="flex rounded-full overflow-hidden h-6 mb-3">
                                 <div
-                                    className="bg-[var(--success)] flex items-center justify-center text-white text-xs font-bold transition-all"
-                                    style={{ width: `${total > 0 ? (passed / total) * 100 : 0}%` }}
+                                    className="
+                    bg-[var(--success)] flex items-center
+                    justify-center text-white text-xs font-bold transition-all
+                  "
+                                    style={{
+                                        width: `${total > 0 ? (passed / total) * 100 : 0}%`,
+                                    }}
                                 >
                                     {total > 0 && passed > 0
                                         ? `${Math.round((passed / total) * 100)}%`
                                         : ''}
                                 </div>
                                 <div
-                                    className="bg-[var(--danger)] flex items-center justify-center text-white text-xs font-bold transition-all"
-                                    style={{ width: `${total > 0 ? (failed / total) * 100 : 0}%` }}
+                                    className="
+                    bg-[var(--danger)] flex items-center
+                    justify-center text-white text-xs font-bold transition-all
+                  "
+                                    style={{
+                                        width: `${total > 0 ? (failed / total) * 100 : 0}%`,
+                                    }}
                                 >
                                     {total > 0 && failed > 0
                                         ? `${Math.round((failed / total) * 100)}%`
@@ -310,40 +439,99 @@ export default function ResultsDashboardPage({
                         </div>
                     </div>
 
-                    {/* Grade distribution */}
+                    {/* ✅ Grade distribution — settings se dynamic */}
                     <div className="portal-card">
                         <div className="portal-card-header">
                             <p className="portal-card-title">Grade Distribution</p>
+                            {/* ✅ Grading system bhi show karo */}
+                            <span className="badge badge-brand text-xs capitalize">
+                                {gradingSystem === 'grades'
+                                    ? 'Custom Grade Scale'
+                                    : gradingSystem === 'cgpa'
+                                        ? 'CGPA System'
+                                        : 'Marks Based'}
+                            </span>
                         </div>
                         <div className="portal-card-body">
-                            <div className="flex flex-wrap gap-3">
-                                {['A+', 'A', 'B+', 'B', 'C+', 'C', 'D', 'F'].map(g => {
-                                    const count = results.filter(r => r.grade === g).length
-                                    if (count === 0) return null
-                                    return (
+                            {gradeDistribution.length === 0 ? (
+                                <p className="text-sm text-[var(--text-muted)]">
+                                    No results yet to show grade distribution.
+                                </p>
+                            ) : (
+                                <div className="flex flex-wrap gap-3">
+                                    {gradeDistribution.map(({ grade, count }) => (
                                         <div
-                                            key={g}
-                                            className="flex flex-col items-center p-3 bg-[var(--bg-muted)] rounded-[var(--radius-md)] min-w-[60px]"
+                                            key={grade}
+                                            className="
+                        flex flex-col items-center p-3
+                        bg-[var(--bg-muted)] rounded-[var(--radius-md)]
+                        min-w-[60px]
+                      "
                                         >
-                                            <span className="text-lg font-black text-[var(--primary-600)]">
-                                                {g}
+                                            <span className="
+                        text-lg font-black text-[var(--primary-600)]
+                      ">
+                                                {grade}
                                             </span>
-                                            <span className="text-xl font-bold text-[var(--text-primary)]">
+                                            <span className="
+                        text-xl font-bold text-[var(--text-primary)]
+                      ">
                                                 {count}
                                             </span>
                                             <span className="text-[10px] text-[var(--text-muted)]">
                                                 students
                                             </span>
                                         </div>
-                                    )
-                                })}
-                            </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* ✅ Grade scale legend — settings se */}
+                            {gradingSystem === 'grades' && gradeScale.length > 0 && (
+                                <div className="
+                  mt-4 pt-4 border-t border-[var(--border)]
+                  flex flex-wrap gap-2
+                ">
+                                    <p className="
+                    w-full text-xs font-600
+                    text-[var(--text-muted)] mb-1
+                  ">
+                                        Grade Scale:
+                                    </p>
+                                    {[...gradeScale]
+                                        .sort((a, b) => b.minMarks - a.minMarks)
+                                        .map(g => (
+                                            <div
+                                                key={g.grade}
+                                                className="
+                          flex items-center gap-1.5 px-2 py-1
+                          bg-[var(--bg-card)] border border-[var(--border)]
+                          rounded-[var(--radius-sm)] text-xs
+                        "
+                                            >
+                                                <span className="font-700 text-[var(--primary-600)]">
+                                                    {g.grade}
+                                                </span>
+                                                <span className="text-[var(--text-muted)]">
+                                                    {g.minMarks}–{g.maxMarks}%
+                                                </span>
+                                                {g.description && (
+                                                    <span className="text-[var(--text-muted)] hidden sm:inline">
+                                                        · {g.description}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ── Rank List Tab ── */}
+            {/* ══════════════════════════════════════════════════ */}
+            {/* Rank List Tab                                      */}
+            {/* ══════════════════════════════════════════════════ */}
             {activeTab === 'ranklist' && (
                 <div className="portal-card">
                     <div className="portal-card-header">
@@ -358,16 +546,17 @@ export default function ResultsDashboardPage({
                         <table className="portal-table">
                             <thead>
                                 <tr>
-                                    {['Rank', 'Student', 'Adm No', 'Roll No',
+                                    {[
+                                        'Rank', 'Student', 'Adm No', 'Roll No',
                                         'Obtained', 'Total', '%', 'Grade', 'Result',
-                                        'Report Card'].map(h => (
-                                            <th key={h}>{h}</th>
-                                        ))}
+                                        'Report Card',
+                                    ].map(h => <th key={h}>{h}</th>)}
                                 </tr>
                             </thead>
                             <tbody>
                                 {results.map(r => (
                                     <tr key={r._id}>
+
                                         {/* Rank */}
                                         <td>
                                             <div className={[
@@ -381,13 +570,21 @@ export default function ResultsDashboardPage({
                                                             ? 'bg-orange-100 text-orange-700'
                                                             : 'bg-[var(--bg-muted)] text-[var(--text-secondary)]',
                                             ].join(' ')}>
-                                                {r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : r.rank}
+                                                {r.rank === 1
+                                                    ? '🥇'
+                                                    : r.rank === 2
+                                                        ? '🥈'
+                                                        : r.rank === 3
+                                                            ? '🥉'
+                                                            : r.rank}
                                             </div>
                                         </td>
 
                                         {/* Student */}
                                         <td>
-                                            <p className="font-semibold text-sm text-[var(--text-primary)]">
+                                            <p className="
+                        font-semibold text-sm text-[var(--text-primary)]
+                      ">
                                                 {r.studentId?.userId?.name || '—'}
                                             </p>
                                         </td>
@@ -400,7 +597,9 @@ export default function ResultsDashboardPage({
                                             {r.studentId?.rollNo}
                                         </td>
 
-                                        <td className="text-sm font-semibold text-[var(--text-primary)]">
+                                        <td className="
+                      text-sm font-semibold text-[var(--text-primary)]
+                    ">
                                             {r.totalObtained}
                                         </td>
 
@@ -408,21 +607,20 @@ export default function ResultsDashboardPage({
                                             {r.totalMarks}
                                         </td>
 
+                                        {/* ✅ Percentage color — settings ka passPercentage */}
                                         <td>
                                             <span className={[
                                                 'text-sm font-bold',
-                                                r.percentage >= 75
-                                                    ? 'text-[var(--success)]'
-                                                    : r.percentage >= 50
-                                                        ? 'text-[var(--warning)]'
-                                                        : 'text-[var(--danger)]',
+                                                getPctColorClass(r.percentage, passPercentage),
                                             ].join(' ')}>
                                                 {r.percentage}%
                                             </span>
                                         </td>
 
                                         <td>
-                                            <span className="font-black text-[var(--primary-600)] text-sm">
+                                            <span className="
+                        font-black text-[var(--primary-600)] text-sm
+                      ">
                                                 {r.grade}
                                             </span>
                                         </td>
@@ -436,13 +634,18 @@ export default function ResultsDashboardPage({
                                             </span>
                                         </td>
 
-                                        {/* Report Card Download */}
+                                        {/* Report Card */}
                                         <td>
                                             <a
                                                 href={`/api/pdf/reportcard/${r._id}`}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                className="flex items-center gap-1 text-xs text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium transition-colors"
+                                                className="
+                          flex items-center gap-1 text-xs
+                          text-[var(--primary-600)]
+                          hover:text-[var(--primary-700)]
+                          font-medium transition-colors
+                        "
                                             >
                                                 <Download size={12} /> View PDF
                                             </a>
@@ -467,60 +670,104 @@ export default function ResultsDashboardPage({
                 </div>
             )}
 
-            {/* ── Subject Analysis Tab ── */}
+            {/* ══════════════════════════════════════════════════ */}
+            {/* Subject Analysis Tab                               */}
+            {/* ══════════════════════════════════════════════════ */}
             {activeTab === 'subjects' && (
                 <div className="portal-card">
                     <div className="portal-card-header">
                         <p className="portal-card-title">Subject-wise Analysis</p>
+                        {/* ✅ Pass threshold info */}
+                        <span className="text-xs text-[var(--text-muted)]">
+                            Pass: {passPercentage}% minimum
+                        </span>
                     </div>
                     <div className="table-wrapper">
                         <table className="portal-table">
                             <thead>
                                 <tr>
-                                    {['Subject', 'Max Marks', 'Avg Score',
-                                        'Pass', 'Fail', 'Absent', 'Pass Rate'].map(h => (
-                                            <th key={h}>{h}</th>
-                                        ))}
+                                    {[
+                                        'Subject', 'Max Marks', 'Avg Score',
+                                        'Pass', 'Fail', 'Absent', 'Pass Rate',
+                                    ].map(h => <th key={h}>{h}</th>)}
                                 </tr>
                             </thead>
                             <tbody>
                                 {subjectStats.map(sub => (
                                     <tr key={sub.name}>
-                                        <td className="font-semibold text-[var(--text-primary)]">
+
+                                        <td className="
+                      font-semibold text-[var(--text-primary)]
+                    ">
                                             {sub.name}
+                                            {sub.isGradeOnly && (
+                                                <span className="
+                          ml-1.5 text-[10px]
+                          text-[var(--primary-500)] font-normal
+                        ">
+                                                    (Grade only)
+                                                </span>
+                                            )}
                                         </td>
+
                                         <td className="text-[var(--text-muted)] text-sm">
-                                            {sub.maxMarks}
+                                            {sub.isGradeOnly ? '—' : sub.maxMarks}
                                         </td>
+
                                         <td className="font-semibold text-sm">
-                                            {sub.avg}
+                                            {sub.isGradeOnly ? '—' : sub.avg}
                                         </td>
+
                                         <td>
-                                            <span className="text-[var(--success)] font-bold text-sm">
+                                            <span className="
+                        text-[var(--success)] font-bold text-sm
+                      ">
                                                 {sub.passed}
                                             </span>
                                         </td>
+
                                         <td>
-                                            <span className="text-[var(--danger)] font-bold text-sm">
+                                            <span className="
+                        text-[var(--danger)] font-bold text-sm
+                      ">
                                                 {sub.failed}
                                             </span>
                                         </td>
+
                                         <td className="text-[var(--text-muted)] text-sm">
                                             {sub.absent}
                                         </td>
+
                                         <td>
-                                            {/* Pass rate bar */}
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 bg-[var(--border)] rounded-full h-1.5 min-w-[60px]">
-                                                    <div
-                                                        className="h-1.5 rounded-full bg-[var(--success)] transition-all"
-                                                        style={{ width: `${sub.passRate}%` }}
-                                                    />
-                                                </div>
-                                                <span className="text-xs font-semibold text-[var(--text-secondary)] w-8">
-                                                    {sub.passRate}%
+                                            {sub.isGradeOnly ? (
+                                                <span className="text-xs text-[var(--text-muted)]">
+                                                    N/A
                                                 </span>
-                                            </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <div className="
+                            flex-1 bg-[var(--border)] rounded-full
+                            h-1.5 min-w-[60px]
+                          ">
+                                                        <div
+                                                            className={[
+                                                                'h-1.5 rounded-full transition-all',
+                                                                // ✅ Pass rate color — settings se
+                                                                getPctBgColorClass(
+                                                                    sub.passRate, passPercentage
+                                                                ),
+                                                            ].join(' ')}
+                                                            style={{ width: `${sub.passRate}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className="
+                            text-xs font-semibold
+                            text-[var(--text-secondary)] w-8
+                          ">
+                                                        {sub.passRate}%
+                                                    </span>
+                                                </div>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

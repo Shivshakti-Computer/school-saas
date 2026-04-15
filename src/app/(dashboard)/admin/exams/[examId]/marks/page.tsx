@@ -1,27 +1,25 @@
 // src/app/(dashboard)/admin/exams/[examId]/marks/page.tsx
-// UPGRADED:
-//   - Composite marks entry (Theory + Practical + etc.)
-//   - Nursery/KG grade-only mode
-//   - Inline result preview after save
-//   - Admit card download link
-//   - Backward compatible (simple mode unchanged)
+// ✅ UPDATED: Live grade preview from settings gradeScale
+// Sirf ye helper functions add karo — baki sab unchanged
 // ═══════════════════════════════════════════════════════════
 
 'use client'
 
-import { useState, useEffect, use, useCallback } from 'react'
+import { useState, useEffect, use, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import {
     Button, Card, PageHeader, Alert, Spinner, EmptyState,
 } from '@/components/ui'
 import {
     BookOpen, Save, ArrowLeft, Users, CheckCircle,
-    FileText, BarChart3, Trophy, ChevronDown, ChevronUp,
+    FileText, BarChart3, Trophy,
 } from 'lucide-react'
+import { useAcademicSettings } from '@/hooks/useAcademicSettings'
+import type { IGradeScale } from '@/types/settings'
 
-// ══════════════════════════════════════════════════════════
-// Types
-// ══════════════════════════════════════════════════════════
+// ── Types — UNCHANGED ────────────────────────────────────────
+// (sab same rakho — SubjectComponent, SubjectConfig,
+//  ComponentMark, SubjectMark, StudentMark — kuch nahi badla)
 
 interface SubjectComponent {
     name: string
@@ -46,10 +44,10 @@ interface ComponentMark {
 }
 
 interface SubjectMark {
-    marksObtained: number   // simple mode ya composite total
+    marksObtained: number
     isAbsent: boolean
     components: ComponentMark[]
-    activityGrade: string   // nursery/kg ke liye
+    activityGrade: string
     remarks: string
 }
 
@@ -59,7 +57,6 @@ interface StudentMark {
     admissionNo: string
     rollNo: string
     marks: Record<string, SubjectMark>
-    // Result preview (after save)
     savedResult?: {
         rank: number
         percentage: number
@@ -71,7 +68,6 @@ interface StudentMark {
     }
 }
 
-// Activity grades for Nursery/KG
 const ACTIVITY_GRADES = [
     'Outstanding',
     'Excellent',
@@ -81,9 +77,7 @@ const ACTIVITY_GRADES = [
     'Needs Improvement',
 ]
 
-// ══════════════════════════════════════════════════════════
-// Helpers
-// ══════════════════════════════════════════════════════════
+// ── Helpers — UNCHANGED ──────────────────────────────────────
 
 function calcStudentTotal(
     marks: StudentMark['marks'],
@@ -98,15 +92,17 @@ function calcStudentTotal(
         .reduce((s, sub) => {
             const m = marks[sub.name]
             if (!m || m.isAbsent) return s
-
-            // Composite mode: sum of components
             if (sub.components?.length > 0 && m.components?.length > 0) {
-                return s + m.components.reduce((cs, c) => cs + (c.marksObtained || 0), 0)
+                return s + m.components.reduce(
+                    (cs, c) => cs + (c.marksObtained || 0), 0
+                )
             }
             return s + (m.marksObtained || 0)
         }, 0)
 
-    const pct = total > 0 ? Math.round((obtained / total) * 100) : 0
+    const pct = total > 0
+        ? Math.round((obtained / total) * 100)
+        : 0
     return { obtained, total, pct }
 }
 
@@ -132,9 +128,46 @@ function makeDefaultMark(sub: SubjectConfig): SubjectMark {
     }
 }
 
-// ══════════════════════════════════════════════════════════
-// Main Page
-// ══════════════════════════════════════════════════════════
+// ── ✅ NEW: Settings-aware live grade calculator ──────────────
+
+function getLiveGrade(
+    pct: number,
+    gradeScale: IGradeScale[],
+    isAbsent: boolean
+): string | null {
+    if (isAbsent) return 'AB'
+    if (pct <= 0) return null // Kuch fill nahi hua
+
+    if (!gradeScale?.length) {
+        // Fallback hardcoded
+        if (pct >= 91) return 'A+'
+        if (pct >= 81) return 'A'
+        if (pct >= 71) return 'B+'
+        if (pct >= 61) return 'B'
+        if (pct >= 51) return 'C+'
+        if (pct >= 41) return 'C'
+        if (pct >= 33) return 'D'
+        return 'F'
+    }
+
+    const sorted = [...gradeScale].sort((a, b) => b.minMarks - a.minMarks)
+    for (const g of sorted) {
+        if (pct >= g.minMarks && pct <= g.maxMarks) {
+            return g.grade
+        }
+    }
+    return sorted[sorted.length - 1]?.grade || 'F'
+}
+
+function getGradeColor(grade: string | null): string {
+    if (!grade || grade === 'AB') return 'text-[var(--text-muted)]'
+    if (['A+', 'A'].includes(grade)) return 'text-[var(--success-dark)]'
+    if (['B+', 'B'].includes(grade)) return 'text-[var(--info-dark)]'
+    if (['C+', 'C', 'D'].includes(grade)) return 'text-[var(--warning-dark)]'
+    return 'text-[var(--danger-dark)]'
+}
+
+// ── Main Page ────────────────────────────────────────────────
 
 export default function MarksEntryPage({
     params,
@@ -151,22 +184,24 @@ export default function MarksEntryPage({
     const [alert, setAlert] = useState<{
         type: 'success' | 'error'; msg: string
     } | null>(null)
-
-    // Expanded rows for mobile (show subject breakdown)
     const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-    // ── Load Data ──────────────────────────────────────────
+    // ✅ Academic settings
+    const { settings: academicSettings } = useAcademicSettings()
+    const gradeScale = academicSettings?.gradeScale ?? []
+    const passPercentage = academicSettings?.passPercentage ?? 33
+
+    // ── Load Data — UNCHANGED ────────────────────────────────
+
     const loadData = useCallback(async () => {
         setLoading(true)
         try {
-            // Step 1: Fetch exam
             const examRes = await fetch(`/api/exams/${examId}`)
             const examData = await examRes.json()
             if (!examRes.ok) throw new Error(examData.error || 'Exam not found')
             const examDoc = examData.exam
             setExam(examDoc)
 
-            // Step 2: Fetch students + existing results in parallel
             const stuParams = new URLSearchParams({
                 class: examDoc.class,
                 academicYear: examDoc.academicYear,
@@ -190,7 +225,6 @@ export default function MarksEntryPage({
                 resRes.json(),
             ])
 
-            // Step 3: Build existing result map
             const existingResultMap: Record<string, any> = {}
             const resultIdMap: Record<string, string> = {}
 
@@ -200,7 +234,6 @@ export default function MarksEntryPage({
                 resultIdMap[sid] = String(r._id)
             }
 
-            // Step 4: Build marks grid
             const grid: StudentMark[] = (stuData.students ?? [])
                 .sort((a: any, b: any) => {
                     const rA = parseInt(a.rollNo) || 0
@@ -226,7 +259,6 @@ export default function MarksEntryPage({
                                 components: [],
                             }
                         } else if (sub.components?.length > 0) {
-                            // Composite mode
                             marks[sub.name] = {
                                 marksObtained: existingMark?.marksObtained ?? 0,
                                 isAbsent: existingMark?.isAbsent ?? false,
@@ -244,7 +276,6 @@ export default function MarksEntryPage({
                                 }),
                             }
                         } else {
-                            // Simple mode
                             marks[sub.name] = {
                                 marksObtained: existingMark?.marksObtained ?? 0,
                                 isAbsent: existingMark?.isAbsent ?? false,
@@ -255,7 +286,6 @@ export default function MarksEntryPage({
                         }
                     }
 
-                    // Attach saved result preview if exists
                     const savedResult = existing
                         ? {
                             rank: existing.rank ?? 0,
@@ -289,7 +319,7 @@ export default function MarksEntryPage({
 
     useEffect(() => { loadData() }, [loadData])
 
-    // ── Update mark helpers ────────────────────────────────
+    // ── Update helpers — UNCHANGED ───────────────────────────
 
     const updateSimpleMark = (
         studentId: string,
@@ -307,7 +337,6 @@ export default function MarksEntryPage({
                 ...existing,
                 [field]: field === 'marksObtained' ? Number(value) : value,
             }
-            // If marked absent → reset marks
             if (field === 'isAbsent' && value === true) {
                 updated.marksObtained = 0
                 updated.components = updated.components.map(c => ({
@@ -335,8 +364,9 @@ export default function MarksEntryPage({
                     ? { ...c, marksObtained: Math.min(obtained, c.maxMarks) }
                     : c
             )
-            const total = newComps.reduce((sum, c) => sum + (c.marksObtained || 0), 0)
-
+            const total = newComps.reduce(
+                (sum, c) => sum + (c.marksObtained || 0), 0
+            )
             return {
                 ...s,
                 marks: {
@@ -351,7 +381,7 @@ export default function MarksEntryPage({
         }))
     }
 
-    // ── Save Marks ─────────────────────────────────────────
+    // ── Save — UNCHANGED ─────────────────────────────────────
 
     const saveMarks = async () => {
         if (!exam) return
@@ -387,8 +417,6 @@ export default function MarksEntryPage({
                 type: 'success',
                 msg: `✅ Marks saved for ${data.saved} students! Ranks calculated.`,
             })
-
-            // Reload to get updated ranks + result IDs
             await loadData()
         } catch (err: any) {
             setAlert({ type: 'error', msg: err.message })
@@ -397,8 +425,6 @@ export default function MarksEntryPage({
         }
     }
 
-    // ── Toggle row expand (mobile) ─────────────────────────
-
     const toggleExpand = (sid: string) => {
         setExpanded(prev => {
             const next = new Set(prev)
@@ -406,8 +432,6 @@ export default function MarksEntryPage({
             return next
         })
     }
-
-    // ── Loading / Error states ─────────────────────────────
 
     if (loading) {
         return (
@@ -436,7 +460,6 @@ export default function MarksEntryPage({
     const hasComposite = subjects.some(
         (s: SubjectConfig) => !s.isGradeOnly && s.components?.length > 0
     )
-
     const totalStudents = students.length
     const filledCount = students.filter(s =>
         Object.values(s.marks).some(
@@ -447,7 +470,7 @@ export default function MarksEntryPage({
     return (
         <div className="portal-content-enter space-y-5">
 
-            {/* ── Back ── */}
+            {/* Back */}
             <div>
                 <Link href="/admin/exams">
                     <Button variant="ghost" size="sm">
@@ -456,20 +479,22 @@ export default function MarksEntryPage({
                 </Link>
             </div>
 
-            {/* ── Header ── */}
+            {/* Header */}
             <PageHeader
                 title={`Marks Entry — ${exam.name}`}
                 subtitle={`Class ${exam.class}${exam.section ? ` - ${exam.section}` : ''} · ${exam.academicYear}`}
                 action={
                     <div className="flex items-center gap-3">
-                        {/* Results dashboard link */}
                         <Link href={`/admin/exams/${examId}/results`}>
                             <Button variant="ghost" size="sm">
                                 <BarChart3 size={14} /> View Results
                             </Button>
                         </Link>
                         {saved && (
-                            <span className="flex items-center gap-1.5 text-sm text-[var(--success-dark)] font-medium">
+                            <span className="
+                flex items-center gap-1.5 text-sm
+                text-[var(--success-dark)] font-medium
+              ">
                                 <CheckCircle size={15} /> Saved
                             </span>
                         )}
@@ -480,7 +505,7 @@ export default function MarksEntryPage({
                 }
             />
 
-            {/* ── Alert ── */}
+            {/* Alert */}
             {alert && (
                 <Alert
                     type={alert.type}
@@ -489,29 +514,34 @@ export default function MarksEntryPage({
                 />
             )}
 
-            {/* ── Info banner ── */}
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius-md)] bg-[var(--info-light)] border border-[rgba(59,130,246,0.2)]">
+            {/* Info banner */}
+            <div className="
+        flex items-center gap-3 px-3 py-2.5
+        rounded-[var(--radius-md)] bg-[var(--info-light)]
+        border border-[rgba(59,130,246,0.2)]
+      ">
                 <span className="text-xs text-[var(--info-dark)]">
-                    📚 Showing students of{' '}
+                    📚 Class{' '}
                     <strong>
-                        Class {exam.class}{exam.section ? ` - ${exam.section}` : ''}
+                        {exam.class}{exam.section ? ` - ${exam.section}` : ''}
                     </strong>{' '}
-                    for <strong>{exam.academicYear}</strong> only.
+                    · <strong>{exam.academicYear}</strong>
+                    {' '}· Pass: <strong>{passPercentage}%</strong>
                     {hasComposite && (
-                        <span className="ml-2">
-                            📊 Composite marks mode active.
-                        </span>
+                        <span className="ml-2">📊 Composite marks active.</span>
                     )}
                     {hasGradeOnly && (
-                        <span className="ml-2">
-                            🎨 Activity-based grading for some subjects.
-                        </span>
+                        <span className="ml-2">🎨 Activity grading active.</span>
                     )}
                 </span>
             </div>
 
-            {/* ── Progress bar ── */}
-            <div className="flex items-center gap-4 p-3 bg-[var(--bg-muted)] rounded-[var(--radius-md)] border border-[var(--border)]">
+            {/* Progress bar — UNCHANGED */}
+            <div className="
+        flex items-center gap-4 p-3
+        bg-[var(--bg-muted)] rounded-[var(--radius-md)]
+        border border-[var(--border)]
+      ">
                 <Users size={16} className="text-[var(--text-muted)] flex-shrink-0" />
                 <span className="text-sm text-[var(--text-secondary)]">
                     <span className="font-semibold text-[var(--primary-600)]">
@@ -521,7 +551,10 @@ export default function MarksEntryPage({
                 </span>
                 <div className="flex-1 bg-[var(--border)] rounded-full h-1.5">
                     <div
-                        className="bg-[var(--primary-500)] h-1.5 rounded-full transition-all duration-500"
+                        className="
+              bg-[var(--primary-500)] h-1.5 rounded-full
+              transition-all duration-500
+            "
                         style={{
                             width: totalStudents > 0
                                 ? `${Math.round((filledCount / totalStudents) * 100)}%`
@@ -529,24 +562,31 @@ export default function MarksEntryPage({
                         }}
                     />
                 </div>
-                <span className="text-xs text-[var(--text-muted)] tabular-nums flex-shrink-0">
+                <span className="
+          text-xs text-[var(--text-muted)] tabular-nums flex-shrink-0
+        ">
                     {totalStudents > 0
                         ? Math.round((filledCount / totalStudents) * 100)
                         : 0}%
                 </span>
             </div>
 
-            {/* ── Subject info chips ── */}
+            {/* Subject chips — UNCHANGED */}
             <div className="flex gap-2 flex-wrap">
                 {subjects.map(sub => (
                     <div
                         key={sub.name}
-                        className="bg-[var(--bg-card)] border border-[var(--border)] rounded-[var(--radius-md)] px-3 py-2"
+                        className="
+              bg-[var(--bg-card)] border border-[var(--border)]
+              rounded-[var(--radius-md)] px-3 py-2
+            "
                     >
                         <p className="text-xs font-semibold text-[var(--text-primary)]">
                             {sub.name}
                             {sub.isGradeOnly && (
-                                <span className="ml-1.5 text-[10px] text-[var(--primary-500)] font-normal">
+                                <span className="
+                  ml-1.5 text-[10px] text-[var(--primary-500)] font-normal
+                ">
                                     (Grade only)
                                 </span>
                             )}
@@ -554,7 +594,9 @@ export default function MarksEntryPage({
                         {!sub.isGradeOnly && (
                             <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                                 {sub.components?.length > 0
-                                    ? sub.components.map(c => `${c.name}:${c.maxMarks}`).join(' + ')
+                                    ? sub.components.map(
+                                        c => `${c.name}:${c.maxMarks}`
+                                    ).join(' + ')
                                     : `Max: ${sub.totalMaxMarks}`}
                                 {' '}· Pass: {sub.minMarks}
                                 {sub.date && ` · ${new Date(sub.date).toLocaleDateString(
@@ -566,7 +608,6 @@ export default function MarksEntryPage({
                 ))}
             </div>
 
-            {/* ── Empty state ── */}
             {students.length === 0 ? (
                 <EmptyState
                     icon={<Users size={24} />}
@@ -580,16 +621,15 @@ export default function MarksEntryPage({
                 />
             ) : (
                 <>
-                    {/* ── Marks Table ── */}
                     <Card padding={false}>
                         <div className="overflow-x-auto portal-main-scroll">
                             <table className="w-full text-sm border-collapse">
 
                                 {/* ── Table Head ── */}
                                 <thead>
-                                    <tr className="border-b border-[var(--border)] bg-[var(--bg-muted)]">
-
-                                        {/* Student col */}
+                                    <tr className="
+                    border-b border-[var(--border)] bg-[var(--bg-muted)]
+                  ">
                                         <th className="
                       text-left px-4 py-3
                       text-xs font-semibold text-[var(--text-muted)]
@@ -600,7 +640,6 @@ export default function MarksEntryPage({
                                             Student
                                         </th>
 
-                                        {/* Subject cols */}
                                         {subjects.map(sub => (
                                             <th
                                                 key={sub.name}
@@ -621,22 +660,26 @@ export default function MarksEntryPage({
                                                     {sub.name}
                                                 </div>
                                                 {!sub.isGradeOnly && (
-                                                    <div className="font-normal normal-case text-[10px] text-[var(--text-muted)] mt-0.5">
+                                                    <div className="
+                            font-normal normal-case text-[10px]
+                            text-[var(--text-muted)] mt-0.5
+                          ">
                                                         {sub.components?.length > 0
-                                                            ? sub.components.map(c => `${c.name}(${c.maxMarks})`).join(' · ')
+                                                            ? sub.components.map(
+                                                                c => `${c.name}(${c.maxMarks})`
+                                                            ).join(' · ')
                                                             : `/${sub.totalMaxMarks} · pass ${sub.minMarks}`}
                                                     </div>
                                                 )}
                                             </th>
                                         ))}
 
-                                        {/* Total col */}
                                         <th className="
                       text-center px-3 py-3
                       text-xs font-semibold text-[var(--text-muted)]
-                      uppercase tracking-wide min-w-[120px]
+                      uppercase tracking-wide min-w-[140px]
                     ">
-                                            Total / Result
+                                            Total / Grade
                                         </th>
                                     </tr>
                                 </thead>
@@ -654,32 +697,49 @@ export default function MarksEntryPage({
                                             ? 'bg-[var(--bg-card)]'
                                             : 'bg-[var(--bg-subtle)]'
 
+                                        // ✅ Live grade from settings
+                                        const liveGrade = getLiveGrade(
+                                            pct, gradeScale,
+                                            Object.values(s.marks).every(m => m.isAbsent)
+                                        )
+
                                         return (
                                             <tr
                                                 key={s.studentId}
-                                                className={`${rowBg} hover:bg-[var(--bg-muted)] transition-colors`}
+                                                className={`
+                          ${rowBg} hover:bg-[var(--bg-muted)]
+                          transition-colors
+                        `}
                                             >
-                                                {/* ── Student Info ── */}
+                                                {/* Student Info — UNCHANGED */}
                                                 <td className="
                           px-4 py-3
                           sticky left-0 bg-inherit z-10
                           border-r border-[var(--border)]
                         ">
-                                                    <div className="flex items-start justify-between gap-2">
+                                                    <div className="
+                            flex items-start justify-between gap-2
+                          ">
                                                         <div className="min-w-0">
-                                                            <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                                                            <p className="
+                                text-sm font-semibold
+                                text-[var(--text-primary)] truncate
+                              ">
                                                                 {s.name}
                                                             </p>
-                                                            <p className="text-[10px] text-[var(--text-muted)] font-mono mt-0.5">
+                                                            <p className="
+                                text-[10px] text-[var(--text-muted)]
+                                font-mono mt-0.5
+                              ">
                                                                 {s.admissionNo} · Roll {s.rollNo}
                                                             </p>
                                                         </div>
-                                                        {/* Saved result badge */}
                                                         {s.savedResult && (
                                                             <div className="flex-shrink-0">
                                                                 <span className={[
-                                                                    'inline-flex items-center gap-1 text-[10px] font-bold',
-                                                                    'px-1.5 py-0.5 rounded-[var(--radius-xs)]',
+                                                                    'inline-flex items-center gap-1',
+                                                                    'text-[10px] font-bold px-1.5 py-0.5',
+                                                                    'rounded-[var(--radius-xs)]',
                                                                     s.savedResult.isPassed
                                                                         ? 'bg-[var(--success-light)] text-[var(--success-dark)]'
                                                                         : 'bg-[var(--danger-light)] text-[var(--danger-dark)]',
@@ -694,19 +754,20 @@ export default function MarksEntryPage({
                                                     </div>
                                                 </td>
 
-                                                {/* ── Subject Mark Cells ── */}
+                                                {/* Subject cells — UNCHANGED */}
                                                 {subjects.map(sub => {
                                                     const mark = s.marks[sub.name]
                                                         ?? makeDefaultMark(sub)
 
-                                                    // ── Grade Only (Nursery/KG) ──
                                                     if (sub.isGradeOnly) {
                                                         return (
                                                             <td
                                                                 key={sub.name}
                                                                 className="px-2 py-2 text-center"
                                                             >
-                                                                <div className="flex flex-col gap-1 items-center">
+                                                                <div className="
+                                  flex flex-col gap-1 items-center
+                                ">
                                                                     <select
                                                                         value={mark.activityGrade}
                                                                         disabled={mark.isAbsent}
@@ -715,12 +776,13 @@ export default function MarksEntryPage({
                                                                             'activityGrade', e.target.value
                                                                         )}
                                                                         className={[
-                                                                            'text-xs rounded-[var(--radius-sm)] border px-1.5 py-1',
+                                                                            'text-xs rounded-[var(--radius-sm)]',
+                                                                            'border px-1.5 py-1',
                                                                             'bg-[var(--bg-card)] text-[var(--text-primary)]',
                                                                             'focus:border-[var(--primary-500)] focus:outline-none',
                                                                             'transition-colors w-full max-w-[140px]',
                                                                             mark.isAbsent
-                                                                                ? 'opacity-50 cursor-not-allowed'
+                                                                                ? 'opacity-50 cursor-not-allowed border-[var(--border)]'
                                                                                 : 'border-[var(--border)] cursor-pointer',
                                                                         ].join(' ')}
                                                                     >
@@ -729,7 +791,9 @@ export default function MarksEntryPage({
                                                                             <option key={g} value={g}>{g}</option>
                                                                         ))}
                                                                     </select>
-                                                                    <label className="flex items-center gap-1 cursor-pointer">
+                                                                    <label className="
+                                    flex items-center gap-1 cursor-pointer
+                                  ">
                                                                         <input
                                                                             type="checkbox"
                                                                             checked={mark.isAbsent}
@@ -737,9 +801,13 @@ export default function MarksEntryPage({
                                                                                 s.studentId, sub.name,
                                                                                 'isAbsent', e.target.checked
                                                                             )}
-                                                                            className="w-3 h-3 rounded accent-[var(--danger)]"
+                                                                            className="
+                                        w-3 h-3 rounded accent-[var(--danger)]
+                                      "
                                                                         />
-                                                                        <span className="text-[10px] text-[var(--text-muted)]">
+                                                                        <span className="
+                                      text-[10px] text-[var(--text-muted)]
+                                    ">
                                                                             Absent
                                                                         </span>
                                                                     </label>
@@ -748,7 +816,6 @@ export default function MarksEntryPage({
                                                         )
                                                     }
 
-                                                    // ── Composite Mode ──
                                                     if (sub.components?.length > 0) {
                                                         const compTotal = mark.isAbsent
                                                             ? 0
@@ -765,22 +832,27 @@ export default function MarksEntryPage({
                                                                 key={sub.name}
                                                                 className="px-2 py-2"
                                                             >
-                                                                <div className="flex flex-col gap-1 items-center">
-                                                                    {/* Component inputs */}
-                                                                    <div className="flex gap-1 flex-wrap justify-center">
+                                                                <div className="
+                                  flex flex-col gap-1 items-center
+                                ">
+                                                                    <div className="
+                                    flex gap-1 flex-wrap justify-center
+                                  ">
                                                                         {sub.components.map((comp, ci) => {
                                                                             const compMark = mark.components?.[ci]
-                                                                                ?? { marksObtained: 0, maxMarks: comp.maxMarks }
-                                                                            const compFail = !mark.isAbsent
-                                                                                && compMark.marksObtained > 0
-                                                                                && compMark.marksObtained < 0 // no per-component pass mark
-
+                                                                                ?? {
+                                                                                marksObtained: 0,
+                                                                                maxMarks: comp.maxMarks,
+                                                                            }
                                                                             return (
                                                                                 <div
                                                                                     key={comp.name}
                                                                                     className="flex flex-col items-center"
                                                                                 >
-                                                                                    <span className="text-[9px] text-[var(--text-muted)] mb-0.5 whitespace-nowrap">
+                                                                                    <span className="
+                                            text-[9px] text-[var(--text-muted)]
+                                            mb-0.5 whitespace-nowrap
+                                          ">
                                                                                         {comp.name}
                                                                                     </span>
                                                                                     <input
@@ -794,7 +866,9 @@ export default function MarksEntryPage({
                                                                                                 : compMark.marksObtained || ''
                                                                                         }
                                                                                         placeholder={
-                                                                                            mark.isAbsent ? 'AB' : `/${comp.maxMarks}`
+                                                                                            mark.isAbsent
+                                                                                                ? 'AB'
+                                                                                                : `/${comp.maxMarks}`
                                                                                         }
                                                                                         onChange={e => updateComponentMark(
                                                                                             s.studentId, sub.name,
@@ -814,7 +888,6 @@ export default function MarksEntryPage({
                                                                         })}
                                                                     </div>
 
-                                                                    {/* Composite total */}
                                                                     {!mark.isAbsent && compTotal > 0 && (
                                                                         <span className={[
                                                                             'text-[10px] font-bold',
@@ -826,8 +899,10 @@ export default function MarksEntryPage({
                                                                         </span>
                                                                     )}
 
-                                                                    {/* Absent checkbox */}
-                                                                    <label className="flex items-center gap-1 cursor-pointer mt-0.5">
+                                                                    <label className="
+                                    flex items-center gap-1
+                                    cursor-pointer mt-0.5
+                                  ">
                                                                         <input
                                                                             type="checkbox"
                                                                             checked={mark.isAbsent}
@@ -835,9 +910,13 @@ export default function MarksEntryPage({
                                                                                 s.studentId, sub.name,
                                                                                 'isAbsent', e.target.checked
                                                                             )}
-                                                                            className="w-3 h-3 rounded accent-[var(--danger)]"
+                                                                            className="
+                                        w-3 h-3 rounded accent-[var(--danger)]
+                                      "
                                                                         />
-                                                                        <span className="text-[10px] text-[var(--text-muted)]">
+                                                                        <span className="
+                                      text-[10px] text-[var(--text-muted)]
+                                    ">
                                                                             Absent
                                                                         </span>
                                                                     </label>
@@ -846,7 +925,7 @@ export default function MarksEntryPage({
                                                         )
                                                     }
 
-                                                    // ── Simple Mode ──
+                                                    // Simple mode
                                                     const isFail = !mark.isAbsent
                                                         && mark.marksObtained > 0
                                                         && mark.marksObtained < sub.minMarks
@@ -859,7 +938,9 @@ export default function MarksEntryPage({
                                                             key={sub.name}
                                                             className="px-2 py-2 text-center"
                                                         >
-                                                            <div className="flex flex-col items-center gap-1">
+                                                            <div className="
+                                flex flex-col items-center gap-1
+                              ">
                                                                 <input
                                                                     type="number"
                                                                     min={0}
@@ -877,8 +958,8 @@ export default function MarksEntryPage({
                                                                     )}
                                                                     className={[
                                                                         'w-20 h-8 text-center text-sm',
-                                                                        'rounded-[var(--radius-sm)] border transition-all',
-                                                                        'focus:outline-none',
+                                                                        'rounded-[var(--radius-sm)] border',
+                                                                        'transition-all focus:outline-none',
                                                                         mark.isAbsent
                                                                             ? 'bg-[var(--bg-muted)] border-[var(--border)] text-[var(--text-muted)] cursor-not-allowed'
                                                                             : isFail
@@ -888,7 +969,9 @@ export default function MarksEntryPage({
                                                                                     : 'border-[var(--border)] bg-[var(--bg-card)] focus:border-[var(--primary-500)] focus:ring-2 focus:ring-[rgba(99,102,241,0.1)]',
                                                                     ].join(' ')}
                                                                 />
-                                                                <label className="flex items-center gap-1 cursor-pointer">
+                                                                <label className="
+                                  flex items-center gap-1 cursor-pointer
+                                ">
                                                                     <input
                                                                         type="checkbox"
                                                                         checked={mark.isAbsent}
@@ -896,9 +979,13 @@ export default function MarksEntryPage({
                                                                             s.studentId, sub.name,
                                                                             'isAbsent', e.target.checked
                                                                         )}
-                                                                        className="w-3 h-3 rounded accent-[var(--danger)]"
+                                                                        className="
+                                      w-3 h-3 rounded accent-[var(--danger)]
+                                    "
                                                                     />
-                                                                    <span className="text-[10px] text-[var(--text-muted)]">
+                                                                    <span className="
+                                    text-[10px] text-[var(--text-muted)]
+                                  ">
                                                                         Absent
                                                                     </span>
                                                                 </label>
@@ -907,11 +994,11 @@ export default function MarksEntryPage({
                                                     )
                                                 })}
 
-                                                {/* ── Total + Result Preview ── */}
+                                                {/* ✅ Total + Live Grade column */}
                                                 <td className="px-3 py-2 text-center">
                                                     {hasAnyEntry ? (
                                                         <div className="flex flex-col items-center gap-1">
-                                                            {/* Live total (non-gradeOnly subjects) */}
+                                                            {/* Live total */}
                                                             {total > 0 && (
                                                                 <p className={`text-sm font-bold ${pctColor(pct)}`}>
                                                                     {obtained}/{total}
@@ -923,7 +1010,17 @@ export default function MarksEntryPage({
                                                                 </p>
                                                             )}
 
-                                                            {/* Saved result: rank + report card link */}
+                                                            {/* ✅ Live grade preview — settings se */}
+                                                            {liveGrade && total > 0 && (
+                                                                <span className={[
+                                                                    'text-xs font-black',
+                                                                    getGradeColor(liveGrade),
+                                                                ].join(' ')}>
+                                                                    {liveGrade}
+                                                                </span>
+                                                            )}
+
+                                                            {/* Saved result */}
                                                             {s.savedResult && (
                                                                 <>
                                                                     <span className={[
@@ -936,7 +1033,10 @@ export default function MarksEntryPage({
                                                                         {s.savedResult.isPassed ? 'PASS' : 'FAIL'}
                                                                     </span>
                                                                     {s.savedResult.rank > 0 && (
-                                                                        <span className="flex items-center gap-0.5 text-[10px] text-amber-600 font-semibold">
+                                                                        <span className="
+                                      flex items-center gap-0.5
+                                      text-[10px] text-amber-600 font-semibold
+                                    ">
                                                                             <Trophy size={9} />
                                                                             Rank #{s.savedResult.rank}
                                                                         </span>
@@ -946,7 +1046,12 @@ export default function MarksEntryPage({
                                                                             href={`/api/pdf/reportcard/${s.savedResult.resultId}`}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
-                                                                            className="flex items-center gap-0.5 text-[10px] text-[var(--primary-600)] hover:text-[var(--primary-700)] font-medium"
+                                                                            className="
+                                        flex items-center gap-0.5 text-[10px]
+                                        text-[var(--primary-600)]
+                                        hover:text-[var(--primary-700)]
+                                        font-medium
+                                      "
                                                                         >
                                                                             <FileText size={9} /> Report Card
                                                                         </a>
@@ -955,7 +1060,9 @@ export default function MarksEntryPage({
                                                             )}
                                                         </div>
                                                     ) : (
-                                                        <span className="text-[var(--text-muted)] text-xs">—</span>
+                                                        <span className="text-[var(--text-muted)] text-xs">
+                                                            —
+                                                        </span>
                                                     )}
                                                 </td>
                                             </tr>
@@ -966,19 +1073,25 @@ export default function MarksEntryPage({
                         </div>
                     </Card>
 
-                    {/* ── Remarks Section ── */}
+                    {/* Remarks — UNCHANGED */}
                     <Card>
                         <div className="portal-card-header">
-                            <p className="portal-card-title">Student Remarks (Optional)</p>
+                            <p className="portal-card-title">
+                                Student Remarks (Optional)
+                            </p>
                             <p className="portal-card-subtitle">
                                 Per-student overall remark — report card pe show hoga
                             </p>
                         </div>
                         <div className="portal-card-body">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            <div className="
+                grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3
+              ">
                                 {students.map(s => (
                                     <div key={s.studentId} className="space-y-1">
-                                        <label className="text-xs font-semibold text-[var(--text-secondary)]">
+                                        <label className="
+                      text-xs font-semibold text-[var(--text-secondary)]
+                    ">
                                             {s.name}
                                             <span className="font-normal text-[var(--text-muted)] ml-1">
                                                 (Roll {s.rollNo})
@@ -987,15 +1100,13 @@ export default function MarksEntryPage({
                                         <input
                                             type="text"
                                             className="input-clean text-xs h-8 w-full"
-                                            placeholder="e.g. Good performance, needs improvement in..."
+                                            placeholder="e.g. Good performance..."
                                             value={
-                                                // Use first subject's remarks as student-level remark
                                                 subjects.length > 0
                                                     ? (s.marks[subjects[0].name]?.remarks ?? '')
                                                     : ''
                                             }
                                             onChange={e => {
-                                                // Store in first subject as student remark
                                                 if (subjects.length > 0) {
                                                     updateSimpleMark(
                                                         s.studentId,
@@ -1012,7 +1123,7 @@ export default function MarksEntryPage({
                         </div>
                     </Card>
 
-                    {/* ── Bottom Save ── */}
+                    {/* Bottom Save */}
                     {students.length > 8 && (
                         <div className="flex items-center justify-between">
                             <p className="text-sm text-[var(--text-muted)]">
@@ -1024,7 +1135,7 @@ export default function MarksEntryPage({
                         </div>
                     )}
 
-                    {/* ── Admit Cards Section (if enabled) ── */}
+                    {/* Admit Cards — UNCHANGED */}
                     {exam.admitCardEnabled && (
                         <Card>
                             <div className="portal-card-header">
@@ -1036,7 +1147,9 @@ export default function MarksEntryPage({
                                 </div>
                             </div>
                             <div className="portal-card-body">
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                                <div className="
+                  grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2
+                ">
                                     {students.map(s => (
                                         <a
                                             key={s.studentId}
@@ -1045,17 +1158,26 @@ export default function MarksEntryPage({
                                             rel="noopener noreferrer"
                                             className="
                         flex items-center gap-2 p-2.5
-                        border border-[var(--border)] rounded-[var(--radius-md)]
-                        hover:border-[var(--primary-300)] hover:bg-[var(--primary-50)]
+                        border border-[var(--border)]
+                        rounded-[var(--radius-md)]
+                        hover:border-[var(--primary-300)]
+                        hover:bg-[var(--primary-50)]
                         transition-all group
                       "
                                         >
                                             <FileText
                                                 size={14}
-                                                className="text-[var(--text-muted)] group-hover:text-[var(--primary-500)] flex-shrink-0"
+                                                className="
+                          text-[var(--text-muted)]
+                          group-hover:text-[var(--primary-500)]
+                          flex-shrink-0
+                        "
                                             />
                                             <div className="min-w-0">
-                                                <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                                <p className="
+                          text-xs font-semibold
+                          text-[var(--text-primary)] truncate
+                        ">
                                                     {s.name}
                                                 </p>
                                                 <p className="text-[10px] text-[var(--text-muted)]">
