@@ -14,46 +14,46 @@ import { Loader2, Users, RefreshCw, Info } from 'lucide-react'
 import { getAcademicYears, getCurrentAcademicYear } from '@/lib/academicYear'
 import { CREDIT_COSTS } from '@/config/pricing'
 import type { NoticeFormData, NoticeDetail } from '@/types/notice'
+import { useAcademicSettings } from '@/hooks/useAcademicSettings'  // ✅ ADD
 
 interface NoticeFormProps {
   initialData?: NoticeDetail
-  onSubmit:     (data: NoticeFormData) => Promise<void>
-  onCancel:     () => void
-  isLoading?:   boolean
+  onSubmit: (data: NoticeFormData) => Promise<void>
+  onCancel: () => void
+  isLoading?: boolean
 }
 
-// ✅ Bug 3 Fix: Nursery, LKG, UKG added
-const CLASS_OPTIONS = [
-  { value: 'Nursery', label: 'Nursery'  },
-  { value: 'LKG',     label: 'LKG'      },
-  { value: 'UKG',     label: 'UKG'      },
-  { value: '1',       label: 'Class 1'  },
-  { value: '2',       label: 'Class 2'  },
-  { value: '3',       label: 'Class 3'  },
-  { value: '4',       label: 'Class 4'  },
-  { value: '5',       label: 'Class 5'  },
-  { value: '6',       label: 'Class 6'  },
-  { value: '7',       label: 'Class 7'  },
-  { value: '8',       label: 'Class 8'  },
-  { value: '9',       label: 'Class 9'  },
-  { value: '10',      label: 'Class 10' },
-  { value: '11',      label: 'Class 11' },
-  { value: '12',      label: 'Class 12' },
+// Nursery, LKG, UKG added
+const FALLBACK_CLASS_OPTIONS = [
+  { value: 'Nursery', label: 'Nursery' },
+  { value: 'LKG', label: 'LKG' },
+  { value: 'UKG', label: 'UKG' },
+  { value: '1', label: 'Class 1' },
+  { value: '2', label: 'Class 2' },
+  { value: '3', label: 'Class 3' },
+  { value: '4', label: 'Class 4' },
+  { value: '5', label: 'Class 5' },
+  { value: '6', label: 'Class 6' },
+  { value: '7', label: 'Class 7' },
+  { value: '8', label: 'Class 8' },
+  { value: '9', label: 'Class 9' },
+  { value: '10', label: 'Class 10' },
+  { value: '11', label: 'Class 11' },
+  { value: '12', label: 'Class 12' },
 ]
-
 // ✅ Bug 1 Fix: Per-channel counts store karo
 interface ChannelCount {
   validContacts: number
 }
 
 interface RecipientCount {
-  total:    number
-  loading:  boolean
+  total: number
+  loading: boolean
   // Per channel
   channels: {
-    sms:      ChannelCount
+    sms: ChannelCount
     whatsapp: ChannelCount
-    email:    ChannelCount
+    email: ChannelCount
   }
 }
 
@@ -71,33 +71,63 @@ export function NoticeForm({
   onCancel,
   isLoading = false,
 }: NoticeFormProps) {
+  const { settings: academicSettings, loading: settingsLoading } = useAcademicSettings()
+
+  // ✅ Derive CLASS_OPTIONS from settings
+  const CLASS_OPTIONS = academicSettings
+    ? academicSettings.classes
+      .filter(c => c.isActive)
+      .sort((a, b) => a.order - b.order)
+      // Get unique class names (sr_secondary mein 11 Science, 11 Commerce — sirf "11" ek baar)
+      .reduce<Array<{ value: string; label: string }>>((acc, c) => {
+        if (!acc.find(item => item.value === c.name)) {
+          acc.push({
+            value: c.name,
+            // displayName use karo agar available ho
+            label: c.displayName || `Class ${c.name}`,
+          })
+        }
+        return acc
+      }, [])
+    : FALLBACK_CLASS_OPTIONS  // ✅ Fallback agar settings load nahi hui
+
   const [form, setForm] = useState<NoticeFormData>({
-    title:         initialData?.title         || '',
-    content:       initialData?.content       || '',
-    status:        initialData?.status        || 'published',
-    targetRole:    initialData?.targetRole    || 'all',
+    title: initialData?.title || '',
+    content: initialData?.content || '',
+    status: initialData?.status || 'published',
+    targetRole: initialData?.targetRole || 'all',
     targetClasses: initialData?.targetClasses || [],
-    priority:      initialData?.priority      || 'normal',
-    expiresAt:     initialData?.expiresAt     || '',
-    isPinned:      initialData?.isPinned      || false,
-    sendSms:       false,
-    sendWhatsApp:  false,
-    sendEmail:     false,
-    sendPush:      true,
+    priority: initialData?.priority || 'normal',
+    expiresAt: initialData?.expiresAt || '',
+    isPinned: initialData?.isPinned || false,
+    sendSms: false,
+    sendWhatsApp: false,
+    sendEmail: false,
+    sendPush: true,
   })
 
-  const [errors, setErrors]             = useState<Record<string, string>>({})
-  const [academicYear, setAcademicYear] = useState(getCurrentAcademicYear())
-  const academicYears                   = getAcademicYears()
+
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [academicYear, setAcademicYear] = useState(
+    academicSettings?.currentAcademicYear || getCurrentAcademicYear()
+  )
+
+  const academicYears = getAcademicYears()  // fallback with default startMonth=4
+
+  useEffect(() => {
+    if (academicSettings?.currentAcademicYear && !initialData) {
+      setAcademicYear(academicSettings.currentAcademicYear)
+    }
+  }, [academicSettings?.currentAcademicYear, initialData])
 
   // ✅ Bug 1 Fix: Per-channel recipient count
   const [recipientCount, setRecipientCount] = useState<RecipientCount>({
-    total:   0,
+    total: 0,
     loading: false,
     channels: {
-      sms:      { validContacts: 0 },
+      sms: { validContacts: 0 },
       whatsapp: { validContacts: 0 },
-      email:    { validContacts: 0 },
+      email: { validContacts: 0 },
     },
   })
 
@@ -108,7 +138,7 @@ export function NoticeForm({
   useEffect(() => {
     const fetchBalance = async () => {
       try {
-        const res  = await fetch('/api/credits/balance')
+        const res = await fetch('/api/credits/balance')
         const data = await res.json()
         // Handle: { success, data: { balance } } OR { balance }
         const balance = data?.data?.balance ?? data?.balance ?? 0
@@ -131,12 +161,12 @@ export function NoticeForm({
 
     if (!needsCount) {
       setRecipientCount({
-        total:   0,
+        total: 0,
         loading: false,
         channels: {
-          sms:      { validContacts: 0 },
+          sms: { validContacts: 0 },
           whatsapp: { validContacts: 0 },
-          email:    { validContacts: 0 },
+          email: { validContacts: 0 },
         },
       })
       return
@@ -154,12 +184,12 @@ export function NoticeForm({
         params.set('classes', form.targetClasses.join(','))
       }
 
-      const res  = await fetch(`/api/notices/recipient-count?${params}`)
+      const res = await fetch(`/api/notices/recipient-count?${params}`)
       const data = await res.json()
 
       if (data.success) {
         setRecipientCount({
-          total:   data.total || 0,
+          total: data.total || 0,
           loading: false,
           // ✅ Use per-channel data from API
           channels: {
@@ -221,9 +251,9 @@ export function NoticeForm({
 
   // Total valid recipients across selected channels (unique estimate)
   const totalValidRecipients = Math.max(
-    form.sendSms      ? recipientCount.channels.sms.validContacts      : 0,
+    form.sendSms ? recipientCount.channels.sms.validContacts : 0,
     form.sendWhatsApp ? recipientCount.channels.whatsapp.validContacts : 0,
-    form.sendEmail    ? recipientCount.channels.email.validContacts    : 0,
+    form.sendEmail ? recipientCount.channels.email.validContacts : 0,
   )
 
   const willSendMessages =
@@ -231,10 +261,10 @@ export function NoticeForm({
     (form.sendSms || form.sendEmail || form.sendWhatsApp)
 
   const hasInsufficientCredits =
-    willSendMessages        &&
-    balanceLoaded           &&
+    willSendMessages &&
+    balanceLoaded &&
     totalValidRecipients > 0 &&
-    estimatedCredits > 0    &&
+    estimatedCredits > 0 &&
     estimatedCredits > creditBalance
 
   // ── Field helpers ──────────────────────────────────────
@@ -283,10 +313,10 @@ export function NoticeForm({
 
     // ✅ Credit check — per-channel accurate
     if (
-      balanceLoaded          &&
-      willSendMessages       &&
+      balanceLoaded &&
+      willSendMessages &&
       totalValidRecipients > 0 &&
-      estimatedCredits > 0   &&
+      estimatedCredits > 0 &&
       estimatedCredits > creditBalance
     ) {
       newErrors.credits =
@@ -304,8 +334,8 @@ export function NoticeForm({
     await onSubmit({ ...form, academicYear } as any)
   }
 
-  const charCount   = form.content.length
-  const charLimit   = 5000
+  const charCount = form.content.length
+  const charLimit = 5000
   const charWarning = charCount > charLimit * 0.9
 
   // ── Render ─────────────────────────────────────────────
@@ -352,11 +382,10 @@ export function NoticeForm({
             <span className="text-[var(--danger)]">{errors.content}</span>
           )}
           <span
-            className={`ml-auto ${
-              charWarning
-                ? 'text-[var(--warning)]'
-                : 'text-[var(--text-muted)]'
-            }`}
+            className={`ml-auto ${charWarning
+              ? 'text-[var(--warning)]'
+              : 'text-[var(--text-muted)]'
+              }`}
           >
             {charCount} / {charLimit}
           </span>
@@ -370,11 +399,11 @@ export function NoticeForm({
           value={form.targetRole}
           onChange={e => updateField('targetRole', e.target.value)}
           options={[
-            { value: 'all',     label: 'Everyone'      },
+            { value: 'all', label: 'Everyone' },
             { value: 'student', label: 'Students Only' },
             { value: 'teacher', label: 'Teachers Only' },
-            { value: 'parent',  label: 'Parents Only'  },
-            { value: 'staff',   label: 'Staff Only'    },
+            { value: 'parent', label: 'Parents Only' },
+            { value: 'staff', label: 'Staff Only' },
           ]}
         />
 
@@ -383,9 +412,9 @@ export function NoticeForm({
           value={form.priority}
           onChange={e => updateField('priority', e.target.value)}
           options={[
-            { value: 'low',    label: 'Low'       },
-            { value: 'normal', label: 'Normal'    },
-            { value: 'high',   label: 'High'      },
+            { value: 'low', label: 'Low' },
+            { value: 'normal', label: 'Normal' },
+            { value: 'high', label: 'High' },
             { value: 'urgent', label: '🚨 Urgent' },
           ]}
         />
@@ -395,8 +424,8 @@ export function NoticeForm({
           value={form.status}
           onChange={e => updateField('status', e.target.value)}
           options={[
-            { value: 'draft',     label: 'Save as Draft' },
-            { value: 'published', label: 'Publish Now'   },
+            { value: 'draft', label: 'Save as Draft' },
+            { value: 'published', label: 'Publish Now' },
           ]}
         />
       </div>
@@ -404,19 +433,19 @@ export function NoticeForm({
       {/* Academic Year */}
       {(
         form.targetRole === 'student' ||
-        form.targetRole === 'parent'  ||
+        form.targetRole === 'parent' ||
         form.targetRole === 'all'
       ) && (
-        <Select
-          label="Academic Year"
-          value={academicYear}
-          onChange={e => setAcademicYear(e.target.value)}
-          options={academicYears.map(year => ({
-            value: year,
-            label: year,
-          }))}
-        />
-      )}
+          <Select
+            label="Academic Year"
+            value={academicYear}
+            onChange={e => setAcademicYear(e.target.value)}
+            options={academicYears.map(year => ({
+              value: year,
+              label: year,
+            }))}
+          />
+        )}
 
       {/* Target Classes */}
       {(form.targetRole === 'student' || form.targetRole === 'parent') && (
@@ -427,24 +456,33 @@ export function NoticeForm({
               (optional — leave empty for all)
             </span>
           </label>
-          <div className="flex flex-wrap gap-2">
-            {CLASS_OPTIONS.map(cls => (
-              <button
-                key={cls.value}
-                type="button"
-                onClick={() => toggleClass(cls.value)}
-                className={[
-                  'px-3 py-1.5 text-xs font-medium rounded-[var(--radius-md)]',
-                  'transition-all duration-150 border-[1.5px]',
-                  form.targetClasses.includes(cls.value)
-                    ? 'bg-[var(--primary-50)] text-[var(--primary-600)] border-[var(--primary-300)]'
-                    : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-strong)]',
-                ].join(' ')}
-              >
-                {cls.label}
-              </button>
-            ))}
-          </div>
+
+          {/* ✅ Optional: Loading state */}
+          {settingsLoading ? (
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-[var(--text-muted)]">
+              <Loader2 size={12} className="animate-spin" />
+              Loading classes...
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {CLASS_OPTIONS.map(cls => (
+                <button
+                  key={cls.value}
+                  type="button"
+                  onClick={() => toggleClass(cls.value)}
+                  className={[
+                    'px-3 py-1.5 text-xs font-medium rounded-[var(--radius-md)]',
+                    'transition-all duration-150 border-[1.5px]',
+                    form.targetClasses.includes(cls.value)
+                      ? 'bg-[var(--primary-50)] text-[var(--primary-600)] border-[var(--primary-300)]'
+                      : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-[var(--border)] hover:border-[var(--border-strong)]',
+                  ].join(' ')}
+                >
+                  {cls.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -621,16 +659,16 @@ export function NoticeForm({
                 {/* Missing contacts warning */}
                 {form.sendEmail &&
                   recipientCount.channels.email.validContacts <
-                    recipientCount.total && (
-                  <span className="text-[var(--warning-dark)]">
-                    ⚠️{' '}
-                    {(
-                      recipientCount.total -
-                      recipientCount.channels.email.validContacts
-                    ).toLocaleString('en-IN')}{' '}
-                    without email
-                  </span>
-                )}
+                  recipientCount.total && (
+                    <span className="text-[var(--warning-dark)]">
+                      ⚠️{' '}
+                      {(
+                        recipientCount.total -
+                        recipientCount.channels.email.validContacts
+                      ).toLocaleString('en-IN')}{' '}
+                      without email
+                    </span>
+                  )}
               </div>
             )}
             <button
@@ -696,11 +734,10 @@ export function NoticeForm({
                   <p className="mt-1">
                     Available Balance:{' '}
                     <span
-                      className={`font-semibold ${
-                        hasInsufficientCredits
-                          ? 'text-[var(--danger-dark)]'
-                          : 'text-[var(--success-dark)]'
-                      }`}
+                      className={`font-semibold ${hasInsufficientCredits
+                        ? 'text-[var(--danger-dark)]'
+                        : 'text-[var(--success-dark)]'
+                        }`}
                     >
                       {formatCredits(creditBalance)} credits
                     </span>
@@ -748,8 +785,8 @@ export function NoticeForm({
           {isEdit
             ? 'Update Notice'
             : form.status === 'draft'
-            ? 'Save Draft'
-            : 'Publish Notice'}
+              ? 'Save Draft'
+              : 'Publish Notice'}
         </Button>
       </div>
     </form>
