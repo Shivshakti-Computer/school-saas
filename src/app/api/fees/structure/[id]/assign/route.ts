@@ -42,6 +42,7 @@ export async function POST(
     const classFilter: any = {
       tenantId: session.user.tenantId,
       status: 'active',
+      academicYear: structure.academicYear,  // ✅ ADD
     }
     if (structure.class !== 'all') {
       classFilter.class = {
@@ -50,6 +51,10 @@ export async function POST(
     }
     if (structure.section && structure.section !== 'all') {
       classFilter.section = structure.section
+    }
+    // ✅ ADD — stream filter
+    if (structure.stream) {
+      classFilter.stream = structure.stream  // blank = sab streams
     }
     students = await Student.find(classFilter).select('_id').lean()
   } else {

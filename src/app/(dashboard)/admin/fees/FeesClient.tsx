@@ -2828,10 +2828,10 @@ function FeeStructureModal({
         if (!form.class) { setError('Class select karo'); return }
         if (!form.dueDate) { setError('Due date set karo'); return }
         if (!form.name.trim()) { setError('Fee name required hai'); return }
-        if (isHigherSecondary && !form.stream) {
-            setError('Class 11/12 ke liye stream select karna zaroori hai')
-            return
-        }
+        // if (isHigherSecondary && !form.stream) {
+        //     setError('Class 11/12 ke liye stream select karna zaroori hai')
+        //     return
+        // }
         if (form.items.some(i => !i.label || Number(i.amount) <= 0)) {
             setError('Saare fee items ka label aur amount fill karo')
             return
@@ -2866,14 +2866,20 @@ function FeeStructureModal({
             const data = await res.json()
             if (!res.ok) { setError(data.error ?? 'Something went wrong'); return }
 
+            const streamLabel = !isHigherSecondary
+                ? ''
+                : !form.stream
+                    ? ' (All Streams)'
+                    : ` (${form.stream})`
+
             onSuccess(
                 editItem
                     ? 'Fee structure updated successfully!'
-                    : `Fee structure created!${data.feesCreated > 0
-                        ? ` ${data.feesCreated} students ko ₹${mTotal.toLocaleString('en-IN')} auto-assign ho gaya`
+                    : `Fee structure created${streamLabel}!${data.feesCreated > 0
+                        ? ` ${data.feesCreated} students assigned ₹${mTotal.toLocaleString('en-IN')}`
                         : ''
                     }${oTotal > 0
-                        ? ` | ₹${oTotal.toLocaleString('en-IN')} optional fees manually assign karni hogi`
+                        ? ` | ₹${oTotal.toLocaleString('en-IN')} optional fees need manual assignment`
                         : ''
                     }`
             )
@@ -2986,10 +2992,9 @@ function FeeStructureModal({
                             {isHigherSecondary && (
                                 <div className="mt-4">
                                     <label className="input-label mb-2 block">
-                                        Stream / Faculty{' '}
-                                        <span className="text-[var(--danger)]">*</span>
+                                        Stream / Faculty
                                         <span className="ml-1 font-normal text-[var(--text-muted)]">
-                                            (optional — leave blank for all streams)
+                                            — leave blank to apply to all streams
                                         </span>
                                     </label>
                                     <div className="grid grid-cols-2 gap-2">
@@ -3506,8 +3511,8 @@ function OptionalFeeModal({
                                         className="w-full flex items-center justify-between px-4 py-3 rounded-[var(--radius-lg)] text-left transition-all"
                                         style={{
                                             border: `2px solid ${isSelected
-                                                    ? 'var(--warning)'
-                                                    : 'var(--border)'
+                                                ? 'var(--warning)'
+                                                : 'var(--border)'
                                                 }`,
                                             backgroundColor: isSelected
                                                 ? 'var(--warning-50)'
@@ -3523,8 +3528,8 @@ function OptionalFeeModal({
                                                         ? 'var(--warning)'
                                                         : 'transparent',
                                                     border: `2px solid ${isSelected
-                                                            ? 'var(--warning)'
-                                                            : 'var(--border-strong)'
+                                                        ? 'var(--warning)'
+                                                        : 'var(--border-strong)'
                                                         }`,
                                                 }}
                                             >

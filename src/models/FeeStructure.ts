@@ -15,6 +15,7 @@ export interface IFeeStructure extends Document {
   name: string             // "Term 1 2025-26"
   class: string             // "10" | "all" | "9,10" (comma-separated)
   section?: string             // "A" | "all"
+  stream?: string          // ✅ ADD — blank = all streams, 'Science'/'Commerce'/'Arts' = specific
   academicYear: string             // "2025-26"
   term: string             // "Term 1" | "Monthly" | "Annual"
   items: IFeeItem[]
@@ -33,6 +34,7 @@ const FeeStructureSchema = new Schema<IFeeStructure>({
   name: { type: String, required: true },
   class: { type: String, required: true },
   section: { type: String, default: 'all' },
+  stream: { type: String, default: '' },   // ✅ ADD — '' = all streams
   academicYear: { type: String, required: true },
   term: { type: String, default: 'Term 1' },
   items: [{
@@ -50,7 +52,7 @@ const FeeStructureSchema = new Schema<IFeeStructure>({
   createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true })
 
-FeeStructureSchema.index({ tenantId: 1, class: 1, academicYear: 1 })
+FeeStructureSchema.index({ tenantId: 1, class: 1, stream: 1, academicYear: 1 })
 
 export const FeeStructure = mongoose.models.FeeStructure ||
   mongoose.model<IFeeStructure>('FeeStructure', FeeStructureSchema)

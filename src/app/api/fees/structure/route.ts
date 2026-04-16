@@ -24,9 +24,19 @@ export async function GET(req: NextRequest) {
     const cls = searchParams.get('class')
     const academicYear = searchParams.get('year')
 
+    const stream = searchParams.get('stream')
+
     const query: any = { tenantId: session.user.tenantId }
     if (cls && cls !== 'all') query.class = { $in: [cls, 'all'] }
     if (academicYear) query.academicYear = academicYear
+    // ✅ stream filter — agar pass kiya ho tab hi
+    // blank stream structures hamesha include honge (all streams)
+    if (stream) {
+      query.$or = [
+        { stream: '' },        // All streams wale
+        { stream: stream },    // Is specific stream wale
+      ]
+    }
 
     const structures = await FeeStructure.find(query)
       .sort({ createdAt: -1 })
@@ -38,7 +48,7 @@ export async function GET(req: NextRequest) {
         const assignedCount = await Fee.countDocuments({
           tenantId: session.user.tenantId,
           structureId: s._id,
-          isOptionalFee: { $ne: true},
+          isOptionalFee: { $ne: true },
         })
         return { ...s, assignedCount }
       })
@@ -73,6 +83,7 @@ export async function POST(req: NextRequest) {
       name: body.name,
       class: body.class,
       section: body.section || 'all',
+      stream: body.stream || '',          // ✅ ADD — blank = all streams
       academicYear: body.academicYear ?? new Date().getFullYear() + '-' + (new Date().getFullYear() + 1).toString().slice(-2),
       term: body.term ?? 'Term 1',
       items: body.items,
@@ -92,6 +103,7 @@ export async function POST(req: NextRequest) {
       const studentQuery: any = {
         tenantId: session.user.tenantId,
         status: 'active',
+        academicYear: body.academicYear,  // ✅ ADD — sirf current year ke students
       }
       if (body.class !== 'all') {
         studentQuery.class = { $in: body.class.split(',').map((c: string) => c.trim()) }

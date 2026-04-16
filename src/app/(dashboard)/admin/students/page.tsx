@@ -43,6 +43,7 @@ interface FeeStructure {
   name: string
   class: string
   section: string
+  stream?: string        // ✅ ADD — optional kyunki purane records mein nahi hoga
   academicYear: string
   term: string
   totalAmount: number
@@ -296,10 +297,12 @@ const FormSelect = ({
 function FeePreviewCard({
   selectedClass,
   selectedSection,
+  selectedStream,   // ✅ add karo
   academicYear,
 }: {
   selectedClass: string
   selectedSection: string
+  selectedStream: string  // ✅ add karo
   academicYear: string
 }) {
   const [structures, setStructures] = useState<FeeStructure[]>([])
@@ -325,7 +328,10 @@ function FeePreviewCard({
         const matched = (data.structures ?? []).filter((s: FeeStructure) => {
           const classMatch = s.class === 'all' || s.class === selectedClass
           const sectionMatch = !s.section || s.section === 'all' || s.section === selectedSection
-          return classMatch && sectionMatch
+          // stream blank = all streams ko apply hoga
+          // stream defined = sirf us stream ke student ko apply hoga
+          const streamMatch = !s.stream || s.stream === selectedStream
+          return classMatch && sectionMatch && streamMatch
         })
         setStructures(matched)
         setFetched(true)
@@ -945,6 +951,7 @@ function AddStudentModal({
                   <FeePreviewCard
                     selectedClass={form.class}
                     selectedSection={form.section}
+                    selectedStream={form.stream}   // ✅ add karo
                     academicYear={form.academicYear}
                   />
                 )}
