@@ -423,16 +423,20 @@ function IssueModal({
     books,
     onClose,
     onIssue,
+    defaultIssueDays = 14,    // ✅ ADD
+    defaultFinePerDay = 2,    // ✅ ADD
 }: {
     books: IBook[]
     onClose: () => void
     onIssue: (data: any) => Promise<void>
+    defaultIssueDays?: number  // ✅ ADD
+    defaultFinePerDay?: number // ✅ ADD
 }) {
     const [form, setForm] = useState({
         bookId: '',
         admissionNo: '',
         dueDate: '',
-        finePerDay: '2',
+        finePerDay: String(defaultFinePerDay),  // ✅ settings se
         notes: '',
     })
     const [studentSearch, setStudentSearch] = useState('')
@@ -448,9 +452,9 @@ function IssueModal({
     minDate.setDate(minDate.getDate() + 1)
     const minDateStr = minDate.toISOString().split('T')[0]
 
-    // Default due date — 14 days
+    // Default due date
     const defaultDue = new Date()
-    defaultDue.setDate(defaultDue.getDate() + 14)
+    defaultDue.setDate(defaultDue.getDate() + defaultIssueDays)  // ✅ settings se
     const defaultDueStr = defaultDue.toISOString().split('T')[0]
 
     // Search students
@@ -1014,12 +1018,18 @@ export function LibraryClient({
     bookStats: initBookStats,
     issueStats: initIssueStats,
     userRole,
+    librarySettings,        // ✅ ADD
 }: {
     initialBooks: IBook[]
     initialIssues: IIssue[]
     bookStats: BookStats
     issueStats: IssueStats
     userRole: string
+    librarySettings?: {     // ✅ ADD — optional so old callers break nahi hon
+        maxIssueDays: number
+        finePerDay: number
+        maxBooksPerStudent: number
+    }
 }) {
     const canEdit = userRole === 'admin' || userRole === 'staff'
 
@@ -1793,6 +1803,8 @@ export function LibraryClient({
                     books={books}
                     onClose={() => setShowIssue(false)}
                     onIssue={handleIssueBook}
+                    defaultIssueDays={librarySettings?.maxIssueDays ?? 14}   // ✅ ADD
+                    defaultFinePerDay={librarySettings?.finePerDay ?? 2}      // ✅ ADD
                 />
             )}
 

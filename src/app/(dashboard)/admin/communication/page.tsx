@@ -49,6 +49,7 @@ import {
 } from '@/config/messageTemplates'
 import { CREDIT_COSTS } from '@/config/pricing'
 import { getAcademicYears, getCurrentAcademicYear } from '@/lib/academicYear'
+import { useAcademicSettings } from '@/hooks/useAcademicSettings'  // ✅ ADD
 
 // ══════════════════════════════════════════════════════════
 // Types
@@ -119,27 +120,6 @@ function estimateCredits(
   return Math.ceil(count * cost * 100) / 100
 }
 
-// ══════════════════════════════════════════════════════════
-// Initial Form State
-// ══════════════════════════════════════════════════════════
-
-const INITIAL_FORM = {
-  channel: 'sms' as 'sms' | 'email' | 'whatsapp',
-  purpose: 'custom',
-  templateId: 'custom',
-  title: '',
-  message: '',
-  recipients: 'all' as 'all' | 'class' | 'section',
-  recipientType: 'parent' as 'parent' | 'student',
-  targetClass: '',
-  targetSection: '',
-  subject: '',
-  academicYear: getCurrentAcademicYear(),
-  // Template extra fields
-  dueDate: '',
-  amount: '',
-  examName: '',
-}
 
 // ══════════════════════════════════════════════════════════
 // Main Component
@@ -147,6 +127,51 @@ const INITIAL_FORM = {
 
 export default function CommunicationPage() {
   const { data: session } = useSession()
+
+  const { settings: academicSettings } = useAcademicSettings()
+
+  // ✅ Derived values — settings se ya fallback
+  const CLASSES = academicSettings
+    ? academicSettings.classes
+      .filter(c => c.isActive)
+      .sort((a, b) => a.order - b.order)
+      .reduce<string[]>((acc, c) => {
+        if (!acc.includes(c.name)) acc.push(c.name)
+        return acc
+      }, [])
+    : [
+      'Nursery', 'LKG', 'UKG',
+      '1', '2', '3', '4', '5',
+      '6', '7', '8', '9', '10',
+      '11', '12',
+    ]
+
+  const SECTIONS = academicSettings
+    ? academicSettings.sections
+      .filter(s => s.isActive)
+      .map(s => s.name)
+    : ['A', 'B', 'C', 'D', 'E']
+
+  const CURRENT_YEAR = academicSettings?.currentAcademicYear
+    || getCurrentAcademicYear()
+
+
+  const getInitialForm = () => ({
+    channel: 'sms' as 'sms' | 'email' | 'whatsapp',
+    purpose: 'custom',
+    templateId: 'custom',
+    title: '',
+    message: '',
+    recipients: 'all' as 'all' | 'class' | 'section',
+    recipientType: 'parent' as 'parent' | 'student',
+    targetClass: '',
+    targetSection: '',
+    subject: '',
+    academicYear: CURRENT_YEAR,  // ✅ dynamic from settings
+    dueDate: '',
+    amount: '',
+    examName: '',
+  })
 
   // ── Data State ────────────────────────────────────────
   const [history, setHistory] = useState<CommunicationItem[]>([])
@@ -168,7 +193,7 @@ export default function CommunicationPage() {
   const [sending, setSending] = useState(false)
 
   // ── Form State ────────────────────────────────────────
-  const [form, setForm] = useState(INITIAL_FORM)
+  const [form, setForm] = useState(getInitialForm())
 
   // ── Bug 3 fix: Real recipient count ──────────────────
   const [recipientCount, setRecipientCount] = useState<RecipientCount>({
@@ -454,7 +479,7 @@ export default function CommunicationPage() {
           msg: `✅ Message sent! Delivered: ${data.sent}, Failed: ${data.failed}, Credits used: ${formatCredits(data.creditsUsed)}`,
         })
         setModalOpen(false)
-        setForm(INITIAL_FORM)
+        setForm(getInitialForm())
         setRecipientCount({
           totalStudents: 0,
           validContacts: 0,
@@ -668,7 +693,7 @@ export default function CommunicationPage() {
           open={modalOpen}
           onClose={() => {
             setModalOpen(false)
-            setForm(INITIAL_FORM)
+            setForm(getInitialForm())
             setAlert(null)
           }}
           title="Send Bulk Message"
@@ -704,14 +729,10 @@ export default function CommunicationPage() {
                 }
                 options={
                   academicYears.length > 0
-                    ? academicYears.map(y => ({
-                      value: y,
-                      label: y,
-                    }))
-                    : getAcademicYears().map(y => ({
-                      value: y,
-                      label: y,
-                    }))
+                    ? academicYears.map(y => ({ value: y, label: y }))
+                    : academicSettings
+                      ? [{ value: CURRENT_YEAR, label: CURRENT_YEAR }]  // ✅ settings se
+                      : getAcademicYears().map(y => ({ value: y, label: y }))  // last fallback
                 }
               />
             </div>
