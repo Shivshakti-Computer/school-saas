@@ -163,6 +163,7 @@ export interface UpdateModulesBody {
     // ✅ FIX 5: IModuleSettings['library'] ab finePerDay use karega (sync)
     library?: Partial<IModuleSettings['library']>
     homework?: Partial<IModuleSettings['homework']>
+    hr?: Partial<IModuleSettings['hr']>  // ✅ NEW
 }
 
 // ─────────────────────────────────────────────────────────

@@ -617,6 +617,257 @@ export function ModulesTab({
                 </SettingSection>
             )}
 
+            {activeModules.includes('hr') && (
+                <SettingSection
+                    title="HR & Payroll Settings"
+                    description="Salary structure, leave policy, and payslip configuration"
+                >
+                    {/* ── Salary Slip Notifications ── */}
+                    {/* NotificationsTab se sync — ye toggles wahi kaam karte hain */}
+                    <div className="mb-1">
+                        <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                            Salary Slip Notifications
+                        </p>
+                    </div>
+
+                    <ToggleRow
+                        label="Send Salary Slip via Email"
+                        description="Email salary slip to staff when payroll is generated"
+                        checked={moduleSettings.hr?.sendSalarySlipEmail ?? false}
+                        onChange={(v) =>
+                            updateModuleSetting('hr', 'sendSalarySlipEmail', v)
+                        }
+                    />
+                    <ToggleRow
+                        label="Send Salary Slip via SMS"
+                        description="SMS notification to staff on salary day (uses credits)"
+                        checked={moduleSettings.hr?.sendSalarySlipSMS ?? false}
+                        onChange={(v) =>
+                            updateModuleSetting('hr', 'sendSalarySlipSMS', v)
+                        }
+                    />
+
+                    {/* ── PF & ESI Settings ── */}
+                    <div className="mt-4 mb-1 pt-4 border-t border-[var(--border)]">
+                        <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                            Statutory Deductions
+                        </p>
+                    </div>
+
+                    <ToggleRow
+                        label="Enable PF Deduction"
+                        description="Provident Fund deduction from salary (Employee contribution)"
+                        checked={moduleSettings.hr?.pfEnabled ?? true}
+                        onChange={(v) =>
+                            updateModuleSetting('hr', 'pfEnabled', v)
+                        }
+                    />
+
+                    {moduleSettings.hr?.pfEnabled && (
+                        <SettingRow
+                            horizontal
+                            label="PF Percentage"
+                            description="Standard rate is 12% of basic salary"
+                        >
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={30}
+                                    step={0.5}
+                                    value={moduleSettings.hr?.pfPercentage ?? 12}
+                                    onChange={(e) =>
+                                        updateModuleSetting(
+                                            'hr',
+                                            'pfPercentage',
+                                            parseFloat(e.target.value) || 12
+                                        )
+                                    }
+                                    className="input-clean w-20"
+                                />
+                                <span className="text-sm text-[var(--text-muted)]">
+                                    % of basic salary
+                                </span>
+                            </div>
+                        </SettingRow>
+                    )}
+
+                    <ToggleRow
+                        label="Enable ESI Deduction"
+                        description="Employee State Insurance (applicable if gross salary ≤ ₹21,000)"
+                        checked={moduleSettings.hr?.esiEnabled ?? false}
+                        onChange={(v) =>
+                            updateModuleSetting('hr', 'esiEnabled', v)
+                        }
+                    />
+
+                    {moduleSettings.hr?.esiEnabled && (
+                        <SettingRow
+                            horizontal
+                            label="ESI Percentage"
+                            description="Standard rate is 0.75% of gross salary"
+                        >
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={10}
+                                    step={0.25}
+                                    value={moduleSettings.hr?.esiPercentage ?? 0.75}
+                                    onChange={(e) =>
+                                        updateModuleSetting(
+                                            'hr',
+                                            'esiPercentage',
+                                            parseFloat(e.target.value) || 0.75
+                                        )
+                                    }
+                                    className="input-clean w-20"
+                                />
+                                <span className="text-sm text-[var(--text-muted)]">
+                                    % of gross salary
+                                </span>
+                            </div>
+                        </SettingRow>
+                    )}
+
+                    <ToggleRow
+                        label="Enable Professional Tax"
+                        description="State-wise professional tax deduction"
+                        checked={moduleSettings.hr?.professionalTaxEnabled ?? false}
+                        onChange={(v) =>
+                            updateModuleSetting('hr', 'professionalTaxEnabled', v)
+                        }
+                    />
+
+                    {/* ── Leave Policy ── */}
+                    <div className="mt-4 mb-1 pt-4 border-t border-[var(--border)]">
+                        <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                            Annual Leave Policy
+                        </p>
+                        <p className="text-xs text-[var(--text-muted)] mb-3">
+                            New staff records will get these leave balances by default
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <SettingRow
+                            label="Casual Leaves / Year"
+                            description="CL per year"
+                        >
+                            <input
+                                type="number"
+                                min={0}
+                                max={30}
+                                value={moduleSettings.hr?.casualLeavesPerYear ?? 12}
+                                onChange={(e) =>
+                                    updateModuleSetting(
+                                        'hr',
+                                        'casualLeavesPerYear',
+                                        parseInt(e.target.value) || 12
+                                    )
+                                }
+                                className="input-clean"
+                            />
+                        </SettingRow>
+                        <SettingRow
+                            label="Sick Leaves / Year"
+                            description="SL per year"
+                        >
+                            <input
+                                type="number"
+                                min={0}
+                                max={30}
+                                value={moduleSettings.hr?.sickLeavesPerYear ?? 10}
+                                onChange={(e) =>
+                                    updateModuleSetting(
+                                        'hr',
+                                        'sickLeavesPerYear',
+                                        parseInt(e.target.value) || 10
+                                    )
+                                }
+                                className="input-clean"
+                            />
+                        </SettingRow>
+                        <SettingRow
+                            label="Earned Leaves / Year"
+                            description="EL accrued per year"
+                        >
+                            <input
+                                type="number"
+                                min={0}
+                                max={60}
+                                value={moduleSettings.hr?.earnedLeavesPerYear ?? 15}
+                                onChange={(e) =>
+                                    updateModuleSetting(
+                                        'hr',
+                                        'earnedLeavesPerYear',
+                                        parseInt(e.target.value) || 15
+                                    )
+                                }
+                                className="input-clean"
+                            />
+                        </SettingRow>
+                    </div>
+
+                    {/* ── Payroll Settings ── */}
+                    <div className="mt-4 mb-1 pt-4 border-t border-[var(--border)]">
+                        <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
+                            Payroll Configuration
+                        </p>
+                    </div>
+
+                    <SettingRow
+                        horizontal
+                        label="Salary Disbursement Day"
+                        description="What day of the month is the salary process?"
+                    >
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="number"
+                                min={1}
+                                max={28}
+                                value={moduleSettings.hr?.salaryDisbursementDay ?? 1}
+                                onChange={(e) =>
+                                    updateModuleSetting(
+                                        'hr',
+                                        'salaryDisbursementDay',
+                                        parseInt(e.target.value) || 1
+                                    )
+                                }
+                                className="input-clean w-20"
+                            />
+                            <span className="text-sm text-[var(--text-muted)]">
+                                of every month
+                            </span>
+                        </div>
+                    </SettingRow>
+
+                    <SettingRow
+                        horizontal
+                        label="Payslip Footer Text"
+                        description="Text shown at bottom of salary slip email"
+                    >
+                        <input
+                            type="text"
+                            value={moduleSettings.hr?.payslipFooterText ?? ''}
+                            onChange={(e) =>
+                                updateModuleSetting(
+                                    'hr',
+                                    'payslipFooterText',
+                                    e.target.value
+                                )
+                            }
+                            placeholder="This is a computer generated payslip."
+                            className="input-clean"
+                            maxLength={200}
+                        />
+                        <p className="input-hint text-right">
+                            {(moduleSettings.hr?.payslipFooterText ?? '').length}/200
+                        </p>
+                    </SettingRow>
+                </SettingSection>
+            )}
+
             <SaveBar
                 isDirty={isDirty}
                 onSave={handleSave}

@@ -60,6 +60,20 @@ export async function getModuleSettings(
             submissionFileTypes: ['pdf', 'jpg', 'jpeg', 'png', 'docx'],
             maxFileSizeMB: 10,
         },
+        hr: {
+            sendSalarySlipEmail: false,
+            sendSalarySlipSMS: false,
+            pfEnabled: true,
+            pfPercentage: 12,
+            esiEnabled: false,
+            esiPercentage: 0.75,
+            professionalTaxEnabled: false,
+            casualLeavesPerYear: 12,
+            sickLeavesPerYear: 10,
+            earnedLeavesPerYear: 15,
+            salaryDisbursementDay: 1,
+            payslipFooterText: 'This is a computer generated payslip.',
+        },
     }
 
     // Cache store

@@ -168,6 +168,25 @@ export interface IModuleSettings {
     submissionFileTypes: string[]
     maxFileSizeMB: number
   }
+  // ✅ NEW — HR Module settings
+  hr: {
+    // Salary slip notifications (NotificationsTab se sync)
+    sendSalarySlipEmail: boolean      // Email pe salary slip bhejo
+    sendSalarySlipSMS: boolean        // SMS pe salary slip bhejo
+    // Salary structure defaults
+    pfEnabled: boolean                // PF deduction enable
+    pfPercentage: number              // Default 12%
+    esiEnabled: boolean               // ESI deduction enable
+    esiPercentage: number             // Default 0.75%
+    professionalTaxEnabled: boolean   // PT deduction
+    // Leave policy
+    casualLeavesPerYear: number       // Default 12
+    sickLeavesPerYear: number         // Default 10
+    earnedLeavesPerYear: number       // Default 15
+    // Payroll settings (PaymentTab se sync)
+    salaryDisbursementDay: number     // Month ka konsa din salary mile (1-28)
+    payslipFooterText: string         // Payslip ke neeche text
+  }
 }
 
 export interface ISchoolSettingsModel extends Model<ISchoolSettings> {
@@ -360,6 +379,20 @@ const ModuleSettingsSchema = new Schema<IModuleSettings>(
       allowStudentSubmission: { type: Boolean, default: true },
       submissionFileTypes: { type: [String], default: ['pdf', 'jpg', 'jpeg', 'png', 'docx'] },
       maxFileSizeMB: { type: Number, default: 10 },
+    },
+    hr: {
+      sendSalarySlipEmail: { type: Boolean, default: false },
+      sendSalarySlipSMS: { type: Boolean, default: false },
+      pfEnabled: { type: Boolean, default: true },
+      pfPercentage: { type: Number, default: 12 },
+      esiEnabled: { type: Boolean, default: false },
+      esiPercentage: { type: Number, default: 0.75 },
+      professionalTaxEnabled: { type: Boolean, default: false },
+      casualLeavesPerYear: { type: Number, default: 12 },
+      sickLeavesPerYear: { type: Number, default: 10 },
+      earnedLeavesPerYear: { type: Number, default: 15 },
+      salaryDisbursementDay: { type: Number, default: 1 },
+      payslipFooterText: { type: String, default: 'This is a computer generated payslip.' },
     },
   },
   { _id: false }

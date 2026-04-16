@@ -57,6 +57,38 @@ function validateModules(body: UpdateModulesBody, currentPlan: string): string |
         return 'Max file size must be between 1 and 50 MB'
     }
 
+    if (body.hr) {
+        const hr = body.hr
+        if (hr.pfPercentage !== undefined &&
+            (hr.pfPercentage < 0 || hr.pfPercentage > 30)) {
+            return 'PF percentage must be between 0 and 30'
+        }
+        if (hr.esiPercentage !== undefined &&
+            (hr.esiPercentage < 0 || hr.esiPercentage > 10)) {
+            return 'ESI percentage must be between 0 and 10'
+        }
+        if (hr.casualLeavesPerYear !== undefined &&
+            (hr.casualLeavesPerYear < 0 || hr.casualLeavesPerYear > 30)) {
+            return 'Casual leaves must be between 0 and 30'
+        }
+        if (hr.sickLeavesPerYear !== undefined &&
+            (hr.sickLeavesPerYear < 0 || hr.sickLeavesPerYear > 30)) {
+            return 'Sick leaves must be between 0 and 30'
+        }
+        if (hr.earnedLeavesPerYear !== undefined &&
+            (hr.earnedLeavesPerYear < 0 || hr.earnedLeavesPerYear > 60)) {
+            return 'Earned leaves must be between 0 and 60'
+        }
+        if (hr.salaryDisbursementDay !== undefined &&
+            (hr.salaryDisbursementDay < 1 || hr.salaryDisbursementDay > 28)) {
+            return 'Salary disbursement day must be between 1 and 28'
+        }
+        if (hr.payslipFooterText !== undefined &&
+            hr.payslipFooterText.length > 200) {
+            return 'Payslip footer text too long (max 200 chars)'
+        }
+    }
+
     if (body.attendance?.editWindowHours !== undefined &&
         (body.attendance.editWindowHours < 1 || body.attendance.editWindowHours > 72)) {
         return 'Edit window must be between 1 and 72 hours'
@@ -146,6 +178,7 @@ export async function PATCH(req: NextRequest) {
             exams: body.exams,
             library: body.library,
             homework: body.homework,
+            hr: body.hr,         // ✅ NEW
         }
 
         Object.entries(sectionMap).forEach(([section, sectionBody]) => {

@@ -132,9 +132,12 @@ export const RATE_LIMITS = {
   passwordReset: { windowMs: 60 * 60 * 1000, maxRequests: 3, identifier: 'pwd-reset' },
   // File upload: 20 per minute
   upload: { windowMs: 60 * 1000, maxRequests: 20, identifier: 'upload' },
-  
+
   // ✅ ADD THIS: Mutation operations (POST, PATCH, DELETE): 30 per minute
   mutation: { windowMs: 60 * 1000, maxRequests: 30, identifier: 'mutation' },
+
+  // ✅ ADD: Read operations (GET requests)
+  read: { windowMs: 60 * 1000, maxRequests: 120, identifier: 'read' },
 } as const
 
 /* ══════════════════════════════════════════════════════════
