@@ -1,8 +1,6 @@
 // FILE: src/app/api/settings/modules/route.ts
 // ═══════════════════════════════════════════════════════════
-// PATCH /api/settings/modules
-// ✅ FIX: Plan ke default modules hamesha base rahenge
-// Admin sirf DISABLE kar sakta hai — plan modules ke andar se
+// UPDATED: Homework validation + homework settings save
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -17,6 +15,10 @@ import { invalidateModuleSettingsCache } from '@/lib/getModuleSettings'
 import type { UpdateModulesBody } from '@/types/settings'
 import type { ModuleKey } from '@/lib/moduleRegistry'
 import type { PlanId } from '@/lib/plans'
+
+// ══════════════════════════════════════════════════════════
+// Validation
+// ══════════════════════════════════════════════════════════
 
 function validateModules(body: UpdateModulesBody, currentPlan: string): string | null {
     if (body.enableModules?.length) {
@@ -38,6 +40,24 @@ function validateModules(body: UpdateModulesBody, currentPlan: string): string |
         }
     }
 
+    // Fees validation
+    if (body.fees) {
+        // no extra validation needed currently
+    }
+
+    // Attendance validation
+    if (body.attendance?.editWindowHours !== undefined &&
+        (body.attendance.editWindowHours < 1 || body.attendance.editWindowHours > 72)) {
+        return 'Edit window must be between 1 and 72 hours'
+    }
+
+    // Exams validation
+    if (body.exams?.gracemarksLimit !== undefined &&
+        (body.exams.gracemarksLimit < 0 || body.exams.gracemarksLimit > 10)) {
+        return 'Grace marks limit must be between 0 and 10%'
+    }
+
+    // Library validation
     if (body.library) {
         if (body.library.maxBooksPerStudent !== undefined &&
             (body.library.maxBooksPerStudent < 1 || body.library.maxBooksPerStudent > 20)) {
@@ -52,11 +72,19 @@ function validateModules(body: UpdateModulesBody, currentPlan: string): string |
         }
     }
 
-    if (body.homework?.maxFileSizeMB !== undefined &&
-        (body.homework.maxFileSizeMB < 1 || body.homework.maxFileSizeMB > 50)) {
-        return 'Max file size must be between 1 and 50 MB'
+    // ✅ Homework validation
+    if (body.homework) {
+        if (body.homework.maxFileSizeMB !== undefined &&
+            (body.homework.maxFileSizeMB < 1 || body.homework.maxFileSizeMB > 50)) {
+            return 'Max file size must be between 1 and 50 MB'
+        }
+        if (body.homework.submissionFileTypes !== undefined &&
+            body.homework.submissionFileTypes.length === 0) {
+            return 'At least one file type must be allowed'
+        }
     }
 
+    // HR validation
     if (body.hr) {
         const hr = body.hr
         if (hr.pfPercentage !== undefined &&
@@ -89,18 +117,12 @@ function validateModules(body: UpdateModulesBody, currentPlan: string): string |
         }
     }
 
-    if (body.attendance?.editWindowHours !== undefined &&
-        (body.attendance.editWindowHours < 1 || body.attendance.editWindowHours > 72)) {
-        return 'Edit window must be between 1 and 72 hours'
-    }
-
-    if (body.exams?.gracemarksLimit !== undefined &&
-        (body.exams.gracemarksLimit < 0 || body.exams.gracemarksLimit > 10)) {
-        return 'Grace marks limit must be between 0 and 10%'
-    }
-
     return null
 }
+
+// ══════════════════════════════════════════════════════════
+// PATCH — Update Module Settings
+// ══════════════════════════════════════════════════════════
 
 export async function PATCH(req: NextRequest) {
     const guard = await apiGuardWithBody<UpdateModulesBody>(req, {
@@ -123,17 +145,10 @@ export async function PATCH(req: NextRequest) {
     try {
         await connectDB()
 
-        // ✅ KEY FIX:
-        // Plan ke saare allowed modules = base set
-        // Admin sirf SchoolSettings.modules.hiddenModules mein store karega
-        // School.modules = plan.modules HAMESHA (base set)
-        // Sidebar ko School.modules - hiddenModules dikhana chahiye
-
         const planConfig = getPlan(currentPlan)
-        const planModules = planConfig.modules // Enterprise ke saare modules
+        const planModules = planConfig.modules
 
-        // ── Hidden modules track karo SchoolSettings mein ──
-        // School.modules mein plan ke saare modules hamesha rahenge
+        // Current hidden modules
         const currentSettings = await SchoolSettings.findOne({ tenantId })
             .select('modules.hiddenModules')
             .lean() as any
@@ -151,40 +166,40 @@ export async function PATCH(req: NextRequest) {
         if (body.disableModules?.length) {
             body.disableModules.forEach((mod) => {
                 const config = MODULE_REGISTRY[mod as ModuleKey]
-                // Core modules hide nahi honge
                 if (!config?.isCore && !hiddenModules.includes(mod)) {
                     hiddenModules.push(mod)
                 }
             })
         }
 
-        // ── School.modules = plan ke saare modules (hamesha) ──
-        // Ye hard refresh pe reset nahi hoga kyunki plan.modules static hai
+        // School.modules = plan ke saare modules (hamesha)
         await School.findByIdAndUpdate(tenantId, {
             $set: { modules: planModules }
         })
 
-        // ── SchoolSettings mein hiddenModules save karo ──
+        // ✅ Build setFields — sab module settings
         const setFields: Record<string, any> = {
             lastUpdatedBy: session.user.id,
             lastUpdatedByName: session.user.name,
             'modules.hiddenModules': hiddenModules,
         }
 
-        // Module feature settings
-        const sectionMap = {
+        // ✅ Section map — including homework
+        const sectionMap: Record<string, any> = {
             fees: body.fees,
             attendance: body.attendance,
             exams: body.exams,
             library: body.library,
-            homework: body.homework,
-            hr: body.hr,         // ✅ NEW
+            homework: body.homework,  // ✅ Homework section
+            hr: body.hr,
         }
 
         Object.entries(sectionMap).forEach(([section, sectionBody]) => {
             if (sectionBody) {
                 Object.entries(sectionBody).forEach(([key, val]) => {
-                    if (val !== undefined) setFields[`modules.${section}.${key}`] = val
+                    if (val !== undefined) {
+                        setFields[`modules.${section}.${key}`] = val
+                    }
                 })
             }
         })
@@ -195,14 +210,15 @@ export async function PATCH(req: NextRequest) {
             { upsert: true }
         )
 
-        // ✅ Cache invalidate
+        // Cache invalidate
         invalidateModuleSettingsCache(tenantId)
 
-        // ── Effective modules = planModules - hiddenModules ──
+        // Effective modules = planModules - hiddenModules
         const effectiveModules = planModules.filter(
             (m) => !hiddenModules.includes(m)
         )
 
+        // Audit log
         const enabledLabels = body.enableModules?.map(
             (m) => MODULE_REGISTRY[m as ModuleKey]?.label || m
         )
@@ -221,6 +237,7 @@ export async function PATCH(req: NextRequest) {
             description: [
                 enabledLabels?.length ? `Enabled: ${enabledLabels.join(', ')}` : '',
                 disabledLabels?.length ? `Disabled: ${disabledLabels.join(', ')}` : '',
+                body.homework ? 'Homework settings updated' : '',
                 'Module settings updated',
             ].filter(Boolean).join(' | '),
             newData: { hiddenModules, effectiveModules },

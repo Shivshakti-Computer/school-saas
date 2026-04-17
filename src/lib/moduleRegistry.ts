@@ -159,7 +159,7 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     description: 'Assign, submit, grade homework',
     icon: 'FileText',
     plans: ['growth', 'pro', 'enterprise'],
-    roles: ['admin', 'teacher', 'staff'],
+    roles: ['admin', 'teacher', 'staff', 'student', 'parent'],
     adminRoute: '/admin/homework',
     teacherRoute: '/teacher/homework',
     staffRoute: '/admin/homework',
@@ -474,25 +474,75 @@ export function getSidebarNav(
       .filter(item => item.href)
   }
 
+  // ✅ STUDENT — dynamic homework check
   if (role === 'student') {
-    return [
+    const baseItems = [
       { key: 'attendance', label: 'Attendance', icon: 'CheckSquare', href: '/student/attendance', color: '#059669' },
       { key: 'admitcard', label: 'Admit Card', icon: 'IdCard', href: '/student/exams', color: '#ba0f0c' },
       { key: 'results', label: 'Exam Results', icon: 'BookOpen', href: '/student/results', color: '#2563EB' },
       { key: 'fees', label: 'Fees', icon: 'CreditCard', href: '/student/fees', color: '#D97706' },
       { key: 'notices', label: 'Notices', icon: 'Bell', href: '/student/notices', color: '#7C3AED' },
-      { key: 'profile', label: 'My Profile', icon: 'User', href: '/student/profile', color: '#6B7280' },
     ]
+
+    // ✅ Check if homework module allowed for this plan
+    const homeworkAllowed =
+      MODULE_REGISTRY.homework.plans.includes(plan as Plan) &&
+      (enabledModules.includes('homework') || MODULE_REGISTRY.homework.isCore)
+
+    if (homeworkAllowed) {
+      baseItems.splice(3, 0, {  // Insert after "Exam Results"
+        key: 'homework',
+        label: 'Homework',
+        icon: 'FileText',
+        href: '/student/homework',
+        color: '#6366F1',
+      })
+    }
+
+    baseItems.push({
+      key: 'profile',
+      label: 'My Profile',
+      icon: 'User',
+      href: '/student/profile',
+      color: '#6B7280',
+    })
+
+    return baseItems
   }
 
+  // ✅ PARENT — dynamic homework check
   if (role === 'parent') {
-    return [
+    const baseItems = [
       { key: 'attendance', label: 'Attendance', icon: 'CheckSquare', href: '/parent/attendance', color: '#059669' },
       { key: 'admitcard', label: 'Admit Card', icon: 'IdCard', href: '/parent/exams', color: '#ba0f0c' },
       { key: 'fees', label: 'Fee Payment', icon: 'CreditCard', href: '/parent/fees', color: '#D97706' },
       { key: 'results', label: 'Results', icon: 'BookOpen', href: '/parent/results', color: '#2563EB' },
-      { key: 'notices', label: 'Notices', icon: 'Bell', href: '/parent/notices', color: '#7C3AED' },
     ]
+
+    // ✅ Check if homework module allowed
+    const homeworkAllowed =
+      MODULE_REGISTRY.homework.plans.includes(plan as Plan) &&
+      (enabledModules.includes('homework') || MODULE_REGISTRY.homework.isCore)
+
+    if (homeworkAllowed) {
+      baseItems.splice(4, 0, {  // Insert after "Results"
+        key: 'homework',
+        label: 'Homework',
+        icon: 'FileText',
+        href: '/parent/homework',
+        color: '#6366F1',
+      })
+    }
+
+    baseItems.push({
+      key: 'notices',
+      label: 'Notices',
+      icon: 'Bell',
+      href: '/parent/notices',
+      color: '#7C3AED',
+    })
+
+    return baseItems
   }
 
   return []

@@ -1,10 +1,9 @@
 // FILE: src/components/settings/tabs/NotificationsTab.tsx
-// Auto SMS, Email, WhatsApp triggers + quiet hours
 
 'use client'
 
-import { useState } from 'react'
-import { MessageSquare, Mail, Phone, Moon } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MessageSquare } from 'lucide-react'
 import { SettingSection } from '../shared/SettingSection'
 import { ToggleRow, SettingRow } from '../shared/SettingRow'
 import { SaveBar } from '../shared/SaveButton'
@@ -15,64 +14,91 @@ interface NotificationsTabProps {
     onSaved: (updated: INotificationSettings) => void
 }
 
+type SMSSettings = NonNullable<INotificationSettings['sms']>
+type EmailSettings = NonNullable<INotificationSettings['email']>
+type WhatsAppSettings = NonNullable<INotificationSettings['whatsapp']>
+type QuietHoursSettings = NonNullable<INotificationSettings['quietHours']>
+
+type FieldValue<T, K extends keyof T> = T[K]
+
 export function NotificationsTab({
     notifications,
     onSaved,
 }: NotificationsTabProps) {
     const [form, setForm] = useState<INotificationSettings>({ ...notifications })
+    const [originalData, setOriginalData] = useState<INotificationSettings>({ 
+        ...notifications 
+    })
     const [isDirty, setIsDirty] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
 
-    const updateSMS = (
-        field: keyof INotificationSettings['sms'],
-        val: any
-    ) => {
+    // ✅ FIX 1: Sync both form AND originalData when prop changes
+    useEffect(() => {
+        setForm({ ...notifications })
+        setOriginalData({ ...notifications })
+        setIsDirty(false)
+        setError(null)
+        setSuccess(null)
+    }, [notifications])
+
+    // ── Typed update functions ─────────────────────────────────────────────
+
+    function updateSMS<K extends keyof SMSSettings>(
+        field: K,
+        val: FieldValue<SMSSettings, K>
+    ): void {
         setForm((prev) => ({
             ...prev,
-            sms: { ...prev.sms, [field]: val },
+            sms: { ...prev.sms, [field]: val } as SMSSettings,
         }))
         setIsDirty(true)
     }
 
-    const updateEmail = (
-        field: keyof INotificationSettings['email'],
-        val: any
-    ) => {
+    function updateEmail<K extends keyof EmailSettings>(
+        field: K,
+        val: FieldValue<EmailSettings, K>
+    ): void {
         setForm((prev) => ({
             ...prev,
-            email: { ...prev.email, [field]: val },
+            email: { ...prev.email, [field]: val } as EmailSettings,
         }))
         setIsDirty(true)
     }
 
-    const updateWhatsApp = (
-        field: keyof INotificationSettings['whatsapp'],
-        val: any
-    ) => {
+    function updateWhatsApp<K extends keyof WhatsAppSettings>(
+        field: K,
+        val: FieldValue<WhatsAppSettings, K>
+    ): void {
         setForm((prev) => ({
             ...prev,
-            whatsapp: { ...prev.whatsapp, [field]: val },
+            whatsapp: { ...prev.whatsapp, [field]: val } as WhatsAppSettings,
         }))
         setIsDirty(true)
     }
 
-    const updateQuiet = (
-        field: keyof INotificationSettings['quietHours'],
-        val: any
-    ) => {
+    function updateQuiet<K extends keyof QuietHoursSettings>(
+        field: K,
+        val: FieldValue<QuietHoursSettings, K>
+    ): void {
         setForm((prev) => ({
             ...prev,
-            quietHours: { ...prev.quietHours, [field]: val },
+            quietHours: { ...prev.quietHours, [field]: val } as QuietHoursSettings,
         }))
         setIsDirty(true)
     }
 
-    const handleSave = async () => {
+    // ✅ FIX 2: Save logic — same pattern as AcademicTab
+    const handleSave = async (): Promise<void> => {
         setSaving(true)
         setError(null)
         setSuccess(null)
+
+        // ✅ Optimistic update — backup pehle banao
+        const backup = { ...originalData }
+        setOriginalData({ ...form })
+        onSaved(form)
 
         try {
             const res = await fetch('/api/settings/notifications', {
@@ -80,35 +106,46 @@ export function NotificationsTab({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(form),
             })
-            const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Save failed')
 
+            const data = (await res.json()) as { error?: string }
+            if (!res.ok) throw new Error(data.error ?? 'Save failed')
+
+            // ✅ Success — originalData already updated above
             setIsDirty(false)
             setSuccess('Notification settings saved')
-            onSaved(form)
-        } catch (err: any) {
-            setError(err.message)
+
+        } catch (err) {
+            // ✅ Rollback on error
+            const message = err instanceof Error ? err.message : 'Unknown error'
+            setError(message)
+            
+            setOriginalData(backup)
+            onSaved(backup)
+            setForm(backup)
+            
             throw err
         } finally {
             setSaving(false)
         }
     }
 
-    const handleDiscard = () => {
-        setForm({ ...notifications })
+    const handleDiscard = (): void => {
+        setForm({ ...originalData })
         setIsDirty(false)
         setError(null)
         setSuccess(null)
     }
 
+    // ── Render (rest of your JSX — unchanged) ─────────────────────────────
+
     return (
         <div className="space-y-5 portal-content-enter">
-
             {error && (
                 <div className="p-3.5 rounded-[var(--radius-md)] bg-[var(--danger-light)] border border-[rgba(239,68,68,0.2)] text-sm text-[var(--danger-dark)]">
                     {error}
                 </div>
             )}
+
             {success && (
                 <div className="p-3.5 rounded-[var(--radius-md)] bg-[var(--success-light)] border border-[rgba(16,185,129,0.2)] text-sm text-[var(--success-dark)]">
                     {success}
@@ -116,13 +153,7 @@ export function NotificationsTab({
             )}
 
             {/* Info banner */}
-            <div
-                className="
-          flex items-start gap-3 p-3.5
-          bg-[var(--info-light)] border border-[rgba(59,130,246,0.2)]
-          rounded-[var(--radius-md)] text-sm text-[var(--info-dark)]
-        "
-            >
+            <div className="flex items-start gap-3 p-3.5 bg-[var(--info-light)] border border-[rgba(59,130,246,0.2)] rounded-[var(--radius-md)] text-sm text-[var(--info-dark)]">
                 <MessageSquare size={15} className="flex-shrink-0 mt-0.5" />
                 <p>
                     Auto-notifications use your SMS/Email credits.
@@ -130,7 +161,7 @@ export function NotificationsTab({
                 </p>
             </div>
 
-            {/* ── SMS ── */}
+            {/* ── SMS ─────────────────────────────────────────────────────── */}
             <SettingSection
                 title="SMS Notifications"
                 description="Automatic SMS alerts to parents and students"
@@ -178,15 +209,16 @@ export function NotificationsTab({
                     checked={form.sms?.onAdmission ?? true}
                     onChange={(v) => updateSMS('onAdmission', v)}
                 />
+                <ToggleRow
+                    label="Homework Alert"
+                    description="SMS to students when new homework is assigned"
+                    checked={form.sms?.homeworkAlert ?? false}
+                    onChange={(v) => updateSMS('homeworkAlert', v)}
+                />
 
                 {/* Fee reminder days */}
                 {form.sms?.onFeeReminder && (
-                    <div
-                        className="
-              mt-3 pt-3 border-t border-[var(--border)]
-              flex items-center gap-3
-            "
-                    >
+                    <div className="mt-3 pt-3 border-t border-[var(--border)] flex items-center gap-3">
                         <p className="text-sm text-[var(--text-secondary)] flex-1">
                             Send fee reminder
                         </p>
@@ -199,7 +231,7 @@ export function NotificationsTab({
                                 onChange={(e) =>
                                     updateSMS(
                                         'feeReminderDaysBefore',
-                                        parseInt(e.target.value) || 3
+                                        parseInt(e.target.value, 10) || 3
                                     )
                                 }
                                 className="input-clean w-16 text-center text-sm"
@@ -212,7 +244,7 @@ export function NotificationsTab({
                 )}
             </SettingSection>
 
-            {/* ── Email ── */}
+            {/* ── Email ────────────────────────────────────────────────────── */}
             <SettingSection
                 title="Email Notifications"
                 description="Automatic email alerts (lower credit cost than SMS)"
@@ -242,14 +274,15 @@ export function NotificationsTab({
                     checked={form.email?.onNewNotice ?? false}
                     onChange={(v) => updateEmail('onNewNotice', v)}
                 />
+                <ToggleRow
+                    label="Homework Alert"
+                    description="Email to students when new homework is assigned"
+                    checked={form.email?.homeworkAlert ?? false}
+                    onChange={(v) => updateEmail('homeworkAlert', v)}
+                />
 
                 {form.email?.onFeeReceipt && (
-                    <div
-                        className="
-              mt-3 pt-3 border-t border-[var(--border)]
-              flex items-center gap-3
-            "
-                    >
+                    <div className="mt-3 pt-3 border-t border-[var(--border)] flex items-center gap-3">
                         <p className="text-sm text-[var(--text-secondary)] flex-1">
                             Email fee reminder
                         </p>
@@ -262,7 +295,7 @@ export function NotificationsTab({
                                 onChange={(e) =>
                                     updateEmail(
                                         'feeReminderDaysBefore',
-                                        parseInt(e.target.value) || 3
+                                        parseInt(e.target.value, 10) || 3
                                     )
                                 }
                                 className="input-clean w-16 text-center text-sm"
@@ -275,7 +308,7 @@ export function NotificationsTab({
                 )}
             </SettingSection>
 
-            {/* ── WhatsApp ── */}
+            {/* ── WhatsApp ─────────────────────────────────────────────────── */}
             <SettingSection
                 title="WhatsApp Notifications"
                 description="WhatsApp messages via integrated provider"
@@ -305,9 +338,15 @@ export function NotificationsTab({
                     checked={form.whatsapp?.onExamResult ?? false}
                     onChange={(v) => updateWhatsApp('onExamResult', v)}
                 />
+                <ToggleRow
+                    label="Homework Alert"
+                    description="WhatsApp to students when new homework is assigned"
+                    checked={form.whatsapp?.homeworkAlert ?? false}
+                    onChange={(v) => updateWhatsApp('homeworkAlert', v)}
+                />
             </SettingSection>
 
-            {/* ── Quiet Hours ── */}
+            {/* ── Quiet Hours ──────────────────────────────────────────────── */}
             <SettingSection
                 title="Quiet Hours"
                 description="No notifications will be sent during this period"
@@ -327,7 +366,7 @@ export function NotificationsTab({
                         >
                             <input
                                 type="time"
-                                value={form.quietHours?.start || '21:00'}
+                                value={form.quietHours?.start ?? '21:00'}
                                 onChange={(e) => updateQuiet('start', e.target.value)}
                                 className="input-clean"
                             />
@@ -338,7 +377,7 @@ export function NotificationsTab({
                         >
                             <input
                                 type="time"
-                                value={form.quietHours?.end || '07:00'}
+                                value={form.quietHours?.end ?? '07:00'}
                                 onChange={(e) => updateQuiet('end', e.target.value)}
                                 className="input-clean"
                             />

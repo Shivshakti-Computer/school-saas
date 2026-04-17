@@ -85,6 +85,7 @@ export interface INotificationSettings {
     onNewNotice: boolean
     onAdmission: boolean
     feeReminderDaysBefore: number
+    homeworkAlert: boolean
   }
   email: {
     onAdmission: boolean
@@ -92,12 +93,14 @@ export interface INotificationSettings {
     onExamResult: boolean
     onNewNotice: boolean
     feeReminderDaysBefore: number
+    homeworkAlert: boolean
   }
   whatsapp: {
     onAbsent: boolean
     onFeeReminder: boolean
     onFeeReceipt: boolean
     onExamResult: boolean
+    homeworkAlert: boolean
   }
   quietHours: {
     enabled: boolean
@@ -163,6 +166,7 @@ export interface IModuleSettings {
     maxIssueDays: number
     finePerDay: number
   }
+  // ✅ Homework module settings
   homework: {
     allowStudentSubmission: boolean
     submissionFileTypes: string[]
@@ -288,6 +292,7 @@ const NotificationSchema = new Schema<INotificationSettings>(
       onNewNotice: { type: Boolean, default: false },
       onAdmission: { type: Boolean, default: true },
       feeReminderDaysBefore: { type: Number, default: 3 },
+      homeworkAlert: { type: Boolean, default: false },
     },
     email: {
       onAdmission: { type: Boolean, default: true },
@@ -295,12 +300,14 @@ const NotificationSchema = new Schema<INotificationSettings>(
       onExamResult: { type: Boolean, default: false },
       onNewNotice: { type: Boolean, default: false },
       feeReminderDaysBefore: { type: Number, default: 3 },
+      homeworkAlert: { type: Boolean, default: false },
     },
     whatsapp: {
       onAbsent: { type: Boolean, default: false },
       onFeeReminder: { type: Boolean, default: false },
       onFeeReceipt: { type: Boolean, default: false },
       onExamResult: { type: Boolean, default: false },
+      homeworkAlert: { type: Boolean, default: false },
     },
     quietHours: {
       enabled: { type: Boolean, default: true },
@@ -375,10 +382,14 @@ const ModuleSettingsSchema = new Schema<IModuleSettings>(
       maxIssueDays: { type: Number, default: 14 },
       finePerDay: { type: Number, default: 2 },
     },
+    // ✅ Homework Schema
     homework: {
       allowStudentSubmission: { type: Boolean, default: true },
-      submissionFileTypes: { type: [String], default: ['pdf', 'jpg', 'jpeg', 'png', 'docx'] },
-      maxFileSizeMB: { type: Number, default: 10 },
+      submissionFileTypes: {
+        type: [String],
+        default: ['pdf', 'jpg', 'jpeg', 'png', 'docx'],
+      },
+      maxFileSizeMB: { type: Number, default: 10, min: 1, max: 50 },
     },
     hr: {
       sendSalarySlipEmail: { type: Boolean, default: false },
