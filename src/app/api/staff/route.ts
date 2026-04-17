@@ -1,6 +1,6 @@
 // FILE: src/app/api/staff/route.ts
-// Staff CRUD: List + Create (User + Staff record together)
-// Only admin can manage staff
+// ✅ UPDATED: Teacher creation me defaultTeacherModules auto-assign
+// Baaki sab same hai — sirf POST function me change
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -8,15 +8,27 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import { User } from '@/models/User'
 import { Staff } from '@/models/Staff'
+import { SchoolSettings } from '@/models/SchoolSettings'
 import { checkCanAddTeacher } from '@/lib/limitGuard'
 import { logDataChange } from '@/lib/audit'
 import { getClientInfo, sanitizeBody } from '@/lib/security'
 import bcrypt from 'bcryptjs'
 
-// ── GET: List all staff ──
+// ── Default teacher modules — fallback if settings nahi mili ──
+const FALLBACK_TEACHER_MODULES = [
+    'attendance',
+    'exams',
+    'homework',
+    'notices',
+]
+
+// ── GET: same as before ──
 export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions)
-    if (!session?.user || !['admin', 'superadmin'].includes(session.user.role)) {
+    if (
+        !session?.user ||
+        !['admin', 'superadmin'].includes(session.user.role)
+    ) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -24,16 +36,14 @@ export async function GET(req: NextRequest) {
     const tenantId = session.user.tenantId
     const url = req.nextUrl
 
-    // Query params for filtering
-    const status = url.searchParams.get('status')           // active, inactive, resigned, etc.
-    const category = url.searchParams.get('category')       // teaching, non_teaching, admin, support
+    const status = url.searchParams.get('status')
+    const category = url.searchParams.get('category')
     const department = url.searchParams.get('department')
     const search = url.searchParams.get('search')
     const page = parseInt(url.searchParams.get('page') || '1')
     const limit = parseInt(url.searchParams.get('limit') || '50')
 
     const query: any = { tenantId }
-
     if (status) query.status = status
     if (category) query.staffCategory = category
     if (department) query.department = department
@@ -50,7 +60,9 @@ export async function GET(req: NextRequest) {
 
     const [staffList, total] = await Promise.all([
         Staff.find(query)
-            .select('-documents -accountNumber -panNumber -aadharNumber -ifscCode')
+            .select(
+                '-documents -accountNumber -panNumber -aadharNumber -ifscCode'
+            )
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
@@ -58,15 +70,17 @@ export async function GET(req: NextRequest) {
         Staff.countDocuments(query),
     ])
 
-    // Get counts by status for stats
-    const [totalCount, activeCount, onLeaveCount, inactiveCount] = await Promise.all([
-        Staff.countDocuments({ tenantId }),
-        Staff.countDocuments({ tenantId, status: 'active' }),
-        Staff.countDocuments({ tenantId, status: 'on_leave' }),
-        Staff.countDocuments({ tenantId, status: { $in: ['inactive', 'resigned', 'terminated'] } }),
-    ])
+    const [totalCount, activeCount, onLeaveCount, inactiveCount] =
+        await Promise.all([
+            Staff.countDocuments({ tenantId }),
+            Staff.countDocuments({ tenantId, status: 'active' }),
+            Staff.countDocuments({ tenantId, status: 'on_leave' }),
+            Staff.countDocuments({
+                tenantId,
+                status: { $in: ['inactive', 'resigned', 'terminated'] },
+            }),
+        ])
 
-    // Get unique departments
     const departments = await Staff.distinct('department', { tenantId })
 
     return NextResponse.json({
@@ -87,11 +101,14 @@ export async function GET(req: NextRequest) {
     })
 }
 
-// ── POST: Create new staff (User + Staff record) ──
+// ── POST: Create new staff ──
 export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions)
     if (!session?.user || session.user.role !== 'admin') {
-        return NextResponse.json({ error: 'Unauthorized — only admin can add staff' }, { status: 401 })
+        return NextResponse.json(
+            { error: 'Unauthorized — only admin can add staff' },
+            { status: 401 }
+        )
     }
 
     await connectDB()
@@ -103,52 +120,64 @@ export async function POST(req: NextRequest) {
         const raw = await req.json()
         body = sanitizeBody(raw)
     } catch {
-        return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+        return NextResponse.json(
+            { error: 'Invalid request body' },
+            { status: 400 }
+        )
     }
 
-    // ── Validation ──
     const {
-        firstName, lastName, phone, email, gender, designation, department,
-        qualification, staffCategory, joiningDate, basicSalary,
-        currentAddress, emergencyContactName, emergencyContactPhone,
+        firstName, lastName, phone, email, gender,
+        designation, department, qualification, staffCategory,
+        joiningDate, basicSalary, currentAddress,
+        emergencyContactName, emergencyContactPhone,
         password, allowedModules, role: staffRole,
-        // Optional fields
         subjects, classes, sections, isClassTeacher, classTeacherOf,
         dateOfBirth, bloodGroup, maritalStatus, alternatePhone,
         personalEmail, permanentAddress, city, state, pincode,
         specialization, experience, previousSchool,
-        salaryGrade, bankName, bankBranch, accountNumber, ifscCode,
-        panNumber, aadharNumber, emergencyContactRelation,
+        salaryGrade, bankName, bankBranch, accountNumber,
+        ifscCode, panNumber, aadharNumber, emergencyContactRelation,
         allowances, deductions,
     } = body
 
-    if (!firstName || !phone || !gender || !designation || !department ||
-        !qualification || !staffCategory || !joiningDate || !currentAddress ||
-        !emergencyContactName || !emergencyContactPhone) {
-        return NextResponse.json({
-            error: 'Missing required fields: firstName, phone, gender, designation, department, qualification, staffCategory, joiningDate, currentAddress, emergencyContactName, emergencyContactPhone'
-        }, { status: 400 })
+    if (
+        !firstName || !phone || !gender || !designation ||
+        !department || !qualification || !staffCategory ||
+        !joiningDate || !currentAddress ||
+        !emergencyContactName || !emergencyContactPhone
+    ) {
+        return NextResponse.json(
+            { error: 'Missing required fields' },
+            { status: 400 }
+        )
     }
 
-    // ── CHECK TEACHER LIMIT (staff counts toward teacher limit) ──
+    // ── Limit check ──
     const limitCheck = await checkCanAddTeacher(tenantId)
     if (!limitCheck.allowed) {
-        return NextResponse.json({
-            error: limitCheck.message,
-            limitReached: true,
-            current: limitCheck.current,
-            limit: limitCheck.limit,
-            plan: limitCheck.plan,
-        }, { status: 403 })
+        return NextResponse.json(
+            {
+                error: limitCheck.message,
+                limitReached: true,
+                current: limitCheck.current,
+                limit: limitCheck.limit,
+                plan: limitCheck.plan,
+            },
+            { status: 403 }
+        )
     }
 
-    // ── Check duplicate phone ──
+    // ── Duplicate phone ──
     const existingUser = await User.findOne({ tenantId, phone })
     if (existingUser) {
-        return NextResponse.json({ error: 'Phone number already registered in this school' }, { status: 409 })
+        return NextResponse.json(
+            { error: 'Phone number already registered in this school' },
+            { status: 409 }
+        )
     }
 
-    // ── Generate Employee ID ──
+    // ── Employee ID generate ──
     const lastStaff = await Staff.findOne({ tenantId })
         .sort({ createdAt: -1 })
         .select('employeeId')
@@ -160,16 +189,42 @@ export async function POST(req: NextRequest) {
         if (match) empNumber = parseInt(match[0]) + 1
     }
     const employeeId = `EMP-${String(empNumber).padStart(4, '0')}`
-
     const fullName = `${firstName} ${lastName || ''}`.trim()
-
-    // ── Determine User role ──
-    // staffRole can be 'staff' or 'teacher'
-    // 'staff' = uses staff RBAC (only allowed modules)
-    // 'teacher' = traditional teacher role (uses moduleRegistry roles)
     const userRole = staffRole === 'teacher' ? 'teacher' : 'staff'
 
-    // ── Create User Account ──
+    // ── ✅ Auto-assign default modules for teacher ──
+    let finalAllowedModules: string[] = allowedModules || []
+
+    if (userRole === 'teacher') {
+        // Agar frontend ne modules bheje hain to use karo
+        // Warna school settings se fetch karo
+        if (finalAllowedModules.length === 0) {
+            try {
+                const settings = await SchoolSettings
+                    .findOne({ tenantId })
+                    .select('modules.teacherDefaults')
+                    .lean() as any
+
+                const autoAssign =
+                    settings?.modules?.teacherDefaults?.autoAssignModules !== false
+                const defaultMods =
+                    settings?.modules?.teacherDefaults?.defaultModules ||
+                    FALLBACK_TEACHER_MODULES
+
+                if (autoAssign) {
+                    finalAllowedModules = defaultMods
+                }
+            } catch {
+                // Fallback
+                finalAllowedModules = FALLBACK_TEACHER_MODULES
+            }
+        }
+    } else {
+        // Staff ke liye — sirf wahi jo admin ne diye
+        finalAllowedModules = allowedModules || []
+    }
+
+    // ── Create User ──
     const hashedPassword = await bcrypt.hash(password || phone, 10)
 
     const newUser = await User.create({
@@ -183,11 +238,11 @@ export async function POST(req: NextRequest) {
         subjects: subjects || [],
         class: classTeacherOf?.class || '',
         section: classTeacherOf?.section || '',
-        allowedModules: allowedModules || [],
+        allowedModules: finalAllowedModules,
         isActive: true,
     })
 
-    // ── Create Staff Record ──
+    // ── Create Staff record ──
     const newStaff = await Staff.create({
         tenantId,
         userId: newUser._id,
@@ -221,7 +276,7 @@ export async function POST(req: NextRequest) {
         sections: sections || [],
         isClassTeacher: isClassTeacher || false,
         classTeacherOf: classTeacherOf || undefined,
-        allowedModules: allowedModules || [],
+        allowedModules: finalAllowedModules,
         salaryGrade: salaryGrade || undefined,
         basicSalary: basicSalary || 0,
         allowances: allowances || {},
@@ -238,25 +293,33 @@ export async function POST(req: NextRequest) {
         status: 'active',
     })
 
-    // ── Audit Log ──
+    // ── Audit ──
     await logDataChange(
         'CREATE',
         'Staff',
         newStaff._id.toString(),
-        `Created staff: ${fullName} (${employeeId}) as ${userRole}`,
+        `Created ${userRole}: ${fullName} (${employeeId}) with modules: [${finalAllowedModules.join(', ')}]`,
         session,
         clientInfo.ip
     )
 
-    return NextResponse.json({
-        staff: newStaff,
-        user: {
-            _id: newUser._id,
-            name: newUser.name,
-            phone: newUser.phone,
-            role: newUser.role,
-            employeeId: newUser.employeeId,
+    return NextResponse.json(
+        {
+            staff: newStaff,
+            user: {
+                _id: newUser._id,
+                name: newUser.name,
+                phone: newUser.phone,
+                role: newUser.role,
+                employeeId: newUser.employeeId,
+                allowedModules: finalAllowedModules,
+            },
+            message: `${userRole === 'teacher' ? 'Teacher' : 'Staff'} "${fullName}" created successfully. Login: ${phone} / ${password ? '(custom password)' : phone}`,
+            autoAssignedModules:
+                userRole === 'teacher' && (allowedModules || []).length === 0
+                    ? finalAllowedModules
+                    : [],
         },
-        message: `Staff member "${fullName}" created successfully. Login: Phone ${phone}, Password: ${password ? '(custom)' : phone}`,
-    }, { status: 201 })
+        { status: 201 }
+    )
 }

@@ -30,6 +30,16 @@ declare module 'next-auth' {
             extraStudents: number
             extraTeachers: number
         }
+
+        // ── Teacher-specific fields ──
+        teacherClasses: string[]
+        teacherSections: string[]
+        teacherSubjects: string[]
+        isClassTeacher: boolean
+        classTeacherOf?: {
+            class: string
+            section: string
+        }
     }
 
     interface Session {
@@ -56,6 +66,16 @@ declare module 'next-auth' {
             addonLimits: {
                 extraStudents: number
                 extraTeachers: number
+            }
+
+            // ── Teacher-specific fields ──
+            teacherClasses: string[]      // assigned classes: ['6', '7', '8']
+            teacherSections: string[]     // assigned sections: ['A', 'B']
+            teacherSubjects: string[]     // assigned subjects: ['Math', 'Science']
+            isClassTeacher: boolean
+            classTeacherOf?: {
+                class: string
+                section: string
             }
         }
     }
@@ -84,6 +104,16 @@ declare module 'next-auth/jwt' {
         addonLimits: {
             extraStudents: number
             extraTeachers: number
+        }
+
+        // ── Teacher-specific fields ──
+        teacherClasses: string[]
+        teacherSections: string[]
+        teacherSubjects: string[]
+        isClassTeacher: boolean
+        classTeacherOf?: {
+            class: string
+            section: string
         }
     }
 }

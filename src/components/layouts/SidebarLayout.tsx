@@ -83,11 +83,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
 
-  // ✅ FIX: Dono alag states — pehle ek hi thi jo bug tha
-  const [systemOpen, setSystemOpen] = useState(false)   // sidebar system section
-  const [userMenuOpen, setUserMenuOpen] = useState(false) // bottom user footer
+  const [systemOpen, setSystemOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
-  // Topbar user dropdown
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
   const userDropdownRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -99,18 +97,15 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     darkMode: 'light',
   })
 
-  // Pathname change par mobile close karo
   useEffect(() => {
     if (mobileOpen) closeMobile()
   }, [pathname]) // eslint-disable-line
 
-  // Body scroll lock
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [mobileOpen])
 
-  // Topbar dropdown — outside click close
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -124,7 +119,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // Bottom user menu — outside click close
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (
@@ -138,7 +132,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  // System page par auto-open system section
   useEffect(() => {
     const systemPaths = [
       '/admin/subscription', '/admin/settings', '/admin/security',
@@ -174,15 +167,17 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const schoolInitial = schoolName.charAt(0).toUpperCase()
   const allowedModules = (session.user as any).allowedModules as string[] || []
 
+  // ✅ FIXED: Teacher ko hamesha 'teacher' role se nav milega
+  // Staff ko allowedModules ke saath staff route milega
   const navItems = isExpired
     ? []
     : role === 'staff'
-      ? getSidebarNav(modules, plan, role, allowedModules)
-      : role === 'teacher' && allowedModules.length > 0
-        ? getSidebarNav(modules, plan, 'staff', allowedModules)
-        : getSidebarNav(modules, plan, role)
+      ? getSidebarNav(modules, plan, 'staff', allowedModules)
+      : getSidebarNav(modules, plan, role)
 
-  const isTeacherRestricted = role === 'teacher' && allowedModules.length === 0
+  // ✅ FIXED: Teacher ke liye allowedModules check relevant nahi
+  // Teacher ka nav moduleRegistry ke 'teacher' role se aata hai
+  const isTeacherRestricted = false
   const isStaffNoModules = role === 'staff' && allowedModules.length === 0
 
   const checkActive = (href: string) =>
@@ -240,7 +235,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
       : ''}`
     : role
 
-  // Security href per role
   const securityHref =
     role === 'admin' || role === 'staff' ? '/admin/security'
       : role === 'teacher' ? '/teacher/security'
@@ -254,9 +248,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/student/security') ||
     pathname.startsWith('/parent/security')
 
-  // ─────────────────────────────────────────────
-  // Sidebar Content
-  // ─────────────────────────────────────────────
   const SidebarContent = ({ onNavClick }: { onNavClick?: () => void }) => (
     <div className="flex flex-col h-full">
 
@@ -343,7 +334,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </>
         )}
 
-        {/* Empty states */}
+        {/* ✅ Staff ke liye — koi module assign nahi hua */}
         {isStaffNoModules && !isExpired && (
           <div
             className="mx-1 my-4 p-4 rounded-xl text-center"
@@ -372,6 +363,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
+        {/* ✅ isTeacherRestricted ab hamesha false hai — yeh block render nahi hoga
+            Lekin agar future mein teacher-specific restriction chahiye toh
+            yeh block ready hai */}
         {isTeacherRestricted && navItems.length === 0 && !isExpired && (
           <div
             className="mx-1 my-4 p-4 rounded-xl text-center"
@@ -428,7 +422,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Trial info */}
         {isTrial && role === 'admin' && (
           <div
             className="mx-1 my-4 p-4 rounded-xl"
@@ -459,7 +452,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* ✅ FIX: System section — apna alag state use karta hai */}
         <div className="mt-2">
           <button
             type="button"
@@ -484,7 +476,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           {systemOpen && (
             <div className="mt-0.5 space-y-0.5">
 
-              {/* Subscription — admin only */}
               {(role === 'admin' || isExpired) && (
                 <Link
                   href="/admin/subscription"
@@ -532,7 +523,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 </Link>
               )}
 
-              {/* Settings — admin only, not expired */}
               {role === 'admin' && !isExpired && (
                 <NavItem
                   href="/admin/settings"
@@ -543,7 +533,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 />
               )}
 
-              {/* Security — all roles, not expired */}
               {!isExpired && (
                 <NavItem
                   href={securityHref}
@@ -558,13 +547,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      {/* ✅ FIX: User footer — apna alag userMenuOpen state use karta hai */}
+      {/* ── User Footer ── */}
       <div
         ref={userMenuRef}
         className="flex-shrink-0"
         style={{ borderTop: '1px solid var(--border)' }}
       >
-        {/* ✅ User menu popup — neeche se upar open hoga */}
         {userMenuOpen && (
           <div
             className="
@@ -578,7 +566,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               boxShadow: 'var(--shadow-md)',
             }}
           >
-            {/* Settings */}
             {role === 'admin' && !isExpired && (
               <Link
                 href="/admin/settings"
@@ -598,7 +585,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               </Link>
             )}
 
-            {/* Subscription */}
             {role === 'admin' && (
               <Link
                 href="/admin/subscription"
@@ -629,7 +615,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               </Link>
             )}
 
-            {/* Security */}
             {!isExpired && (
               <Link
                 href={securityHref}
@@ -649,13 +634,11 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               </Link>
             )}
 
-            {/* Divider */}
             <div
               className="border-t"
               style={{ borderColor: 'var(--border)' }}
             />
 
-            {/* Logout */}
             <button
               onClick={() => {
                 setUserMenuOpen(false)
@@ -674,7 +657,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* ✅ User button — click karo to open/close user menu */}
         <button
           type="button"
           onClick={() => setUserMenuOpen((prev) => !prev)}
@@ -686,7 +668,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           style={{ backgroundColor: 'var(--bg-subtle)' }}
           title={`${userName} — Click for options`}
         >
-          {/* Avatar */}
           <div
             className="
               w-8 h-8 rounded-full flex items-center justify-center
@@ -834,7 +815,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             <Menu size={18} />
           </button>
 
-          {/* Search */}
           <div className="hidden md:flex portal-search max-w-xs flex-1">
             <Search size={15} className="search-icon" />
             <input
@@ -859,10 +839,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex-1" />
 
-          {/* Header Right */}
           <div className="flex items-center gap-2.5">
 
-            {/* Notification bell */}
             <button
               className="relative w-9 h-9 rounded-lg flex items-center justify-center"
               style={{
@@ -873,7 +851,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               <Bell size={16} />
             </button>
 
-            {/* Plan badge */}
             {(role === 'admin' || role === 'staff') && (
               <Link href={role === 'admin' ? '/admin/subscription' : '#'}>
                 <span
@@ -894,7 +871,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               </Link>
             )}
 
-            {/* Topbar user avatar → dropdown */}
             <div className="relative" ref={userDropdownRef}>
               <button
                 onClick={() => setUserDropdownOpen((prev) => !prev)}
@@ -937,7 +913,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 />
               </button>
 
-              {/* Topbar Dropdown */}
               {userDropdownOpen && (
                 <div
                   className="
@@ -952,7 +927,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                     boxShadow: 'var(--shadow-md)',
                   }}
                 >
-                  {/* User info */}
                   <div
                     className="px-3 py-2.5 border-b"
                     style={{ borderColor: 'var(--border)' }}
@@ -971,7 +945,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                     </p>
                   </div>
 
-                  {/* Settings */}
                   {role === 'admin' && !isExpired && (
                     <Link
                       href="/admin/settings"
@@ -988,7 +961,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                     </Link>
                   )}
 
-                  {/* Subscription */}
                   {role === 'admin' && (
                     <Link
                       href="/admin/subscription"
@@ -1016,7 +988,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                     </Link>
                   )}
 
-                  {/* Security */}
                   {!isExpired && (
                     <Link
                       href={securityHref}
@@ -1038,7 +1009,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                     style={{ borderColor: 'var(--border)' }}
                   />
 
-                  {/* Logout */}
                   <button
                     onClick={() => {
                       setUserDropdownOpen(false)

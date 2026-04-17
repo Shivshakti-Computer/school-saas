@@ -191,6 +191,12 @@ export interface IModuleSettings {
     salaryDisbursementDay: number     // Month ka konsa din salary mile (1-28)
     payslipFooterText: string         // Payslip ke neeche text
   }
+
+  // ✅ NEW — Default modules jo teacher create karte waqt auto-assign hon
+  teacherDefaults: {
+    defaultModules: string[]   // e.g. ['attendance', 'exams', 'homework', 'notices']
+    autoAssignModules: boolean // true = creation par auto assign karo
+  }
 }
 
 export interface ISchoolSettingsModel extends Model<ISchoolSettings> {
@@ -404,6 +410,13 @@ const ModuleSettingsSchema = new Schema<IModuleSettings>(
       earnedLeavesPerYear: { type: Number, default: 15 },
       salaryDisbursementDay: { type: Number, default: 1 },
       payslipFooterText: { type: String, default: 'This is a computer generated payslip.' },
+    },
+    teacherDefaults: {
+      defaultModules: {
+        type: [String],
+        default: ['attendance', 'exams', 'homework', 'notices'],
+      },
+      autoAssignModules: { type: Boolean, default: true },
     },
   },
   { _id: false }
