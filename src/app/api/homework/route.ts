@@ -1,6 +1,7 @@
 // FILE: src/app/api/homework/route.ts
 // ═══════════════════════════════════════════════════════════
 // Homework CRUD — Admin & Teacher
+// ✅ FIXED: Academic year handling for teacher homework creation
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -93,11 +94,11 @@ export async function GET(req: NextRequest) {
         const sort: any = {}
         sort[filters.sortBy] = filters.sortOrder === 'desc' ? -1 : 1
 
-        const homework = await Homework.find(query)  // ✅ find() for list
+        const homework = await Homework.find(query)
             .sort(sort)
             .skip(skip)
             .limit(filters.limit)
-            .lean()  // ✅ Same .lean() as detail
+            .lean()
 
         // Stats
         let stats
@@ -112,7 +113,6 @@ export async function GET(req: NextRequest) {
 
             const now = new Date()
 
-            // ✅ Aggregate ki jagah direct find — type mismatch issue nahi hoga
             const allHomework = await Homework.find(statsQuery)
                 .select('status dueDate submittedCount pendingCount lateCount gradedCount')
                 .lean()
@@ -137,7 +137,7 @@ export async function GET(req: NextRequest) {
         }
 
         return NextResponse.json({
-            homework,  // ✅ Direct return — same structure as detail
+            homework,
             total,
             page: filters.page,
             limit: filters.limit,
@@ -170,6 +170,7 @@ export async function GET(req: NextRequest) {
 
 // ══════════════════════════════════════════════════════════
 // POST — Create Homework with Notifications
+// ✅ FIXED: Proper academic year handling
 // ══════════════════════════════════════════════════════════
 
 export async function POST(req: NextRequest) {
@@ -188,7 +189,19 @@ export async function POST(req: NextRequest) {
         await connectDB()
 
         const validated = createHomeworkSchema.parse(body)
-        const academicYear = (body as any).academicYear || getCurrentAcademicYear()
+        
+        // ✅ FIX: Extract academic year with multiple fallbacks
+        const academicYear = (body as any).academicYear || 
+                            (body as any).notifAcademicYear || 
+                            getCurrentAcademicYear()
+
+        console.log('[HOMEWORK POST] Request Details:', {
+            role: session.user.role,
+            academicYear,
+            class: validated.class,
+            section: validated.section || 'All Sections',
+            subject: validated.subject,
+        })
 
         // Get module settings
         const moduleSettings = await getModuleSettings(session.user.tenantId)
@@ -200,41 +213,82 @@ export async function POST(req: NextRequest) {
             'pdf', 'jpg', 'jpeg', 'png', 'docx'
         ]
 
-        // Get target students
+        // ✅ FIX: Build student query with proper academic year
         const studentQuery: any = {
             tenantId: session.user.tenantId,
-            academicYear,
+            academicYear: academicYear,
             class: validated.class,
             status: 'active',
         }
 
-        if (validated.section) {
+        // ✅ Only add section if explicitly provided and not empty
+        if (validated.section && validated.section.trim() !== '') {
             studentQuery.section = validated.section
         }
 
-        if (validated.targetStudents.length > 0) {
+        // ✅ Add target students filter if provided
+        if (validated.targetStudents && validated.targetStudents.length > 0) {
             studentQuery._id = { $in: validated.targetStudents }
         }
 
+        console.log('[HOMEWORK POST] Student Query:', JSON.stringify(studentQuery, null, 2))
+
+        // ✅ Find students with detailed logging
         const students = await Student.find(studentQuery)
-            .select('_id userId')
+            .select('_id userId rollNumber')
             .populate('userId', 'name phone email')
             .lean()
 
+        console.log('[HOMEWORK POST] Students Found:', students.length)
+
         if (students.length === 0) {
+            // ✅ Enhanced error with debug information
+            console.error('[HOMEWORK POST] No students found. Debug info:', {
+                query: studentQuery,
+                academicYear,
+                class: validated.class,
+                section: validated.section || 'All',
+            })
+
+            // ✅ Check if students exist with different criteria
+            const debugCount = await Student.countDocuments({
+                tenantId: session.user.tenantId,
+                class: validated.class,
+                status: 'active',
+            })
+
+            const debugCountWithYear = await Student.countDocuments({
+                tenantId: session.user.tenantId,
+                academicYear: academicYear,
+                status: 'active',
+            })
+
             return NextResponse.json(
-                { error: 'No students found for selected class/section' },
+                { 
+                    error: 'No students found for selected class/section',
+                    debug: {
+                        academicYear,
+                        class: validated.class,
+                        section: validated.section || 'All Sections',
+                        query: studentQuery,
+                        studentsInClass: debugCount,
+                        studentsInAcademicYear: debugCountWithYear,
+                        hint: debugCount > 0 
+                            ? 'Students exist in this class but not in the selected academic year'
+                            : 'No students found in this class at all'
+                    }
+                },
                 { status: 400 }
             )
         }
 
-        // Create homework with pre-filled submissions
+        // ✅ Create homework with pre-filled submissions
         const submissions = students.map((s: any) => ({
             studentId: s.userId._id,
             studentName: s.userId.name,
             studentClass: validated.class,
             studentSection: validated.section || '',
-            rollNumber: (s as any).rollNumber,
+            rollNumber: (s as any).rollNumber || '',
             status: 'pending',
             isLate: false,
             attachments: [],
@@ -267,7 +321,12 @@ export async function POST(req: NextRequest) {
             isActive: true,
         })
 
-        // Send notifications
+        console.log('[HOMEWORK POST] Homework Created:', {
+            id: homework._id,
+            totalStudents: students.length,
+        })
+
+        // ✅ Send notifications
         let smsResult: any = null
         let whatsappResult: any = null
         let emailResult: any = null
@@ -287,9 +346,8 @@ export async function POST(req: NextRequest) {
                 year: 'numeric',
             })
 
-            // ── SMS ──────────────────────────────────────────────────
+            // ── SMS ──
             if (channels.sms) {
-                // ✅ Parent phone preferred, student phone fallback
                 const studentsWithPhone = await Student.find({
                     _id: { $in: students.map((s: any) => s._id) }
                 })
@@ -321,9 +379,8 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // ── WhatsApp ─────────────────────────────────────────────
+            // ── WhatsApp ──
             if (channels.whatsapp) {
-                // ✅ Parent phone preferred
                 const studentsWithPhone = await Student.find({
                     _id: { $in: students.map((s: any) => s._id) }
                 })
@@ -355,8 +412,7 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // ── Email ────────────────────────────────────────────────
-            // ✅ FIX: Parent email use karo
+            // ── Email ──
             if (channels.email) {
                 const studentsWithEmail = await Student.find({
                     _id: { $in: students.map((s: any) => s._id) }
@@ -392,7 +448,7 @@ export async function POST(req: NextRequest) {
                 }
             }
 
-            // ── Push (unchanged) ─────────────────────────────────────
+            // ── Push ──
             if (channels.push) {
                 try {
                     await sendPushToTenant(
@@ -436,11 +492,12 @@ export async function POST(req: NextRequest) {
             action: 'CREATE',
             resource: 'Homework',
             resourceId: homework._id.toString(),
-            description: `Created homework: ${validated.title} for Class ${validated.class}`,
+            description: `Created homework: ${validated.title} for Class ${validated.class}${validated.section ? `-${validated.section}` : ''} (${academicYear})`,
             metadata: {
                 subject: validated.subject,
                 class: validated.class,
                 section: validated.section,
+                academicYear,
                 totalStudents: students.length,
                 dueDate: validated.dueDate,
                 notificationSent: homework.notificationSent,

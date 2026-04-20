@@ -96,6 +96,9 @@ export interface HomeworkFormData {
         email: boolean
         push: boolean
     }
+    // ✅ ADD: Optional fields — existing pages break nahi honge
+    academicYear?: string
+    notifTargetRole?: 'all' | 'student' | 'parent'
 }
 
 // ── Filters ──
@@ -111,6 +114,7 @@ export interface HomeworkFilters {
     limit: number
     sortBy: 'dueDate' | 'createdAt' | 'submittedCount'
     sortOrder: 'asc' | 'desc'
+    academicYear?: string
 }
 
 // ── Stats ──

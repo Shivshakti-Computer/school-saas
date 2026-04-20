@@ -1,5 +1,5 @@
 // FILE: src/app/(dashboard)/teacher/homework/page.tsx
-// ✅ Production-ready Teacher Homework Page
+// ✅ Production-ready Teacher Homework Page with Credit System
 // Scoped to teacher's assigned classes & subjects only
 
 'use client'
@@ -12,6 +12,7 @@ import {
 import { Portal } from '@/components/ui/Portal'
 import {
     Plus, BookOpen, Clock, CheckCircle2, AlertCircle,
+    Coins, Wallet,
 } from 'lucide-react'
 import type {
     HomeworkListItem,
@@ -38,6 +39,9 @@ export default function TeacherHomeworkPage() {
 
     const [homework, setHomework] = useState<HomeworkListItem[]>([])
     const [stats, setStats] = useState<HomeworkStats | null>(null)
+    const [creditBalance, setCreditBalance] = useState(0)
+    const [creditsUsed, setCreditsUsed] = useState(0)
+    const [creditsLoaded, setCreditsLoaded] = useState(false)
 
     const [filters, setFilters] = useState<IHomeworkFilters>({
         page: 1,
@@ -66,6 +70,27 @@ export default function TeacherHomeworkPage() {
         }
     }, [alert])
 
+    // ── Fetch credit balance ──
+    const fetchCreditBalance = useCallback(async () => {
+        try {
+            const res = await fetch('/api/credits/balance')
+            const data = await res.json()
+            const balance = data?.data?.balance ?? data?.balance ?? 0
+            setCreditBalance(balance)
+        } catch (err) {
+            console.error('Failed to fetch credit balance:', err)
+        } finally {
+            setCreditsLoaded(true)
+        }
+    }, [])
+
+     const calculateCreditsUsed = (list: HomeworkListItem[]) => {
+        const total = list.reduce((sum, hw) => {
+            return sum + ((hw as any).creditsUsed || 0)
+        }, 0)
+        setCreditsUsed(Math.round(total * 100) / 100)
+    }
+
     // ── Fetch homework — scoped to teacher's classes ──
     const fetchHomework = useCallback(async () => {
         setLoading(true)
@@ -78,7 +103,6 @@ export default function TeacherHomeworkPage() {
                 }
             })
 
-            // ✅ API will filter by createdBy = teacher
             params.set('_t', Date.now().toString())
 
             const res = await fetch(`/api/homework?${params}`, {
@@ -103,6 +127,10 @@ export default function TeacherHomeworkPage() {
         fetchHomework()
     }, [fetchHomework])
 
+    useEffect(() => {
+        fetchCreditBalance()
+    }, [fetchCreditBalance])
+
     // ── Create homework ──
     const handleCreate = async (formData: HomeworkFormData) => {
         setSubmitting(true)
@@ -114,11 +142,34 @@ export default function TeacherHomeworkPage() {
             })
             const data = await res.json()
 
-            if (!res.ok) throw new Error(data.error)
+            if (!res.ok) {
+                if (res.status === 402) {
+                    setAlert({
+                        type: 'error',
+                        message: `Insufficient credits. ${data.error}. Please contact admin to purchase credits.`,
+                    })
+                } else {
+                    throw new Error(data.error)
+                }
+            } else {
+                let successMsg = 'Homework assigned successfully!'
+                const notifs = data.notifications
+                if (notifs) {
+                    const parts = []
+                    if (notifs.sms?.sent > 0) parts.push(`${notifs.sms.sent} SMS`)
+                    if (notifs.whatsapp?.sent > 0) parts.push(`${notifs.whatsapp.sent} WhatsApp`)
+                    if (notifs.email?.sent > 0) parts.push(`${notifs.email.sent} Email`)
+                    if (notifs.push?.sent) parts.push('Push')
+                    if (parts.length > 0) {
+                        successMsg += ` Notifications sent: ${parts.join(', ')}.`
+                    }
+                }
 
-            setAlert({ type: 'success', message: 'Homework assigned successfully!' })
-            setShowCreateModal(false)
-            fetchHomework()
+                setAlert({ type: 'success', message: successMsg })
+                setShowCreateModal(false)
+                fetchHomework()
+                fetchCreditBalance()
+            }
         } catch (err: any) {
             setAlert({ type: 'error', message: err.message })
         }
@@ -203,6 +254,14 @@ export default function TeacherHomeworkPage() {
         setAlert({ type: 'success', message: 'Grade submitted!' })
     }
 
+    const formatCredits = (value: number): string => {
+        if (Number.isInteger(value)) return value.toLocaleString('en-IN')
+        return value.toLocaleString('en-IN', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })
+    }
+
     // ── No classes assigned ──
     if (!loading && teacherClasses.length === 0) {
         return (
@@ -263,35 +322,60 @@ export default function TeacherHomeworkPage() {
             )}
 
             {/* ── Stats ── */}
-            {stats && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <StatCard
-                        label="Total Assigned"
-                        value={stats.total}
-                        icon={<BookOpen size={18} />}
-                        color="primary"
-                    />
-                    <StatCard
-                        label="Active"
-                        value={stats.active}
-                        icon={<Clock size={18} />}
-                        color="info"
-                    />
-                    <StatCard
-                        label="Overdue"
-                        value={stats.overdue}
-                        icon={<AlertCircle size={18} />}
-                        color="danger"
-                    />
-                    <StatCard
-                        label="Submitted"
-                        value={stats.totalSubmitted}
-                        icon={<CheckCircle2 size={18} />}
-                        color="success"
-                        trend={`${stats.totalPending} pending`}
-                    />
-                </div>
-            )}
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {stats && (
+                    <>
+                        <StatCard
+                            label="Total Assigned"
+                            value={stats.total}
+                            icon={<BookOpen size={18} />}
+                            color="primary"
+                        />
+                        <StatCard
+                            label="Active"
+                            value={stats.active}
+                            icon={<Clock size={18} />}
+                            color="info"
+                        />
+                        <StatCard
+                            label="Overdue"
+                            value={stats.overdue}
+                            icon={<AlertCircle size={18} />}
+                            color="danger"
+                        />
+                        <StatCard
+                            label="Submitted"
+                            value={stats.totalSubmitted}
+                            icon={<CheckCircle2 size={18} />}
+                            color="success"
+                            trend={`${stats.totalPending} pending`}
+                        />
+                    </>
+                )}
+
+                <StatCard
+                    label="Credits Used"
+                    value={formatCredits(creditsUsed)}
+                    icon={<Coins size={18} />}
+                    color="warning"
+                />
+
+                <StatCard
+                    label="Credit Balance"
+                    value={creditsLoaded ? formatCredits(creditBalance) : '...'}
+                    icon={<Wallet size={18} />}
+                    color="primary"
+                    trend={
+                        creditBalance < 100
+                            ? '⚠️ Low balance'
+                            : creditBalance < 500
+                                ? '💡 Running low'
+                                : undefined
+                    }
+                />
+
+                
+            </div>
 
             {/* ── Filters — scoped to teacher's classes/subjects ── */}
             <TeacherHomeworkFilters

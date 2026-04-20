@@ -1,10 +1,13 @@
 // FILE: src/components/homework/TeacherHomeworkFilters.tsx
-// ✅ Teacher-scoped filters — only shows teacher's assigned classes & subjects
+// ✅ Teacher-scoped filters with Academic Year filter
+// - Only shows teacher's assigned classes & subjects
+// - Added Academic Year filter
 
 'use client'
 
 import { Select, Button } from '@/components/ui'
 import { Filter, X } from 'lucide-react'
+import { getAcademicYears } from '@/lib/academicYear'
 import type { HomeworkFilters as IHomeworkFilters } from '@/types/homework'
 
 interface TeacherHomeworkFiltersProps {
@@ -14,6 +17,8 @@ interface TeacherHomeworkFiltersProps {
     allowedClasses: string[]    // teacher's assigned classes
     allowedSubjects: string[]   // teacher's assigned subjects
 }
+
+const academicYears = getAcademicYears()
 
 export function TeacherHomeworkFilters({
     filters,
@@ -33,7 +38,8 @@ export function TeacherHomeworkFilters({
         filters.subject ||
         filters.search ||
         filters.dateFrom ||
-        filters.dateTo
+        filters.dateTo ||
+        filters.academicYear
 
     return (
         <div
@@ -84,7 +90,7 @@ export function TeacherHomeworkFilters({
                     )}
                 </div>
 
-                {/* Class + Subject + Status */}
+                {/* Class + Subject + Status + Academic Year */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {/* Class — only teacher's classes */}
                     <select
@@ -125,24 +131,18 @@ export function TeacherHomeworkFilters({
                         <option value="archived">Archived</option>
                     </select>
 
-                    {/* Sort */}
+                    {/* ✅ Academic Year — NEW */}
                     <select
-                        value={`${filters.sortBy}-${filters.sortOrder}`}
-                        onChange={(e) => {
-                            const [sortBy, sortOrder] = e.target.value.split('-')
-                            onChange({
-                                ...filters,
-                                sortBy: sortBy as IHomeworkFilters['sortBy'],
-                                sortOrder: sortOrder as 'asc' | 'desc',
-                                page: 1,
-                            })
-                        }}
+                        value={filters.academicYear || ''}
+                        onChange={(e) => updateFilter('academicYear', e.target.value)}
                         className="input-clean text-sm h-9"
                     >
-                        <option value="dueDate-asc">Due Date ↑</option>
-                        <option value="dueDate-desc">Due Date ↓</option>
-                        <option value="createdAt-desc">Newest First</option>
-                        <option value="createdAt-asc">Oldest First</option>
+                        <option value="">All Academic Years</option>
+                        {academicYears.map((year) => (
+                            <option key={year} value={year}>
+                                {year}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
@@ -176,6 +176,27 @@ export function TeacherHomeworkFilters({
                             onChange={(e) => updateFilter('dateTo', e.target.value)}
                         />
                     </div>
+                </div>
+
+                {/* Sort */}
+                <div className="grid grid-cols-2 gap-3">
+                    <select
+                        value={filters.sortBy || 'dueDate'}
+                        onChange={(e) => updateFilter('sortBy', e.target.value)}
+                        className="input-clean text-sm h-9"
+                    >
+                        <option value="dueDate">Due Date</option>
+                        <option value="createdAt">Created Date</option>
+                        <option value="submittedCount">Submissions</option>
+                    </select>
+                    <select
+                        value={filters.sortOrder || 'asc'}
+                        onChange={(e) => updateFilter('sortOrder', e.target.value)}
+                        className="input-clean text-sm h-9"
+                    >
+                        <option value="asc">Ascending ↑</option>
+                        <option value="desc">Descending ↓</option>
+                    </select>
                 </div>
             </div>
         </div>

@@ -7,7 +7,7 @@ import { RATE_LIMITS } from '@/lib/security'
 
 export async function GET(req: NextRequest) {
     const guard = await apiGuard(req, {
-        allowedRoles: ['admin', 'staff', 'superadmin'],
+        allowedRoles: ['admin', 'staff', 'teacher', 'superadmin'],
         rateLimit: 'api',
     })
     if (guard instanceof NextResponse) return guard
