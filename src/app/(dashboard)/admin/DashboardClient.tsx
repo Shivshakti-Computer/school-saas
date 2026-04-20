@@ -1,3 +1,4 @@
+// FILE: src/app/admin/DashboardClient.tsx
 'use client'
 
 import Link from 'next/link'
@@ -11,7 +12,9 @@ import {
   Wallet, GraduationCap, MessageSquare,
 } from 'lucide-react'
 
-// ── Types ──
+/* ═══════════════════════════════════════════════════════════
+   TYPES
+   ═══════════════════════════════════════════════════════════ */
 interface DashboardData {
   stats: {
     totalStudents: number
@@ -54,13 +57,14 @@ interface DashboardData {
   schoolCreatedAt: string
 }
 
-// ── Color tokens aligned to design system ──
+/* ═══════════════════════════════════════════════════════════
+   COLOR META — Design system aligned
+   ═══════════════════════════════════════════════════════════ */
 const STAT_META: Record<string, {
   iconBg: string
   iconColor: string
   barColor: string
   hoverBorder: string
-  hoverShadow: string
   topBar: string
 }> = {
   indigo: {
@@ -68,7 +72,6 @@ const STAT_META: Record<string, {
     iconColor: 'var(--color-primary-600)',
     barColor: 'var(--color-primary-500)',
     hoverBorder: 'rgba(99,102,241,0.25)',
-    hoverShadow: 'var(--shadow-md)',
     topBar: 'var(--color-primary-500)',
   },
   blue: {
@@ -76,7 +79,6 @@ const STAT_META: Record<string, {
     iconColor: 'var(--color-info-600)',
     barColor: 'var(--color-info-500)',
     hoverBorder: 'rgba(59,130,246,0.25)',
-    hoverShadow: 'var(--shadow-md)',
     topBar: 'var(--color-info-500)',
   },
   emerald: {
@@ -84,7 +86,6 @@ const STAT_META: Record<string, {
     iconColor: 'var(--color-success-600)',
     barColor: 'var(--color-success-500)',
     hoverBorder: 'rgba(16,185,129,0.25)',
-    hoverShadow: 'var(--shadow-md)',
     topBar: 'var(--color-success-500)',
   },
   red: {
@@ -92,7 +93,6 @@ const STAT_META: Record<string, {
     iconColor: 'var(--color-danger-600)',
     barColor: 'var(--color-danger-500)',
     hoverBorder: 'rgba(239,68,68,0.25)',
-    hoverShadow: 'var(--shadow-md)',
     topBar: 'var(--color-danger-500)',
   },
   amber: {
@@ -100,22 +100,13 @@ const STAT_META: Record<string, {
     iconColor: 'var(--color-warning-600)',
     barColor: 'var(--color-warning-500)',
     hoverBorder: 'rgba(245,158,11,0.25)',
-    hoverShadow: 'var(--shadow-md)',
     topBar: 'var(--color-warning-500)',
-  },
-  purple: {
-    iconBg: 'var(--color-violet-100)',
-    iconColor: 'var(--color-violet-600)',
-    barColor: 'var(--color-violet-500)',
-    hoverBorder: 'rgba(139,92,246,0.25)',
-    hoverShadow: 'var(--shadow-md)',
-    topBar: 'var(--color-violet-500)',
   },
 }
 
-// ════════════════════════════════════════
-// ATTENDANCE BAR CHART
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   ATTENDANCE BAR CHART
+   ═══════════════════════════════════════════════════════════ */
 function AttendanceBarChart({
   data,
 }: {
@@ -136,8 +127,10 @@ function AttendanceBarChart({
 
         return (
           <div key={i} className="flex-1 flex flex-col items-center gap-1.5 group">
-            <span className="text-2xs font-semibold tabular-nums transition-colors"
-              style={{ color: 'var(--text-muted)' }}>
+            <span
+              className="text-[0.625rem] font-semibold tabular-nums transition-colors"
+              style={{ color: 'var(--text-muted)' }}
+            >
               {d.total > 0 ? `${Math.round(pct)}%` : '—'}
             </span>
             <div
@@ -156,7 +149,10 @@ function AttendanceBarChart({
                 }}
               />
             </div>
-            <span className="text-2xs font-medium" style={{ color: 'var(--text-muted)' }}>
+            <span
+              className="text-[0.625rem] font-medium"
+              style={{ color: 'var(--text-muted)' }}
+            >
               {label}
             </span>
           </div>
@@ -166,9 +162,9 @@ function AttendanceBarChart({
   )
 }
 
-// ════════════════════════════════════════
-// DONUT CHART
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   DONUT CHART
+   ═══════════════════════════════════════════════════════════ */
 function DonutChart({
   value, total, color, label,
 }: {
@@ -225,9 +221,9 @@ function DonutChart({
   )
 }
 
-// ════════════════════════════════════════
-// STAT CARD
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   STAT CARD
+   ═══════════════════════════════════════════════════════════ */
 function StatCard({
   label, value, icon, color, subtext, href,
 }: {
@@ -242,10 +238,10 @@ function StatCard({
 
   const content = (
     <div
-      className="portal-stat-card group cursor-pointer"
+      className="portal-stat-card group cursor-pointer relative"
       onMouseEnter={e => {
         e.currentTarget.style.borderColor = c.hoverBorder
-        e.currentTarget.style.boxShadow = c.hoverShadow
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)'
         e.currentTarget.style.transform = 'translateY(-2px)'
       }}
       onMouseLeave={e => {
@@ -263,14 +259,14 @@ function StatCard({
       {/* Icon + arrow */}
       <div className="flex items-start justify-between mb-3">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ backgroundColor: c.iconBg }}
         >
           <span style={{ color: c.iconColor }}>{icon}</span>
         </div>
         {href && (
           <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all"
+            className="w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
             style={{ backgroundColor: 'var(--bg-muted)' }}
           >
             <ArrowUpRight size={13} style={{ color: 'var(--text-muted)' }} />
@@ -287,7 +283,7 @@ function StatCard({
       {/* Subtext */}
       {subtext && (
         <p
-          className="text-2xs mt-1.5 flex items-center gap-1"
+          className="text-[0.625rem] mt-1.5 flex items-center gap-1"
           style={{ color: 'var(--text-light)' }}
         >
           <Activity size={9} />
@@ -302,9 +298,9 @@ function StatCard({
     : content
 }
 
-// ════════════════════════════════════════
-// SECTION HEADER
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   SECTION HEADER
+   ═══════════════════════════════════════════════════════════ */
 function SectionHeader({
   title, subtitle, href, linkText,
 }: {
@@ -324,7 +320,7 @@ function SectionHeader({
       {href && (
         <Link
           href={href}
-          className="inline-flex items-center gap-1 text-xs font-medium transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-medium transition-colors hover:opacity-70"
           style={{ color: 'var(--color-info-600)' }}
         >
           {linkText || 'View all'}
@@ -335,9 +331,9 @@ function SectionHeader({
   )
 }
 
-// ════════════════════════════════════════
-// LIST ITEM
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   LIST ITEM
+   ═══════════════════════════════════════════════════════════ */
 function ListItem({
   avatar, avatarBg, avatarColor,
   title, subtitle, right, rightSub,
@@ -385,7 +381,10 @@ function ListItem({
         <div className="text-right flex-shrink-0">
           <p className="text-sm font-semibold">{right}</p>
           {rightSub && (
-            <p className="text-2xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            <p
+              className="text-[0.625rem] mt-0.5"
+              style={{ color: 'var(--text-muted)' }}
+            >
               {rightSub}
             </p>
           )}
@@ -395,9 +394,9 @@ function ListItem({
   )
 }
 
-// ════════════════════════════════════════
-// CREDIT MINI WIDGET
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   CREDIT MINI WIDGET
+   ═══════════════════════════════════════════════════════════ */
 function CreditMiniWidget({
   credits,
 }: {
@@ -458,7 +457,10 @@ function CreditMiniWidget({
               Message Credits
             </p>
             {isLow && (
-              <p className="text-2xs font-medium" style={{ color: 'var(--color-danger-500)' }}>
+              <p
+                className="text-[0.625rem] font-medium"
+                style={{ color: 'var(--color-danger-500)' }}
+              >
                 ⚠️ Low balance!
               </p>
             )}
@@ -516,7 +518,7 @@ function CreditMiniWidget({
 
       {/* Credit guide */}
       <div
-        className="flex gap-2 text-2xs mb-3"
+        className="flex gap-2 text-[0.625rem] mb-3"
         style={{ color: 'var(--text-muted)' }}
       >
         <span>📱 1cr = 1 SMS</span>
@@ -538,10 +540,16 @@ function CreditMiniWidget({
             const icons = { sms: '📱', whatsapp: '💬', email: '📧' }
             return (
               <div key={channel} className="text-center">
-                <div className="text-2xs capitalize" style={{ color: 'var(--text-muted)' }}>
+                <div
+                  className="text-[0.625rem] capitalize"
+                  style={{ color: 'var(--text-muted)' }}
+                >
                   {icons[channel]} {usage.count}
                 </div>
-                <div className="text-2xs" style={{ color: 'var(--text-light)' }}>
+                <div
+                  className="text-[0.625rem]"
+                  style={{ color: 'var(--text-light)' }}
+                >
                   {usage.credits}cr used
                 </div>
               </div>
@@ -551,7 +559,10 @@ function CreditMiniWidget({
       )}
 
       {credits.freePerMonth > 0 && (
-        <p className="text-2xs mt-2" style={{ color: 'var(--text-muted)' }}>
+        <p
+          className="text-[0.625rem] mt-2"
+          style={{ color: 'var(--text-muted)' }}
+        >
           🎁 {credits.freePerMonth.toLocaleString('en-IN')} free credits/month included
         </p>
       )}
@@ -559,9 +570,9 @@ function CreditMiniWidget({
   )
 }
 
-// ════════════════════════════════════════
-// MINI LIMIT BAR
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   MINI LIMIT BAR
+   ═══════════════════════════════════════════════════════════ */
 function MiniLimitBar({
   label, used, limit, addon, color,
 }: {
@@ -575,7 +586,10 @@ function MiniLimitBar({
     return (
       <div className="flex items-center justify-between text-xs mb-2">
         <span style={{ color: 'var(--text-muted)' }}>{label}</span>
-        <span className="font-semibold" style={{ color: 'var(--color-success-600)' }}>
+        <span
+          className="font-semibold"
+          style={{ color: 'var(--color-success-600)' }}
+        >
           {used.toLocaleString('en-IN')} / Unlimited
         </span>
       </div>
@@ -592,7 +606,10 @@ function MiniLimitBar({
         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
           {label}
           {addon > 0 && (
-            <span className="ml-1 text-2xs" style={{ color: 'var(--color-primary-500)' }}>
+            <span
+              className="ml-1 text-[0.625rem]"
+              style={{ color: 'var(--color-primary-500)' }}
+            >
               (+{addon} addon)
             </span>
           )}
@@ -629,7 +646,10 @@ function MiniLimitBar({
       </div>
 
       {isHigh && (
-        <p className="text-2xs mt-0.5" style={{ color: 'var(--color-danger-500)' }}>
+        <p
+          className="text-[0.625rem] mt-0.5"
+          style={{ color: 'var(--color-danger-500)' }}
+        >
           {limit - used <= 0 ? 'Limit full! ' : `Only ${limit - used} left! `}
           <Link
             href="/admin/subscription"
@@ -643,9 +663,9 @@ function MiniLimitBar({
   )
 }
 
-// ════════════════════════════════════════
-// MAIN DASHBOARD
-// ════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════════
+   MAIN DASHBOARD CLIENT
+   ═══════════════════════════════════════════════════════════ */
 export function AdminDashboardClient({
   data, userName,
 }: {
@@ -911,7 +931,7 @@ export function AdminDashboardClient({
                   ₹{stats.feeThisMonth.toLocaleString('en-IN')}
                 </p>
                 <p
-                  className="text-2xs font-medium mt-0.5"
+                  className="text-[0.625rem] font-medium mt-0.5"
                   style={{ color: 'var(--color-success-600)' }}
                 >
                   This Month
@@ -939,7 +959,7 @@ export function AdminDashboardClient({
                   ₹{stats.feeTotal.toLocaleString('en-IN')}
                 </p>
                 <p
-                  className="text-2xs font-medium mt-0.5"
+                  className="text-[0.625rem] font-medium mt-0.5"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   Total
@@ -973,7 +993,7 @@ export function AdminDashboardClient({
                         {stats.pendingFees}
                       </p>
                       <p
-                        className="text-2xs font-medium"
+                        className="text-[0.625rem] font-medium"
                         style={{ color: 'var(--color-danger-400)' }}
                       >
                         Pending Fee Records
@@ -982,7 +1002,7 @@ export function AdminDashboardClient({
                   </div>
                   <Link
                     href="/admin/fees"
-                    className="text-xs font-medium flex items-center gap-1"
+                    className="text-xs font-medium flex items-center gap-1 hover:opacity-70 transition-opacity"
                     style={{ color: 'var(--color-danger-600)' }}
                   >
                     View <ArrowRight size={10} />
@@ -994,7 +1014,7 @@ export function AdminDashboardClient({
         </div>
       </div>
 
-      {/* ═══ RECENT ACTIVITY ═══ */}
+      {/* ═══ RECENT ACTIVITY + SIDEBAR ═══ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4">
 
         {/* Recent Students */}
@@ -1076,7 +1096,7 @@ export function AdminDashboardClient({
           </div>
         </div>
 
-        {/* Right Column */}
+        {/* Right Column — Credits, Limits, Sub, Quick Actions */}
         <div className="space-y-3 sm:space-y-4">
 
           {/* Credit Widget */}
@@ -1087,14 +1107,14 @@ export function AdminDashboardClient({
             <div className="portal-card-body">
               <div className="flex items-center justify-between mb-3">
                 <h3
-                  className="text-2xs font-semibold uppercase tracking-wider"
+                  className="text-[0.625rem] font-semibold uppercase tracking-wider"
                   style={{ color: 'var(--text-muted)' }}
                 >
                   Usage Limits
                 </h3>
                 <Link
                   href="/admin/subscription"
-                  className="text-2xs font-medium"
+                  className="text-[0.625rem] font-medium hover:opacity-70 transition-opacity"
                   style={{ color: 'var(--color-primary-600)' }}
                 >
                   Manage →
@@ -1119,7 +1139,6 @@ export function AdminDashboardClient({
 
           {/* Subscription Card */}
           {(() => {
-            // Color tokens per subscription state
             const subStyle = subscription.isExpired
               ? {
                 bg: 'linear-gradient(135deg, var(--color-danger-50), #fff1f2)',
@@ -1130,7 +1149,6 @@ export function AdminDashboardClient({
                 subColor: 'var(--color-danger-600)',
                 btnBg: 'var(--color-danger-600)',
                 btnColor: '#fff',
-                btnBorder: 'transparent',
                 btnLabel: 'Subscribe Now',
               }
               : subscription.isInTrial
@@ -1143,7 +1161,6 @@ export function AdminDashboardClient({
                   subColor: 'var(--color-warning-700)',
                   btnBg: 'var(--color-warning-600)',
                   btnColor: '#fff',
-                  btnBorder: 'transparent',
                   btnLabel: 'Upgrade Plan',
                 }
                 : {
@@ -1155,7 +1172,6 @@ export function AdminDashboardClient({
                   subColor: 'var(--color-success-700)',
                   btnBg: 'rgba(255,255,255,0.7)',
                   btnColor: 'var(--color-success-800)',
-                  btnBorder: 'var(--color-success-200)',
                   btnLabel: 'Manage',
                 }
 
@@ -1187,7 +1203,10 @@ export function AdminDashboardClient({
                             : `${planConfig?.name || subscription.plan} Plan`}
                       </p>
                       {subscription.validTill && (
-                        <p className="text-2xs" style={{ color: subStyle.subColor }}>
+                        <p
+                          className="text-[0.625rem]"
+                          style={{ color: subStyle.subColor }}
+                        >
                           {subscription.isExpired
                             ? 'Please renew to continue'
                             : `Valid till: ${subscription.validTill}`}
@@ -1196,7 +1215,6 @@ export function AdminDashboardClient({
                     </div>
                   </div>
 
-                  {/* Trial progress bar */}
                   {subscription.isInTrial && subscription.daysLeft !== null && (
                     <div className="mb-3">
                       <div
@@ -1216,11 +1234,11 @@ export function AdminDashboardClient({
 
                   <Link
                     href="/admin/subscription"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-colors"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-opacity hover:opacity-90"
                     style={{
                       backgroundColor: subStyle.btnBg,
                       color: subStyle.btnColor,
-                      border: `1px solid ${subStyle.btnBorder}`,
+                      border: `1px solid ${subStyle.border}`,
                     }}
                   >
                     {subStyle.btnLabel}
@@ -1235,7 +1253,7 @@ export function AdminDashboardClient({
           <div className="portal-card">
             <div className="portal-card-body">
               <h3
-                className="text-2xs font-semibold uppercase tracking-wider mb-2.5"
+                className="text-[0.625rem] font-semibold uppercase tracking-wider mb-2.5"
                 style={{ color: 'var(--text-muted)' }}
               >
                 Quick Actions
@@ -1316,14 +1334,14 @@ export function AdminDashboardClient({
               <div className="portal-card-body">
                 <div className="flex items-center justify-between mb-3">
                   <h3
-                    className="text-2xs font-semibold uppercase tracking-wider"
+                    className="text-[0.625rem] font-semibold uppercase tracking-wider"
                     style={{ color: 'var(--text-muted)' }}
                   >
                     Notices
                   </h3>
                   <Link
                     href="/admin/notices"
-                    className="text-2xs font-medium"
+                    className="text-[0.625rem] font-medium hover:opacity-70 transition-opacity"
                     style={{ color: 'var(--color-info-600)' }}
                   >
                     All
@@ -1352,7 +1370,7 @@ export function AdminDashboardClient({
                           {n.title}
                         </p>
                         <p
-                          className="text-2xs mt-0.5 flex items-center gap-1"
+                          className="text-[0.625rem] mt-0.5 flex items-center gap-1"
                           style={{ color: 'var(--text-muted)' }}
                         >
                           <Clock size={9} />

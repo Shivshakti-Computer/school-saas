@@ -1,9 +1,11 @@
 // FILE: src/components/layouts/SidebarLayout.tsx
+// COMPLETE FILE — No search bar, modern & attractive sidebar
+
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import { getSidebarNav } from '@/lib/moduleRegistry'
 import {
@@ -14,8 +16,9 @@ import {
   Image as ImageIcon, Clock, FileText, FileCheck,
   MessageSquare, Award, PlayCircle, Bus, Building,
   Package, UserPlus, Heart, GraduationCap,
-  Shield, Search, Lock, ChevronUp, ChevronDown,
-  ChevronsUpDown,
+  Shield, Lock, ChevronUp, ChevronDown,
+  ChevronsUpDown, Sparkles, TrendingUp, Crown,
+  Star, Flame,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { TrialBanner } from '@/components/ui/TrialBanner'
@@ -23,6 +26,9 @@ import { PWAInstallPrompt } from '../pwa/PWAInstallPrompt'
 import { ChatWidget } from '../marketing/ChatWidget'
 import { usePortalTheme } from '@/hooks/usePortalTheme'
 
+/* ─────────────────────────────────────────────────────────
+   ICON MAP — exact same as before
+───────────────────────────────────────────────────────── */
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Users, CheckSquare, CreditCard, BookOpen, Bell,
   Globe, Library, Briefcase, LayoutDashboard,
@@ -32,6 +38,9 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Package, UserPlus, Heart, GraduationCap,
 }
 
+/* ─────────────────────────────────────────────────────────
+   DASH PATHS — exact same as before
+───────────────────────────────────────────────────────── */
 const DASH_PATHS: Record<string, string> = {
   superadmin: '/superadmin',
   admin: '/admin',
@@ -41,55 +50,197 @@ const DASH_PATHS: Record<string, string> = {
   parent: '/parent',
 }
 
+/* ─────────────────────────────────────────────────────────
+   ROLE CONFIG — enhanced with gradient colors
+───────────────────────────────────────────────────────── */
 function getRoleConfig(role: string) {
   switch (role) {
-    case 'admin': return { label: 'Admin Panel' }
-    case 'teacher': return { label: 'Teacher Panel' }
-    case 'staff': return { label: 'Staff Panel' }
-    case 'student': return { label: 'Student Panel' }
-    case 'parent': return { label: 'Parent Panel' }
-    default: return { label: 'Dashboard' }
+    case 'admin':
+      return {
+        label: 'Admin Panel',
+        gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+        iconBg: 'rgba(99,102,241,0.1)',
+        iconColor: '#6366f1',
+        dotColor: '#6366f1',
+      }
+    case 'teacher':
+      return {
+        label: 'Teacher Panel',
+        gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        iconBg: 'rgba(16,185,129,0.1)',
+        iconColor: '#10b981',
+        dotColor: '#10b981',
+      }
+    case 'staff':
+      return {
+        label: 'Staff Panel',
+        gradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+        iconBg: 'rgba(59,130,246,0.1)',
+        iconColor: '#3b82f6',
+        dotColor: '#3b82f6',
+      }
+    case 'student':
+      return {
+        label: 'Student Panel',
+        gradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+        iconBg: 'rgba(139,92,246,0.1)',
+        iconColor: '#8b5cf6',
+        dotColor: '#8b5cf6',
+      }
+    case 'parent':
+      return {
+        label: 'Parent Panel',
+        gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+        iconBg: 'rgba(245,158,11,0.1)',
+        iconColor: '#f59e0b',
+        dotColor: '#f59e0b',
+      }
+    default:
+      return {
+        label: 'Dashboard',
+        gradient: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+        iconBg: 'rgba(99,102,241,0.1)',
+        iconColor: '#6366f1',
+        dotColor: '#6366f1',
+      }
   }
 }
 
+/* ─────────────────────────────────────────────────────────
+   NAV ITEM — Compact with better space utilization
+───────────────────────────────────────────────────────── */
 function NavItem({
-  href, label, icon, active, onClick,
+  href,
+  label,
+  icon,
+  active,
+  onClick,
+  badge,
 }: {
-  href: string; label: string; icon: React.ReactNode
-  active: boolean; onClick?: () => void
+  href: string
+  label: string
+  icon: React.ReactNode
+  active: boolean
+  onClick?: () => void
+  badge?: number | string
 }) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      className={clsx('portal-nav-item group', active && 'active')}
+      className={clsx(
+        'group relative flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg transition-all duration-150',
+        active
+          ? 'bg-gradient-to-r from-[var(--primary-50)] to-transparent'
+          : 'hover:bg-[var(--bg-muted)]'
+      )}
+      style={active ? {
+        borderLeft: '2.5px solid var(--primary-500)',
+        paddingLeft: 'calc(0.625rem - 2.5px)',
+      } : undefined}
     >
-      <span className="nav-icon">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {active && (
-        <ChevronRight size={12} className="text-[var(--primary-500)] opacity-60" />
+      {/* Icon container — smaller */}
+      <div
+        className={clsx(
+          'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-150',
+          active ? 'scale-105' : 'group-hover:scale-105'
+        )}
+        style={{
+          background: active ? 'var(--primary-100)' : 'var(--bg-subtle)',
+          color: active ? 'var(--primary-600)' : 'var(--text-muted)',
+          boxShadow: active ? '0 1px 4px rgba(99,102,241,0.15)' : 'none',
+        }}
+      >
+        {icon}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <p
+          className={clsx(
+            'text-[0.8125rem] font-semibold truncate leading-tight transition-colors',
+            active ? 'text-[var(--primary-700)]' : 'text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]'
+          )}
+          style={{ fontFamily: 'var(--font-display)' }}
+        >
+          {label}
+        </p>
+      </div>
+
+      {/* Badge or indicator */}
+      {badge ? (
+        <span
+          className="px-1.5 py-0.5 rounded-md text-[0.5625rem] font-bold flex-shrink-0"
+          style={{
+            background: active ? 'var(--primary-500)' : 'var(--bg-muted)',
+            color: active ? '#fff' : 'var(--text-muted)',
+          }}
+        >
+          {badge}
+        </span>
+      ) : active ? (
+        <div
+          className="w-1 h-1 rounded-full flex-shrink-0"
+          style={{ background: 'var(--primary-500)' }}
+        />
+      ) : null}
+
+      {/* Hover glow — lighter */}
+      {!active && (
+        <div
+          className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at center, rgba(99,102,241,0.03) 0%, transparent 70%)',
+          }}
+        />
       )}
     </Link>
   )
 }
 
+/* ─────────────────────────────────────────────────────────
+   NAV SECTION LABEL — More compact
+───────────────────────────────────────────────────────── */
 function NavSection({ label }: { label: string }) {
-  return <div className="portal-nav-section-label">{label}</div>
+  return (
+    <div className="flex items-center gap-2 px-2.5 py-1.5 mt-3 mb-0.5">
+      <span
+        className="text-[0.625rem] font-bold uppercase tracking-widest flex-shrink-0"
+        style={{
+          color: 'var(--text-light)',
+          fontFamily: 'var(--font-display)',
+        }}
+      >
+        {label}
+      </span>
+      <div
+        className="flex-1 h-px"
+        style={{
+          background: 'linear-gradient(90deg, var(--border) 0%, transparent 100%)',
+        }}
+      />
+    </div>
+  )
 }
 
+/* ═════════════════════════════════════════════════════════
+   SIDEBAR LAYOUT — MAIN EXPORT
+═════════════════════════════════════════════════════════ */
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const pathname = usePathname()
+
+  /* ── State — exact same as original ── */
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
-
   const [systemOpen, setSystemOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
-
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+
   const userDropdownRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
+  /* ── usePortalTheme — exact same ── */
   usePortalTheme({
     schoolId: session?.user?.tenantId || '',
     primaryColor: (session?.user as any)?.theme?.primary,
@@ -97,6 +248,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     darkMode: 'light',
   })
 
+  /* ── Effects — exact same logic ── */
   useEffect(() => {
     if (mobileOpen) closeMobile()
   }, [pathname]) // eslint-disable-line
@@ -108,12 +260,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (
-        userDropdownRef.current &&
-        !userDropdownRef.current.contains(e.target as Node)
-      ) {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node))
         setUserDropdownOpen(false)
-      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -121,12 +269,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(e.target as Node)
-      ) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node))
         setUserMenuOpen(false)
-      }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -137,104 +281,66 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
       '/admin/subscription', '/admin/settings', '/admin/security',
       '/teacher/security', '/student/security', '/parent/security',
     ]
-    const isSystemPage = systemPaths.some((p) => pathname.startsWith(p))
-    if (isSystemPage) setSystemOpen(true)
+    if (systemPaths.some(p => pathname.startsWith(p))) setSystemOpen(true)
   }, [pathname])
 
   const closeMobile = useCallback(() => {
     setIsClosing(true)
-    setTimeout(() => {
-      setMobileOpen(false)
-      setIsClosing(false)
-    }, 200)
+    setTimeout(() => { setMobileOpen(false); setIsClosing(false) }, 200)
   }, [])
 
   if (!session) return null
 
+  /* ── Session data — exact same as original ── */
   const role = session.user.role
   const plan = session.user.plan ?? 'starter'
   const modules = (session.user.modules ?? []) as string[]
-  const subscriptionStatus =
-    (session.user as any).subscriptionStatus as string || 'trial'
+  const subscriptionStatus = (session.user as any).subscriptionStatus as string || 'trial'
   const isExpired = subscriptionStatus === 'expired'
   const isTrial = subscriptionStatus === 'trial'
   const isActive = subscriptionStatus === 'active'
   const dashHref = DASH_PATHS[role] ?? '/admin'
   const roleConfig = getRoleConfig(role)
-
   const schoolLogo = session.user.schoolLogo
   const schoolName = session.user.schoolName || 'School'
   const schoolInitial = schoolName.charAt(0).toUpperCase()
   const allowedModules = (session.user as any).allowedModules as string[] || []
 
-  // ✅ FIXED: Teacher ko hamesha 'teacher' role se nav milega
-  // Staff ko allowedModules ke saath staff route milega
+  /* ── Nav items — exact same logic ── */
   const navItems = isExpired
     ? []
     : role === 'staff'
       ? getSidebarNav(modules, plan, 'staff', allowedModules)
       : getSidebarNav(modules, plan, role)
 
-  // ✅ FIXED: Teacher ke liye allowedModules check relevant nahi
-  // Teacher ka nav moduleRegistry ke 'teacher' role se aata hai
   const isTeacherRestricted = false
   const isStaffNoModules = role === 'staff' && allowedModules.length === 0
 
   const checkActive = (href: string) =>
-    pathname === href ||
-    (href !== dashHref && pathname.startsWith(href + '/'))
+    pathname === href || (href !== dashHref && pathname.startsWith(href + '/'))
 
   const userName = session.user.name || 'User'
   const userInitial = userName.charAt(0).toUpperCase()
 
+  /* ── Plan badge — enhanced with icons ── */
   const planBadge = isExpired
-    ? {
-      text: 'Expired',
-      bg: 'var(--danger-light)',
-      color: 'var(--danger-dark)',
-      border: 'rgba(239,68,68,0.3)',
-    }
+    ? { text: 'Expired', icon: X, bg: 'var(--danger-light)', color: 'var(--danger-dark)', border: 'rgba(239,68,68,0.3)' }
     : isTrial
-      ? {
-        text: 'Trial',
-        bg: 'var(--warning-light)',
-        color: 'var(--warning-dark)',
-        border: 'rgba(245,158,11,0.3)',
-      }
+      ? { text: 'Trial', icon: Sparkles, bg: 'var(--warning-light)', color: 'var(--warning-dark)', border: 'rgba(245,158,11,0.3)' }
       : plan === 'enterprise'
-        ? {
-          text: 'Enterprise',
-          bg: 'var(--warning-light)',
-          color: 'var(--warning-dark)',
-          border: 'rgba(245,158,11,0.3)',
-        }
+        ? { text: 'Enterprise', icon: Crown, bg: 'linear-gradient(135deg, #fbbf24, #f59e0b)', color: '#fff', border: 'transparent' }
         : plan === 'pro'
-          ? {
-            text: 'Pro',
-            bg: 'var(--primary-50)',
-            color: 'var(--primary-700)',
-            border: 'var(--primary-200)',
-          }
+          ? { text: 'Pro', icon: Star, bg: 'var(--primary-50)', color: 'var(--primary-700)', border: 'var(--primary-200)' }
           : plan === 'growth'
-            ? {
-              text: 'Growth',
-              bg: 'var(--info-light)',
-              color: 'var(--info-dark)',
-              border: 'rgba(59,130,246,0.3)',
-            }
-            : {
-              text: 'Starter',
-              bg: 'var(--bg-muted)',
-              color: 'var(--text-muted)',
-              border: 'var(--border)',
-            }
+            ? { text: 'Growth', icon: TrendingUp, bg: 'var(--info-light)', color: 'var(--info-dark)', border: 'rgba(59,130,246,0.3)' }
+            : { text: 'Starter', icon: Zap, bg: 'var(--bg-muted)', color: 'var(--text-muted)', border: 'var(--border)' }
 
+  /* ── Role label — exact same ── */
   const roleLabel = role === 'staff'
-    ? `Staff${(session.user as any).staffCategory
-      ? ` • ${(session.user as any).staffCategory}`
-      : ''}`
+    ? `Staff${(session.user as any).staffCategory ? ` • ${(session.user as any).staffCategory}` : ''}`
     : role
 
+  /* ── Security href — exact same ── */
   const securityHref =
     role === 'admin' || role === 'staff' ? '/admin/security'
       : role === 'teacher' ? '/teacher/security'
@@ -248,49 +354,108 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/student/security') ||
     pathname.startsWith('/parent/security')
 
+  /* ═══════════════════════════════════════════════════
+     SIDEBAR CONTENT — Modern & Attractive
+  ═══════════════════════════════════════════════════ */
   const SidebarContent = ({ onNavClick }: { onNavClick?: () => void }) => (
     <div className="flex flex-col h-full">
 
-      {/* ── School Branding ── */}
+      {/* ══ SCHOOL BRANDING — Premium Design ══ */}
       <div
-        className="px-4 py-4 flex-shrink-0"
+        className="px-4 pt-5 pb-4 flex-shrink-0 relative overflow-hidden"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden"
-            style={{
-              background: schoolLogo
-                ? 'var(--bg-muted)'
-                : 'linear-gradient(135deg, var(--primary-500), var(--primary-700))',
-              border: '1px solid var(--border)',
-            }}
-          >
-            {schoolLogo ? (
-              <img
-                src={schoolLogo}
-                alt={schoolName}
-                className="w-full h-full object-contain p-0.5"
-              />
-            ) : (
-              <span className="text-sm font-bold text-white">{schoolInitial}</span>
-            )}
+        {/* Background decoration */}
+        <div
+          className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-5 pointer-events-none"
+          style={{ background: roleConfig.gradient }}
+        />
+
+        <div className="relative flex items-start gap-3">
+          {/* Logo with premium glow */}
+          <div className="relative flex-shrink-0">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden relative"
+              style={{
+                background: schoolLogo ? 'var(--bg-card)' : roleConfig.gradient,
+                border: '2px solid var(--border)',
+                boxShadow: `0 4px 12px ${roleConfig.iconColor}25`,
+              }}
+            >
+              {schoolLogo ? (
+                <img
+                  src={schoolLogo}
+                  alt={schoolName}
+                  className="w-full h-full object-contain p-1"
+                />
+              ) : (
+                <span
+                  className="text-lg font-black text-white"
+                  style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}
+                >
+                  {schoolInitial}
+                </span>
+              )}
+            </div>
+
+            {/* Animated pulse ring */}
+            <div
+              className="absolute -inset-1 rounded-2xl animate-pulse"
+              style={{
+                background: `radial-gradient(circle, ${roleConfig.iconColor}20 0%, transparent 70%)`,
+                pointerEvents: 'none',
+              }}
+            />
+
+            {/* Status indicator */}
+            <div className="absolute -bottom-1 -right-1 flex items-center justify-center">
+              <span
+                className="w-4 h-4 rounded-full border-2 relative"
+                style={{
+                  background: roleConfig.dotColor,
+                  borderColor: 'var(--portal-sidebar-bg)',
+                  boxShadow: `0 0 8px ${roleConfig.dotColor}60`,
+                }}
+              >
+                <span
+                  className="absolute inset-0 rounded-full animate-ping"
+                  style={{ background: roleConfig.dotColor, opacity: 0.4 }}
+                />
+              </span>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
+
+          {/* School info */}
+          <div className="flex-1 min-w-0 pt-0.5">
             <p
-              className="text-sm font-semibold truncate leading-tight"
-              style={{ color: 'var(--text-primary)' }}
+              className="text-base font-black truncate leading-tight mb-1.5"
+              style={{
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-display)',
+                letterSpacing: '-0.02em',
+              }}
             >
               {schoolName}
             </p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                style={{ backgroundColor: 'var(--success)' }}
+
+            {/* Role badge with gradient */}
+            <div
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              style={{
+                background: roleConfig.iconBg,
+                border: `1px solid ${roleConfig.iconColor}30`,
+              }}
+            >
+              <div
+                className="w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ background: roleConfig.iconColor }}
               />
               <span
-                className="text-[0.6875rem]"
-                style={{ color: 'var(--text-muted)' }}
+                className="text-[0.6875rem] font-bold uppercase tracking-wide"
+                style={{
+                  color: roleConfig.iconColor,
+                  fontFamily: 'var(--font-display)',
+                }}
               >
                 {roleConfig.label}
               </span>
@@ -299,223 +464,254 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* ── Navigation ── */}
-      <nav className="flex-1 px-2.5 py-2 overflow-y-auto portal-scrollbar">
+      {/* ══ NAV — Compact spacing ══ */}
+      <nav className="flex-1 px-2.5 py-3 overflow-y-auto portal-scrollbar">
 
+        {/* Dashboard — Featured */}
         {!isExpired && (
-          <>
-            <NavSection label="Main" />
+          <div className="mb-1">
             <NavItem
               href={dashHref}
               label="Dashboard"
-              icon={<LayoutDashboard size={16} />}
+              icon={<LayoutDashboard size={15} />}
               active={pathname === dashHref}
               onClick={onNavClick}
             />
-          </>
+          </div>
         )}
 
+        {/* Modules — tighter spacing */}
         {navItems.length > 0 && (
           <>
             <NavSection label="Modules" />
-            {navItems.map((item) => {
-              const Icon = ICON_MAP[item.icon ?? ''] ?? LayoutDashboard
-              return (
-                <NavItem
-                  key={item.key}
-                  href={item.href ?? '#'}
-                  label={item.label}
-                  icon={<Icon size={16} />}
-                  active={checkActive(item.href ?? '')}
-                  onClick={onNavClick}
-                />
-              )
-            })}
+            <div className="space-y-0.5">
+              {navItems.map(item => {
+                const Icon = ICON_MAP[item.icon ?? ''] ?? LayoutDashboard
+                return (
+                  <NavItem
+                    key={item.key}
+                    href={item.href ?? '#'}
+                    label={item.label}
+                    icon={<Icon size={15} />}
+                    active={checkActive(item.href ?? '')}
+                    onClick={onNavClick}
+                  />
+                )
+              })}
+            </div>
           </>
         )}
 
-        {/* ✅ Staff ke liye — koi module assign nahi hua */}
+        {/* Empty states — smaller padding */}
         {isStaffNoModules && !isExpired && (
           <div
-            className="mx-1 my-4 p-4 rounded-xl text-center"
+            className="mx-1 my-3 p-3.5 rounded-xl text-center relative overflow-hidden"
             style={{
-              background: 'var(--bg-muted)',
-              border: '1px solid var(--border)',
+              background: 'var(--bg-subtle)',
+              border: '2px dashed var(--border-strong)',
             }}
           >
-            <Lock
-              size={18}
-              className="mx-auto mb-2"
-              style={{ color: 'var(--text-muted)' }}
-            />
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-2"
+              style={{
+                background: 'var(--bg-muted)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <Lock size={16} style={{ color: 'var(--text-muted)' }} />
+            </div>
             <p
-              className="text-xs font-semibold"
-              style={{ color: 'var(--text-secondary)' }}
+              className="text-xs font-bold mb-0.5"
+              style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
             >
               No Modules Assigned
             </p>
-            <p
-              className="text-[0.6875rem] mt-0.5"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              Contact your administrator.
+            <p className="text-[0.6875rem] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              Contact your administrator
             </p>
           </div>
         )}
 
-        {/* ✅ isTeacherRestricted ab hamesha false hai — yeh block render nahi hoga
-            Lekin agar future mein teacher-specific restriction chahiye toh
-            yeh block ready hai */}
         {isTeacherRestricted && navItems.length === 0 && !isExpired && (
           <div
-            className="mx-1 my-4 p-4 rounded-xl text-center"
+            className="mx-1 my-3 p-3.5 rounded-xl text-center relative overflow-hidden"
             style={{
-              background: 'var(--info-light)',
+              background: 'linear-gradient(135deg, rgba(59,130,246,0.05), rgba(59,130,246,0.02))',
               border: '1px solid rgba(59,130,246,0.2)',
             }}
           >
-            <Clock
-              size={18}
-              className="mx-auto mb-2"
-              style={{ color: 'var(--info)' }}
-            />
+            <Clock size={16} className="mx-auto mb-2" style={{ color: 'var(--info)' }} />
             <p
-              className="text-xs font-semibold"
-              style={{ color: 'var(--info-dark)' }}
+              className="text-xs font-bold mb-0.5"
+              style={{ color: 'var(--info-dark)', fontFamily: 'var(--font-display)' }}
             >
-              Awaiting Module Access
+              Awaiting Access
             </p>
-            <p
-              className="text-[0.6875rem] mt-0.5"
-              style={{ color: 'var(--info)' }}
-            >
-              Your admin will assign modules soon.
+            <p className="text-[0.6875rem]" style={{ color: 'var(--info)' }}>
+              Modules will be assigned soon
             </p>
           </div>
         )}
 
         {isExpired && role === 'admin' && (
           <div
-            className="mx-1 my-4 p-4 rounded-xl text-center"
+            className="mx-1 my-3 p-3.5 rounded-xl text-center relative overflow-hidden"
             style={{
-              background: 'var(--danger-light)',
-              border: '1px solid rgba(239,68,68,0.2)',
+              background: 'linear-gradient(135deg, rgba(239,68,68,0.08), rgba(239,68,68,0.03))',
+              border: '1px solid rgba(239,68,68,0.25)',
             }}
           >
-            <Zap
-              size={18}
-              className="mx-auto mb-2"
-              style={{ color: 'var(--danger)' }}
-            />
+            <div
+              className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-2"
+              style={{
+                background: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.2)',
+              }}
+            >
+              <Zap size={16} style={{ color: 'var(--danger)' }} />
+            </div>
             <p
-              className="text-xs font-semibold"
-              style={{ color: 'var(--danger-dark)' }}
+              className="text-xs font-bold mb-0.5"
+              style={{ color: 'var(--danger-dark)', fontFamily: 'var(--font-display)' }}
             >
               Access Blocked
             </p>
-            <p
-              className="text-[0.6875rem] mt-0.5"
-              style={{ color: 'var(--danger)' }}
-            >
-              Subscription expired.
+            <p className="text-[0.6875rem]" style={{ color: 'var(--danger)' }}>
+              Subscription expired
             </p>
           </div>
         )}
 
+        {/* Trial upgrade card — compact */}
         {isTrial && role === 'admin' && (
           <div
-            className="mx-1 my-4 p-4 rounded-xl"
+            className="mx-1 my-3 p-3 rounded-xl relative overflow-hidden"
             style={{
-              background: 'var(--warning-light)',
-              border: '1px solid rgba(245,158,11,0.3)',
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(249,115,22,0.04) 100%)',
+              border: '1px solid rgba(245,158,11,0.25)',
             }}
           >
-            <p
-              className="text-xs font-semibold mb-1"
-              style={{ color: 'var(--warning-dark)' }}
-            >
-              Free Trial Active
-            </p>
-            <p
-              className="text-[0.6875rem] mb-2"
-              style={{ color: 'var(--warning)' }}
-            >
-              Upgrade for full access.
-            </p>
-            <Link
-              href="/admin/subscription"
-              className="text-[0.6875rem] font-semibold"
-              style={{ color: 'var(--warning-dark)' }}
-            >
-              Upgrade Now →
-            </Link>
+            {/* Decorative element — smaller */}
+            <div
+              className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-10"
+              style={{ background: 'radial-gradient(circle, var(--warning), transparent)' }}
+            />
+
+            <div className="relative">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Sparkles size={12} style={{ color: 'var(--warning)' }} />
+                <p
+                  className="text-[0.625rem] font-bold uppercase tracking-wide"
+                  style={{ color: 'var(--warning-dark)', fontFamily: 'var(--font-display)' }}
+                >
+                  Trial Active
+                </p>
+              </div>
+              <p className="text-[0.6875rem] mb-2 leading-relaxed" style={{ color: 'var(--warning)' }}>
+                Upgrade to unlock all features
+              </p>
+              <Link
+                href="/admin/subscription"
+                className="flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-lg font-bold text-[0.6875rem] transition-all hover:scale-105"
+                style={{
+                  background: 'var(--warning)',
+                  color: '#fff',
+                  boxShadow: '0 2px 6px rgba(245,158,11,0.25)',
+                }}
+              >
+                <Flame size={10} />
+                Upgrade Now
+              </Link>
+            </div>
           </div>
         )}
 
-        <div className="mt-2">
+        {/* ══ SYSTEM SECTION — compact ══ */}
+        <div
+          className="mt-3 pt-2"
+          style={{ borderTop: '1px solid var(--border)' }}
+        >
           <button
             type="button"
-            onClick={() => setSystemOpen((prev) => !prev)}
-            className="
-              w-full flex items-center gap-2 px-2 py-1.5
-              rounded-[var(--radius-md)]
-              transition-colors duration-150
-              hover:bg-[var(--bg-muted)]
-            "
-            style={{ color: 'var(--text-muted)' }}
+            onClick={() => setSystemOpen(prev => !prev)}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-150 hover:bg-[var(--bg-muted)] group"
+            style={{ color: 'var(--text-secondary)' }}
           >
-            <span className="text-[0.6875rem] font-700 uppercase tracking-wider flex-1 text-left">
+            <div
+              className="w-6 h-6 rounded-md flex items-center justify-center transition-all group-hover:scale-105"
+              style={{
+                background: systemOpen ? 'var(--primary-100)' : 'var(--bg-subtle)',
+                color: systemOpen ? 'var(--primary-600)' : 'var(--text-muted)',
+              }}
+            >
+              <Settings size={12} />
+            </div>
+            <span
+              className="text-[0.625rem] font-bold uppercase tracking-wider flex-1 text-left"
+              style={{ fontFamily: 'var(--font-display)' }}
+            >
               System
             </span>
-            {systemOpen
-              ? <ChevronUp size={12} />
-              : <ChevronDown size={12} />
-            }
+            <div
+              className="transition-transform duration-200"
+              style={{ transform: systemOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+            >
+              <ChevronDown size={12} style={{ color: 'var(--text-muted)' }} />
+            </div>
           </button>
 
           {systemOpen && (
             <div className="mt-0.5 space-y-0.5">
-
               {(role === 'admin' || isExpired) && (
                 <Link
                   href="/admin/subscription"
                   onClick={onNavClick}
                   className={clsx(
-                    'portal-nav-item group',
-                    pathname.startsWith('/admin/subscription') && 'active'
+                    'group flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg transition-all duration-150',
+                    pathname.startsWith('/admin/subscription')
+                      ? 'bg-gradient-to-r from-[var(--primary-50)] to-transparent'
+                      : 'hover:bg-[var(--bg-muted)]'
                   )}
                 >
-                  <span className="nav-icon"><Zap size={16} /></span>
-                  <span className="flex-1 truncate">Subscription</span>
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: pathname.startsWith('/admin/subscription')
+                        ? 'var(--primary-100)'
+                        : 'var(--bg-subtle)',
+                      color: pathname.startsWith('/admin/subscription')
+                        ? 'var(--primary-600)'
+                        : 'var(--text-muted)',
+                    }}
+                  >
+                    <Zap size={15} />
+                  </div>
+                  <span
+                    className="flex-1 text-[0.8125rem] font-semibold"
+                    style={{ fontFamily: 'var(--font-display)' }}
+                  >
+                    Subscription
+                  </span>
                   {isTrial && (
                     <span
-                      className="text-[0.625rem] px-1.5 py-0.5 rounded-md font-semibold"
-                      style={{
-                        background: 'var(--warning-light)',
-                        color: 'var(--warning-dark)',
-                      }}
+                      className="px-1.5 py-0.5 rounded-md text-[0.5625rem] font-bold"
+                      style={{ background: 'var(--warning-light)', color: 'var(--warning-dark)' }}
                     >
                       Trial
                     </span>
                   )}
                   {isActive && (
                     <span
-                      className="text-[0.625rem] px-1.5 py-0.5 rounded-md font-semibold"
-                      style={{
-                        background: 'var(--success-light)',
-                        color: 'var(--success-dark)',
-                      }}
+                      className="px-1.5 py-0.5 rounded-md text-[0.5625rem] font-bold"
+                      style={{ background: 'var(--success-light)', color: 'var(--success-dark)' }}
                     >
                       Active
                     </span>
                   )}
                   {isExpired && (
                     <span
-                      className="text-[0.625rem] px-1.5 py-0.5 rounded-md font-semibold animate-pulse"
-                      style={{
-                        background: 'var(--danger-light)',
-                        color: 'var(--danger-dark)',
-                      }}
+                      className="px-1.5 py-0.5 rounded-md text-[0.5625rem] font-bold animate-pulse"
+                      style={{ background: 'var(--danger-light)', color: 'var(--danger-dark)' }}
                     >
                       Renew
                     </span>
@@ -527,7 +723,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 <NavItem
                   href="/admin/settings"
                   label="Settings"
-                  icon={<Settings size={16} />}
+                  icon={<Settings size={15} />}
                   active={pathname.startsWith('/admin/settings')}
                   onClick={onNavClick}
                 />
@@ -537,7 +733,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 <NavItem
                   href={securityHref}
                   label="Security"
-                  icon={<Shield size={16} />}
+                  icon={<Shield size={15} />}
                   active={isSecurityActive}
                   onClick={onNavClick}
                 />
@@ -547,207 +743,225 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      {/* ── User Footer ── */}
+      {/* ══ USER FOOTER — Premium Design ══ */}
       <div
         ref={userMenuRef}
-        className="flex-shrink-0"
-        style={{ borderTop: '1px solid var(--border)' }}
+        className="flex-shrink-0 relative"
+        style={{
+          borderTop: '1px solid var(--border)',
+          background: 'var(--bg-subtle)',
+        }}
       >
+        {/* Dropdown menu */}
         {userMenuOpen && (
           <div
-            className="
-              mx-2 mb-1
-              rounded-[var(--radius-lg)]
-              border overflow-hidden
-            "
+            className="absolute bottom-full left-2 right-2 mb-2 rounded-2xl border overflow-hidden"
             style={{
-              backgroundColor: 'var(--bg-card)',
+              background: 'var(--bg-card)',
               borderColor: 'var(--border)',
-              boxShadow: 'var(--shadow-md)',
+              boxShadow: 'var(--shadow-xl)',
+              animation: 'slideUp 0.2s cubic-bezier(0.16,1,0.3,1) forwards',
             }}
           >
-            {role === 'admin' && !isExpired && (
-              <Link
-                href="/admin/settings"
-                onClick={() => {
-                  setUserMenuOpen(false)
-                  onNavClick?.()
-                }}
-                className="
-                  flex items-center gap-2.5 px-3 py-2
-                  text-[0.8125rem] transition-colors
-                  hover:bg-[var(--bg-muted)]
-                "
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <Settings size={14} />
-                Settings
-              </Link>
-            )}
-
-            {role === 'admin' && (
-              <Link
-                href="/admin/subscription"
-                onClick={() => {
-                  setUserMenuOpen(false)
-                  onNavClick?.()
-                }}
-                className="
-                  flex items-center gap-2.5 px-3 py-2
-                  text-[0.8125rem] transition-colors
-                  hover:bg-[var(--bg-muted)]
-                "
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <Zap size={14} />
-                Subscription
-                {isTrial && (
-                  <span
-                    className="ml-auto text-[0.625rem] px-1.5 py-0.5 rounded"
-                    style={{
-                      background: 'var(--warning-light)',
-                      color: 'var(--warning-dark)',
-                    }}
-                  >
-                    Trial
-                  </span>
-                )}
-              </Link>
-            )}
-
-            {!isExpired && (
-              <Link
-                href={securityHref}
-                onClick={() => {
-                  setUserMenuOpen(false)
-                  onNavClick?.()
-                }}
-                className="
-                  flex items-center gap-2.5 px-3 py-2
-                  text-[0.8125rem] transition-colors
-                  hover:bg-[var(--bg-muted)]
-                "
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                <Shield size={14} />
-                Security
-              </Link>
-            )}
-
+            {/* Menu header */}
             <div
-              className="border-t"
-              style={{ borderColor: 'var(--border)' }}
-            />
-
-            <button
-              onClick={() => {
-                setUserMenuOpen(false)
-                signOut({ callbackUrl: '/login' })
+              className="px-4 py-3 flex items-center gap-3"
+              style={{
+                background: roleConfig.gradient,
               }}
-              className="
-                flex items-center gap-2.5 w-full px-3 py-2
-                text-[0.8125rem] transition-colors
-                hover:bg-[var(--danger-light)]
-              "
-              style={{ color: 'var(--danger)' }}
             >
-              <LogOut size={14} />
-              Logout
-            </button>
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  backdropFilter: 'blur(10px)',
+                }}
+              >
+                {userInitial}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p
+                  className="text-sm font-bold text-white truncate"
+                  style={{ fontFamily: 'var(--font-display)' }}
+                >
+                  {userName}
+                </p>
+                <p className="text-xs text-white/80 capitalize truncate">
+                  {roleLabel}
+                </p>
+              </div>
+            </div>
+
+            {/* Menu items */}
+            <div className="py-1.5">
+              {role === 'admin' && !isExpired && (
+                <Link
+                  href="/admin/settings"
+                  onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Settings size={15} style={{ color: 'var(--text-muted)' }} />
+                  Settings
+                </Link>
+              )}
+
+              {role === 'admin' && (
+                <Link
+                  href="/admin/subscription"
+                  onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Zap size={15} style={{ color: 'var(--text-muted)' }} />
+                  Subscription
+                  {isTrial && (
+                    <span
+                      className="ml-auto px-2 py-0.5 rounded-md text-[0.5625rem] font-bold"
+                      style={{ background: 'var(--warning-light)', color: 'var(--warning-dark)' }}
+                    >
+                      Trial
+                    </span>
+                  )}
+                </Link>
+              )}
+
+              {!isExpired && (
+                <Link
+                  href={securityHref}
+                  onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Shield size={15} style={{ color: 'var(--text-muted)' }} />
+                  Security
+                </Link>
+              )}
+            </div>
+
+            <div className="border-t py-1.5" style={{ borderColor: 'var(--border)' }}>
+              <button
+                onClick={() => { setUserMenuOpen(false); signOut({ callbackUrl: '/login' }) }}
+                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors hover:bg-[var(--danger-light)]"
+                style={{ color: 'var(--danger)' }}
+              >
+                <LogOut size={15} />
+                Sign out
+              </button>
+            </div>
           </div>
         )}
 
+        {/* User trigger button */}
         <button
           type="button"
-          onClick={() => setUserMenuOpen((prev) => !prev)}
-          className="
-            w-full flex items-center gap-2.5 px-3 py-3
-            transition-colors duration-150
-            hover:bg-[var(--bg-muted)]
-          "
-          style={{ backgroundColor: 'var(--bg-subtle)' }}
-          title={`${userName} — Click for options`}
+          onClick={() => setUserMenuOpen(prev => !prev)}
+          className="w-full flex items-center gap-3 px-4 py-3.5 transition-all duration-200 hover:bg-[var(--bg-muted)] group"
         >
-          <div
-            className="
-              w-8 h-8 rounded-full flex items-center justify-center
-              text-xs font-bold flex-shrink-0 text-white
-            "
-            style={{
-              background: `linear-gradient(135deg, var(--primary-500), var(--primary-700))`,
-              boxShadow: `0 1px 3px rgba(var(--primary-rgb), 0.3)`,
-            }}
-          >
-            {userInitial}
+          {/* Avatar with premium ring */}
+          <div className="relative flex-shrink-0">
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white transition-transform group-hover:scale-105"
+              style={{
+                background: roleConfig.gradient,
+                boxShadow: `0 4px 12px ${roleConfig.iconColor}30`,
+              }}
+            >
+              {userInitial}
+            </div>
+            {/* Ring animation */}
+            <div
+              className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{
+                background: `radial-gradient(circle, ${roleConfig.iconColor}15 0%, transparent 70%)`,
+              }}
+            />
           </div>
 
-          <div className="min-w-0 flex-1 text-left">
+          {/* Info */}
+          <div className="flex-1 min-w-0 text-left">
             <p
-              className="text-[0.8125rem] font-medium truncate leading-tight"
-              style={{ color: 'var(--text-primary)' }}
+              className="text-sm font-bold truncate leading-tight"
+              style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
             >
               {userName}
             </p>
             <p
-              className="text-[0.6875rem] capitalize leading-tight mt-0.5"
+              className="text-[0.6875rem] capitalize truncate mt-0.5"
               style={{ color: 'var(--text-muted)' }}
             >
               {roleLabel}
             </p>
           </div>
 
-          <ChevronsUpDown
-            size={14}
-            style={{ color: 'var(--text-muted)', flexShrink: 0 }}
-          />
+          {/* Plan badge with icon */}
+          <div
+            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[0.5625rem] font-bold flex-shrink-0"
+            style={{
+              background: typeof planBadge.bg === 'string' && planBadge.bg.startsWith('linear')
+                ? planBadge.bg
+                : planBadge.bg,
+              color: planBadge.color,
+              border: `1px solid ${planBadge.border}`,
+              boxShadow: plan === 'enterprise' ? '0 2px 8px rgba(245,158,11,0.3)' : 'none',
+            }}
+          >
+            <planBadge.icon size={9} />
+            <span>{planBadge.text}</span>
+          </div>
+
+          {/* Arrow with rotation */}
+          <div
+            className="transition-transform duration-200 flex-shrink-0"
+            style={{
+              transform: userMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              color: 'var(--text-muted)',
+            }}
+          >
+            <ChevronUp size={14} />
+          </div>
         </button>
       </div>
     </div>
   )
 
+  /* ═══════════════════════════════════════════════════
+     RENDER
+  ═══════════════════════════════════════════════════ */
   return (
     <div
       className="flex h-screen overflow-hidden"
-      style={{ backgroundColor: 'var(--portal-bg)' }}
+      style={{ background: 'var(--portal-bg)' }}
     >
 
       {/* ═══ Desktop Sidebar ═══ */}
       <aside
         className="hidden md:flex w-[var(--sidebar-width)] flex-col flex-shrink-0"
         style={{
-          backgroundColor: 'var(--portal-sidebar-bg)',
+          background: 'var(--portal-sidebar-bg)',
           borderRight: '1px solid var(--border)',
         }}
       >
         <SidebarContent />
       </aside>
 
-      {/* ═══ Mobile Overlay ═══ */}
+      {/* ═══ Mobile Overlay + Sidebar ═══ */}
       {mobileOpen && (
         <>
           <div
-            className={clsx(
-              'portal-overlay md:hidden',
-              isClosing && 'closing'
-            )}
+            className={clsx('portal-overlay md:hidden', isClosing && 'closing')}
             onClick={closeMobile}
             aria-hidden="true"
           />
-          <aside
-            className={clsx(
-              'portal-mobile-sidebar md:hidden',
-              isClosing && 'closing'
-            )}
-          >
+          <aside className={clsx('portal-mobile-sidebar md:hidden', isClosing && 'closing')}>
             <button
               onClick={closeMobile}
-              className="
-                absolute top-3.5 right-3.5 w-8 h-8 rounded-lg
-                flex items-center justify-center z-10
-              "
+              className="absolute top-4 right-4 w-9 h-9 rounded-xl flex items-center justify-center z-10 transition-colors"
               style={{
-                backgroundColor: 'var(--bg-muted)',
+                background: 'var(--bg-muted)',
                 color: 'var(--text-muted)',
+                border: '1px solid var(--border)',
               }}
               aria-label="Close sidebar"
             >
@@ -758,34 +972,35 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      {/* ═══ Main Content ═══ */}
+      {/* ═══ Main Area ═══ */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
+        {/* Banners */}
         {role === 'admin' && isTrial && <TrialBanner />}
 
         {role === 'admin' && isExpired && (
           <div
-            className="px-4 py-2.5 flex items-center justify-between flex-shrink-0"
-            style={{
-              background: 'linear-gradient(90deg, var(--danger), #b91c1c)',
-            }}
+            className="px-4 py-3 flex items-center justify-between flex-shrink-0"
+            style={{ background: 'linear-gradient(90deg, var(--danger), #b91c1c)' }}
           >
-            <div
-              className="flex items-center gap-2 text-sm"
-              style={{ color: 'rgba(255,255,255,0.95)' }}
-            >
-              <X size={10} style={{ color: '#FFFFFF' }} />
-              <span className="text-[0.8125rem]">
+            <div className="flex items-center gap-2.5" style={{ color: 'rgba(255,255,255,0.95)' }}>
+              <div
+                className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(255,255,255,0.15)' }}
+              >
+                <X size={12} style={{ color: '#fff' }} />
+              </div>
+              <span className="text-sm font-medium">
                 Subscription expired. All features are blocked.
               </span>
             </div>
             <Link
               href="/admin/subscription"
-              className="px-3.5 py-1.5 rounded-lg text-xs font-semibold"
+              className="px-4 py-2 rounded-lg text-sm font-bold transition-transform hover:scale-105"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.15)',
-                color: '#FFFFFF',
-                border: '1px solid rgba(255,255,255,0.25)',
+                background: 'rgba(255,255,255,0.2)',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.3)',
               }}
             >
               Subscribe Now
@@ -793,244 +1008,229 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* ── Header Bar ── */}
+        {/* ══ HEADER — Clean & Modern ══ */}
         <header
-          className="px-4 md:px-6 flex items-center gap-3 flex-shrink-0"
+          className="flex items-center gap-4 px-5 md:px-6 flex-shrink-0"
           style={{
-            backgroundColor: 'var(--portal-header-bg)',
+            background: 'var(--portal-header-bg)',
             borderBottom: '1px solid var(--border)',
             height: 'var(--header-height)',
-            boxShadow: 'var(--shadow-xs)',
           }}
         >
+          {/* Mobile menu */}
           <button
             onClick={() => setMobileOpen(true)}
-            className="md:hidden w-9 h-9 rounded-lg flex items-center justify-center"
+            className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105"
             style={{
-              backgroundColor: 'var(--bg-muted)',
-              color: 'var(--text-muted)',
+              background: 'var(--bg-muted)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border)',
             }}
             aria-label="Open sidebar"
           >
             <Menu size={18} />
           </button>
 
-          <div className="hidden md:flex portal-search max-w-xs flex-1">
-            <Search size={15} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search modules..."
-              readOnly
-            />
-            <kbd
-              className="
-                hidden lg:inline-flex items-center
-                px-1.5 py-0.5 text-[0.625rem] font-mono rounded
-              "
+          {/* Page title placeholder */}
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-lg font-bold truncate"
               style={{
-                color: 'var(--text-muted)',
-                backgroundColor: 'var(--bg-muted)',
-                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                fontFamily: 'var(--font-display)',
+                letterSpacing: '-0.015em',
               }}
             >
-              ⌘K
-            </kbd>
+              {/* Dynamic page title can go here */}
+            </p>
           </div>
 
-          <div className="flex-1" />
-
+          {/* Right actions */}
           <div className="flex items-center gap-2.5">
 
+            {/* Notifications */}
             <button
-              className="relative w-9 h-9 rounded-lg flex items-center justify-center"
-              style={{
-                backgroundColor: 'var(--bg-muted)',
-                color: 'var(--text-muted)',
-              }}
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-[var(--bg-muted)]"
+              style={{ color: 'var(--text-muted)' }}
+              title="Notifications"
             >
-              <Bell size={16} />
+              <Bell size={17} />
+              <span
+                className="absolute top-2 right-2 w-2 h-2 rounded-full animate-pulse"
+                style={{
+                  background: 'var(--danger)',
+                  boxShadow: '0 0 4px var(--danger)',
+                }}
+              />
             </button>
 
+            {/* Plan badge */}
             {(role === 'admin' || role === 'staff') && (
               <Link href={role === 'admin' ? '/admin/subscription' : '#'}>
-                <span
-                  className="
-                    hidden sm:inline-flex items-center
-                    px-2.5 py-1 rounded-lg
-                    text-[0.6875rem] font-semibold capitalize
-                  "
+                <div
+                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all hover:scale-105"
                   style={{
-                    backgroundColor: planBadge.bg,
+                    background: typeof planBadge.bg === 'string' && planBadge.bg.startsWith('linear')
+                      ? planBadge.bg
+                      : planBadge.bg,
                     color: planBadge.color,
                     border: `1px solid ${planBadge.border}`,
+                    boxShadow: plan === 'enterprise' ? '0 2px 8px rgba(245,158,11,0.3)' : 'none',
                   }}
                 >
-                  <Zap size={10} style={{ marginRight: '4px' }} />
-                  {planBadge.text}
-                </span>
+                  <planBadge.icon size={11} />
+                  <span className="text-[0.6875rem] font-bold">
+                    {planBadge.text}
+                  </span>
+                </div>
               </Link>
             )}
 
+            <div className="w-px h-6 hidden sm:block" style={{ background: 'var(--border)' }} />
+
+            {/* User dropdown */}
             <div className="relative" ref={userDropdownRef}>
               <button
-                onClick={() => setUserDropdownOpen((prev) => !prev)}
-                className="
-                  flex items-center gap-2 pl-2.5 rounded-lg py-1 pr-2
-                  transition-colors hover:bg-[var(--bg-muted)]
-                "
-                style={{ borderLeft: '1px solid var(--border)' }}
+                onClick={() => setUserDropdownOpen(prev => !prev)}
+                className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl transition-all hover:bg-[var(--bg-muted)]"
+                style={{
+                  border: userDropdownOpen ? '1.5px solid var(--primary-200)' : '1.5px solid transparent',
+                  background: userDropdownOpen ? 'var(--primary-50)' : undefined,
+                }}
               >
                 <div
-                  className="
-                    w-8 h-8 rounded-full flex items-center justify-center
-                    text-xs font-bold text-white
-                  "
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                   style={{
-                    background: `linear-gradient(135deg, var(--primary-500), var(--primary-700))`,
-                    boxShadow: `0 1px 3px rgba(var(--primary-rgb), 0.3)`,
+                    background: roleConfig.gradient,
+                    boxShadow: `0 2px 6px ${roleConfig.iconColor}30`,
                   }}
                 >
                   {userInitial}
                 </div>
+
                 <div className="hidden lg:block text-left">
                   <p
-                    className="text-[0.8125rem] font-medium leading-tight"
-                    style={{ color: 'var(--text-primary)' }}
+                    className="text-sm font-bold leading-tight"
+                    style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}
                   >
                     {userName}
                   </p>
-                  <p
-                    className="text-[0.625rem] capitalize leading-tight"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
+                  <p className="text-[0.6875rem] capitalize" style={{ color: 'var(--text-muted)' }}>
                     {roleLabel}
                   </p>
                 </div>
-                <ChevronDown
-                  size={12}
-                  style={{ color: 'var(--text-muted)' }}
-                  className="hidden lg:block"
-                />
+
+                <div
+                  className="hidden lg:block transition-transform duration-150"
+                  style={{
+                    transform: userDropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <ChevronDown size={13} />
+                </div>
               </button>
 
+              {/* Dropdown */}
               {userDropdownOpen && (
                 <div
-                  className="
-                    absolute right-0 top-full mt-1.5
-                    w-48 rounded-[var(--radius-lg)]
-                    border shadow-lg z-50
-                    py-1 overflow-hidden
-                  "
+                  className="absolute right-0 top-full mt-2 w-56 rounded-2xl border overflow-hidden z-50"
                   style={{
-                    backgroundColor: 'var(--bg-card)',
+                    background: 'var(--bg-card)',
                     borderColor: 'var(--border)',
-                    boxShadow: 'var(--shadow-md)',
+                    boxShadow: 'var(--shadow-xl)',
+                    animation: 'slideDown 0.18s cubic-bezier(0.16,1,0.3,1) forwards',
                   }}
                 >
                   <div
-                    className="px-3 py-2.5 border-b"
-                    style={{ borderColor: 'var(--border)' }}
+                    className="px-4 py-3.5 flex items-center gap-3"
+                    style={{ background: roleConfig.gradient }}
                   >
-                    <p
-                      className="text-xs font-600 truncate"
-                      style={{ color: 'var(--text-primary)' }}
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                      style={{
+                        background: 'rgba(255,255,255,0.2)',
+                        border: '2px solid rgba(255,255,255,0.3)',
+                      }}
                     >
-                      {userName}
-                    </p>
-                    <p
-                      className="text-[0.6875rem] capitalize"
-                      style={{ color: 'var(--text-muted)' }}
-                    >
-                      {roleLabel}
-                    </p>
+                      {userInitial}
+                    </div>
+                    <div className="min-w-0">
+                      <p
+                        className="text-sm font-bold text-white truncate"
+                        style={{ fontFamily: 'var(--font-display)' }}
+                      >
+                        {userName}
+                      </p>
+                      <p className="text-xs text-white/80 capitalize">
+                        {roleLabel}
+                      </p>
+                    </div>
                   </div>
 
-                  {role === 'admin' && !isExpired && (
-                    <Link
-                      href="/admin/settings"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="
-                        flex items-center gap-2.5 px-3 py-2
-                        text-[0.8125rem] transition-colors
-                        hover:bg-[var(--bg-muted)]
-                      "
-                      style={{ color: 'var(--text-secondary)' }}
+                  <div className="py-1.5">
+                    {role === 'admin' && !isExpired && (
+                      <Link
+                        href="/admin/settings"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Settings size={15} style={{ color: 'var(--text-muted)' }} />
+                        Settings
+                      </Link>
+                    )}
+
+                    {role === 'admin' && (
+                      <Link
+                        href="/admin/subscription"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Zap size={15} style={{ color: 'var(--text-muted)' }} />
+                        Subscription
+                        {isTrial && (
+                          <span
+                            className="ml-auto px-2 py-0.5 rounded-md text-[0.5625rem] font-bold"
+                            style={{ background: 'var(--warning-light)', color: 'var(--warning-dark)' }}
+                          >
+                            Trial
+                          </span>
+                        )}
+                      </Link>
+                    )}
+
+                    {!isExpired && (
+                      <Link
+                        href={securityHref}
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Shield size={15} style={{ color: 'var(--text-muted)' }} />
+                        Security
+                      </Link>
+                    )}
+                  </div>
+
+                  <div className="border-t py-1.5" style={{ borderColor: 'var(--border)' }}>
+                    <button
+                      onClick={() => { setUserDropdownOpen(false); signOut({ callbackUrl: '/login' }) }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors hover:bg-[var(--danger-light)]"
+                      style={{ color: 'var(--danger)' }}
                     >
-                      <Settings size={14} />
-                      Settings
-                    </Link>
-                  )}
-
-                  {role === 'admin' && (
-                    <Link
-                      href="/admin/subscription"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="
-                        flex items-center gap-2.5 px-3 py-2
-                        text-[0.8125rem] transition-colors
-                        hover:bg-[var(--bg-muted)]
-                      "
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      <Zap size={14} />
-                      Subscription
-                      {isTrial && (
-                        <span
-                          className="ml-auto text-[0.625rem] px-1.5 py-0.5 rounded"
-                          style={{
-                            background: 'var(--warning-light)',
-                            color: 'var(--warning-dark)',
-                          }}
-                        >
-                          Trial
-                        </span>
-                      )}
-                    </Link>
-                  )}
-
-                  {!isExpired && (
-                    <Link
-                      href={securityHref}
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="
-                        flex items-center gap-2.5 px-3 py-2
-                        text-[0.8125rem] transition-colors
-                        hover:bg-[var(--bg-muted)]
-                      "
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      <Shield size={14} />
-                      Security
-                    </Link>
-                  )}
-
-                  <div
-                    className="my-1 border-t"
-                    style={{ borderColor: 'var(--border)' }}
-                  />
-
-                  <button
-                    onClick={() => {
-                      setUserDropdownOpen(false)
-                      signOut({ callbackUrl: '/login' })
-                    }}
-                    className="
-                      flex items-center gap-2.5 w-full px-3 py-2
-                      text-[0.8125rem] transition-colors
-                      hover:bg-[var(--danger-light)]
-                    "
-                    style={{ color: 'var(--danger)' }}
-                  >
-                    <LogOut size={14} />
-                    Logout
-                  </button>
+                      <LogOut size={15} />
+                      Sign out
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        {/* ── Page Content ── */}
+        {/* ══ Page Content ══ */}
         <main className="flex-1 overflow-y-auto portal-main-scroll">
           <div className="p-4 md:p-6 portal-content-enter">
             {children}

@@ -626,132 +626,140 @@ function AddonModal({
 
 
 // Real Clock-Style Countdown Component
-function RealClockCountdown({ targetDate, type }: { targetDate: string; type: 'trial' | 'subscription' }) {
-    const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: false })
-    const [blink, setBlink] = useState(true)
+function RealClockCountdown({ 
+  targetDate, 
+  type 
+}: { 
+  targetDate: string
+  type: 'trial' | 'subscription' 
+}) {
+  const [timeLeft, setTimeLeft] = useState({ 
+    days: 0, 
+    hours: 0, 
+    minutes: 0, 
+    seconds: 0, 
+    isExpired: false 
+  })
 
-    useEffect(() => {
-        const calc = () => {
-            const diff = new Date(targetDate).getTime() - new Date().getTime()
-            if (diff <= 0) {
-                setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true })
-                return
-            }
-            setTimeLeft({
-                days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-                hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-                minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-                seconds: Math.floor((diff % (1000 * 60)) / 1000),
-                isExpired: false,
-            })
-        }
-        calc()
-        const timer = setInterval(calc, 1000)
-        const blinkTimer = setInterval(() => setBlink(b => !b), 500)
-        return () => {
-            clearInterval(timer)
-            clearInterval(blinkTimer)
-        }
-    }, [targetDate])
-
-    if (timeLeft.isExpired) {
-        return (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-100 border border-red-300">
-                <span className="text-xs font-bold text-red-700">⏰ Expired</span>
-            </div>
-        )
+  useEffect(() => {
+    const calc = () => {
+      const diff = new Date(targetDate).getTime() - new Date().getTime()
+      if (diff <= 0) {
+        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true })
+        return
+      }
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+        isExpired: false,
+      })
     }
+    calc()
+    const timer = setInterval(calc, 1000)
+    return () => clearInterval(timer)
+  }, [targetDate])
 
-    // Color themes
-    const theme = type === 'trial'
-        ? {
-            bg: 'bg-gradient-to-br from-blue-600 to-blue-700',
-            text: 'text-blue-700',
-            light: 'bg-blue-100',
-            border: 'border-blue-300',
-            glow: 'shadow-blue-500/20'
-        }
-        : {
-            bg: 'bg-gradient-to-br from-emerald-600 to-emerald-700',
-            text: 'text-emerald-700',
-            light: 'bg-emerald-100',
-            border: 'border-emerald-300',
-            glow: 'shadow-emerald-500/20'
-        }
-
+  // Expired state
+  if (timeLeft.isExpired) {
     return (
-        <div className={clsx(
-            'inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border-2',
-            theme.light, theme.border, 'shadow-lg', theme.glow
-        )}>
-            {/* Days (only if > 0) */}
-            {timeLeft.days > 0 && (
-                <>
-                    <div className="flex flex-col items-center">
-                        <div className={clsx(
-                            'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
-                            theme.bg
-                        )}>
-                            {String(timeLeft.days).padStart(2, '0')}
-                        </div>
-                        <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
-                            Days
-                        </span>
-                    </div>
-                    <span className={clsx('text-2xl font-bold', theme.text, blink ? 'opacity-100' : 'opacity-30')}>
-                        :
-                    </span>
-                </>
-            )}
-
-            {/* Hours */}
-            <div className="flex flex-col items-center">
-                <div className={clsx(
-                    'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
-                    theme.bg
-                )}>
-                    {String(timeLeft.hours).padStart(2, '0')}
-                </div>
-                <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
-                    Hours
-                </span>
-            </div>
-
-            <span className={clsx('text-2xl font-bold', theme.text, blink ? 'opacity-100' : 'opacity-30')}>
-                :
-            </span>
-
-            {/* Minutes */}
-            <div className="flex flex-col items-center">
-                <div className={clsx(
-                    'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
-                    theme.bg
-                )}>
-                    {String(timeLeft.minutes).padStart(2, '0')}
-                </div>
-                <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
-                    Mins
-                </span>
-            </div>
-
-            <span className={clsx('text-2xl font-bold', theme.text, blink ? 'opacity-100' : 'opacity-30')}>
-                :
-            </span>
-
-            {/* Seconds */}
-            <div className="flex flex-col items-center">
-                <div className={clsx(
-                    'flex items-center justify-center w-12 h-12 rounded-lg text-white font-bold text-lg shadow-md',
-                    theme.bg
-                )}>
-                    {String(timeLeft.seconds).padStart(2, '0')}
-                </div>
-                <span className={clsx('text-[9px] font-bold uppercase tracking-wider mt-1', theme.text)}>
-                    Secs
-                </span>
-            </div>
-        </div>
+      <div
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+        style={{
+          background: 'var(--color-danger-light)',
+          border: '1px solid var(--color-danger-200)',
+        }}
+      >
+        <span
+          className="text-xs font-bold"
+          style={{ color: 'var(--color-danger-700)' }}
+        >
+          ⚡ Expired
+        </span>
+      </div>
     )
+  }
+
+  // Theme
+  const theme = type === 'trial'
+    ? {
+        bg: 'var(--color-warning-50)',
+        border: 'var(--color-warning-200)',
+        digitBg: 'var(--color-warning-600)',
+        labelColor: 'var(--color-warning-600)',
+      }
+    : {
+        bg: 'var(--color-success-50)',
+        border: 'var(--color-success-200)',
+        digitBg: 'var(--color-success-600)',
+        labelColor: 'var(--color-success-600)',
+      }
+
+  // Build parts (skip days if 0)
+  const parts = []
+  if (timeLeft.days > 0) {
+    parts.push({ value: timeLeft.days, label: 'd' })
+  }
+  parts.push(
+    { value: timeLeft.hours, label: 'h' },
+    { value: timeLeft.minutes, label: 'm' },
+    { value: timeLeft.seconds, label: 's' }
+  )
+
+  return (
+    <div
+      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
+      style={{
+        background: theme.bg,
+        border: `1px solid ${theme.border}`,
+      }}
+    >
+      <span
+        className="text-xs"
+        style={{ color: theme.labelColor }}
+      >
+        🕐
+      </span>
+      
+      <div className="flex items-center gap-1">
+        {parts.map((part, idx) => (
+          <div key={part.label} className="flex items-center gap-0.5">
+            {/* Digit box */}
+            <div
+              className="flex items-center justify-center px-1.5 py-0.5 rounded min-w-[1.75rem]"
+              style={{ background: theme.digitBg }}
+            >
+              <span
+                className="text-xs font-bold tabular-nums text-white"
+                style={{ lineHeight: 1 }}
+              >
+                {String(part.value).padStart(2, '0')}
+              </span>
+            </div>
+
+            {/* Label */}
+            <span
+              className="text-[0.625rem] font-semibold"
+              style={{ color: theme.labelColor }}
+            >
+              {part.label}
+            </span>
+
+            {/* Colon separator */}
+            {idx < parts.length - 1 && (
+              <span
+                className="text-xs font-bold mx-0.5"
+                style={{ color: theme.labelColor }}
+              >
+                :
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // ═══════════════════════════════════════
@@ -1390,7 +1398,7 @@ function SubscriptionInner() {
                                     </p>
                                     <div className="flex items-center gap-3 flex-wrap">
                                         <p className="text-[13px] text-blue-700">
-                                            Subscribe karein to continue after trial
+                                            Subscribe and continue after trial
                                         </p>
                                         <RealClockCountdown targetDate={status.trialEndsAt || status.validTill} type="trial" />
                                     </div>
