@@ -31,6 +31,7 @@ import { MODULE_REGISTRY, type ModuleKey } from '@/lib/moduleRegistry'
 import { clsx } from 'clsx'
 import { Portal } from '@/components/ui/Portal'
 import { CancelSubscriptionFlow } from '@/components/subscription/CancelSubscriptionFlow'
+import { Check } from 'lucide-react'
 
 declare global {
     interface Window { Razorpay: any }
@@ -1370,7 +1371,7 @@ function SubscriptionInner() {
                 )}>
                     <div className="flex items-start gap-3.5">
                         <span className="text-2xl flex-shrink-0">
-                            {status.isPaid ? '✅' : status.isInTrial ? '⏱️' : '❌'}
+                            {status.isPaid ? <Check size={14} className="text-green-600" /> : status.isInTrial ? '⏱️' : '❌'}
                         </span>
                         <div className="flex-1">
                             {status.isPaid && (
