@@ -1,17 +1,13 @@
 // FILE: src/app/api/cron/daily/route.ts
-// UPDATED:
-//   - @/lib/email → @/lib/message/providers/resend (correct import)
-//   - EMAIL_TEMPLATES → @/lib/message/templates
-//   - resendSendEmail isHtml: true (system email)
-// ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 import { School } from '@/models/School'
 import { Subscription } from '@/models/Subscription'
 import { grantMonthlyCredits } from '@/lib/credits'
-import { resendSendEmail } from '@/lib/message/providers/resend'  // ✅ Fix
-import { EMAIL_TEMPLATES } from '@/lib/message/templates'          // ✅ Fix
+import { resendSendEmail } from '@/lib/message/providers/resend'
+import { EMAIL_TEMPLATES } from '@/lib/message/templates'
+import type { PlanId } from '@/config/pricing'
 
 export async function GET(req: NextRequest) {
 
@@ -27,62 +23,90 @@ export async function GET(req: NextRequest) {
     await connectDB()
 
     const today = new Date()
-    const isFirstOfMonth = today.getDate() === 1
+    today.setHours(0, 0, 0, 0)
 
     const results = {
-        trialReminders: 0,
-        creditsGranted: 0,
-        creditErrors: 0,
+        trialReminders:       0,
+        creditsGranted:       0,
+        creditErrors:         0,
         subscriptionsExpired: 0,
-        emailErrors: 0,
+        emailErrors:          0,
     }
 
-    // ── Monthly Credit Grants (1st of every month) ───────────
-    if (isFirstOfMonth) {
-        console.log('[CRON] First of month — granting monthly credits')
+    // ── Credit Grants — Subscription Anniversary ─────────────
+    // Har school ka subscription start date check hoga
+    // Har 30 din baad credits milenge (calendar month se nahi)
+    //
+    // Example:
+    //   Sub start: 15 Jan → Credits: 14 Feb, 16 Mar, 15 Apr ...
+    //   Sub start: 1 Jan  → Credits: 31 Jan, 2 Mar, 1 Apr ...
+    // ─────────────────────────────────────────────────────────
+    console.log('[CRON] Checking subscription anniversaries for credit grants...')
 
-        const activeSchools = await School.find({ isActive: true })
-            .select('_id plan trialEndsAt subscriptionId')
-            .lean() as any[]
+    const activeSchools = await School.find({ isActive: true })
+        .select('_id plan trialEndsAt subscriptionId')
+        .lean() as any[]
 
-        for (const school of activeSchools) {
-            try {
-                const isTrial =
-                    !school.subscriptionId &&
-                    new Date(school.trialEndsAt) > today
+    for (const school of activeSchools) {
+        try {
+            const isTrial =
+                !school.subscriptionId &&
+                new Date(school.trialEndsAt) > today
 
-                if (!isTrial) {
-                    const activeSub = await Subscription.findOne({
-                        tenantId: school._id,
-                        status: 'active',
-                    }).lean() as any
+            // Trial schools ko cron se credits nahi — sirf paid plans
+            if (isTrial) continue
 
-                    if (activeSub) {
-                        await grantMonthlyCredits(
-                            school._id.toString(),
-                            activeSub.plan,
-                            false
-                        )
-                        results.creditsGranted++
-                        console.log(
-                            `[CRON] Credits granted: ${school._id} (${activeSub.plan})`
-                        )
-                    }
-                }
-            } catch (err) {
-                console.error(
-                    `[CRON] Credit grant failed for ${school._id}:`,
-                    err
-                )
-                results.creditErrors++
-            }
+            const activeSub = await Subscription.findOne({
+                tenantId: school._id,
+                status:   'active',
+            }).lean() as any
+
+            if (!activeSub) continue
+
+            // Subscription start date se aaj tak kitne din
+            const subStartDate = new Date(activeSub.createdAt)
+            subStartDate.setHours(0, 0, 0, 0)
+
+            const daysSinceStart = Math.floor(
+                (today.getTime() - subStartDate.getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+
+            // Har 30 din ka anniversary — day 0 ko nahi (subscription start wala din)
+            const isAnniversary = daysSinceStart > 0 && daysSinceStart % 30 === 0
+
+            if (!isAnniversary) continue
+
+            const planToUse = (activeSub.plan ?? school.plan) as PlanId
+
+            await grantMonthlyCredits(
+                school._id.toString(),
+                planToUse,
+                false
+            )
+
+            results.creditsGranted++
+            console.log(
+                `[CRON] ✅ Credits granted: ${school._id}` +
+                ` | plan: ${planToUse}` +
+                ` | day: ${daysSinceStart}`
+            )
+
+        } catch (err) {
+            results.creditErrors++
+            console.error(
+                `[CRON] ❌ Credit grant failed: ${school._id}`,
+                err
+            )
         }
     }
 
     // ── Trial Ending Reminders ───────────────────────────────
+    // Sirf 7, 3, 1 din baad reminder bhejo
+    // ─────────────────────────────────────────────────────────
     const trialEndingSoon = await School.find({
-        isActive: true,
-        subscriptionId: { $exists: false },
+        isActive:        true,
+        subscriptionId:  { $exists: false },
         trialEndsAt: {
             $gte: today,
             $lte: new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000),
@@ -95,10 +119,7 @@ export async function GET(req: NextRequest) {
             86400000
         )
 
-        // Sirf 7, 3, 1 din pe reminder bhejo
         if (![7, 3, 1].includes(daysLeft)) continue
-
-        // Email exist karta hai tabhi bhejo
         if (!school.email?.trim()) continue
 
         try {
@@ -108,32 +129,34 @@ export async function GET(req: NextRequest) {
                 `${process.env.NEXT_PUBLIC_APP_URL}/admin/subscription`
             )
 
-            // ✅ isHtml: true — system email, full HTML template
             await resendSendEmail(
                 school.email,
                 subject,
                 html,
                 'Skolify Team',
-                true    // ← isHtml
+                true
             )
 
             results.trialReminders++
             console.log(
-                `[CRON] Trial reminder sent: ${school.name} (${daysLeft} days left)`
+                `[CRON] 📧 Trial reminder sent: ${school.name}` +
+                ` (${daysLeft} day${daysLeft > 1 ? 's' : ''} left)`
             )
+
         } catch (emailErr) {
+            results.emailErrors++
             console.error(
-                `[CRON] Trial reminder email failed for ${school._id}:`,
+                `[CRON] ❌ Trial reminder failed: ${school._id}`,
                 emailErr
             )
-            results.emailErrors++
         }
     }
 
-    console.log('[CRON] Daily cron completed:', results)
+    console.log('[CRON] ✅ Daily cron completed:', results)
 
     return NextResponse.json({
         success: true,
+        date:    today.toISOString().split('T')[0],
         results,
     })
 }
