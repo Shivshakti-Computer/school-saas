@@ -14,11 +14,15 @@ export type AuditAction =
   | 'SCHOOL_REGISTER' | 'SCHOOL_SUSPEND' | 'SCHOOL_ACTIVATE'
   | 'BULK_IMPORT' | 'BULK_DELETE'
   | 'SETTINGS_CHANGE' | 'MODULE_ACCESS_DENIED'
+  | 'STORAGE_PURCHASE'      // ✅ NEW
+  | 'STORAGE_CANCEL'        // ✅ NEW
+  | 'STORAGE_EXPORT'        // ✅ NEW
 
 export type AuditResource =
   // ── Core ──
   | 'Auth' | 'User' | 'Staff' | 'Student' | 'Teacher' | 'Parent'
   | 'School' | 'Subscription' | 'Payment'
+  | 'Storage'               // ✅ NEW
   // ── Academic ──
   | 'Attendance' | 'Fee' | 'Exam' | 'Timetable'
   | 'Notice' | 'Homework' | 'Document' | 'Certificate'

@@ -1,7 +1,5 @@
 // FILE: src/app/api/subscription/status/route.ts
-// COMPLETE REWRITE — Credit system integrated
-// MessageUsage removed — getCreditStats use hoga
-// ═══════════════════════════════════════════════════════════
+// FIX: storageAddon field add in select + correct parameter pass
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
@@ -19,8 +17,10 @@ import {
     PLANS,
     ADDON_PRICING,
     CREDIT_PACKS,
+    STORAGE_PACKS,
 } from '@/config/pricing'
 import type { PlanId } from '@/config/pricing'
+import { getStorageStats } from '@/lib/storageAddon'
 
 export async function GET(req: NextRequest) {
     try {
@@ -32,14 +32,16 @@ export async function GET(req: NextRequest) {
         await connectDB()
 
         const school = await School.findById(session.user.tenantId)
-            .select('plan trialEndsAt subscriptionId isActive modules name creditBalance addonLimits')
+            .select(
+                'plan trialEndsAt subscriptionId isActive modules name ' +
+                'creditBalance addonLimits storageAddon storageUsedBytes' // ✅ FIX: storageAddon + storageUsedBytes added
+            )
             .lean() as any
 
         if (!school) {
             return NextResponse.json({ error: 'School not found' }, { status: 404 })
         }
 
-        // ── Active subscription ──
         const activeSub = await Subscription.findOne({
             tenantId: school._id,
             status: { $in: ['active', 'scheduled_cancel'] },
@@ -59,7 +61,6 @@ export async function GET(req: NextRequest) {
 
         const planConfig = getPlan(effectivePlan)
 
-        // ── Usage counts ──
         const [studentCount, teacherStaffCount] = await Promise.all([
             Student.countDocuments({ tenantId: school._id, status: 'active' }),
             User.countDocuments({
@@ -69,10 +70,15 @@ export async function GET(req: NextRequest) {
             }),
         ])
 
-        // ── Credit stats (new system) ──
         const creditStats = await getCreditStats(session.user.tenantId)
 
-        // ── Effective limits (plan + add-ons) ──
+        // ✅ FIX: school.storageAddon pass karo, addonLimits nahi
+        const storageStats = await getStorageStats(
+            session.user.tenantId,
+            effectivePlan as PlanId,
+            school.storageAddon  // ✅ CORRECT field
+        )
+
         const extraStudents = school.addonLimits?.extraStudents ?? 0
         const extraTeachers = school.addonLimits?.extraTeachers ?? 0
 
@@ -88,13 +94,11 @@ export async function GET(req: NextRequest) {
                 ? -1
                 : planConfig.maxTeachers + extraTeachers
 
-        // ── Recent payments ──
         const recentPayments =
             isPaid && activeSub?.paymentHistory
                 ? activeSub.paymentHistory.slice(-5)
                 : []
 
-        // ── Next plan suggestions ──
         const planOrder: PlanId[] = ['starter', 'growth', 'pro', 'enterprise']
         const currentRank = planOrder.indexOf(effectivePlan)
         const nextPlan =
@@ -102,13 +106,16 @@ export async function GET(req: NextRequest) {
                 ? PLANS[planOrder[currentRank + 1]]
                 : null
 
+        // ✅ FIX: addonExpired correctly calculate karo
+        const addonExpired = school.storageAddon?.validUntil
+            ? new Date(school.storageAddon.validUntil) < now
+            : false
+
         return NextResponse.json({
-            // ── Plan info ──
             plan: effectivePlan,
             planName: planConfig.name,
             planColor: planConfig.color,
 
-            // ── Status ──
             isInTrial,
             isPaid,
             isExpired,
@@ -117,7 +124,6 @@ export async function GET(req: NextRequest) {
                 ? new Date(activeSub.scheduledCancelAt).toISOString()
                 : null,
 
-            // ── Dates ──
             daysLeft: isInTrial ? getTrialDaysRemaining(trialEnd) : null,
             trialEndsAt: school.trialEndsAt
                 ? new Date(school.trialEndsAt).toISOString()
@@ -128,7 +134,6 @@ export async function GET(req: NextRequest) {
                     : trialEnd.toISOString(),
             billingCycle: activeSub?.billingCycle ?? null,
 
-            // ── Student/Teacher Limits ──
             limits: {
                 students: {
                     used: studentCount,
@@ -138,9 +143,10 @@ export async function GET(req: NextRequest) {
                             ? -1
                             : Math.max(0, effectiveStudentLimit - studentCount),
                     isUnlimited: effectiveStudentLimit === -1,
-                    planLimit: isInTrial ? TRIAL_CONFIG.maxStudents : planConfig.maxStudents,
+                    planLimit: isInTrial
+                        ? TRIAL_CONFIG.maxStudents
+                        : planConfig.maxStudents,
                     addonCount: extraStudents,
-                    // Add-on options when limit reached
                     addonOptions: !isInTrial && planConfig.maxStudents !== -1
                         ? Object.entries(ADDON_PRICING.extraStudents).map(([id, pack]) => ({
                             id,
@@ -158,7 +164,9 @@ export async function GET(req: NextRequest) {
                             ? -1
                             : Math.max(0, effectiveTeacherLimit - teacherStaffCount),
                     isUnlimited: effectiveTeacherLimit === -1,
-                    planLimit: isInTrial ? TRIAL_CONFIG.maxTeachers : planConfig.maxTeachers,
+                    planLimit: isInTrial
+                        ? TRIAL_CONFIG.maxTeachers
+                        : planConfig.maxTeachers,
                     addonCount: extraTeachers,
                     addonOptions: !isInTrial && planConfig.maxTeachers !== -1
                         ? Object.entries(ADDON_PRICING.extraTeachers).map(([id, pack]) => ({
@@ -171,7 +179,6 @@ export async function GET(req: NextRequest) {
                 },
             },
 
-            // ── Credit System (replaces old SMS/Email/WA limits) ──
             credits: {
                 balance: creditStats.balance,
                 totalEarned: creditStats.totalEarned,
@@ -181,7 +188,6 @@ export async function GET(req: NextRequest) {
                 rolloverMonths: creditStats.rolloverMonths,
                 lowCreditWarning: creditStats.lowCreditWarning,
                 last30DaysUsage: creditStats.last30DaysUsage,
-                // Credit pack options
                 creditPacks: CREDIT_PACKS.map(p => ({
                     id: p.id,
                     name: p.name,
@@ -191,7 +197,6 @@ export async function GET(req: NextRequest) {
                     popular: p.popular,
                     description: p.description,
                 })),
-                // What 1 credit gets you
                 creditGuide: {
                     sms: '1 credit = 1 SMS',
                     whatsapp: '1 credit = 1 WhatsApp',
@@ -199,15 +204,12 @@ export async function GET(req: NextRequest) {
                 },
             },
 
-            // ── Modules ──
             modules: school.modules || [],
             moduleCount: (school.modules || []).length,
 
-            // ── Payments ──
             recentPayments,
             amount: activeSub?.amount || null,
 
-            // ── Next plan (upgrade suggestion) ──
             nextPlan: nextPlan
                 ? {
                     id: nextPlan.id,
@@ -219,55 +221,90 @@ export async function GET(req: NextRequest) {
                 }
                 : null,
 
-            // ── Add-on status ──
             addons: {
                 extraStudents,
                 extraTeachers,
-
-                // Caps
                 maxAddonStudents: planConfig.maxAddonStudents,
                 maxAddonTeachers: planConfig.maxAddonTeachers,
-
-                // Remaining slots
                 remainingAddonStudents: planConfig.maxAddonStudents === -1
                     ? -1
                     : Math.max(0, planConfig.maxAddonStudents - extraStudents),
                 remainingAddonTeachers: planConfig.maxAddonTeachers === -1
                     ? -1
                     : Math.max(0, planConfig.maxAddonTeachers - extraTeachers),
-
-                // Can still purchase?
                 canPurchaseStudents: !isInTrial
                     && planConfig.maxStudents !== -1
                     && (planConfig.maxAddonStudents === -1
                         || extraStudents < planConfig.maxAddonStudents),
-
                 canPurchaseTeachers: !isInTrial
                     && planConfig.maxTeachers !== -1
                     && (planConfig.maxAddonTeachers === -1
                         || extraTeachers < planConfig.maxAddonTeachers),
-
-                // Limit reached flags (for upgrade nudge)
                 studentAddonLimitReached: planConfig.maxAddonStudents !== -1
                     && extraStudents >= planConfig.maxAddonStudents,
                 teacherAddonLimitReached: planConfig.maxAddonTeachers !== -1
                     && extraTeachers >= planConfig.maxAddonTeachers,
-
-                // Next plan info (for upgrade nudge message)
                 upgradeNudge: (() => {
                     const planOrder: PlanId[] = ['starter', 'growth', 'pro', 'enterprise']
                     const currentRank = planOrder.indexOf(effectivePlan)
                     const nextPlanId = currentRank < 3 ? planOrder[currentRank + 1] : null
                     if (!nextPlanId) return null
-                    const nextPlan = PLANS[nextPlanId]
+                    const np = PLANS[nextPlanId]
                     return {
                         planId: nextPlanId,
-                        planName: nextPlan.name,
-                        studentLimit: nextPlan.maxStudents === -1 ? 'Unlimited' : nextPlan.maxStudents,
-                        teacherLimit: nextPlan.maxTeachers === -1 ? 'Unlimited' : nextPlan.maxTeachers,
-                        monthlyPrice: nextPlan.monthlyPrice,
+                        planName: np.name,
+                        studentLimit: np.maxStudents === -1 ? 'Unlimited' : np.maxStudents,
+                        teacherLimit: np.maxTeachers === -1 ? 'Unlimited' : np.maxTeachers,
+                        monthlyPrice: np.monthlyPrice,
                     }
                 })(),
+            },
+
+            // ✅ FIX: storageStats correctly populated
+            storage: {
+                planBaseGB: storageStats.planBaseGB,
+                addonGB: storageStats.addonGB,
+                totalLimitGB: storageStats.totalLimitGB,
+                usedBytes: storageStats.usedBytes,
+                usedGB: storageStats.usedGB,
+                usedPercent: storageStats.usedPercent,
+                freeGB: storageStats.freeGB,
+                isUnlimited: storageStats.isUnlimited,
+                isNearLimit: storageStats.isNearLimit,
+                isFull: storageStats.isFull,
+                addonCap: storageStats.addonCap,
+                remainingAddonGB: storageStats.remainingAddonGB,
+                canPurchaseMore: storageStats.canPurchaseMore && !isInTrial,
+
+                // ✅ Addon expiry info
+                addonExpired,
+                addonExpiresAt: school.storageAddon?.validUntil
+                    ? new Date(school.storageAddon.validUntil).toISOString()
+                    : null,
+                gracePeriodActive: school.storageAddon?.gracePeriodEndsAt
+                    ? new Date(school.storageAddon.gracePeriodEndsAt) > now
+                    : false,
+                gracePeriodEndsAt: school.storageAddon?.gracePeriodEndsAt
+                    ? new Date(school.storageAddon.gracePeriodEndsAt).toISOString()
+                    : null,
+                canDownload: true,
+                autoRenew: school.storageAddon?.autoRenew ?? true,
+
+                storagePacks: !isInTrial
+                    ? STORAGE_PACKS.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        storageGB: p.storageGB,
+                        monthlyPrice: p.monthlyPrice,
+                        yearlyPrice: p.yearlyPrice,
+                        pricePerGB: p.pricePerGB,
+                        pricePerDay: p.pricePerDay,
+                        popular: p.popular,
+                        description: p.description,
+                        savingsPercent: p.savingsPercent,
+                        features: p.features,
+                    }))
+                    : [],
             },
         })
 

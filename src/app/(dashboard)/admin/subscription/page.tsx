@@ -1,8 +1,5 @@
 // FILE: src/app/(admin)/admin/subscription/page.tsx
-// UPDATED: Credit system UI + Add-on modals
-// New sections: Credit balance, Buy packs, Add-on students/teachers
-// ═══════════════════════════════════════════════════════════
-
+// UPDATED: Storage addon fully integrated
 'use client'
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
@@ -22,11 +19,11 @@ import {
     type CreditPackId,
     type ExtraStudentPackId,
     type ExtraTeacherPackId,
+    STORAGE_PACKS,
+    type StoragePackId,
 } from '@/config/pricing'
 
-// ← getPlanPriceBreakdown sirf plans.ts mein hai, wahan se lo
 import { getPlanPriceBreakdown } from '@/lib/plans'
-
 import { MODULE_REGISTRY, type ModuleKey } from '@/lib/moduleRegistry'
 import { clsx } from 'clsx'
 import { Portal } from '@/components/ui/Portal'
@@ -89,14 +86,11 @@ function CreditBalanceCard({
                 </button>
             </div>
 
-            {/* Balance */}
             <div className="flex items-baseline gap-2 mb-3">
-                <span
-                    className={clsx(
-                        'text-4xl font-extrabold',
-                        credits.lowCreditWarning ? 'text-red-600' : 'text-indigo-600'
-                    )}
-                >
+                <span className={clsx(
+                    'text-4xl font-extrabold',
+                    credits.lowCreditWarning ? 'text-red-600' : 'text-indigo-600'
+                )}>
                     {credits.balance?.toLocaleString('en-IN')}
                 </span>
                 <span className="text-slate-500 text-sm">credits remaining</span>
@@ -107,17 +101,13 @@ function CreditBalanceCard({
                 )}
             </div>
 
-            {/* Credit guide */}
             <div className="grid grid-cols-3 gap-2 mb-4">
                 {[
                     { icon: '📱', label: '1 SMS', credits: '1 credit' },
                     { icon: '💬', label: '1 WhatsApp', credits: '1 credit' },
                     { icon: '📧', label: '10 Emails', credits: '1 credit' },
                 ].map(item => (
-                    <div
-                        key={item.label}
-                        className="bg-slate-50 rounded-xl p-3 text-center"
-                    >
+                    <div key={item.label} className="bg-slate-50 rounded-xl p-3 text-center">
                         <div className="text-xl mb-1">{item.icon}</div>
                         <div className="text-xs font-medium text-slate-700">{item.label}</div>
                         <div className="text-[11px] text-slate-500">{item.credits}</div>
@@ -125,7 +115,6 @@ function CreditBalanceCard({
                 ))}
             </div>
 
-            {/* Stats */}
             <div className="grid grid-cols-3 gap-3 text-center text-xs">
                 <div>
                     <div className="font-bold text-slate-800">
@@ -147,18 +136,187 @@ function CreditBalanceCard({
                 </div>
             </div>
 
-            {/* Last 30 days usage */}
             {credits.last30DaysUsage?.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-100">
                     <p className="text-xs text-slate-500 mb-2">Last 30 days usage:</p>
                     <div className="flex gap-3">
                         {credits.last30DaysUsage.map((u: any) => (
                             <div key={u._id} className="text-xs">
-                                <span className="font-medium text-slate-700 capitalize">
-                                    {u._id}:
-                                </span>{' '}
+                                <span className="font-medium text-slate-700 capitalize">{u._id}:</span>{' '}
                                 <span className="text-slate-500">{u.count} msgs</span>
                             </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ═══════════════════════════════════════
+// STORAGE CARD — Usage display + Buy button
+// ═══════════════════════════════════════
+function StorageCard({
+    storage,
+    onManageStorage,
+}: {
+    storage: any
+    onManageStorage: () => void
+}) {
+    // storage object expected shape (from status.storage):
+    // {
+    //   usedGB: number,
+    //   baseGB: number,          ← plan se milta hai
+    //   addonGB: number,         ← purchased addon
+    //   totalLimitGB: number,    ← baseGB + addonGB (-1 = unlimited)
+    //   addonExpired: boolean,
+    //   autoRenew: boolean,
+    //   addonExpiresAt?: string,
+    // }
+
+    // Agar storage data nahi aayi API se, card nahi dikhega
+    if (!storage) return null
+
+    const isUnlimited = storage.totalLimitGB === -1
+    const usedGB: number = storage.usedGB ?? 0
+    const totalGB: number = storage.totalLimitGB ?? 0
+    const addonGB: number = storage.addonGB ?? 0
+    const baseGB: number = storage.baseGB ?? 0
+
+    // Progress percentage (0-100), unlimited pe 0
+    const pct = isUnlimited ? 0 : Math.min(100, Math.round((usedGB / totalGB) * 100))
+    const isHigh = !isUnlimited && pct >= 90
+    const isMid = !isUnlimited && pct >= 70
+
+    return (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="font-bold text-slate-900 text-base">📦 Storage</h3>
+                <button
+                    onClick={onManageStorage}
+                    className={clsx(
+                        'px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors',
+                        isHigh
+                            ? 'bg-red-600 text-white hover:bg-red-700'
+                            : 'bg-violet-600 text-white hover:bg-violet-700'
+                    )}
+                >
+                    {addonGB > 0 ? 'Manage Storage' : 'Buy Storage'}
+                </button>
+            </div>
+
+            {/* Usage display */}
+            <div className="flex items-baseline gap-2 mb-4">
+                <span className={clsx(
+                    'text-4xl font-extrabold',
+                    isHigh ? 'text-red-600' : isMid ? 'text-amber-600' : 'text-violet-600'
+                )}>
+                    {isUnlimited ? '∞' : `${usedGB.toFixed(2)}`}
+                </span>
+                <span className="text-slate-500 text-sm">
+                    {isUnlimited ? 'Unlimited' : `GB used of ${totalGB} GB`}
+                </span>
+                {isHigh && (
+                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                        ⚠️ Almost Full
+                    </span>
+                )}
+            </div>
+
+            {/* Progress bar — only for limited storage */}
+            {!isUnlimited && (
+                <div className="mb-4">
+                    <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                                width: `${pct}%`,
+                                background: isHigh
+                                    ? '#EF4444'
+                                    : isMid
+                                        ? '#F59E0B'
+                                        : '#7C3AED',
+                            }}
+                        />
+                    </div>
+                    <div className="flex justify-between mt-1.5 text-[11px] text-slate-400">
+                        <span>{pct}% used</span>
+                        <span>{(totalGB - usedGB).toFixed(2)} GB free</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Breakdown: Base + Addon */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-slate-50 rounded-xl p-3">
+                    <div className="text-[11px] text-slate-500 mb-1">Plan Storage</div>
+                    <div className="font-bold text-slate-800 text-base">
+                        {baseGB === -1 ? 'Unlimited' : `${baseGB} GB`}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">included in plan</div>
+                </div>
+                <div className={clsx(
+                    'rounded-xl p-3',
+                    addonGB > 0 ? 'bg-violet-50' : 'bg-slate-50'
+                )}>
+                    <div className="text-[11px] text-slate-500 mb-1">Add-on Storage</div>
+                    <div className={clsx(
+                        'font-bold text-base',
+                        addonGB > 0 ? 'text-violet-700' : 'text-slate-400'
+                    )}>
+                        {addonGB > 0 ? `+${addonGB} GB` : '0 GB'}
+                    </div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">
+                        {addonGB > 0
+                            ? storage.autoRenew
+                                ? `auto-renews${storage.addonExpiresAt ? ` · ${formatDate(storage.addonExpiresAt)}` : ''}`
+                                : storage.addonExpiresAt
+                                    ? `expires ${formatDate(storage.addonExpiresAt)}`
+                                    : 'active'
+                            : 'none purchased'}
+                    </div>
+                </div>
+            </div>
+
+            {/* Expired warning */}
+            {storage.addonExpired && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3">
+                    <p className="text-xs font-semibold text-red-700 mb-0.5">
+                        ⚠️ Storage Addon Expired
+                    </p>
+                    <p className="text-[11px] text-red-600">
+                        Aapka storage addon expire ho gaya. Renew karein ya files download karein.
+                    </p>
+                </div>
+            )}
+
+            {/* High usage warning */}
+            {isHigh && !storage.addonExpired && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3">
+                    <p className="text-xs font-semibold text-red-700 mb-0.5">
+                        Storage almost full!
+                    </p>
+                    <p className="text-[11px] text-red-600">
+                        Sirf {(totalGB - usedGB).toFixed(2)} GB bacha hai.
+                        Add-on purchase karein nahi toh uploads fail honge.
+                    </p>
+                </div>
+            )}
+
+            {/* Available packs preview */}
+            {!isUnlimited && (
+                <div className="pt-3 border-t border-slate-100">
+                    <p className="text-[11px] text-slate-400 mb-2">Available packs:</p>
+                    <div className="flex gap-2 flex-wrap">
+                        {STORAGE_PACKS.map(pack => (
+                            <button
+                                key={pack.id}
+                                onClick={onManageStorage}
+                                className="text-[11px] font-medium px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
+                            >
+                                +{pack.storageGB} GB · ₹{pack.monthlyPrice}/mo
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -184,9 +342,7 @@ function BuyCreditsModal({
     const handleBuy = async () => {
         setBuying(true)
         setError('')
-
         try {
-            // Step 1: Create order
             const res = await fetch('/api/credits/purchase', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -195,7 +351,6 @@ function BuyCreditsModal({
             const order = await res.json()
             if (!res.ok) throw new Error(order.error)
 
-            // Step 2: Open Razorpay
             const loaded = await loadRazorpaySDK()
             if (!loaded) throw new Error('Payment system load nahi hua')
 
@@ -207,7 +362,6 @@ function BuyCreditsModal({
                 description: order.description,
                 order_id: order.orderId,
                 handler: async (res: any) => {
-                    // Step 3: Verify
                     const vRes = await fetch('/api/credits/verify', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -221,7 +375,6 @@ function BuyCreditsModal({
                     })
                     const vData = await vRes.json()
                     if (!vRes.ok) throw new Error(vData.error)
-
                     const pack = CREDIT_PACKS.find(p => p.id === selectedPack)
                     onSuccess(pack?.credits ?? 0)
                 },
@@ -270,7 +423,6 @@ function BuyCreditsModal({
                     </div>
                 )}
 
-                {/* Pack selection */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
                     {CREDIT_PACKS.map(pack => (
                         <button
@@ -351,14 +503,398 @@ function BuyCreditsModal({
 }
 
 // ═══════════════════════════════════════
-// ADD-ON MODAL — FIXED
-// Available packs filter + clear remaining slots info
+// STORAGE ADDON MODAL
+// ═══════════════════════════════════════
+function StorageAddonModal({
+    currentStorage,
+    onClose,
+    onSuccess,
+}: {
+    currentStorage: any
+    onClose: () => void
+    onSuccess: () => void
+}) {
+    const [view, setView] = useState<'buy' | 'cancel'>('buy')
+    const [selectedPack, setSelectedPack] = useState<StoragePackId>('storage_20gb')
+    const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
+    const [buying, setBuying] = useState(false)
+    const [exporting, setExporting] = useState(false)
+    const [canceling, setCanceling] = useState(false)
+    const [error, setError] = useState('')
+
+    const hasAddon = (currentStorage?.addonGB ?? 0) > 0
+    const isExpired = currentStorage?.addonExpired ?? false
+    const canCancel = hasAddon && !isExpired && currentStorage?.autoRenew
+
+    const handleBuy = async () => {
+        setBuying(true)
+        setError('')
+        try {
+            const res = await fetch('/api/credits/purchase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'storage_pack', packId: selectedPack, billingCycle }),
+            })
+            const order = await res.json()
+            if (!res.ok) throw new Error(order.error)
+
+            const loaded = await loadRazorpaySDK()
+            if (!loaded) throw new Error('Payment system load nahi hua')
+
+            const rzp = new window.Razorpay({
+                key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+                amount: order.amount * 100,
+                currency: 'INR',
+                name: 'Skolify Storage',
+                description: order.description,
+                order_id: order.orderId,
+                handler: async (res: any) => {
+                    const vRes = await fetch('/api/credits/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            razorpayOrderId: res.razorpay_order_id,
+                            razorpayPaymentId: res.razorpay_payment_id,
+                            razorpaySignature: res.razorpay_signature,
+                            type: 'storage_pack',
+                            packId: selectedPack,
+                            billingCycle,
+                        }),
+                    })
+                    const vData = await vRes.json()
+                    if (!vRes.ok) throw new Error(vData.error)
+                    const pack = STORAGE_PACKS.find(p => p.id === selectedPack)
+                    alert(`${pack?.storageGB} GB storage added successfully!`)
+                    onSuccess()
+                },
+                modal: { ondismiss: () => setBuying(false) },
+                theme: { color: '#7C3AED' },
+            })
+            rzp.open()
+        } catch (err: any) {
+            setError(err.message)
+            setBuying(false)
+        }
+    }
+
+    const handleExport = async () => {
+        setExporting(true)
+        setError('')
+        try {
+            const res = await fetch('/api/storage/export', { method: 'POST' })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error)
+            alert(
+                `Download links sent to your email!\n\nFiles: ${data.fileCount}\nSize: ${data.totalSizeMB} MB\nExpires: ${new Date(data.expiresAt).toLocaleDateString('en-IN')}`
+            )
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setExporting(false)
+        }
+    }
+
+    const handleCancel = async (downloadCompleted: boolean) => {
+        if (!confirm(
+            downloadCompleted
+                ? 'Are you sure you want to cancel? Files will be deleted after 30 days.'
+                : 'We recommend downloading your files first. Cancel anyway?'
+        )) return
+
+        setCanceling(true)
+        setError('')
+        try {
+            const res = await fetch('/api/storage/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ downloadCompleted }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error)
+            alert(
+                `Storage addon canceled.\n\nYour files are safe till ${new Date(data.gracePeriodEndsAt).toLocaleDateString('en-IN')}\n(30 days grace period)`
+            )
+            onSuccess()
+        } catch (err: any) {
+            setError(err.message)
+        } finally {
+            setCanceling(false)
+        }
+    }
+
+    return (
+        <Portal>
+            <div
+                style={{
+                    position: 'fixed', inset: 0,
+                    background: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(6px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: 16, zIndex: 9999,
+                }}
+                onClick={e => { if (e.target === e.currentTarget) onClose() }}
+            >
+                <div
+                    style={{
+                        background: '#fff', borderRadius: 20, padding: 28,
+                        width: '100%', maxWidth: 520,
+                        maxHeight: '90vh', overflowY: 'auto',
+                        boxShadow: '0 32px 80px rgba(0,0,0,0.4)',
+                    }}
+                    onClick={e => e.stopPropagation()}
+                >
+                    {/* Header */}
+                    <div style={{ marginBottom: 24 }}>
+                        <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
+                            📦 Storage Add-on
+                        </h3>
+                        <p style={{ fontSize: 13, color: '#64748B' }}>
+                            Monthly subscription · Cancel anytime · Download your data
+                        </p>
+                    </div>
+
+                    {/* Tabs — only when active addon exists */}
+                    {canCancel && (
+                        <div style={{
+                            display: 'flex', gap: 8, marginBottom: 20,
+                            background: '#F8FAFC', padding: 4, borderRadius: 12,
+                        }}>
+                            {(['buy', 'cancel'] as const).map(v => (
+                                <button
+                                    key={v}
+                                    onClick={() => setView(v)}
+                                    style={{
+                                        flex: 1, padding: '10px 16px', borderRadius: 8,
+                                        background: view === v ? '#fff' : 'transparent',
+                                        border: 'none', cursor: 'pointer',
+                                        fontWeight: view === v ? 600 : 400,
+                                        color: view === v ? '#0F172A' : '#64748B',
+                                        boxShadow: view === v ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                                    }}
+                                >
+                                    {v === 'buy' ? 'Buy More' : 'Cancel Addon'}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {error && (
+                        <div style={{
+                            background: '#FEF2F2', border: '1px solid #FECACA',
+                            borderRadius: 12, padding: '12px 16px', marginBottom: 16,
+                        }}>
+                            <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>
+                        </div>
+                    )}
+
+                    {/* ── BUY VIEW ── */}
+                    {view === 'buy' && (
+                        <>
+                            {/* Current usage summary */}
+                            <div style={{
+                                background: '#F8FAFC', borderRadius: 12,
+                                padding: 16, marginBottom: 20,
+                            }}>
+                                <div style={{ fontSize: 12, color: '#64748B', marginBottom: 4 }}>
+                                    Current Storage
+                                </div>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
+                                    {currentStorage?.totalLimitGB === -1
+                                        ? 'Unlimited'
+                                        : `${currentStorage?.totalLimitGB ?? 0} GB total`}
+                                </div>
+                                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
+                                    {(currentStorage?.usedGB ?? 0).toFixed(2)} GB used
+                                    {(currentStorage?.addonGB ?? 0) > 0 && (
+                                        <> · {currentStorage.addonGB} GB addon active</>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Billing cycle toggle */}
+                            <div style={{
+                                display: 'flex', gap: 8, marginBottom: 16,
+                                background: '#F8FAFC', padding: 4, borderRadius: 10,
+                            }}>
+                                {(['monthly', 'yearly'] as const).map(c => (
+                                    <button
+                                        key={c}
+                                        onClick={() => setBillingCycle(c)}
+                                        style={{
+                                            flex: 1, padding: '8px 12px', borderRadius: 6,
+                                            background: billingCycle === c ? '#fff' : 'transparent',
+                                            border: 'none', cursor: 'pointer', fontSize: 13,
+                                            fontWeight: billingCycle === c ? 600 : 400,
+                                            color: billingCycle === c ? '#0F172A' : '#64748B',
+                                        }}
+                                    >
+                                        {c === 'monthly' ? 'Monthly' : (
+                                            <>Yearly <span style={{ color: '#10B981', fontSize: 11 }}>2 months free</span></>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Pack selection */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                                {STORAGE_PACKS.map(pack => {
+                                    const price = billingCycle === 'monthly'
+                                        ? pack.monthlyPrice
+                                        : pack.yearlyPrice
+                                    const isSelected = selectedPack === pack.id
+
+                                    return (
+                                        <button
+                                            key={pack.id}
+                                            onClick={() => setSelectedPack(pack.id as StoragePackId)}
+                                            style={{
+                                                display: 'flex', alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
+                                                border: isSelected ? '2px solid #7C3AED' : '1.5px solid #E2E8F0',
+                                                background: isSelected ? '#F5F3FF' : '#fff',
+                                                textAlign: 'left',
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span style={{ fontWeight: 600, fontSize: 14, color: '#0F172A' }}>
+                                                        {pack.name}
+                                                    </span>
+                                                    {pack.popular && (
+                                                        <span style={{
+                                                            background: '#7C3AED', color: '#fff',
+                                                            fontSize: 10, fontWeight: 700,
+                                                            padding: '2px 8px', borderRadius: 20,
+                                                        }}>Popular</span>
+                                                    )}
+                                                </div>
+                                                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
+                                                    {pack.description} · ₹{pack.pricePerDay}/day
+                                                </div>
+                                            </div>
+                                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
+                                                <div style={{ fontWeight: 700, fontSize: 18, color: '#7C3AED' }}>
+                                                    ₹{price}
+                                                </div>
+                                                <div style={{ fontSize: 11, color: '#94A3B8' }}>
+                                                    /{billingCycle === 'monthly' ? 'month' : 'year'}
+                                                </div>
+                                            </div>
+                                        </button>
+                                    )
+                                })}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <button
+                                    onClick={onClose}
+                                    style={{
+                                        flex: 1, padding: 14, borderRadius: 12,
+                                        border: '1.5px solid #E2E8F0', background: '#fff',
+                                        cursor: 'pointer', fontSize: 14, color: '#64748B',
+                                    }}
+                                >Cancel</button>
+                                <button
+                                    onClick={handleBuy}
+                                    disabled={buying}
+                                    style={{
+                                        flex: 2, padding: 14, borderRadius: 12,
+                                        background: '#7C3AED', color: '#fff', border: 'none',
+                                        cursor: buying ? 'not-allowed' : 'pointer',
+                                        fontSize: 15, fontWeight: 600,
+                                        opacity: buying ? 0.7 : 1,
+                                    }}
+                                >
+                                    {buying ? 'Processing…' : 'Purchase →'}
+                                </button>
+                            </div>
+                        </>
+                    )}
+
+                    {/* ── CANCEL VIEW ── */}
+                    {view === 'cancel' && (
+                        <>
+                            <div style={{
+                                background: '#FEF3C7', border: '1px solid #FCD34D',
+                                borderRadius: 12, padding: 16, marginBottom: 20,
+                            }}>
+                                <p style={{ fontSize: 14, fontWeight: 600, color: '#92400E', marginBottom: 8 }}>
+                                    ⚠️ Before Canceling
+                                </p>
+                                <p style={{ fontSize: 13, color: '#78350F', marginBottom: 12 }}>
+                                    We recommend downloading all your files first. Your data will be safe for 30 days after cancellation.
+                                </p>
+                                <button
+                                    onClick={handleExport}
+                                    disabled={exporting}
+                                    style={{
+                                        width: '100%', padding: 12, borderRadius: 10,
+                                        background: '#fff', border: '1.5px solid #D97706',
+                                        color: '#92400E', fontSize: 14, fontWeight: 600,
+                                        cursor: exporting ? 'not-allowed' : 'pointer',
+                                        opacity: exporting ? 0.7 : 1,
+                                    }}
+                                >
+                                    {exporting ? 'Preparing download…' : '📥 Download All Files (Email)'}
+                                </button>
+                            </div>
+
+                            <div style={{
+                                background: '#F8FAFC', borderRadius: 12,
+                                padding: 16, marginBottom: 20,
+                            }}>
+                                <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+                                    What happens after cancellation?
+                                </h4>
+                                <ul style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6, paddingLeft: 20 }}>
+                                    <li>No more charges from next billing cycle</li>
+                                    <li>Upload blocked immediately</li>
+                                    <li>Files safe for 30 days (grace period)</li>
+                                    <li>Download anytime during grace period</li>
+                                    <li>Auto-delete after grace period ends</li>
+                                </ul>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <button
+                                    onClick={onClose}
+                                    style={{
+                                        flex: 1, padding: 14, borderRadius: 12,
+                                        border: '1.5px solid #E2E8F0', background: '#fff',
+                                        cursor: 'pointer', fontSize: 14, color: '#64748B',
+                                    }}
+                                >Keep Addon</button>
+                                <button
+                                    onClick={() => handleCancel(false)}
+                                    disabled={canceling}
+                                    style={{
+                                        flex: 1, padding: 14, borderRadius: 12,
+                                        background: '#EF4444', color: '#fff', border: 'none',
+                                        cursor: canceling ? 'not-allowed' : 'pointer',
+                                        fontSize: 15, fontWeight: 600,
+                                        opacity: canceling ? 0.7 : 1,
+                                    }}
+                                >
+                                    {canceling ? 'Canceling…' : 'Cancel Addon'}
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        </Portal>
+    )
+}
+
+// ═══════════════════════════════════════
+// ADD-ON MODAL
 // ═══════════════════════════════════════
 function AddonModal({
     type,
     currentLimit,
     currentUsed,
-    addonInfo,       // ← NEW: status.addons se pass karo
+    addonInfo,
     onClose,
     onSuccess,
 }: {
@@ -377,16 +913,14 @@ function AddonModal({
         ? Object.entries(ADDON_PRICING.extraStudents)
         : Object.entries(ADDON_PRICING.extraTeachers)
 
-    // ── Filter packs based on remaining slots ──
     const remainingSlots = addonInfo?.remainingSlots ?? -1
 
     const availablePacks = allPacks.filter(([, pack]) => {
-        if (remainingSlots === -1) return true  // unlimited
+        if (remainingSlots === -1) return true
         const count = (pack as any).students ?? (pack as any).teachers
         return count <= remainingSlots
     })
 
-    // Agar koi pack fit nahi hoti — sab dikhao but disabled
     const packsToShow = availablePacks.length > 0 ? availablePacks : allPacks
     const noPackAvailable = availablePacks.length === 0
 
@@ -404,7 +938,6 @@ function AddonModal({
         try {
             const purchaseType = type === 'students' ? 'extra_students' : 'extra_teachers'
 
-            // Step 1: Create order (cap check happens HERE now)
             const res = await fetch('/api/credits/purchase', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -413,7 +946,6 @@ function AddonModal({
             const order = await res.json()
             if (!res.ok) throw new Error(order.error)
 
-            // Step 2: Razorpay
             const loaded = await loadRazorpaySDK()
             if (!loaded) throw new Error('Payment system load nahi hua')
 
@@ -425,7 +957,6 @@ function AddonModal({
                 description: order.description,
                 order_id: order.orderId,
                 handler: async (res: any) => {
-                    // Step 3: Verify
                     const vRes = await fetch('/api/credits/verify', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -483,7 +1014,6 @@ function AddonModal({
                     Current: {currentUsed}/{currentLimit} {type}
                 </p>
 
-                {/* Addon info bar */}
                 {addonInfo && addonInfo.maxAddon !== -1 && (
                     <div style={{
                         background: addonInfo.remainingSlots === 0 ? '#FEF2F2' : '#EFF6FF',
@@ -518,7 +1048,6 @@ function AddonModal({
                 )}
 
                 {noPackAvailable ? (
-                    // Limit full — upgrade nudge
                     <div style={{
                         background: '#F8FAFC', borderRadius: 14,
                         padding: 20, textAlign: 'center', marginBottom: 24,
@@ -567,10 +1096,7 @@ function AddonModal({
                                             +{count}{' '}
                                             {type === 'students' ? 'Students' : 'Staff'}
                                             {!fitsInSlots && (
-                                                <span style={{
-                                                    fontSize: 11, color: '#EF4444',
-                                                    marginLeft: 6,
-                                                }}>
+                                                <span style={{ fontSize: 11, color: '#EF4444', marginLeft: 6 }}>
                                                     (limit exceed)
                                                 </span>
                                             )}
@@ -616,7 +1142,7 @@ function AddonModal({
                                 opacity: buying ? 0.7 : 1,
                             }}
                         >
-                            {buying ? 'Processing…' : `Buy Add-on →`}
+                            {buying ? 'Processing…' : 'Buy Add-on →'}
                         </button>
                     )}
                 </div>
@@ -625,158 +1151,86 @@ function AddonModal({
     )
 }
 
+// ═══════════════════════════════════════
+// REAL CLOCK COUNTDOWN
+// ═══════════════════════════════════════
+function RealClockCountdown({ targetDate, type }: { targetDate: string; type: 'trial' | 'subscription' }) {
+    const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: false })
 
-// Real Clock-Style Countdown Component
-function RealClockCountdown({ 
-  targetDate, 
-  type 
-}: { 
-  targetDate: string
-  type: 'trial' | 'subscription' 
-}) {
-  const [timeLeft, setTimeLeft] = useState({ 
-    days: 0, 
-    hours: 0, 
-    minutes: 0, 
-    seconds: 0, 
-    isExpired: false 
-  })
+    useEffect(() => {
+        const calc = () => {
+            const diff = new Date(targetDate).getTime() - Date.now()
+            if (diff <= 0) {
+                setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true })
+                return
+            }
+            setTimeLeft({
+                days: Math.floor(diff / 86400000),
+                hours: Math.floor((diff % 86400000) / 3600000),
+                minutes: Math.floor((diff % 3600000) / 60000),
+                seconds: Math.floor((diff % 60000) / 1000),
+                isExpired: false,
+            })
+        }
+        calc()
+        const t = setInterval(calc, 1000)
+        return () => clearInterval(t)
+    }, [targetDate])
 
-  useEffect(() => {
-    const calc = () => {
-      const diff = new Date(targetDate).getTime() - new Date().getTime()
-      if (diff <= 0) {
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true })
-        return
-      }
-      setTimeLeft({
-        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((diff % (1000 * 60)) / 1000),
-        isExpired: false,
-      })
-    }
-    calc()
-    const timer = setInterval(calc, 1000)
-    return () => clearInterval(timer)
-  }, [targetDate])
-
-  // Expired state
-  if (timeLeft.isExpired) {
-    return (
-      <div
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-        style={{
-          background: 'var(--color-danger-light)',
-          border: '1px solid var(--color-danger-200)',
-        }}
-      >
-        <span
-          className="text-xs font-bold"
-          style={{ color: 'var(--color-danger-700)' }}
-        >
-          ⚡ Expired
-        </span>
-      </div>
-    )
-  }
-
-  // Theme
-  const theme = type === 'trial'
-    ? {
-        bg: 'var(--color-warning-50)',
-        border: 'var(--color-warning-200)',
-        digitBg: 'var(--color-warning-600)',
-        labelColor: 'var(--color-warning-600)',
-      }
-    : {
-        bg: 'var(--color-success-50)',
-        border: 'var(--color-success-200)',
-        digitBg: 'var(--color-success-600)',
-        labelColor: 'var(--color-success-600)',
-      }
-
-  // Build parts (skip days if 0)
-  const parts = []
-  if (timeLeft.days > 0) {
-    parts.push({ value: timeLeft.days, label: 'd' })
-  }
-  parts.push(
-    { value: timeLeft.hours, label: 'h' },
-    { value: timeLeft.minutes, label: 'm' },
-    { value: timeLeft.seconds, label: 's' }
-  )
-
-  return (
-    <div
-      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
-      style={{
-        background: theme.bg,
-        border: `1px solid ${theme.border}`,
-      }}
-    >
-      <span
-        className="text-xs"
-        style={{ color: theme.labelColor }}
-      >
-        🕐
-      </span>
-      
-      <div className="flex items-center gap-1">
-        {parts.map((part, idx) => (
-          <div key={part.label} className="flex items-center gap-0.5">
-            {/* Digit box */}
-            <div
-              className="flex items-center justify-center px-1.5 py-0.5 rounded min-w-[1.75rem]"
-              style={{ background: theme.digitBg }}
-            >
-              <span
-                className="text-xs font-bold tabular-nums text-white"
-                style={{ lineHeight: 1 }}
-              >
-                {String(part.value).padStart(2, '0')}
-              </span>
+    if (timeLeft.isExpired) {
+        return (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200">
+                <span className="text-xs font-bold text-red-700">⚡ Expired</span>
             </div>
+        )
+    }
 
-            {/* Label */}
-            <span
-              className="text-[0.625rem] font-semibold"
-              style={{ color: theme.labelColor }}
-            >
-              {part.label}
-            </span>
+    const theme = type === 'trial'
+        ? { bg: 'var(--color-warning-50)', border: 'var(--color-warning-200)', digitBg: 'var(--color-warning-600)', labelColor: 'var(--color-warning-600)' }
+        : { bg: 'var(--color-success-50)', border: 'var(--color-success-200)', digitBg: 'var(--color-success-600)', labelColor: 'var(--color-success-600)' }
 
-            {/* Colon separator */}
-            {idx < parts.length - 1 && (
-              <span
-                className="text-xs font-bold mx-0.5"
-                style={{ color: theme.labelColor }}
-              >
-                :
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+    const parts = []
+    if (timeLeft.days > 0) parts.push({ value: timeLeft.days, label: 'd' })
+    parts.push(
+        { value: timeLeft.hours, label: 'h' },
+        { value: timeLeft.minutes, label: 'm' },
+        { value: timeLeft.seconds, label: 's' }
+    )
+
+    return (
+        <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
+            style={{ background: theme.bg, border: `1px solid ${theme.border}` }}>
+            <span className="text-xs" style={{ color: theme.labelColor }}>🕐</span>
+            <div className="flex items-center gap-1">
+                {parts.map((part, idx) => (
+                    <div key={part.label} className="flex items-center gap-0.5">
+                        <div className="flex items-center justify-center px-1.5 py-0.5 rounded min-w-[1.75rem]"
+                            style={{ background: theme.digitBg }}>
+                            <span className="text-xs font-bold tabular-nums text-white" style={{ lineHeight: 1 }}>
+                                {String(part.value).padStart(2, '0')}
+                            </span>
+                        </div>
+                        <span className="text-[0.625rem] font-semibold" style={{ color: theme.labelColor }}>
+                            {part.label}
+                        </span>
+                        {idx < parts.length - 1 && (
+                            <span className="text-xs font-bold mx-0.5" style={{ color: theme.labelColor }}>:</span>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
 }
 
 // ═══════════════════════════════════════
-// LIMIT USAGE BAR
+// LIMIT BAR
 // ═══════════════════════════════════════
 function LimitBar({
-    label, used, limit, color = '#4F46E5',
-    onAddMore,
-    addMoreLabel,
+    label, used, limit, color = '#4F46E5', onAddMore, addMoreLabel,
 }: {
-    label: string
-    used: number
-    limit: number
-    color?: string
-    onAddMore?: () => void
-    addMoreLabel?: string
+    label: string; used: number; limit: number; color?: string
+    onAddMore?: () => void; addMoreLabel?: string
 }) {
     if (limit === -1) {
         return (
@@ -798,29 +1252,19 @@ function LimitBar({
             <div className="flex items-center justify-between mb-1">
                 <span className="text-sm text-slate-600">{label}</span>
                 <div className="flex items-center gap-2">
-                    <span
-                        className={clsx(
-                            'text-sm font-semibold',
-                            isHigh ? 'text-red-600'
-                                : isMid ? 'text-amber-600'
-                                    : 'text-slate-700'
-                        )}
-                    >
+                    <span className={clsx(
+                        'text-sm font-semibold',
+                        isHigh ? 'text-red-600' : isMid ? 'text-amber-600' : 'text-slate-700'
+                    )}>
                         {used.toLocaleString('en-IN')} / {limit.toLocaleString('en-IN')}
                     </span>
-
-                    {/* ✅ FIX: Always show button if onAddMore exists */}
                     {onAddMore && (
                         <button
                             onClick={onAddMore}
                             className={clsx(
-                                'px-2 py-0.5 text-xs font-semibold rounded-lg',
-                                'transition-colors whitespace-nowrap',
-                                // Color changes based on urgency
-                                isHigh
-                                    ? 'bg-red-600 text-white hover:bg-red-700'
-                                    : isMid
-                                        ? 'bg-amber-500 text-white hover:bg-amber-600'
+                                'px-2 py-0.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap',
+                                isHigh ? 'bg-red-600 text-white hover:bg-red-700'
+                                    : isMid ? 'bg-amber-500 text-white hover:bg-amber-600'
                                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             )}
                         >
@@ -829,23 +1273,12 @@ function LimitBar({
                     )}
                 </div>
             </div>
-
-            {/* Progress bar */}
             <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
                 <div
                     className="h-full rounded-full transition-all"
-                    style={{
-                        width: `${pct}%`,
-                        background: isHigh
-                            ? '#EF4444'
-                            : isMid
-                                ? '#F59E0B'
-                                : color,
-                    }}
+                    style={{ width: `${pct}%`, background: isHigh ? '#EF4444' : isMid ? '#F59E0B' : color }}
                 />
             </div>
-
-            {/* Warning text — only on high */}
             {isHigh && (
                 <p className="text-xs text-red-600 mt-1">
                     {limit - used <= 0
@@ -858,13 +1291,9 @@ function LimitBar({
 }
 
 // ═══════════════════════════════════════
-// PRICE DISPLAY (same as before)
+// PRICE DISPLAY
 // ═══════════════════════════════════════
-function PriceDisplay({
-    planId, cycle,
-}: {
-    planId: PlanId; cycle: BillingCycle
-}) {
+function PriceDisplay({ planId, cycle }: { planId: PlanId; cycle: BillingCycle }) {
     const bd = getPlanPriceBreakdown(planId, cycle)
     const plan = getPlan(planId)
     const saved = getSavings(planId)
@@ -875,9 +1304,7 @@ function PriceDisplay({
                 <span className="text-4xl font-extrabold tracking-tight text-slate-900">
                     ₹{bd.totalAmount.toLocaleString('en-IN')}
                 </span>
-                <span className="text-sm text-slate-500">
-                    /{cycle === 'monthly' ? 'mo' : 'yr'}
-                </span>
+                <span className="text-sm text-slate-500">/{cycle === 'monthly' ? 'mo' : 'yr'}</span>
             </div>
             {cycle === 'yearly' && saved > 0 && (
                 <p className="text-xs text-emerald-600 mt-1">
@@ -908,27 +1335,21 @@ function PlanQuickStats({ planId }: { planId: PlanId }) {
                 <div className="text-emerald-600 font-medium">♻️ Credits never expire</div>
             )}
             {plan.creditRolloverMonths > 0 && (
-                <div className="text-blue-600">
-                    ♻️ Credits rollover {plan.creditRolloverMonths} months
-                </div>
+                <div className="text-blue-600">♻️ Credits rollover {plan.creditRolloverMonths} months</div>
             )}
         </div>
     )
 }
 
 // ═══════════════════════════════════════
-// UPGRADE MODAL (same as before, kept intact)
+// UPGRADE MODAL
 // ═══════════════════════════════════════
 function UpgradeModal({
     planId, currentPlan, cycle, onPay, onFreeUpgrade, onCancel, paying,
 }: {
-    planId: PlanId
-    currentPlan: PlanId
-    cycle: BillingCycle
+    planId: PlanId; currentPlan: PlanId; cycle: BillingCycle
     onPay: (orderId: string, amount: number) => void
-    onFreeUpgrade: () => void
-    onCancel: () => void
-    paying: boolean
+    onFreeUpgrade: () => void; onCancel: () => void; paying: boolean
 }) {
     const [breakdown, setBreakdown] = useState<any>(null)
     const [loading, setLoading] = useState(true)
@@ -1097,7 +1518,9 @@ function UpgradeModal({
                                         fontSize: 15, fontWeight: 600, opacity: paying ? 0.7 : 1,
                                     }}
                                 >
-                                    {paying ? 'Opening…' : `Pay ₹${breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')} →`}
+                                    {paying
+                                        ? 'Opening…'
+                                        : `Pay ₹${breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')} →`}
                                 </button>
                             )}
                         </div>
@@ -1124,9 +1547,10 @@ function SubscriptionInner() {
     const [success, setSuccess] = useState<{ planName: string } | null>(null)
     const [upgradeModal, setUpgradeModal] = useState<PlanId | null>(null)
 
-    // ── NEW modals ──
     const [showBuyCredits, setShowBuyCredits] = useState(false)
     const [showAddon, setShowAddon] = useState<'students' | 'teachers' | null>(null)
+    // ✅ NEW: storage modal state
+    const [showStorageModal, setShowStorageModal] = useState(false)
 
     const fetchStatus = useCallback(() => {
         fetch('/api/subscription/status')
@@ -1230,7 +1654,6 @@ function SubscriptionInner() {
         fetchStatus()
     }
 
-    // ── Success screen ──
     if (success) {
         return (
             <div className="flex flex-col items-center justify-center py-16 px-5 text-center max-w-md mx-auto">
@@ -1267,7 +1690,7 @@ function SubscriptionInner() {
         <div>
             <PageHeader title="Subscription & Credits" subtitle="Plan, credits aur add-ons manage karein" />
 
-            {/* Modals */}
+            {/* ── Modals ── */}
             {upgradeModal && (
                 <Portal>
                     <UpgradeModal
@@ -1312,7 +1735,6 @@ function SubscriptionInner() {
                                 ? status?.limits?.students?.used ?? 0
                                 : status?.limits?.teachers?.used ?? 0
                         }
-                        // ── NEW: addonInfo pass karo ──
                         addonInfo={
                             showAddon === 'students'
                                 ? {
@@ -1329,14 +1751,24 @@ function SubscriptionInner() {
                         onClose={() => setShowAddon(null)}
                         onSuccess={(added) => {
                             setShowAddon(null)
-                            setAlert({
-                                type: 'success',
-                                msg: `${added} extra ${showAddon} successfully added!`,
-                            })
+                            setAlert({ type: 'success', msg: `${added} extra ${showAddon} successfully added!` })
                             fetchStatus()
                         }}
                     />
                 </Portal>
+            )}
+
+            {/* ✅ NEW: Storage modal */}
+            {showStorageModal && (
+                <StorageAddonModal
+                    currentStorage={status?.storage}
+                    onClose={() => setShowStorageModal(false)}
+                    onSuccess={() => {
+                        setShowStorageModal(false)
+                        setAlert({ type: 'success', msg: 'Storage addon added successfully!' })
+                        fetchStatus()
+                    }}
+                />
             )}
 
             {/* Alert */}
@@ -1371,7 +1803,9 @@ function SubscriptionInner() {
                 )}>
                     <div className="flex items-start gap-3.5">
                         <span className="text-2xl flex-shrink-0">
-                            {status.isPaid ? <Check size={14} className="text-green-600" /> : status.isInTrial ? '⏱️' : '❌'}
+                            {status.isPaid
+                                ? <Check size={14} className="text-green-600" />
+                                : status.isInTrial ? '⏱️' : '❌'}
                         </span>
                         <div className="flex-1">
                             {status.isPaid && (
@@ -1401,7 +1835,10 @@ function SubscriptionInner() {
                                         <p className="text-[13px] text-blue-700">
                                             Subscribe and continue after trial
                                         </p>
-                                        <RealClockCountdown targetDate={status.trialEndsAt || status.validTill} type="trial" />
+                                        <RealClockCountdown
+                                            targetDate={status.trialEndsAt || status.validTill}
+                                            type="trial"
+                                        />
                                     </div>
                                 </>
                             )}
@@ -1424,15 +1861,19 @@ function SubscriptionInner() {
                 />
             )}
 
+            {/* ✅ NEW: Storage Card — always show if status exists */}
+            {status && (
+                <StorageCard
+                    storage={status.storage ?? null}
+                    onManageStorage={() => setShowStorageModal(true)}
+                />
+            )}
+
             {/* ── Usage Limits ── */}
             {status?.limits && (
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-slate-900 text-base">
-                            📊 Usage & Limits
-                        </h3>
-
-                        {/* Add-on buttons — top right, always visible */}
+                        <h3 className="font-bold text-slate-900 text-base">📊 Usage & Limits</h3>
                         <div className="flex items-center gap-2">
                             {status.addons?.canPurchaseStudents && (
                                 <button
@@ -1492,9 +1933,7 @@ function SubscriptionInner() {
                     {((Number(status.addons?.extraStudents) > 0)
                         || (Number(status.addons?.extraTeachers) > 0)) && (
                             <div className="mt-3 pt-3 border-t border-slate-100">
-                                <p className="text-xs font-medium text-slate-500 mb-1">
-                                    Active Add-ons:
-                                </p>
+                                <p className="text-xs font-medium text-slate-500 mb-1">Active Add-ons:</p>
                                 <div className="flex gap-3 flex-wrap">
                                     {Number(status.addons?.extraStudents) > 0 && (
                                         <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
@@ -1516,8 +1955,7 @@ function SubscriptionInner() {
                         return (
                             <div className="mt-4 pt-4 border-t border-slate-100">
                                 <p className="text-xs text-slate-500 mb-2">
-                                    💡 <strong>{nextPlan.name}</strong> plan mein
-                                    upgrade karein for more limits
+                                    💡 <strong>{nextPlan.name}</strong> plan mein upgrade karein for more limits
                                 </p>
                                 <button
                                     onClick={() => setUpgradeModal(nextPlan.id)}
@@ -1540,7 +1978,9 @@ function SubscriptionInner() {
                             onClick={() => setCycle(c)}
                             className={clsx(
                                 'px-5 py-2 rounded-lg text-sm font-medium transition-all',
-                                cycle === c ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                cycle === c
+                                    ? 'bg-white text-slate-800 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-700'
                             )}
                         >
                             {c === 'monthly' ? 'Monthly' : (
@@ -1673,9 +2113,7 @@ function SubscriptionInner() {
                     <div className="flex items-start gap-3">
                         <span className="text-xl">⏳</span>
                         <div className="flex-1">
-                            <p className="font-semibold text-sm text-amber-900 mb-1">
-                                Cancellation Scheduled
-                            </p>
+                            <p className="font-semibold text-sm text-amber-900 mb-1">Cancellation Scheduled</p>
                             <p className="text-[13px] text-amber-700">
                                 Your {status.planName} plan will end on{' '}
                                 <strong>{formatDate(status.scheduledCancelAt!)}</strong>.

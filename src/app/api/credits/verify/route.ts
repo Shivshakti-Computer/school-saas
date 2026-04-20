@@ -1,9 +1,10 @@
 // FILE: src/app/api/credits/verify/route.ts
-// Verify payment and credit the account
+// COMPLETE FIXED VERSION
 
 import { NextRequest, NextResponse } from 'next/server'
 import { apiGuardWithBody } from '@/lib/apiGuard'
 import { purchaseCreditPack, purchaseExtraStudents, purchaseExtraTeachers } from '@/lib/credits'
+import { purchaseStoragePack } from '@/lib/storageAddon'
 import crypto from 'crypto'
 
 export async function POST(req: NextRequest) {
@@ -11,8 +12,9 @@ export async function POST(req: NextRequest) {
         razorpayOrderId: string
         razorpayPaymentId: string
         razorpaySignature: string
-        type: 'credit_pack' | 'extra_students' | 'extra_teachers'
+        type: 'credit_pack' | 'extra_students' | 'extra_teachers' | 'storage_pack'
         packId: string
+        billingCycle?: 'monthly' | 'yearly'
     }>(req, { allowedRoles: ['admin'], rateLimit: 'api' })
 
     if (guard instanceof NextResponse) return guard
@@ -22,6 +24,9 @@ export async function POST(req: NextRequest) {
         razorpayOrderId, razorpayPaymentId,
         razorpaySignature, type, packId,
     } = body
+
+    // ✅ FIX: Declare billingCycle at top level
+    const billingCycle = body.billingCycle ?? 'monthly'
 
     // Verify signature
     const expectedSig = crypto
@@ -34,7 +39,6 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantId = session.user.tenantId
-
     let result: any
 
     if (type === 'credit_pack') {
@@ -43,6 +47,15 @@ export async function POST(req: NextRequest) {
         result = await purchaseExtraStudents(tenantId, packId as any, razorpayOrderId, razorpayPaymentId)
     } else if (type === 'extra_teachers') {
         result = await purchaseExtraTeachers(tenantId, packId as any, razorpayOrderId, razorpayPaymentId)
+    } else if (type === 'storage_pack') {
+        // ✅ billingCycle now accessible here
+        result = await purchaseStoragePack(
+            tenantId,
+            packId as any,
+            billingCycle,
+            razorpayOrderId,
+            razorpayPaymentId
+        )
     } else {
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
     }

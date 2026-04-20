@@ -71,6 +71,19 @@ export interface IAddonLimits {
   extraTeachers: number     // Total extra teachers purchased
 }
 
+export interface IStorageAddon {
+  extraStorageGB: number
+  validUntil?: Date      // ← ADD: Monthly renewal tracking
+  lastRenewedAt?: Date   // ← ADD: Last successful renewal
+  autoRenew: boolean     // ← ADD: Auto-renewal enabled?
+
+  // ── NEW: Cancellation & Grace ──
+  canceledAt?: Date              // When school canceled
+  gracePeriodEndsAt?: Date       // Files delete hone ki date (validUntil + 30 days)
+  downloadLinkSentAt?: Date      // Download email sent date
+  downloadCompleted?: boolean    // Did they download before cancel?
+}
+
 export interface ISchool extends Document {
   name: string
   subdomain: string
@@ -90,6 +103,8 @@ export interface ISchool extends Document {
   // ── NEW FIELDS ──
   creditBalance: number         // Quick access balance (mirrored from MessageCredit)
   addonLimits: IAddonLimits    // Extra students/teachers purchased
+  storageAddon: IStorageAddon
+  storageUsedBytes: number
   createdAt: Date
   updatedAt: Date
 }
@@ -179,6 +194,18 @@ const SchoolSchema = new Schema<ISchool>({
     extraStudents: { type: Number, default: 0 },
     extraTeachers: { type: Number, default: 0 },
   },
+  // Schema update
+  storageAddon: {
+    extraStorageGB: { type: Number, default: 0 },
+    validUntil: { type: Date },
+    lastRenewedAt: { type: Date },
+    autoRenew: { type: Boolean, default: true },
+    canceledAt: { type: Date },
+    gracePeriodEndsAt: { type: Date },
+    downloadLinkSentAt: { type: Date },
+    downloadCompleted: { type: Boolean, default: false },
+  },
+  storageUsedBytes: { type: Number, default: 0 },
 }, { timestamps: true })
 
 export const School =

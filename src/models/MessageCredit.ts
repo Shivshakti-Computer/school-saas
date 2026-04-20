@@ -42,6 +42,17 @@ export interface IMessageCredit extends Document {
         orderId: string
     }[]
 
+    // ── Add-on: Extra Storage ──         ← NEW SECTION
+    extraStorageGB: number
+    extraStoragePacks: {
+        packId: string
+        storageGB: number
+        price: number
+        purchasedAt: Date
+        orderId: string
+        validUntil: Date      // Monthly renewal track karne ke liye
+    }[]
+
     // ── Effective Limits (plan + add-ons) ──
     effectiveMaxStudents: number  // Plan limit + extra purchased
     effectiveMaxTeachers: number
@@ -74,6 +85,16 @@ const ExtraTeacherPackSchema = new Schema({
     orderId: { type: String, required: true },
 }, { _id: false })
 
+// ── Schema mein add karo (ExtraTeacherPackSchema ke baad) ──
+const ExtraStoragePackSchema = new Schema({
+    packId: { type: String, required: true },
+    storageGB: { type: Number, required: true },
+    price: { type: Number, required: true },
+    purchasedAt: { type: Date, default: Date.now },
+    orderId: { type: String, required: true },
+    validUntil: { type: Date, required: true },
+}, { _id: false })
+
 const MessageCreditSchema = new Schema<IMessageCredit>({
     tenantId: {
         type: Schema.Types.ObjectId,
@@ -93,6 +114,8 @@ const MessageCreditSchema = new Schema<IMessageCredit>({
     extraStudentPacks: { type: [ExtraStudentPackSchema], default: [] },
     extraTeachers: { type: Number, default: 0 },
     extraTeacherPacks: { type: [ExtraTeacherPackSchema], default: [] },
+    extraStorageGB: { type: Number, default: 0 },
+    extraStoragePacks: { type: [ExtraStoragePackSchema], default: [] },
     effectiveMaxStudents: { type: Number, default: 0 },
     effectiveMaxTeachers: { type: Number, default: 0 },
 }, { timestamps: true })

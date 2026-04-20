@@ -1,4 +1,5 @@
 // FILE: src/lib/audit.ts
+// UPDATED: Added Storage audit actions
 // Easy-to-use audit logging functions
 
 import { connectDB } from './db'
@@ -32,11 +33,14 @@ function getRiskLevel(action: AuditAction): 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICA
     'PASSWORD_CHANGE', 'PASSWORD_RESET',
     'SUBSCRIPTION_CANCEL', 'PAYMENT_FAILED',
     '2FA_DISABLE', 'SETTINGS_CHANGE',
+    'STORAGE_CANCEL',           // ✅ ADDED
   ]
   const medium: AuditAction[] = [
     'CREATE', 'UPDATE', 'IMPORT', 'EXPORT',
     'SUBSCRIPTION_CREATE', 'SUBSCRIPTION_UPGRADE',
     '2FA_ENABLE', 'BULK_IMPORT',
+    'STORAGE_PURCHASE',         // ✅ ADDED
+    'STORAGE_EXPORT',           // ✅ ADDED
   ]
 
   if (critical.includes(action)) return 'CRITICAL'

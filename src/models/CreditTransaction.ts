@@ -10,6 +10,7 @@ export type TransactionType =
     | 'upgrade_grant'
     | 'pack_purchase'      // School bought a credit pack
     | 'addon_purchase'     // School bought extra students/teachers
+    | 'storage_purchase'    // ← NEW
     | 'message_deduct'     // Credits used for messaging
     | 'refund_credit'      // Credits refunded on cancellation
     | 'admin_adjust'       // Superadmin manual adjustment
@@ -49,6 +50,7 @@ const CreditTransactionSchema = new Schema<ICreditTransaction>({
         type: String,
         enum: [
             'monthly_grant', 'trial_grant', 'pack_purchase',
+            'pack_purchase', 'addon_purchase', 'storage_purchase',  // ← storage_purchase add
             'addon_purchase', 'message_deduct', 'refund_credit',
             'admin_adjust', 'rollover', 'expired',
         ],
