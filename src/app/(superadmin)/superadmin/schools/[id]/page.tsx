@@ -15,6 +15,7 @@ import {
   Calendar, Globe, Zap, MessageSquare,
 } from 'lucide-react'
 import { SchoolDetailActions } from './SchoolDetailActions'
+import { ExtendSubscriptionButton } from './ExtentSubscriptionButton'
 
 export default async function SchoolDetailPage({
   params,
@@ -61,6 +62,11 @@ export default async function SchoolDetailPage({
       },
     ]),
   ])
+
+  const activeSub = await Subscription.findOne({
+    tenantId: id,
+    status: 'active',
+  }).lean() as any
 
   const now = new Date()
   const trialEnd = new Date(school.trialEndsAt)
@@ -116,10 +122,10 @@ export default async function SchoolDetailPage({
             </span>
             <span
               className={`px-2.5 py-1 rounded-full text-xs font-semibold ${status === 'paid'
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : status === 'trial'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-red-100 text-red-700'
+                ? 'bg-emerald-100 text-emerald-700'
+                : status === 'trial'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-red-100 text-red-700'
                 }`}
             >
               {status === 'paid'
@@ -130,8 +136,8 @@ export default async function SchoolDetailPage({
             </span>
             <span
               className={`px-2.5 py-1 rounded-full text-xs font-semibold ${school.isActive
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-red-100 text-red-700'
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-red-100 text-red-700'
                 }`}
             >
               {school.isActive ? 'Active' : 'Disabled'}
@@ -170,6 +176,13 @@ export default async function SchoolDetailPage({
         </div>
       </div>
 
+      {/* ✅ ADD: Right after stats, before Credit Panel */}
+      <ExtendSubscriptionButton
+        tenantId={id}
+        schoolSubdomain={school.subdomain}
+        currentEnd={activeSub?.currentPeriodEnd}
+      />
+
       {/* ── NEW: Credit Panel ── */}
       <div className="bg-white rounded-xl border border-slate-200 p-5">
         <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
@@ -180,8 +193,8 @@ export default async function SchoolDetailPage({
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div
             className={`rounded-xl p-4 text-center ${creditBalance < 50
-                ? 'bg-red-50 border border-red-200'
-                : 'bg-indigo-50 border border-indigo-100'
+              ? 'bg-red-50 border border-red-200'
+              : 'bg-indigo-50 border border-indigo-100'
               }`}
           >
             <p
