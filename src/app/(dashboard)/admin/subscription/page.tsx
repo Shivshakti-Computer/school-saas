@@ -1,5 +1,5 @@
 // FILE: src/app/(admin)/admin/subscription/page.tsx
-// UPDATED: Storage addon fully integrated
+// UPDATED: Complete code with all features | Compact design | Badge fixed
 'use client'
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
@@ -75,12 +75,12 @@ function CreditBalanceCard({
     if (!credits) return null
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-900 text-base">💳 Message Credits</h3>
+        <div className="card p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-sm text-[var(--text-primary)]">Message Credits</h3>
                 <button
                     onClick={onBuyCredits}
-                    className="px-4 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="btn-primary btn-sm"
                 >
                     Buy Credits
                 </button>
@@ -88,62 +88,60 @@ function CreditBalanceCard({
 
             <div className="flex items-baseline gap-2 mb-3">
                 <span className={clsx(
-                    'text-4xl font-extrabold',
-                    credits.lowCreditWarning ? 'text-red-600' : 'text-indigo-600'
+                    'text-3xl font-bold',
+                    credits.lowCreditWarning ? 'text-[var(--color-danger-600)]' : 'text-[var(--color-primary-600)]'
                 )}>
                     {credits.balance?.toLocaleString('en-IN')}
                 </span>
-                <span className="text-slate-500 text-sm">credits remaining</span>
+                <span className="text-xs text-[var(--text-muted)]">credits</span>
                 {credits.lowCreditWarning && (
-                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
-                        ⚠️ Low
-                    </span>
+                    <span className="badge badge-danger">Low</span>
                 )}
             </div>
 
-            <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-3">
                 {[
-                    { icon: '📱', label: '1 SMS', credits: '1 credit' },
-                    { icon: '💬', label: '1 WhatsApp', credits: '1 credit' },
-                    { icon: '📧', label: '10 Emails', credits: '1 credit' },
+                    { icon: '📱', label: 'SMS', credits: '1 credit' },
+                    { icon: '💬', label: 'WhatsApp', credits: '1 credit' },
+                    { icon: '📧', label: 'Email', credits: '10 credits' },
                 ].map(item => (
-                    <div key={item.label} className="bg-slate-50 rounded-xl p-3 text-center">
-                        <div className="text-xl mb-1">{item.icon}</div>
-                        <div className="text-xs font-medium text-slate-700">{item.label}</div>
-                        <div className="text-[11px] text-slate-500">{item.credits}</div>
+                    <div key={item.label} className="bg-[var(--bg-subtle)] rounded-lg p-2 text-center">
+                        <div className="text-lg mb-1">{item.icon}</div>
+                        <div className="text-[11px] font-medium text-[var(--text-secondary)]">{item.label}</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">{item.credits}</div>
                     </div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-3 gap-3 text-center text-xs">
+            <div className="grid grid-cols-3 gap-3 text-center text-xs border-t border-[var(--border)] pt-3">
                 <div>
-                    <div className="font-bold text-slate-800">
+                    <div className="font-semibold text-[var(--text-secondary)]">
                         {credits.totalEarned?.toLocaleString('en-IN')}
                     </div>
-                    <div className="text-slate-500">Total Earned</div>
+                    <div className="text-[10px] text-[var(--text-muted)]">Total Earned</div>
                 </div>
                 <div>
-                    <div className="font-bold text-slate-800">
+                    <div className="font-semibold text-[var(--text-secondary)]">
                         {credits.totalUsed?.toLocaleString('en-IN')}
                     </div>
-                    <div className="text-slate-500">Total Used</div>
+                    <div className="text-[10px] text-[var(--text-muted)]">Total Used</div>
                 </div>
                 <div>
-                    <div className="font-bold text-slate-800">
+                    <div className="font-semibold text-[var(--text-secondary)]">
                         {credits.freeCreditsPerMonth?.toLocaleString('en-IN')}
                     </div>
-                    <div className="text-slate-500">Free/Month</div>
+                    <div className="text-[10px] text-[var(--text-muted)]">Free/Month</div>
                 </div>
             </div>
 
             {credits.last30DaysUsage?.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-100">
-                    <p className="text-xs text-slate-500 mb-2">Last 30 days usage:</p>
-                    <div className="flex gap-3">
+                <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                    <p className="text-[11px] text-[var(--text-muted)] mb-2">Last 30 days usage:</p>
+                    <div className="flex gap-2 flex-wrap">
                         {credits.last30DaysUsage.map((u: any) => (
-                            <div key={u._id} className="text-xs">
-                                <span className="font-medium text-slate-700 capitalize">{u._id}:</span>{' '}
-                                <span className="text-slate-500">{u.count} msgs</span>
+                            <div key={u._id} className="text-[11px]">
+                                <span className="font-medium text-[var(--text-secondary)] capitalize">{u._id}:</span>{' '}
+                                <span className="text-[var(--text-muted)]">{u.count} msgs</span>
                             </div>
                         ))}
                     </div>
@@ -154,7 +152,7 @@ function CreditBalanceCard({
 }
 
 // ═══════════════════════════════════════
-// STORAGE CARD — Usage display + Buy button
+// STORAGE CARD
 // ═══════════════════════════════════════
 function StorageCard({
     storage,
@@ -163,18 +161,6 @@ function StorageCard({
     storage: any
     onManageStorage: () => void
 }) {
-    // storage object expected shape (from status.storage):
-    // {
-    //   usedGB: number,
-    //   baseGB: number,          ← plan se milta hai
-    //   addonGB: number,         ← purchased addon
-    //   totalLimitGB: number,    ← baseGB + addonGB (-1 = unlimited)
-    //   addonExpired: boolean,
-    //   autoRenew: boolean,
-    //   addonExpiresAt?: string,
-    // }
-
-    // Agar storage data nahi aayi API se, card nahi dikhega
     if (!storage) return null
 
     const isUnlimited = storage.totalLimitGB === -1
@@ -183,137 +169,126 @@ function StorageCard({
     const addonGB: number = storage.addonGB ?? 0
     const baseGB: number = storage.baseGB ?? 0
 
-    // Progress percentage (0-100), unlimited pe 0
     const pct = isUnlimited ? 0 : Math.min(100, Math.round((usedGB / totalGB) * 100))
     const isHigh = !isUnlimited && pct >= 90
     const isMid = !isUnlimited && pct >= 70
 
     return (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-900 text-base">📦 Storage</h3>
+        <div className="card p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-sm text-[var(--text-primary)]">Storage</h3>
                 <button
                     onClick={onManageStorage}
                     className={clsx(
-                        'px-4 py-1.5 text-xs font-semibold rounded-lg transition-colors',
+                        'btn-sm',
                         isHigh
-                            ? 'bg-red-600 text-white hover:bg-red-700'
-                            : 'bg-violet-600 text-white hover:bg-violet-700'
+                            ? 'btn-danger-solid'
+                            : 'btn-primary'
                     )}
                 >
-                    {addonGB > 0 ? 'Manage Storage' : 'Buy Storage'}
+                    {addonGB > 0 ? 'Manage' : 'Buy'}
                 </button>
             </div>
 
-            {/* Usage display */}
-            <div className="flex items-baseline gap-2 mb-4">
+            <div className="flex items-baseline gap-2 mb-2">
                 <span className={clsx(
-                    'text-4xl font-extrabold',
-                    isHigh ? 'text-red-600' : isMid ? 'text-amber-600' : 'text-violet-600'
+                    'text-3xl font-bold',
+                    isHigh ? 'text-[var(--color-danger-600)]' : isMid ? 'text-[var(--color-warning-600)]' : 'text-[var(--color-violet-600)]'
                 )}>
-                    {isUnlimited ? '∞' : `${usedGB.toFixed(2)}`}
+                    {isUnlimited ? '∞' : `${usedGB.toFixed(1)}`}
                 </span>
-                <span className="text-slate-500 text-sm">
-                    {isUnlimited ? 'Unlimited' : `GB used of ${totalGB} GB`}
+                <span className="text-xs text-[var(--text-muted)]">
+                    {isUnlimited ? 'Unlimited' : `GB of ${totalGB} GB`}
                 </span>
                 {isHigh && (
-                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
-                        ⚠️ Almost Full
-                    </span>
+                    <span className="badge badge-danger">Almost Full</span>
                 )}
             </div>
 
-            {/* Progress bar — only for limited storage */}
             {!isUnlimited && (
-                <div className="mb-4">
-                    <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div className="mb-3">
+                    <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                         <div
                             className="h-full rounded-full transition-all"
                             style={{
                                 width: `${pct}%`,
                                 background: isHigh
-                                    ? '#EF4444'
+                                    ? 'var(--color-danger-500)'
                                     : isMid
-                                        ? '#F59E0B'
-                                        : '#7C3AED',
+                                        ? 'var(--color-warning-500)'
+                                        : 'var(--color-violet-500)',
                             }}
                         />
                     </div>
-                    <div className="flex justify-between mt-1.5 text-[11px] text-slate-400">
+                    <div className="flex justify-between mt-1 text-[10px] text-[var(--text-muted)]">
                         <span>{pct}% used</span>
-                        <span>{(totalGB - usedGB).toFixed(2)} GB free</span>
+                        <span>{(totalGB - usedGB).toFixed(1)} GB free</span>
                     </div>
                 </div>
             )}
 
-            {/* Breakdown: Base + Addon */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-slate-50 rounded-xl p-3">
-                    <div className="text-[11px] text-slate-500 mb-1">Plan Storage</div>
-                    <div className="font-bold text-slate-800 text-base">
+            <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="bg-[var(--bg-subtle)] rounded-lg p-2">
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">Plan Storage</div>
+                    <div className="font-semibold text-sm text-[var(--text-secondary)]">
                         {baseGB === -1 ? 'Unlimited' : `${baseGB} GB`}
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">included in plan</div>
+                    <div className="text-[9px] text-[var(--text-muted)] mt-0.5">included in plan</div>
                 </div>
                 <div className={clsx(
-                    'rounded-xl p-3',
-                    addonGB > 0 ? 'bg-violet-50' : 'bg-slate-50'
+                    'rounded-lg p-2',
+                    addonGB > 0 ? 'bg-[var(--color-violet-50)]' : 'bg-[var(--bg-subtle)]'
                 )}>
-                    <div className="text-[11px] text-slate-500 mb-1">Add-on Storage</div>
+                    <div className="text-[10px] text-[var(--text-muted)] mb-1">Add-on Storage</div>
                     <div className={clsx(
-                        'font-bold text-base',
-                        addonGB > 0 ? 'text-violet-700' : 'text-slate-400'
+                        'font-semibold text-sm',
+                        addonGB > 0 ? 'text-[var(--color-violet-700)]' : 'text-[var(--text-muted)]'
                     )}>
-                        {addonGB > 0 ? `+${addonGB} GB` : '0 GB'}
+                        {addonGB > 0 ? `+${addonGB} GB` : 'None'}
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
+                    <div className="text-[9px] text-[var(--text-muted)] mt-0.5">
                         {addonGB > 0
                             ? storage.autoRenew
                                 ? `auto-renews${storage.addonExpiresAt ? ` · ${formatDate(storage.addonExpiresAt)}` : ''}`
                                 : storage.addonExpiresAt
                                     ? `expires ${formatDate(storage.addonExpiresAt)}`
                                     : 'active'
-                            : 'none purchased'}
+                            : 'not purchased'}
                     </div>
                 </div>
             </div>
 
-            {/* Expired warning */}
             {storage.addonExpired && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3">
-                    <p className="text-xs font-semibold text-red-700 mb-0.5">
+                <div className="bg-[var(--color-danger-50)] border border-[var(--color-danger-200)] rounded-lg p-2 mb-3">
+                    <p className="text-[11px] font-semibold text-[var(--color-danger-700)] mb-0.5">
                         ⚠️ Storage Addon Expired
                     </p>
-                    <p className="text-[11px] text-red-600">
-                        Aapka storage addon expire ho gaya. Renew karein ya files download karein.
+                    <p className="text-[10px] text-[var(--color-danger-600)]">
+                        Your storage addon has expired. Please renew or download files.
                     </p>
                 </div>
             )}
 
-            {/* High usage warning */}
             {isHigh && !storage.addonExpired && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 mb-3">
-                    <p className="text-xs font-semibold text-red-700 mb-0.5">
-                        Storage almost full!
+                <div className="bg-[var(--color-danger-50)] border border-[var(--color-danger-200)] rounded-lg p-2 mb-3">
+                    <p className="text-[11px] font-semibold text-[var(--color-danger-700)] mb-0.5">
+                        Storage Almost Full!
                     </p>
-                    <p className="text-[11px] text-red-600">
-                        Sirf {(totalGB - usedGB).toFixed(2)} GB bacha hai.
-                        Add-on purchase karein nahi toh uploads fail honge.
+                    <p className="text-[10px] text-[var(--color-danger-600)]">
+                        Only {(totalGB - usedGB).toFixed(1)} GB remaining. Purchase add-on to prevent upload failures.
                     </p>
                 </div>
             )}
 
-            {/* Available packs preview */}
             {!isUnlimited && (
-                <div className="pt-3 border-t border-slate-100">
-                    <p className="text-[11px] text-slate-400 mb-2">Available packs:</p>
+                <div className="pt-3 border-t border-[var(--border)]">
+                    <p className="text-[10px] text-[var(--text-muted)] mb-2">Available packs:</p>
                     <div className="flex gap-2 flex-wrap">
                         {STORAGE_PACKS.map(pack => (
                             <button
                                 key={pack.id}
                                 onClick={onManageStorage}
-                                className="text-[11px] font-medium px-2.5 py-1 bg-violet-50 text-violet-700 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
+                                className="text-[10px] font-medium px-2 py-1 bg-[var(--color-violet-50)] text-[var(--color-violet-700)] border border-[var(--color-violet-200)] rounded hover:bg-[var(--color-violet-100)] transition-colors"
                             >
                                 +{pack.storageGB} GB · ₹{pack.monthlyPrice}/mo
                             </button>
@@ -352,7 +327,7 @@ function BuyCreditsModal({
             if (!res.ok) throw new Error(order.error)
 
             const loaded = await loadRazorpaySDK()
-            if (!loaded) throw new Error('Payment system load nahi hua')
+            if (!loaded) throw new Error('Payment system failed to load')
 
             const rzp = new window.Razorpay({
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -389,112 +364,73 @@ function BuyCreditsModal({
     }
 
     return (
-        <div
-            style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16, zIndex: 9999,
-            }}
-            onClick={e => { if (e.target === e.currentTarget) onClose() }}
-        >
-            <div
-                style={{
-                    background: '#fff', borderRadius: 20, padding: 28,
-                    width: '100%', maxWidth: 480,
-                    boxShadow: '0 32px 80px rgba(0,0,0,0.4)',
-                }}
-                onClick={e => e.stopPropagation()}
-            >
-                <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
-                    💳 Buy Message Credits
-                </h3>
-                <p style={{ fontSize: 13, color: '#64748B', marginBottom: 24 }}>
-                    1 Credit = ₹1 · SMS/WhatsApp = 1cr · 10 Emails = 1cr
-                </p>
-
-                {error && (
-                    <div style={{
-                        background: '#FEF2F2', border: '1px solid #FECACA',
-                        borderRadius: 12, padding: '12px 16px', marginBottom: 16,
-                    }}>
-                        <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>
-                    </div>
-                )}
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-                    {CREDIT_PACKS.map(pack => (
-                        <button
-                            key={pack.id}
-                            onClick={() => setSelectedPack(pack.id as CreditPackId)}
-                            style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
-                                border: selectedPack === pack.id ? '2px solid #4F46E5' : '1.5px solid #E2E8F0',
-                                background: selectedPack === pack.id ? '#EEF2FF' : '#fff',
-                                textAlign: 'left',
-                            }}
-                        >
-                            <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ fontWeight: 600, fontSize: 14, color: '#0F172A' }}>
-                                        {pack.name}
-                                    </span>
-                                    {pack.popular && (
-                                        <span style={{
-                                            background: '#4F46E5', color: '#fff',
-                                            fontSize: 10, fontWeight: 700,
-                                            padding: '2px 8px', borderRadius: 20,
-                                        }}>Popular</span>
-                                    )}
-                                    {pack.savingsPercent > 0 && (
-                                        <span style={{
-                                            background: '#ECFDF5', color: '#059669',
-                                            fontSize: 10, fontWeight: 600,
-                                            padding: '2px 8px', borderRadius: 20,
-                                        }}>{pack.savingsPercent}% off</span>
-                                    )}
-                                </div>
-                                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                                    {pack.description}
-                                </div>
-                            </div>
-                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                                <div style={{ fontWeight: 700, fontSize: 18, color: '#4F46E5' }}>
-                                    ₹{pack.price}
-                                </div>
-                                <div style={{ fontSize: 11, color: '#94A3B8' }}>
-                                    {pack.credits} credits
-                                </div>
-                            </div>
-                        </button>
-                    ))}
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+            <div className="modal-panel modal-sm" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3 className="modal-title">💳 Buy Message Credits</h3>
+                    <button className="modal-close" onClick={onClose}>✕</button>
                 </div>
+                <div className="modal-body">
+                    <p className="text-sm text-[var(--text-muted)] mb-4">
+                        1 Credit = ₹1 · SMS/WhatsApp = 1 credit · 10 Emails = 1 credit
+                    </p>
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            flex: 1, padding: 14, borderRadius: 12,
-                            border: '1.5px solid #E2E8F0', background: '#fff',
-                            cursor: 'pointer', fontSize: 14, color: '#64748B',
-                        }}
-                    >Cancel</button>
+                    {error && (
+                        <div className="bg-[var(--color-danger-50)] border border-[var(--color-danger-200)] rounded-lg p-3 mb-4">
+                            <p className="text-sm text-[var(--color-danger-600)]">{error}</p>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col gap-2 mb-4">
+                        {CREDIT_PACKS.map(pack => (
+                            <button
+                                key={pack.id}
+                                onClick={() => setSelectedPack(pack.id as CreditPackId)}
+                                className={clsx(
+                                    'flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer text-left transition-all',
+                                    selectedPack === pack.id
+                                        ? 'border-[var(--color-primary-500)] bg-[var(--color-primary-50)]'
+                                        : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--color-primary-300)]'
+                                )}
+                            >
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold text-sm text-[var(--text-primary)]">
+                                            {pack.name}
+                                        </span>
+                                        {pack.popular && (
+                                            <span className="badge badge-brand">Popular</span>
+                                        )}
+                                        {pack.savingsPercent > 0 && (
+                                            <span className="badge badge-success">{pack.savingsPercent}% off</span>
+                                        )}
+                                    </div>
+                                    <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                                        {pack.description}
+                                    </div>
+                                </div>
+                                <div className="text-right flex-shrink-0 ml-3">
+                                    <div className="font-bold text-[var(--color-primary-600)]">
+                                        ₹{pack.price}
+                                    </div>
+                                    <div className="text-[10px] text-[var(--text-muted)]">
+                                        {pack.credits} credits
+                                    </div>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <button onClick={onClose} className="btn-ghost flex-1">Cancel</button>
                     <button
                         onClick={handleBuy}
                         disabled={buying}
-                        style={{
-                            flex: 2, padding: 14, borderRadius: 12,
-                            background: '#4F46E5', color: '#fff', border: 'none',
-                            cursor: buying ? 'not-allowed' : 'pointer',
-                            fontSize: 15, fontWeight: 600,
-                            opacity: buying ? 0.7 : 1,
-                        }}
+                        className="btn-primary flex-[2]"
                     >
                         {buying
                             ? 'Processing…'
-                            : `Pay ₹${CREDIT_PACKS.find(p => p.id === selectedPack)?.price} →`}
+                            : `Pay ₹${CREDIT_PACKS.find(p => p.id === selectedPack)?.price}`}
                     </button>
                 </div>
             </div>
@@ -539,7 +475,7 @@ function StorageAddonModal({
             if (!res.ok) throw new Error(order.error)
 
             const loaded = await loadRazorpaySDK()
-            if (!loaded) throw new Error('Payment system load nahi hua')
+            if (!loaded) throw new Error('Payment system failed to load')
 
             const rzp = new window.Razorpay({
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -624,263 +560,175 @@ function StorageAddonModal({
 
     return (
         <Portal>
-            <div
-                style={{
-                    position: 'fixed', inset: 0,
-                    background: 'rgba(0,0,0,0.6)',
-                    backdropFilter: 'blur(6px)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: 16, zIndex: 9999,
-                }}
-                onClick={e => { if (e.target === e.currentTarget) onClose() }}
-            >
-                <div
-                    style={{
-                        background: '#fff', borderRadius: 20, padding: 28,
-                        width: '100%', maxWidth: 520,
-                        maxHeight: '90vh', overflowY: 'auto',
-                        boxShadow: '0 32px 80px rgba(0,0,0,0.4)',
-                    }}
-                    onClick={e => e.stopPropagation()}
-                >
-                    {/* Header */}
-                    <div style={{ marginBottom: 24 }}>
-                        <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
-                            📦 Storage Add-on
-                        </h3>
-                        <p style={{ fontSize: 13, color: '#64748B' }}>
-                            Monthly subscription · Cancel anytime · Download your data
-                        </p>
+            <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+                <div className="modal-panel modal-lg" onClick={e => e.stopPropagation()}>
+                    <div className="modal-header">
+                        <h3 className="modal-title">📦 Storage Add-on</h3>
+                        <button className="modal-close" onClick={onClose}>✕</button>
                     </div>
-
-                    {/* Tabs — only when active addon exists */}
-                    {canCancel && (
-                        <div style={{
-                            display: 'flex', gap: 8, marginBottom: 20,
-                            background: '#F8FAFC', padding: 4, borderRadius: 12,
-                        }}>
-                            {(['buy', 'cancel'] as const).map(v => (
-                                <button
-                                    key={v}
-                                    onClick={() => setView(v)}
-                                    style={{
-                                        flex: 1, padding: '10px 16px', borderRadius: 8,
-                                        background: view === v ? '#fff' : 'transparent',
-                                        border: 'none', cursor: 'pointer',
-                                        fontWeight: view === v ? 600 : 400,
-                                        color: view === v ? '#0F172A' : '#64748B',
-                                        boxShadow: view === v ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                                    }}
-                                >
-                                    {v === 'buy' ? 'Buy More' : 'Cancel Addon'}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-
-                    {error && (
-                        <div style={{
-                            background: '#FEF2F2', border: '1px solid #FECACA',
-                            borderRadius: 12, padding: '12px 16px', marginBottom: 16,
-                        }}>
-                            <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>
-                        </div>
-                    )}
-
-                    {/* ── BUY VIEW ── */}
-                    {view === 'buy' && (
-                        <>
-                            {/* Current usage summary */}
-                            <div style={{
-                                background: '#F8FAFC', borderRadius: 12,
-                                padding: 16, marginBottom: 20,
-                            }}>
-                                <div style={{ fontSize: 12, color: '#64748B', marginBottom: 4 }}>
-                                    Current Storage
-                                </div>
-                                <div style={{ fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
-                                    {currentStorage?.totalLimitGB === -1
-                                        ? 'Unlimited'
-                                        : `${currentStorage?.totalLimitGB ?? 0} GB total`}
-                                </div>
-                                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>
-                                    {(currentStorage?.usedGB ?? 0).toFixed(2)} GB used
-                                    {(currentStorage?.addonGB ?? 0) > 0 && (
-                                        <> · {currentStorage.addonGB} GB addon active</>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Billing cycle toggle */}
-                            <div style={{
-                                display: 'flex', gap: 8, marginBottom: 16,
-                                background: '#F8FAFC', padding: 4, borderRadius: 10,
-                            }}>
-                                {(['monthly', 'yearly'] as const).map(c => (
+                    <div className="modal-body">
+                        {canCancel && (
+                            <div className="flex gap-2 mb-4 bg-[var(--bg-muted)] p-1 rounded-lg">
+                                {(['buy', 'cancel'] as const).map(v => (
                                     <button
-                                        key={c}
-                                        onClick={() => setBillingCycle(c)}
-                                        style={{
-                                            flex: 1, padding: '8px 12px', borderRadius: 6,
-                                            background: billingCycle === c ? '#fff' : 'transparent',
-                                            border: 'none', cursor: 'pointer', fontSize: 13,
-                                            fontWeight: billingCycle === c ? 600 : 400,
-                                            color: billingCycle === c ? '#0F172A' : '#64748B',
-                                        }}
-                                    >
-                                        {c === 'monthly' ? 'Monthly' : (
-                                            <>Yearly <span style={{ color: '#10B981', fontSize: 11 }}>2 months free</span></>
+                                        key={v}
+                                        onClick={() => setView(v)}
+                                        className={clsx(
+                                            'flex-1 py-2 rounded-md text-sm font-medium transition-all',
+                                            view === v
+                                                ? 'bg-[var(--bg-card)] text-[var(--text-primary)]'
+                                                : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                                         )}
+                                    >
+                                        {v === 'buy' ? 'Buy More' : 'Cancel Addon'}
                                     </button>
                                 ))}
                             </div>
+                        )}
 
-                            {/* Pack selection */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-                                {STORAGE_PACKS.map(pack => {
-                                    const price = billingCycle === 'monthly'
-                                        ? pack.monthlyPrice
-                                        : pack.yearlyPrice
-                                    const isSelected = selectedPack === pack.id
+                        {error && (
+                            <div className="bg-[var(--color-danger-50)] border border-[var(--color-danger-200)] rounded-lg p-3 mb-4">
+                                <p className="text-sm text-[var(--color-danger-600)]">{error}</p>
+                            </div>
+                        )}
 
-                                    return (
+                        {view === 'buy' && (
+                            <>
+                                <div className="bg-[var(--bg-subtle)] rounded-lg p-3 mb-4">
+                                    <div className="text-xs text-[var(--text-muted)] mb-1">Current Storage</div>
+                                    <div className="text-lg font-bold text-[var(--text-primary)]">
+                                        {currentStorage?.totalLimitGB === -1
+                                            ? 'Unlimited'
+                                            : `${currentStorage?.totalLimitGB ?? 0} GB total`}
+                                    </div>
+                                    <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                                        {(currentStorage?.usedGB ?? 0).toFixed(1)} GB used
+                                        {(currentStorage?.addonGB ?? 0) > 0 && (
+                                            <> · {currentStorage.addonGB} GB addon active</>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-2 mb-4 bg-[var(--bg-muted)] p-1 rounded-lg">
+                                    {(['monthly', 'yearly'] as const).map(c => (
                                         <button
-                                            key={pack.id}
-                                            onClick={() => setSelectedPack(pack.id as StoragePackId)}
-                                            style={{
-                                                display: 'flex', alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '14px 16px', borderRadius: 14, cursor: 'pointer',
-                                                border: isSelected ? '2px solid #7C3AED' : '1.5px solid #E2E8F0',
-                                                background: isSelected ? '#F5F3FF' : '#fff',
-                                                textAlign: 'left',
-                                            }}
+                                            key={c}
+                                            onClick={() => setBillingCycle(c)}
+                                            className={clsx(
+                                                'flex-1 py-2 rounded-md text-sm font-medium transition-all',
+                                                billingCycle === c
+                                                    ? 'bg-[var(--bg-card)] text-[var(--text-primary)]'
+                                                    : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                                            )}
                                         >
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <span style={{ fontWeight: 600, fontSize: 14, color: '#0F172A' }}>
-                                                        {pack.name}
-                                                    </span>
-                                                    {pack.popular && (
-                                                        <span style={{
-                                                            background: '#7C3AED', color: '#fff',
-                                                            fontSize: 10, fontWeight: 700,
-                                                            padding: '2px 8px', borderRadius: 20,
-                                                        }}>Popular</span>
-                                                    )}
-                                                </div>
-                                                <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                                                    {pack.description} · ₹{pack.pricePerDay}/day
-                                                </div>
-                                            </div>
-                                            <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 12 }}>
-                                                <div style={{ fontWeight: 700, fontSize: 18, color: '#7C3AED' }}>
-                                                    ₹{price}
-                                                </div>
-                                                <div style={{ fontSize: 11, color: '#94A3B8' }}>
-                                                    /{billingCycle === 'monthly' ? 'month' : 'year'}
-                                                </div>
-                                            </div>
+                                            {c === 'monthly' ? 'Monthly' : (
+                                                <>Yearly <span className="text-[var(--color-success-600)] ml-1">2 months free</span></>
+                                            )}
                                         </button>
-                                    )
-                                })}
-                            </div>
+                                    ))}
+                                </div>
 
-                            <div style={{ display: 'flex', gap: 12 }}>
-                                <button
-                                    onClick={onClose}
-                                    style={{
-                                        flex: 1, padding: 14, borderRadius: 12,
-                                        border: '1.5px solid #E2E8F0', background: '#fff',
-                                        cursor: 'pointer', fontSize: 14, color: '#64748B',
-                                    }}
-                                >Cancel</button>
-                                <button
-                                    onClick={handleBuy}
-                                    disabled={buying}
-                                    style={{
-                                        flex: 2, padding: 14, borderRadius: 12,
-                                        background: '#7C3AED', color: '#fff', border: 'none',
-                                        cursor: buying ? 'not-allowed' : 'pointer',
-                                        fontSize: 15, fontWeight: 600,
-                                        opacity: buying ? 0.7 : 1,
-                                    }}
-                                >
-                                    {buying ? 'Processing…' : 'Purchase →'}
-                                </button>
-                            </div>
-                        </>
-                    )}
+                                <div className="flex flex-col gap-2 mb-4">
+                                    {STORAGE_PACKS.map(pack => {
+                                        const price = billingCycle === 'monthly'
+                                            ? pack.monthlyPrice
+                                            : pack.yearlyPrice
+                                        const isSelected = selectedPack === pack.id
 
-                    {/* ── CANCEL VIEW ── */}
-                    {view === 'cancel' && (
-                        <>
-                            <div style={{
-                                background: '#FEF3C7', border: '1px solid #FCD34D',
-                                borderRadius: 12, padding: 16, marginBottom: 20,
-                            }}>
-                                <p style={{ fontSize: 14, fontWeight: 600, color: '#92400E', marginBottom: 8 }}>
-                                    ⚠️ Before Canceling
-                                </p>
-                                <p style={{ fontSize: 13, color: '#78350F', marginBottom: 12 }}>
-                                    We recommend downloading all your files first. Your data will be safe for 30 days after cancellation.
-                                </p>
-                                <button
-                                    onClick={handleExport}
-                                    disabled={exporting}
-                                    style={{
-                                        width: '100%', padding: 12, borderRadius: 10,
-                                        background: '#fff', border: '1.5px solid #D97706',
-                                        color: '#92400E', fontSize: 14, fontWeight: 600,
-                                        cursor: exporting ? 'not-allowed' : 'pointer',
-                                        opacity: exporting ? 0.7 : 1,
-                                    }}
-                                >
-                                    {exporting ? 'Preparing download…' : '📥 Download All Files (Email)'}
-                                </button>
-                            </div>
+                                        return (
+                                            <button
+                                                key={pack.id}
+                                                onClick={() => setSelectedPack(pack.id as StoragePackId)}
+                                                className={clsx(
+                                                    'flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer text-left transition-all',
+                                                    isSelected
+                                                        ? 'border-[var(--color-violet-500)] bg-[var(--color-violet-50)]'
+                                                        : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--color-violet-300)]'
+                                                )}
+                                            >
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-semibold text-sm text-[var(--text-primary)]">
+                                                            {pack.name}
+                                                        </span>
+                                                        {pack.popular && (
+                                                            <span className="badge badge-brand">Popular</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                                                        {pack.description} · ₹{pack.pricePerDay}/day
+                                                    </div>
+                                                </div>
+                                                <div className="text-right flex-shrink-0 ml-3">
+                                                    <div className="font-bold text-[var(--color-violet-600)]">
+                                                        ₹{price}
+                                                    </div>
+                                                    <div className="text-[10px] text-[var(--text-muted)]">
+                                                        /{billingCycle === 'monthly' ? 'month' : 'year'}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </>
+                        )}
 
-                            <div style={{
-                                background: '#F8FAFC', borderRadius: 12,
-                                padding: 16, marginBottom: 20,
-                            }}>
-                                <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
-                                    What happens after cancellation?
-                                </h4>
-                                <ul style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6, paddingLeft: 20 }}>
-                                    <li>No more charges from next billing cycle</li>
-                                    <li>Upload blocked immediately</li>
-                                    <li>Files safe for 30 days (grace period)</li>
-                                    <li>Download anytime during grace period</li>
-                                    <li>Auto-delete after grace period ends</li>
-                                </ul>
-                            </div>
+                        {view === 'cancel' && (
+                            <>
+                                <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] rounded-lg p-3 mb-4">
+                                    <p className="text-sm font-semibold text-[var(--color-warning-800)] mb-2">
+                                        ⚠️ Before Canceling
+                                    </p>
+                                    <p className="text-xs text-[var(--color-warning-700)] mb-3">
+                                        We recommend downloading all your files first. Your data will be safe for 30 days after cancellation.
+                                    </p>
+                                    <button
+                                        onClick={handleExport}
+                                        disabled={exporting}
+                                        className="w-full py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--color-warning-600)] text-[var(--color-warning-700)] text-sm font-medium hover:bg-[var(--color-warning-50)] transition-colors"
+                                    >
+                                        {exporting ? 'Preparing download…' : '📥 Download All Files (Email)'}
+                                    </button>
+                                </div>
 
-                            <div style={{ display: 'flex', gap: 12 }}>
-                                <button
-                                    onClick={onClose}
-                                    style={{
-                                        flex: 1, padding: 14, borderRadius: 12,
-                                        border: '1.5px solid #E2E8F0', background: '#fff',
-                                        cursor: 'pointer', fontSize: 14, color: '#64748B',
-                                    }}
-                                >Keep Addon</button>
-                                <button
-                                    onClick={() => handleCancel(false)}
-                                    disabled={canceling}
-                                    style={{
-                                        flex: 1, padding: 14, borderRadius: 12,
-                                        background: '#EF4444', color: '#fff', border: 'none',
-                                        cursor: canceling ? 'not-allowed' : 'pointer',
-                                        fontSize: 15, fontWeight: 600,
-                                        opacity: canceling ? 0.7 : 1,
-                                    }}
-                                >
-                                    {canceling ? 'Canceling…' : 'Cancel Addon'}
-                                </button>
-                            </div>
-                        </>
-                    )}
+                                <div className="bg-[var(--bg-subtle)] rounded-lg p-3 mb-4">
+                                    <h4 className="text-sm font-semibold mb-2 text-[var(--text-secondary)]">
+                                        What happens after cancellation?
+                                    </h4>
+                                    <ul className="text-xs text-[var(--text-muted)] space-y-1.5 pl-4 list-disc">
+                                        <li>No more charges from next billing cycle</li>
+                                        <li>Upload blocked immediately</li>
+                                        <li>Files safe for 30 days (grace period)</li>
+                                        <li>Download anytime during grace period</li>
+                                        <li>Auto-delete after grace period ends</li>
+                                    </ul>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                    <div className="modal-footer">
+                        <button onClick={onClose} className="btn-ghost flex-1">
+                            {view === 'cancel' ? 'Keep Addon' : 'Cancel'}
+                        </button>
+                        {view === 'buy' ? (
+                            <button
+                                onClick={handleBuy}
+                                disabled={buying}
+                                className="btn-primary flex-[2]"
+                            >
+                                {buying ? 'Processing…' : 'Purchase'}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => handleCancel(false)}
+                                disabled={canceling}
+                                className="btn-danger-solid flex-1"
+                            >
+                                {canceling ? 'Canceling…' : 'Cancel Addon'}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </Portal>
@@ -947,7 +795,7 @@ function AddonModal({
             if (!res.ok) throw new Error(order.error)
 
             const loaded = await loadRazorpaySDK()
-            if (!loaded) throw new Error('Payment system load nahi hua')
+            if (!loaded) throw new Error('Payment system failed to load')
 
             const rzp = new window.Razorpay({
                 key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
@@ -987,162 +835,117 @@ function AddonModal({
     }
 
     return (
-        <div
-            style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(0,0,0,0.6)',
-                backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16, zIndex: 9999,
-            }}
-            onClick={e => { if (e.target === e.currentTarget) onClose() }}
-        >
-            <div
-                style={{
-                    background: '#fff', borderRadius: 20, padding: 28,
-                    width: '100%', maxWidth: 460,
-                    boxShadow: '0 32px 80px rgba(0,0,0,0.4)',
-                }}
-                onClick={e => e.stopPropagation()}
-            >
-                <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>
-                    {type === 'students' ? '👤' : '👨‍🏫'} Add Extra{' '}
-                    {type === 'students' ? 'Students' : 'Teachers/Staff'}
-                </h3>
-
-                <p style={{ fontSize: 13, color: '#64748B', marginBottom: 8 }}>
-                    Current: {currentUsed}/{currentLimit} {type}
-                </p>
-
-                {addonInfo && addonInfo.maxAddon !== -1 && (
-                    <div style={{
-                        background: addonInfo.remainingSlots === 0 ? '#FEF2F2' : '#EFF6FF',
-                        border: `1px solid ${addonInfo.remainingSlots === 0 ? '#FECACA' : '#BFDBFE'}`,
-                        borderRadius: 10,
-                        padding: '10px 14px',
-                        marginBottom: 12,
-                        fontSize: 12,
-                        color: addonInfo.remainingSlots === 0 ? '#DC2626' : '#1E40AF',
-                    }}>
-                        {addonInfo.remainingSlots === 0
-                            ? `⚠️ Addon limit full (${addonInfo.currentExtra}/${addonInfo.maxAddon}). Plan upgrade karein.`
-                            : `📊 ${addonInfo.currentExtra}/${addonInfo.maxAddon} addon used — ${addonInfo.remainingSlots} slots remaining`
-                        }
-                    </div>
-                )}
-
-                <div style={{
-                    background: '#FEF3C7', borderRadius: 10,
-                    padding: '10px 14px', marginBottom: 20, fontSize: 12, color: '#92400E',
-                }}>
-                    💡 Add-on permanently increases your limit. Plan upgrade se aur zyada milega.
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+            <div className="modal-panel modal-lg" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3 className="modal-title">
+                        {type === 'students' ? '👤' : '👨‍🏫'} Add Extra{' '}
+                        {type === 'students' ? 'Students' : 'Teachers/Staff'}
+                    </h3>
+                    <button className="modal-close" onClick={onClose}>✕</button>
                 </div>
+                <div className="modal-body">
+                    <p className="text-sm text-[var(--text-muted)] mb-3">
+                        Current: {currentUsed}/{currentLimit} {type}
+                    </p>
 
-                {error && (
-                    <div style={{
-                        background: '#FEF2F2', border: '1px solid #FECACA',
-                        borderRadius: 12, padding: '12px 16px', marginBottom: 16,
-                    }}>
-                        <p style={{ color: '#DC2626', fontSize: 13 }}>{error}</p>
-                    </div>
-                )}
+                    {addonInfo && addonInfo.maxAddon !== -1 && (
+                        <div className={clsx(
+                            'border rounded-lg p-3 mb-3 text-xs',
+                            addonInfo.remainingSlots === 0
+                                ? 'bg-[var(--color-danger-50)] border-[var(--color-danger-200)] text-[var(--color-danger-700)]'
+                                : 'bg-[var(--color-info-50)] border-[var(--color-info-200)] text-[var(--color-info-800)]'
+                        )}>
+                            {addonInfo.remainingSlots === 0
+                                ? `⚠️ Addon limit full (${addonInfo.currentExtra}/${addonInfo.maxAddon}). Please upgrade your plan.`
+                                : `📊 ${addonInfo.currentExtra}/${addonInfo.maxAddon} addon used — ${addonInfo.remainingSlots} slots remaining`
+                            }
+                        </div>
+                    )}
 
-                {noPackAvailable ? (
-                    <div style={{
-                        background: '#F8FAFC', borderRadius: 14,
-                        padding: 20, textAlign: 'center', marginBottom: 24,
-                    }}>
-                        <div style={{ fontSize: 32, marginBottom: 8 }}>🚫</div>
-                        <p style={{ fontWeight: 600, fontSize: 14, color: '#0F172A', marginBottom: 4 }}>
-                            Addon limit reached
+                    <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] rounded-lg p-3 mb-4">
+                        <p className="text-xs text-[var(--color-warning-800)]">
+                            💡 Add-on permanently increases your limit. Plan upgrade provides more capacity.
                         </p>
-                        <p style={{ fontSize: 12, color: '#64748B' }}>
-                            Is plan mein aur {type} add nahi ho sakte.
-                            Plan upgrade karo for more capacity.
-                        </p>
                     </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
-                        {packsToShow.map(([id, pack]) => {
-                            const count = (pack as any).students ?? (pack as any).teachers
-                            const fitsInSlots = remainingSlots === -1 || count <= remainingSlots
-                            const isSelected = selectedPack === id
 
-                            return (
-                                <button
-                                    key={id}
-                                    onClick={() => fitsInSlots && setSelectedPack(id)}
-                                    disabled={!fitsInSlots}
-                                    style={{
-                                        display: 'flex', alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        padding: '14px 16px', borderRadius: 14,
-                                        cursor: fitsInSlots ? 'pointer' : 'not-allowed',
-                                        border: isSelected && fitsInSlots
-                                            ? '2px solid #7C3AED'
-                                            : '1.5px solid #E2E8F0',
-                                        background: isSelected && fitsInSlots
-                                            ? '#F5F3FF'
-                                            : !fitsInSlots ? '#F8FAFC' : '#fff',
-                                        opacity: fitsInSlots ? 1 : 0.45,
-                                        textAlign: 'left',
-                                    }}
-                                >
-                                    <div>
-                                        <div style={{
-                                            fontWeight: 600, fontSize: 14,
-                                            color: fitsInSlots ? '#0F172A' : '#94A3B8',
-                                        }}>
-                                            +{count}{' '}
-                                            {type === 'students' ? 'Students' : 'Staff'}
-                                            {!fitsInSlots && (
-                                                <span style={{ fontSize: 11, color: '#EF4444', marginLeft: 6 }}>
-                                                    (limit exceed)
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div style={{ fontSize: 12, color: '#64748B', marginTop: 2 }}>
-                                            ₹{(pack as any).pricePerStudent ?? (pack as any).pricePerTeacher} per{' '}
-                                            {type === 'students' ? 'student' : 'staff'}
-                                        </div>
-                                    </div>
-                                    <div style={{
-                                        fontWeight: 700, fontSize: 18,
-                                        color: fitsInSlots ? '#7C3AED' : '#CBD5E1',
-                                    }}>
-                                        ₹{(pack as any).price}
-                                    </div>
-                                </button>
-                            )
-                        })}
-                    </div>
-                )}
+                    {error && (
+                        <div className="bg-[var(--color-danger-50)] border border-[var(--color-danger-200)] rounded-lg p-3 mb-4">
+                            <p className="text-sm text-[var(--color-danger-600)]">{error}</p>
+                        </div>
+                    )}
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            flex: 1, padding: 14, borderRadius: 12,
-                            border: '1.5px solid #E2E8F0', background: '#fff',
-                            cursor: 'pointer', fontSize: 14, color: '#64748B',
-                        }}
-                    >
+                    {noPackAvailable ? (
+                        <div className="bg-[var(--bg-subtle)] rounded-lg p-5 text-center mb-4">
+                            <div className="text-3xl mb-2">🚫</div>
+                            <p className="font-semibold text-sm text-[var(--text-primary)] mb-1">
+                                Addon limit reached
+                            </p>
+                            <p className="text-xs text-[var(--text-muted)]">
+                                No more {type} can be added in this plan. Please upgrade for more capacity.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                            {packsToShow.map(([id, pack]) => {
+                                const count = (pack as any).students ?? (pack as any).teachers
+                                const fitsInSlots = remainingSlots === -1 || count <= remainingSlots
+                                const isSelected = selectedPack === id
+
+                                return (
+                                    <button
+                                        key={id}
+                                        onClick={() => fitsInSlots && setSelectedPack(id)}
+                                        disabled={!fitsInSlots}
+                                        className={clsx(
+                                            'flex items-center justify-between p-3 rounded-lg border-2 text-left transition-all',
+                                            isSelected && fitsInSlots
+                                                ? 'border-[var(--color-violet-500)] bg-[var(--color-violet-50)]'
+                                                : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--color-violet-300)]',
+                                            !fitsInSlots && 'opacity-50 cursor-not-allowed bg-[var(--bg-muted)]'
+                                        )}
+                                    >
+                                        <div>
+                                            <div className={clsx(
+                                                'font-semibold text-sm',
+                                                fitsInSlots ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'
+                                            )}>
+                                                +{count}{' '}
+                                                {type === 'students' ? 'Students' : 'Staff'}
+                                                {!fitsInSlots && (
+                                                    <span className="text-[10px] text-[var(--color-danger-500)] ml-1">
+                                                        (limit exceed)
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-[var(--text-muted)] mt-0.5">
+                                                ₹{(pack as any).pricePerStudent ?? (pack as any).pricePerTeacher} per{' '}
+                                                {type === 'students' ? 'student' : 'staff'}
+                                            </div>
+                                        </div>
+                                        <div className={clsx(
+                                            'font-bold',
+                                            fitsInSlots ? 'text-[var(--color-violet-600)]' : 'text-[var(--text-muted)]'
+                                        )}>
+                                            ₹{(pack as any).price}
+                                        </div>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <button onClick={onClose} className="btn-ghost flex-1">
                         {noPackAvailable ? 'Close' : 'Cancel'}
                     </button>
-
                     {!noPackAvailable && (
                         <button
                             onClick={handleBuy}
                             disabled={buying}
-                            style={{
-                                flex: 2, padding: 14, borderRadius: 12,
-                                background: '#7C3AED', color: '#fff', border: 'none',
-                                cursor: buying ? 'not-allowed' : 'pointer',
-                                fontSize: 15, fontWeight: 600,
-                                opacity: buying ? 0.7 : 1,
-                            }}
+                            className="btn-primary flex-[2]"
                         >
-                            {buying ? 'Processing…' : 'Buy Add-on →'}
+                            {buying ? 'Processing…' : 'Buy Add-on'}
                         </button>
                     )}
                 </div>
@@ -1179,15 +982,13 @@ function RealClockCountdown({ targetDate, type }: { targetDate: string; type: 't
 
     if (timeLeft.isExpired) {
         return (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-200">
-                <span className="text-xs font-bold text-red-700">⚡ Expired</span>
-            </div>
+            <span className="badge badge-danger">Expired</span>
         )
     }
 
     const theme = type === 'trial'
-        ? { bg: 'var(--color-warning-50)', border: 'var(--color-warning-200)', digitBg: 'var(--color-warning-600)', labelColor: 'var(--color-warning-600)' }
-        : { bg: 'var(--color-success-50)', border: 'var(--color-success-200)', digitBg: 'var(--color-success-600)', labelColor: 'var(--color-success-600)' }
+        ? { bg: 'var(--color-warning-50)', border: 'var(--color-warning-200)', digitBg: 'var(--color-warning-600)', labelColor: 'var(--color-warning-700)' }
+        : { bg: 'var(--color-success-50)', border: 'var(--color-success-200)', digitBg: 'var(--color-success-600)', labelColor: 'var(--color-success-700)' }
 
     const parts = []
     if (timeLeft.days > 0) parts.push({ value: timeLeft.days, label: 'd' })
@@ -1198,28 +999,28 @@ function RealClockCountdown({ targetDate, type }: { targetDate: string; type: 't
     )
 
     return (
-        <div className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg"
-            style={{ background: theme.bg, border: `1px solid ${theme.border}` }}>
-            <span className="text-xs" style={{ color: theme.labelColor }}>🕐</span>
-            <div className="flex items-center gap-1">
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium border"
+            style={{ background: theme.bg, borderColor: theme.border }}>
+            <span style={{ color: theme.labelColor }}>🕐</span>
+            <div className="flex items-center gap-0.5">
                 {parts.map((part, idx) => (
                     <div key={part.label} className="flex items-center gap-0.5">
-                        <div className="flex items-center justify-center px-1.5 py-0.5 rounded min-w-[1.75rem]"
+                        <div className="flex items-center justify-center px-1.5 py-0.5 rounded"
                             style={{ background: theme.digitBg }}>
-                            <span className="text-xs font-bold tabular-nums text-white" style={{ lineHeight: 1 }}>
+                            <span className="text-[10px] font-bold tabular-nums text-white" style={{ lineHeight: 1 }}>
                                 {String(part.value).padStart(2, '0')}
                             </span>
                         </div>
-                        <span className="text-[0.625rem] font-semibold" style={{ color: theme.labelColor }}>
+                        <span className="text-[9px] font-semibold" style={{ color: theme.labelColor }}>
                             {part.label}
                         </span>
                         {idx < parts.length - 1 && (
-                            <span className="text-xs font-bold mx-0.5" style={{ color: theme.labelColor }}>:</span>
+                            <span className="text-[10px] font-bold mx-0.5" style={{ color: theme.labelColor }}>:</span>
                         )}
                     </div>
                 ))}
             </div>
-        </div>
+        </span>
     )
 }
 
@@ -1235,8 +1036,8 @@ function LimitBar({
     if (limit === -1) {
         return (
             <div className="flex items-center justify-between text-sm mb-3">
-                <span className="text-slate-600">{label}</span>
-                <span className="font-semibold text-emerald-600">
+                <span className="text-[var(--text-secondary)]">{label}</span>
+                <span className="font-semibold text-[var(--color-success-600)]">
                     {used.toLocaleString('en-IN')} / Unlimited
                 </span>
             </div>
@@ -1250,11 +1051,11 @@ function LimitBar({
     return (
         <div className="mb-4">
             <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-slate-600">{label}</span>
+                <span className="text-sm text-[var(--text-secondary)]">{label}</span>
                 <div className="flex items-center gap-2">
                     <span className={clsx(
                         'text-sm font-semibold',
-                        isHigh ? 'text-red-600' : isMid ? 'text-amber-600' : 'text-slate-700'
+                        isHigh ? 'text-[var(--color-danger-600)]' : isMid ? 'text-[var(--color-warning-600)]' : 'text-[var(--text-secondary)]'
                     )}>
                         {used.toLocaleString('en-IN')} / {limit.toLocaleString('en-IN')}
                     </span>
@@ -1262,25 +1063,25 @@ function LimitBar({
                         <button
                             onClick={onAddMore}
                             className={clsx(
-                                'px-2 py-0.5 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap',
-                                isHigh ? 'bg-red-600 text-white hover:bg-red-700'
-                                    : isMid ? 'bg-amber-500 text-white hover:bg-amber-600'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                'px-2 py-0.5 text-xs font-medium rounded transition-colors',
+                                isHigh ? 'btn-danger-solid btn-sm'
+                                    : isMid ? 'bg-[var(--color-warning-500)] text-white hover:bg-[var(--color-warning-600)] btn-sm'
+                                        : 'btn-secondary btn-sm'
                             )}
                         >
-                            {addMoreLabel || '+ Add More'}
+                            {addMoreLabel || '+ Add'}
                         </button>
                     )}
                 </div>
             </div>
-            <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-[var(--bg-muted)] rounded-full overflow-hidden">
                 <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${pct}%`, background: isHigh ? '#EF4444' : isMid ? '#F59E0B' : color }}
+                    style={{ width: `${pct}%`, background: isHigh ? 'var(--color-danger-500)' : isMid ? 'var(--color-warning-500)' : color }}
                 />
             </div>
             {isHigh && (
-                <p className="text-xs text-red-600 mt-1">
+                <p className="text-xs text-[var(--color-danger-600)] mt-1">
                     {limit - used <= 0
                         ? `Limit full! ${addMoreLabel || 'Add more'} to continue.`
                         : `Only ${limit - used} remaining!`}
@@ -1299,17 +1100,16 @@ function PriceDisplay({ planId, cycle }: { planId: PlanId; cycle: BillingCycle }
     const saved = getSavings(planId)
 
     return (
-        <div>
+        <div className="mb-3">
             <div className="flex items-baseline gap-1 mb-1">
-                <span className="text-4xl font-extrabold tracking-tight text-slate-900">
+                <span className="text-3xl font-bold text-[var(--text-primary)]">
                     ₹{bd.totalAmount.toLocaleString('en-IN')}
                 </span>
-                <span className="text-sm text-slate-500">/{cycle === 'monthly' ? 'mo' : 'yr'}</span>
+                <span className="text-sm text-[var(--text-muted)]">/{cycle === 'monthly' ? 'mo' : 'yr'}</span>
             </div>
             {cycle === 'yearly' && saved > 0 && (
-                <p className="text-xs text-emerald-600 mt-1">
-                    ₹{(plan.monthlyPrice * 12).toLocaleString('en-IN')} ki jagah —{' '}
-                    <strong>₹{saved.toLocaleString('en-IN')} bachao</strong>
+                <p className="text-xs text-[var(--color-success-600)]">
+                    Save ₹{saved.toLocaleString('en-IN')} vs monthly
                 </p>
             )}
         </div>
@@ -1322,20 +1122,20 @@ function PriceDisplay({ planId, cycle }: { planId: PlanId; cycle: BillingCycle }
 function PlanQuickStats({ planId }: { planId: PlanId }) {
     const plan = getPlan(planId)
     return (
-        <div className="bg-slate-50 rounded-lg px-3.5 py-3 mb-4 text-xs text-slate-600 space-y-2">
+        <div className="bg-[var(--bg-subtle)] rounded-lg px-3 py-2 mb-3 text-xs text-[var(--text-secondary)]">
             <div className="flex gap-3 flex-wrap">
-                <span>👤 {plan.maxStudents === -1 ? 'Unlimited' : plan.maxStudents} students</span>
-                <span>👨‍🏫 {plan.maxTeachers === -1 ? 'Unlimited' : plan.maxTeachers} teachers</span>
+                <span>👤 {plan.maxStudents === -1 ? '∞' : plan.maxStudents} students</span>
+                <span>👨‍🏫 {plan.maxTeachers === -1 ? '∞' : plan.maxTeachers} teachers</span>
             </div>
-            <div className="flex gap-3 flex-wrap">
-                <span>💳 {plan.freeCreditsPerMonth.toLocaleString('en-IN')} free credits/mo</span>
+            <div className="flex gap-3 flex-wrap mt-1">
+                <span>💳 {plan.freeCreditsPerMonth.toLocaleString('en-IN')} credits/mo</span>
                 <span>📦 {plan.modules.length} modules</span>
             </div>
             {plan.creditRolloverMonths === -1 && (
-                <div className="text-emerald-600 font-medium">♻️ Credits never expire</div>
+                <div className="text-[var(--color-success-600)] font-medium mt-1">♻️ Credits never expire</div>
             )}
             {plan.creditRolloverMonths > 0 && (
-                <div className="text-blue-600">♻️ Credits rollover {plan.creditRolloverMonths} months</div>
+                <div className="text-[var(--color-info-600)] mt-1">♻️ Credits rollover {plan.creditRolloverMonths} months</div>
             )}
         </div>
     )
@@ -1392,140 +1192,98 @@ function UpgradeModal({
     }
 
     return (
-        <div
-            onClick={e => { if (e.target === e.currentTarget && !busy) onCancel() }}
-            style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                padding: 16, zIndex: 9999,
-            }}
-        >
-            <div
-                onClick={e => e.stopPropagation()}
-                style={{
-                    background: '#fff', borderRadius: 20, padding: 28,
-                    width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto',
-                    boxShadow: '0 32px 80px rgba(0,0,0,0.4)', position: 'relative',
-                }}
-            >
-                <button
-                    onClick={() => { if (!busy) onCancel() }}
-                    disabled={busy}
-                    style={{
-                        position: 'absolute', top: 16, right: 16,
-                        width: 32, height: 32, borderRadius: '50%',
-                        border: '1px solid #E2E8F0', background: '#F8FAFC',
-                        cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, color: '#64748B',
-                    }}
-                >✕</button>
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget && !busy) onCancel() }}>
+            <div className="modal-panel modal-sm" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3 className="modal-title">
+                        {isCycleChange ? 'Switch Billing Cycle' : `Upgrade to ${plan.name}`}
+                    </h3>
+                    <button className="modal-close" onClick={() => { if (!busy) onCancel() }}>✕</button>
+                </div>
+                <div className="modal-body">
+                    <p className="text-sm text-[var(--text-muted)] mb-4">
+                        Free credits: {plan.freeCreditsPerMonth.toLocaleString('en-IN')}/month included
+                    </p>
 
-                <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, paddingRight: 40 }}>
-                    {isCycleChange ? 'Switch Billing Cycle' : `Upgrade to ${plan.name}`}
-                </h3>
-                <p style={{ fontSize: 13, color: '#64748B', marginBottom: 24 }}>
-                    Free credits: {plan.freeCreditsPerMonth.toLocaleString('en-IN')}/month included
-                </p>
+                    {loading && (
+                        <div className="flex justify-center py-8">
+                            <Spinner size="lg" />
+                        </div>
+                    )}
 
-                {loading && (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-                        <Spinner size="lg" />
-                    </div>
-                )}
+                    {error && !loading && (
+                        <div className="bg-[var(--color-danger-50)] border border-[var(--color-danger-200)] rounded-lg p-3 mb-4">
+                            <p className="text-sm text-[var(--color-danger-600)]">⚠️ {error}</p>
+                        </div>
+                    )}
 
-                {error && !loading && (
-                    <div style={{
-                        background: '#FEF2F2', border: '1px solid #FECACA',
-                        borderRadius: 12, padding: '14px 18px', marginBottom: 20,
-                    }}>
-                        <p style={{ color: '#DC2626', fontSize: 14 }}>⚠️ {error}</p>
-                    </div>
-                )}
-
-                {breakdown && !loading && (
-                    <>
-                        {breakdown.noPayment ? (
-                            <div style={{
-                                background: '#ECFDF5', border: '1px solid #A7F3D0',
-                                borderRadius: 12, padding: '16px 18px', marginBottom: 24,
-                            }}>
-                                <p style={{ fontWeight: 600, color: '#065F46', fontSize: 15, marginBottom: 4 }}>
-                                    ✅ Credit enough hai!
-                                </p>
-                                <p style={{ fontSize: 13, color: '#047857' }}>{breakdown.explanation}</p>
-                            </div>
-                        ) : (
-                            <div style={{
-                                background: '#F8FAFC', borderRadius: 12,
-                                padding: 18, marginBottom: 20, fontSize: 13,
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, color: '#64748B' }}>
-                                    <span>{plan.name} ({cycle})</span>
-                                    <span style={{ fontWeight: 500 }}>
-                                        ₹{breakdown.breakdown?.newPlanPrice?.toLocaleString('en-IN')}
-                                    </span>
+                    {breakdown && !loading && (
+                        <>
+                            {breakdown.noPayment ? (
+                                <div className="bg-[var(--color-success-50)] border border-[var(--color-success-200)] rounded-lg p-3 mb-4">
+                                    <p className="font-semibold text-sm text-[var(--color-success-800)] mb-1">
+                                        ✅ Sufficient credits available!
+                                    </p>
+                                    <p className="text-xs text-[var(--color-success-700)]">{breakdown.explanation}</p>
                                 </div>
-                                {breakdown.breakdown?.creditAmount > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#059669', marginBottom: 12 }}>
-                                        <span>Credit ({breakdown.breakdown?.daysRemaining} days)</span>
-                                        <span>− ₹{breakdown.breakdown?.creditAmount?.toLocaleString('en-IN')}</span>
-                                    </div>
-                                )}
-                                <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 12 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 18 }}>
-                                        <span>Total payable</span>
-                                        <span style={{ color: plan.color }}>
-                                            ₹{breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')}
+                            ) : (
+                                <div className="bg-[var(--bg-subtle)] rounded-lg p-3 mb-4 text-sm">
+                                    <div className="flex justify-between mb-2 text-[var(--text-muted)]">
+                                        <span>{plan.name} ({cycle})</span>
+                                        <span className="font-medium">
+                                            ₹{breakdown.breakdown?.newPlanPrice?.toLocaleString('en-IN')}
                                         </span>
                                     </div>
+                                    {breakdown.breakdown?.creditAmount > 0 && (
+                                        <div className="flex justify-between text-[var(--color-success-600)] mb-2">
+                                            <span>Credit ({breakdown.breakdown?.daysRemaining} days)</span>
+                                            <span>− ₹{breakdown.breakdown?.creditAmount?.toLocaleString('en-IN')}</span>
+                                        </div>
+                                    )}
+                                    <div className="border-t border-[var(--border)] pt-2">
+                                        <div className="flex justify-between font-bold">
+                                            <span className="text-[var(--text-secondary)]">Total payable</span>
+                                            <span style={{ color: plan.color }}>
+                                                ₹{breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-
-                        <div style={{ display: 'flex', gap: 12 }}>
-                            <button
-                                onClick={() => { if (!busy) onCancel() }}
-                                disabled={busy}
-                                style={{
-                                    flex: 1, padding: 14, borderRadius: 12,
-                                    border: '1.5px solid #E2E8F0', background: '#fff',
-                                    cursor: busy ? 'not-allowed' : 'pointer', fontSize: 14, color: '#64748B',
-                                }}
-                            >Cancel</button>
-
-                            {breakdown.noPayment ? (
-                                <button
-                                    onClick={handleFreeUpgradeClick}
-                                    disabled={applyingFree}
-                                    style={{
-                                        flex: 2, padding: 14, borderRadius: 12,
-                                        background: '#059669', color: '#fff', border: 'none',
-                                        cursor: applyingFree ? 'not-allowed' : 'pointer',
-                                        fontSize: 15, fontWeight: 600, opacity: applyingFree ? 0.7 : 1,
-                                    }}
-                                >{applyingFree ? 'Upgrading…' : 'Upgrade for free →'}</button>
-                            ) : (
-                                <button
-                                    onClick={() => {
-                                        if (!breakdown.orderId || paying) return
-                                        onPay(breakdown.orderId, breakdown.amount)
-                                    }}
-                                    disabled={paying || !breakdown.orderId}
-                                    style={{
-                                        flex: 2, padding: 14, borderRadius: 12,
-                                        background: plan.color, color: '#fff', border: 'none',
-                                        cursor: paying ? 'not-allowed' : 'pointer',
-                                        fontSize: 15, fontWeight: 600, opacity: paying ? 0.7 : 1,
-                                    }}
-                                >
-                                    {paying
-                                        ? 'Opening…'
-                                        : `Pay ₹${breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')} →`}
-                                </button>
                             )}
-                        </div>
-                    </>
-                )}
+                        </>
+                    )}
+                </div>
+                <div className="modal-footer">
+                    <button onClick={() => { if (!busy) onCancel() }} disabled={busy} className="btn-ghost flex-1">
+                        Cancel
+                    </button>
+                    {breakdown && !loading && (
+                        breakdown.noPayment ? (
+                            <button
+                                onClick={handleFreeUpgradeClick}
+                                disabled={applyingFree}
+                                className="btn-success flex-[2]"
+                                style={{ background: 'var(--color-success-600)', color: 'white' }}
+                            >
+                                {applyingFree ? 'Upgrading…' : 'Upgrade for free'}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => {
+                                    if (!breakdown.orderId || paying) return
+                                    onPay(breakdown.orderId, breakdown.amount)
+                                }}
+                                disabled={paying || !breakdown.orderId}
+                                className="btn-primary flex-[2]"
+                                style={{ background: plan.color }}
+                            >
+                                {paying
+                                    ? 'Processing…'
+                                    : `Pay ₹${breakdown.breakdown?.totalPayable?.toLocaleString('en-IN')}`}
+                            </button>
+                        )
+                    )}
+                </div>
             </div>
         </div>
     )
@@ -1549,7 +1307,6 @@ function SubscriptionInner() {
 
     const [showBuyCredits, setShowBuyCredits] = useState(false)
     const [showAddon, setShowAddon] = useState<'students' | 'teachers' | null>(null)
-    // ✅ NEW: storage modal state
     const [showStorageModal, setShowStorageModal] = useState(false)
 
     const fetchStatus = useCallback(() => {
@@ -1569,7 +1326,7 @@ function SubscriptionInner() {
     ) => {
         const loaded = await loadRazorpaySDK()
         if (!loaded) {
-            setAlert({ type: 'error', msg: 'Payment system load nahi hua. Please refresh.' })
+            setAlert({ type: 'error', msg: 'Payment system failed to load. Please refresh.' })
             setPaying(null)
             return
         }
@@ -1639,9 +1396,9 @@ function SubscriptionInner() {
             } else if (diff === 0) {
                 if (curCycle === cycle) return
                 if (cycle === 'yearly' && curCycle === 'monthly') setUpgradeModal(planId)
-                else setAlert({ type: 'error', msg: 'Yearly se monthly switch nahi ho sakta.' })
+                else setAlert({ type: 'error', msg: 'Cannot switch from Yearly to Monthly.' })
             } else {
-                setAlert({ type: 'error', msg: 'Downgrade ke liye support se contact karein.' })
+                setAlert({ type: 'error', msg: 'Contact support for downgrade.' })
             }
         } else {
             handleFreshSubscribe(planId)
@@ -1656,21 +1413,21 @@ function SubscriptionInner() {
 
     if (success) {
         return (
-            <div className="flex flex-col items-center justify-center py-16 px-5 text-center max-w-md mx-auto">
-                <div className="w-20 h-20 rounded-full bg-emerald-50 text-4xl flex items-center justify-center mb-5">🎉</div>
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Payment Successful!</h2>
-                <p className="text-slate-500 text-[15px] mb-6">
-                    <strong>{success.planName} Plan</strong> active ho gaya hai.
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center max-w-md mx-auto">
+                <div className="w-16 h-16 rounded-full bg-[var(--color-success-50)] text-3xl flex items-center justify-center mb-4">🎉</div>
+                <h2 className="text-xl font-bold text-[var(--text-primary)] mb-2">Payment Successful!</h2>
+                <p className="text-[var(--text-muted)] text-sm mb-4">
+                    <strong>{success.planName} Plan</strong> is now active.
                 </p>
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-left w-full">
-                    <p className="font-semibold text-sm text-amber-900 mb-1">⚠️ Re-login Required</p>
-                    <p className="text-[13px] text-amber-700">
-                        Naye plan ki features activate hone ke liye logout karein aur dobara login karein.
+                <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] rounded-lg p-3 mb-4 text-left w-full">
+                    <p className="font-semibold text-sm text-[var(--color-warning-800)] mb-1">⚠️ Re-login Required</p>
+                    <p className="text-xs text-[var(--color-warning-700)]">
+                        Please logout and login again to activate new plan features.
                     </p>
                 </div>
                 <button
                     onClick={() => signOut({ callbackUrl: '/login' })}
-                    className="w-full py-3.5 rounded-xl bg-indigo-600 text-white font-semibold text-[15px]"
+                    className="w-full py-3 rounded-lg btn-primary"
                 >
                     Logout & Login Again →
                 </button>
@@ -1679,7 +1436,7 @@ function SubscriptionInner() {
     }
 
     if (loading) {
-        return <div className="flex justify-center py-16"><Spinner size="lg" /></div>
+        return <div className="flex justify-center py-12"><Spinner size="lg" /></div>
     }
 
     const plans = Object.values(PLANS)
@@ -1687,8 +1444,8 @@ function SubscriptionInner() {
     const currentCycle = status?.billingCycle as BillingCycle | null
 
     return (
-        <div>
-            <PageHeader title="Subscription & Credits" subtitle="Plan, credits aur add-ons manage karein" />
+        <div className="portal-content-enter">
+            <PageHeader title="Subscription & Credits" subtitle="Manage your plan, credits, and add-ons" />
 
             {/* ── Modals ── */}
             {upgradeModal && (
@@ -1758,7 +1515,6 @@ function SubscriptionInner() {
                 </Portal>
             )}
 
-            {/* ✅ NEW: Storage modal */}
             {showStorageModal && (
                 <StorageAddonModal
                     currentStorage={status?.storage}
@@ -1773,21 +1529,21 @@ function SubscriptionInner() {
 
             {/* Alert */}
             {alert && (
-                <div className="mb-5">
+                <div className="mb-4">
                     <Alert type={alert.type} message={alert.msg} onClose={() => setAlert(null)} />
                 </div>
             )}
 
             {/* Blocked module warning */}
             {blockedModule && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5 flex items-start gap-3">
+                <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] rounded-lg p-3 mb-4 flex items-start gap-3">
                     <span className="text-xl">🔒</span>
                     <div>
-                        <p className="font-semibold text-sm text-amber-900 mb-0.5">
-                            {getModuleLabel(blockedModule)} module locked hai
+                        <p className="font-semibold text-sm text-[var(--color-warning-800)] mb-0.5">
+                            {getModuleLabel(blockedModule)} module is locked
                         </p>
-                        <p className="text-[13px] text-amber-700">
-                            Yeh feature aapke current plan mein nahi hai.
+                        <p className="text-xs text-[var(--color-warning-700)]">
+                            This feature is not available in your current plan.
                         </p>
                     </div>
                 </div>
@@ -1796,30 +1552,30 @@ function SubscriptionInner() {
             {/* Status banner */}
             {status && (
                 <div className={clsx(
-                    'rounded-xl p-4 mb-6 border',
-                    status.isPaid ? 'bg-emerald-50 border-emerald-200'
-                        : status.isInTrial ? 'bg-blue-50 border-blue-200'
-                            : 'bg-red-50 border-red-200'
+                    'rounded-lg p-4 mb-4 border',
+                    status.isPaid ? 'bg-[var(--color-success-50)] border-[var(--color-success-200)]'
+                        : status.isInTrial ? 'bg-[var(--color-info-50)] border-[var(--color-info-200)]'
+                            : 'bg-[var(--color-danger-50)] border-[var(--color-danger-200)]'
                 )}>
-                    <div className="flex items-start gap-3.5">
-                        <span className="text-2xl flex-shrink-0">
+                    <div className="flex items-start gap-3">
+                        <span className="text-xl flex-shrink-0">
                             {status.isPaid
-                                ? <Check size={14} className="text-green-600" />
+                                ? <Check size={16} className="text-[var(--color-success-600)]" />
                                 : status.isInTrial ? '⏱️' : '❌'}
                         </span>
                         <div className="flex-1">
                             {status.isPaid && (
                                 <>
-                                    <p className="font-semibold text-sm text-emerald-800 mb-2">
+                                    <p className="font-semibold text-sm text-[var(--color-success-800)] mb-1">
                                         {status.planName} Plan — Active
                                         {currentCycle && (
-                                            <span className="font-normal text-emerald-600">
+                                            <span className="font-normal text-[var(--color-success-600)]">
                                                 {' '}({currentCycle === 'monthly' ? 'Monthly' : 'Yearly'})
                                             </span>
                                         )}
                                     </p>
                                     <div className="flex items-center gap-3 flex-wrap">
-                                        <p className="text-[13px] text-emerald-700">
+                                        <p className="text-xs text-[var(--color-success-700)]">
                                             Valid till: {formatDate(status.validTill)}
                                         </p>
                                         <RealClockCountdown targetDate={status.validTill} type="subscription" />
@@ -1828,12 +1584,12 @@ function SubscriptionInner() {
                             )}
                             {status.isInTrial && (
                                 <>
-                                    <p className="font-semibold text-sm text-blue-800 mb-2">
+                                    <p className="font-semibold text-sm text-[var(--color-info-800)] mb-1">
                                         Free Trial — {status.daysLeft} days remaining
                                     </p>
                                     <div className="flex items-center gap-3 flex-wrap">
-                                        <p className="text-[13px] text-blue-700">
-                                            Subscribe and continue after trial
+                                        <p className="text-xs text-[var(--color-info-700)]">
+                                            Subscribe to continue after trial
                                         </p>
                                         <RealClockCountdown
                                             targetDate={status.trialEndsAt || status.validTill}
@@ -1844,8 +1600,8 @@ function SubscriptionInner() {
                             )}
                             {status.isExpired && (
                                 <>
-                                    <p className="font-semibold text-sm text-red-800 mb-0.5">Access Blocked</p>
-                                    <p className="text-[13px] text-red-700">Neeche plan choose karein</p>
+                                    <p className="font-semibold text-sm text-[var(--color-danger-800)] mb-0.5">Access Blocked</p>
+                                    <p className="text-xs text-[var(--color-danger-700)]">Please choose a plan below</p>
                                 </>
                             )}
                         </div>
@@ -1853,37 +1609,32 @@ function SubscriptionInner() {
                 </div>
             )}
 
-            {/* ── Credit Balance Card ── */}
-            {status?.credits && (
-                <CreditBalanceCard
-                    credits={status.credits}
-                    onBuyCredits={() => setShowBuyCredits(true)}
-                />
-            )}
-
-            {/* ✅ NEW: Storage Card — always show if status exists */}
-            {status && (
-                <StorageCard
-                    storage={status.storage ?? null}
-                    onManageStorage={() => setShowStorageModal(true)}
-                />
-            )}
+            {/* ── Credit & Storage Cards ── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {status?.credits && (
+                    <CreditBalanceCard
+                        credits={status.credits}
+                        onBuyCredits={() => setShowBuyCredits(true)}
+                    />
+                )}
+                {status && (
+                    <StorageCard
+                        storage={status.storage ?? null}
+                        onManageStorage={() => setShowStorageModal(true)}
+                    />
+                )}
+            </div>
 
             {/* ── Usage Limits ── */}
             {status?.limits && (
-                <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-bold text-slate-900 text-base">📊 Usage & Limits</h3>
+                <div className="card p-4 mb-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-sm text-[var(--text-primary)]">Usage & Limits</h3>
                         <div className="flex items-center gap-2">
                             {status.addons?.canPurchaseStudents && (
                                 <button
                                     onClick={() => setShowAddon('students')}
-                                    className={clsx(
-                                        'flex items-center gap-1.5 px-3 py-1.5',
-                                        'bg-indigo-50 border border-indigo-200',
-                                        'text-indigo-700 text-xs font-semibold',
-                                        'rounded-lg hover:bg-indigo-100 transition-colors'
-                                    )}
+                                    className="btn-secondary btn-sm"
                                 >
                                     👤 +Students
                                 </button>
@@ -1891,12 +1642,7 @@ function SubscriptionInner() {
                             {status.addons?.canPurchaseTeachers && (
                                 <button
                                     onClick={() => setShowAddon('teachers')}
-                                    className={clsx(
-                                        'flex items-center gap-1.5 px-3 py-1.5',
-                                        'bg-violet-50 border border-violet-200',
-                                        'text-violet-700 text-xs font-semibold',
-                                        'rounded-lg hover:bg-violet-100 transition-colors'
-                                    )}
+                                    className="btn-secondary btn-sm"
                                 >
                                     👨‍🏫 +Teachers
                                 </button>
@@ -1908,7 +1654,7 @@ function SubscriptionInner() {
                         label="Students"
                         used={status.limits.students?.used ?? 0}
                         limit={status.limits.students?.limit ?? 0}
-                        color="#4F46E5"
+                        color="var(--color-primary-500)"
                         onAddMore={
                             status.addons?.canPurchaseStudents
                                 ? () => setShowAddon('students')
@@ -1921,7 +1667,7 @@ function SubscriptionInner() {
                         label="Teachers & Staff"
                         used={status.limits.teachers?.used ?? 0}
                         limit={status.limits.teachers?.limit ?? 0}
-                        color="#7C3AED"
+                        color="var(--color-violet-600)"
                         onAddMore={
                             status.addons?.canPurchaseTeachers
                                 ? () => setShowAddon('teachers')
@@ -1932,16 +1678,16 @@ function SubscriptionInner() {
 
                     {((Number(status.addons?.extraStudents) > 0)
                         || (Number(status.addons?.extraTeachers) > 0)) && (
-                            <div className="mt-3 pt-3 border-t border-slate-100">
-                                <p className="text-xs font-medium text-slate-500 mb-1">Active Add-ons:</p>
-                                <div className="flex gap-3 flex-wrap">
+                            <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                                <p className="text-[11px] font-medium text-[var(--text-muted)] mb-2">Active Add-ons:</p>
+                                <div className="flex gap-2 flex-wrap">
                                     {Number(status.addons?.extraStudents) > 0 && (
-                                        <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
+                                        <span className="text-xs text-[var(--color-success-700)] bg-[var(--color-success-50)] px-2 py-1 rounded">
                                             ✅ +{status.addons.extraStudents} students
                                         </span>
                                     )}
                                     {Number(status.addons?.extraTeachers) > 0 && (
-                                        <span className="text-xs text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">
+                                        <span className="text-xs text-[var(--color-success-700)] bg-[var(--color-success-50)] px-2 py-1 rounded">
                                             ✅ +{status.addons.extraTeachers} teachers
                                         </span>
                                     )}
@@ -1953,13 +1699,13 @@ function SubscriptionInner() {
                         const nextPlan = status.nextPlan
                         if (!nextPlan) return null
                         return (
-                            <div className="mt-4 pt-4 border-t border-slate-100">
-                                <p className="text-xs text-slate-500 mb-2">
-                                    💡 <strong>{nextPlan.name}</strong> plan mein upgrade karein for more limits
+                            <div className="mt-3 pt-3 border-t border-[var(--border)]">
+                                <p className="text-xs text-[var(--text-muted)] mb-2">
+                                    💡 <strong>{nextPlan.name}</strong> plan for more limits
                                 </p>
                                 <button
                                     onClick={() => setUpgradeModal(nextPlan.id)}
-                                    className="text-xs font-semibold text-indigo-600 hover:underline"
+                                    className="text-xs font-semibold text-[var(--color-primary-600)] hover:underline"
                                 >
                                     Upgrade to {nextPlan.name} →
                                 </button>
@@ -1970,22 +1716,22 @@ function SubscriptionInner() {
             )}
 
             {/* Billing toggle */}
-            <div className="flex justify-center mb-8">
-                <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+            <div className="flex justify-center mb-6">
+                <div className="flex bg-[var(--bg-muted)] rounded-lg p-1 gap-1">
                     {(['monthly', 'yearly'] as BillingCycle[]).map(c => (
                         <button
                             key={c}
                             onClick={() => setCycle(c)}
                             className={clsx(
-                                'px-5 py-2 rounded-lg text-sm font-medium transition-all',
+                                'px-4 py-2 rounded-md text-sm font-medium transition-all',
                                 cycle === c
-                                    ? 'bg-white text-slate-800 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-700'
+                                    ? 'bg-[var(--bg-card)] text-[var(--text-primary)]'
+                                    : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
                             )}
                         >
                             {c === 'monthly' ? 'Monthly' : (
                                 <span>Yearly{' '}
-                                    <span className="text-[11px] text-emerald-600 font-semibold">2 months free</span>
+                                    <span className="text-[10px] text-[var(--color-success-600)] font-medium ml-1">2 months free</span>
                                 </span>
                             )}
                         </button>
@@ -1994,7 +1740,8 @@ function SubscriptionInner() {
             </div>
 
             {/* Plan cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+            {/* Plan cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
                 {plans.map(plan => {
                     const curRank = currentPlanId ? getPlanRank(currentPlanId) : -1
                     const thisRank = getPlanRank(plan.id)
@@ -2017,104 +1764,111 @@ function SubscriptionInner() {
                         <div
                             key={plan.id}
                             className={clsx(
-                                'bg-white rounded-2xl flex flex-col transition-all relative',
+                                'card flex flex-col transition-all relative',
                                 isDisabled && 'opacity-60'
                             )}
                             style={{
                                 border: isHL ? `2px solid ${plan.color}`
-                                    : isPop ? '1.5px solid #818CF8'
-                                        : '1px solid #E2E8F0',
+                                    : isPop ? '1.5px solid var(--color-primary-400)'
+                                        : '1px solid var(--border)',
                                 boxShadow: isHL
-                                    ? `0 0 0 5px ${plan.color}15, 0 8px 32px ${plan.color}18`
+                                    ? `0 0 0 5px ${plan.color}15, 0 8px 24px ${plan.color}18`
                                     : isPop ? '0 8px 24px rgba(99,102,241,0.1)'
-                                        : 'none',
-                                padding: '28px 24px',
+                                        : 'var(--shadow-sm)',
                             }}
                         >
+                            {/* Badge - Inside card, not cut off */}
                             {(isHL || isPop) && (
                                 <div
-                                    className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-white text-xs font-semibold px-4 py-1 rounded-full whitespace-nowrap"
-                                    style={{ background: isHL ? plan.color : '#4F46E5' }}
+                                    className="text-center text-white text-[10px] font-semibold px-3 py-1.5 rounded-t-lg whitespace-nowrap"
+                                    style={{
+                                        background: isHL
+                                            ? `linear-gradient(135deg, ${plan.color}, ${plan.color}dd)`
+                                            : 'linear-gradient(135deg, var(--color-primary-600), var(--color-primary-700))',
+                                        marginBottom: '1px'
+                                    }}
                                 >
                                     {isHL ? '⭐ Recommended' : '🔥 Most Popular'}
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between mb-1">
-                                <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
-                                {isExactlyCurrent && (
-                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                        Current
-                                    </span>
-                                )}
-                            </div>
+                            <div className="p-4 flex-1">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="font-bold text-[var(--text-primary)]">{plan.name}</h3>
+                                    {isExactlyCurrent && (
+                                        <span className="badge badge-success">Current</span>
+                                    )}
+                                </div>
 
-                            <p className="text-xs font-medium mb-4" style={{ color: plan.color }}>
-                                {plan.tagline}
-                            </p>
+                                <p className="text-xs font-medium mb-2" style={{ color: plan.color }}>
+                                    {plan.tagline}
+                                </p>
 
-                            <div className="mb-2">
                                 <PriceDisplay planId={plan.id} cycle={cycle} />
+
+                                <p className="text-xs text-[var(--text-muted)] leading-relaxed mb-3">
+                                    {plan.description}
+                                </p>
+
+                                <PlanQuickStats planId={plan.id} />
+
+                                <ul className="space-y-1.5 mb-4 flex-1">
+                                    {plan.features.map(f => (
+                                        <li key={f} className="flex items-start gap-2 text-xs">
+                                            <span className="text-[var(--color-success-500)] font-bold flex-shrink-0 mt-0.5">✓</span>
+                                            <span className="text-[var(--text-secondary)]">{f}</span>
+                                        </li>
+                                    ))}
+                                    {plan.notIncluded?.map(f => (
+                                        <li key={f} className="flex items-start gap-2 text-xs opacity-40">
+                                            <span className="flex-shrink-0 mt-0.5">✕</span>
+                                            <span>{f}</span>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
 
-                            <p className="text-[13px] text-slate-500 leading-relaxed mb-4">
-                                {plan.description}
-                            </p>
-
-                            <PlanQuickStats planId={plan.id} />
-
-                            <ul className="space-y-2 mb-6 flex-1">
-                                {plan.features.map(f => (
-                                    <li key={f} className="flex items-start gap-2 text-[13px] leading-snug">
-                                        <span className="text-emerald-500 font-bold flex-shrink-0 mt-0.5">✓</span>
-                                        <span className="text-slate-700">{f}</span>
-                                    </li>
-                                ))}
-                                {plan.notIncluded?.map(f => (
-                                    <li key={f} className="flex items-start gap-2 text-[13px] leading-snug opacity-40">
-                                        <span className="flex-shrink-0 mt-0.5">✕</span>
-                                        <span>{f}</span>
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <button
-                                onClick={() => !isDisabled && handleSubscribe(plan.id)}
-                                disabled={isDisabled || paying === plan.id}
-                                className="w-full py-3 rounded-xl text-[15px] font-semibold transition-all"
-                                style={
-                                    isDisabled
-                                        ? { background: '#F1F5F9', color: '#94A3B8', cursor: 'default', border: 'none' }
-                                        : isHL || isPop
-                                            ? { background: plan.color, color: '#fff', border: 'none', cursor: 'pointer' }
-                                            : { background: 'transparent', color: plan.color, border: `1.5px solid ${plan.color}`, cursor: 'pointer' }
-                                }
-                            >
-                                {paying === plan.id ? 'Processing…'
-                                    : isExactlyCurrent ? '✓ Current Plan'
-                                        : isCycleDowngrade ? 'Not Available'
-                                            : isCycleUpgrade ? 'Switch to Yearly →'
-                                                : isDown ? 'Contact Support'
-                                                    : isUpgrade ? `Upgrade to ${plan.name} →`
-                                                        : `Get ${plan.name} →`}
-                            </button>
+                            <div className="p-4 pt-0">
+                                <button
+                                    onClick={() => !isDisabled && handleSubscribe(plan.id)}
+                                    disabled={isDisabled || paying === plan.id}
+                                    className="w-full py-2.5 rounded-lg text-sm font-semibold transition-all"
+                                    style={
+                                        isDisabled
+                                            ? { background: 'var(--bg-muted)', color: 'var(--text-muted)', cursor: 'default', border: 'none' }
+                                            : isHL || isPop
+                                                ? { background: plan.color, color: '#fff', border: 'none', cursor: 'pointer' }
+                                                : { background: 'transparent', color: plan.color, border: `1.5px solid ${plan.color}`, cursor: 'pointer' }
+                                    }
+                                >
+                                    {paying === plan.id ? 'Processing…'
+                                        : isExactlyCurrent ? '✓ Current Plan'
+                                            : isCycleDowngrade ? 'Not Available'
+                                                : isCycleUpgrade ? 'Switch to Yearly →'
+                                                    : isDown ? 'Contact Support'
+                                                        : isUpgrade ? `Upgrade to ${plan.name} →`
+                                                            : `Get ${plan.name} →`}
+                                </button>
+                            </div>
                         </div>
                     )
                 })}
             </div>
 
-            <div className="text-center mt-7 text-[13px] text-slate-400 space-y-1">
+            <div className="text-center text-xs text-[var(--text-muted)] mb-6">
                 <p>Secure payment by Razorpay · Cancel anytime</p>
             </div>
 
             {/* Scheduled cancel banner */}
             {status?.isScheduledCancel && (
-                <div className="mt-7 bg-amber-50 border border-amber-200 rounded-xl p-5">
+                <div className="bg-[var(--color-warning-50)] border border-[var(--color-warning-200)] rounded-lg p-4 mb-4">
                     <div className="flex items-start gap-3">
                         <span className="text-xl">⏳</span>
                         <div className="flex-1">
-                            <p className="font-semibold text-sm text-amber-900 mb-1">Cancellation Scheduled</p>
-                            <p className="text-[13px] text-amber-700">
+                            <p className="font-semibold text-sm text-[var(--color-warning-800)] mb-1">
+                                Cancellation Scheduled
+                            </p>
+                            <p className="text-xs text-[var(--color-warning-700)]">
                                 Your {status.planName} plan will end on{' '}
                                 <strong>{formatDate(status.scheduledCancelAt!)}</strong>.
                             </p>
@@ -2128,7 +1882,7 @@ function SubscriptionInner() {
                                     fetchStatus()
                                 }
                             }}
-                            className="px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-xl"
+                            className="px-3 py-2 bg-[var(--color-warning-600)] text-white text-xs font-semibold rounded-lg hover:bg-[var(--color-warning-700)] transition-colors"
                         >
                             Undo Cancel
                         </button>
@@ -2149,7 +1903,7 @@ function SubscriptionInner() {
 
 export default function SubscriptionPage() {
     return (
-        <Suspense fallback={<div className="flex justify-center py-16"><Spinner size="lg" /></div>}>
+        <Suspense fallback={<div className="flex justify-center py-12"><Spinner size="lg" /></div>}>
             <SubscriptionInner />
         </Suspense>
     )
