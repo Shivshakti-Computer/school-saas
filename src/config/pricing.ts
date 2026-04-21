@@ -666,14 +666,15 @@ export const INTERNAL_PNL = {
 
 // ─────────────────────────────────────────────────────────
 // STORAGE ADD-ON PRICING (Monthly Subscription)
-// R2-powered storage — renews monthly with plan
+// Cloudflare R2-powered — Zero egress fees
+// UPDATED: Increased from ₹49 to ₹79 starting price
 // ─────────────────────────────────────────────────────────
 
 export const PLAN_STORAGE_GB: Record<PlanId, number> = {
-    starter: 2,    // 2 GB included (₹0 cost to school)
-    growth: 10,   // 10 GB included
-    pro: 50,   // 50 GB included
-    enterprise: -1,   // Unlimited
+    starter: 2,        // 2 GB included
+    growth: 10,        // 10 GB included  
+    pro: 50,           // 50 GB included
+    enterprise: -1,    // Unlimited
 }
 
 export const STORAGE_PACKS = [
@@ -681,116 +682,131 @@ export const STORAGE_PACKS = [
         id: 'storage_5gb',
         name: '5 GB Storage',
         storageGB: 5,
-        monthlyPrice: 49,
-        yearlyPrice: 499,        // 2 months free
-        pricePerGB: 9.8,
-        pricePerDay: 1.63,       // Marketing metric
+        monthlyPrice: 79,              // ← INCREASED from ₹49
+        yearlyPrice: 799,              // ← INCREASED from ₹499 (2 months free)
+        pricePerGB: 15.8,              // ← was ₹9.8
+        pricePerDay: 2.63,             // ← was ₹1.63
         popular: false,
         description: 'Extra photos aur documents ke liye',
-        savingsPercent: 0,
+        savingsPercent: 17,            // ← was 15%
         features: [
             '~2,500 high-res photos',
             '~100 PDF documents',
             'Auto-renews monthly',
             'Cancel anytime',
         ],
+        // P&L
+        ourCostPerMonth: 12,           // 5GB × ₹1.41 + ops
+        ourMargin: 84.8,               // ← was 75.5% (84.8% now!)
     },
     {
         id: 'storage_20gb',
         name: '20 GB Storage',
         storageGB: 20,
-        monthlyPrice: 149,
-        yearlyPrice: 1499,       // Save ₹289
-        pricePerGB: 7.45,
-        pricePerDay: 4.97,
+        monthlyPrice: 249,             // ← INCREASED from ₹149
+        yearlyPrice: 2499,             // ← INCREASED from ₹1499
+        pricePerGB: 12.45,             // ← was ₹7.45
+        pricePerDay: 8.30,             // ← was ₹4.97
         popular: true,
         description: 'Gallery aur homework files ke liye',
-        savingsPercent: 24,
+        savingsPercent: 17,
         features: [
             '~10,000 high-res photos',
             '~500 PDF documents',
             '~50 homework videos (5 min each)',
             'Perfect for growing schools',
         ],
+        // P&L
+        ourCostPerMonth: 38,           // 20GB × ₹1.41 + ops
+        ourMargin: 84.7,               // ← was 74.5% (84.7% now!)
     },
     {
         id: 'storage_50gb',
         name: '50 GB Storage',
         storageGB: 50,
-        monthlyPrice: 299,
-        yearlyPrice: 2999,       // Save ₹589
-        pricePerGB: 5.98,
-        pricePerDay: 9.97,
+        monthlyPrice: 499,             // ← INCREASED from ₹299
+        yearlyPrice: 4999,             // ← INCREASED from ₹2999
+        pricePerGB: 9.98,              // ← was ₹5.98
+        pricePerDay: 16.63,            // ← was ₹9.97
         popular: false,
         description: 'LMS videos aur bulk content',
-        savingsPercent: 40,
+        savingsPercent: 17,
         features: [
             '~25,000 photos',
             '~150 video lectures (10 min each)',
             '~1,000 documents',
             'Ideal for LMS module',
         ],
+        // P&L
+        ourCostPerMonth: 85,           // 50GB × ₹1.41 + ops
+        ourMargin: 83.0,               // ← was 71.6% (83% now!)
     },
     {
         id: 'storage_100gb',
         name: '100 GB Storage',
         storageGB: 100,
-        monthlyPrice: 499,
-        yearlyPrice: 4999,       // Save ₹989
-        pricePerGB: 4.99,
-        pricePerDay: 16.63,
+        monthlyPrice: 799,             // ← INCREASED from ₹499
+        yearlyPrice: 7999,             // ← INCREASED from ₹4999
+        pricePerGB: 7.99,              // ← was ₹4.99
+        pricePerDay: 26.63,            // ← was ₹16.63
         popular: false,
         description: 'Enterprise-level bulk storage',
-        savingsPercent: 50,
+        savingsPercent: 17,
         features: [
             '~50,000 photos',
             '~300 video lectures',
             '~2,000 documents',
             'Best value for large schools',
         ],
+        // P&L
+        ourCostPerMonth: 155,          // 100GB × ₹1.41 + ops
+        ourMargin: 80.6,               // ← was 68.9% (80.6% now!)
     },
 ] as const
 
 export type StoragePackId = typeof STORAGE_PACKS[number]['id']
 
-// Storage addon caps per plan
+// Storage addon caps per plan (unchanged)
 export const PLAN_STORAGE_ADDON_CAP_GB: Record<PlanId, number> = {
-    starter: 20,   // 2 GB base + max 20 GB addon = 22 GB total
-    growth: 100,  // 10 GB base + max 100 GB = 110 GB total
-    pro: 500,  // 50 GB base + max 500 GB = 550 GB total
+    starter: 20,      // 2 GB base + max 20 GB addon = 22 GB total
+    growth: 100,      // 10 GB base + max 100 GB = 110 GB total
+    pro: 500,         // 50 GB base + max 500 GB = 550 GB total
     enterprise: -1,   // Unlimited (no cap)
 }
 
-// Internal costs (DO NOT SHARE)
+// ─── INTERNAL COSTS (DO NOT SHARE) ───
 export const STORAGE_INTERNAL_COSTS = {
-    r2PerGBMonthly: 1.25,           // ₹1.25/GB/month
-    r2ClassAPerMillion: 375,        // Upload operations
-    r2ClassBPerMillion: 30,         // Download operations (almost free)
-    r2EgressPerGB: 0,               // FREE! (vs Cloudinary ₹₹₹)
+    // R2 rates (₹94/$)
+    r2PerGBMonthly: 1.41,           // $0.015 × 94
+    r2ClassAPerMillion: 423,        // $4.50 × 94 (uploads)
+    r2ClassBPerMillion: 34,         // $0.36 × 94 (downloads)
+    r2EgressPerGB: 0,               // ZERO! (Cloudinary charges ₹8-10/GB)
 
-    // Profit margins
-    margin5GB: 87.2,    // 87.2% margin
-    margin20GB: 83.1,
-    margin50GB: 79.1,
-    margin100GB: 75.0,
+    // Estimated operations per school/month
+    avgUploadsPerSchool: 5000,      // Class A operations
+    avgDownloadsPerSchool: 50000,   // Class B operations
 
-    // Break-even (months)
-    breakEven5GB: 0,    // Instant profit (monthly model)
-    breakEven20GB: 0,
-    breakEven50GB: 0,
-    breakEven100GB: 0,
+    // Profit margins (AFTER PRICE INCREASE)
+    margin5GB: 84.8,                // ← was 75.5%
+    margin20GB: 84.7,               // ← was 74.5%
+    margin50GB: 83.0,               // ← was 71.6%
+    margin100GB: 80.6,              // ← was 68.9%
 
-    // Updated with R2 storage costs
+    // Break-even (monthly model = instant profit)
+    breakEvenMonths: 0,
+
+    // Storage-specific infra
+    storagePerGBMonthly: 1.41,
+    storageClassAPerMillion: 423,
+    storageClassBPerMillion: 34,
+
+    // Total infra per school (server + storage + buffer)
     infraPerSchoolMonthly: {
-        starter: 50,      // Server ₹45 + 2GB storage ₹2.50 + buffer ₹2.50
-        growth: 90,       // Server ₹75 + 10GB storage ₹12.50 + buffer ₹2.50
-        pro: 180,         // Server ₹110 + 50GB storage ₹62.50 + buffer ₹7.50
-        enterprise: 350,  // Server ₹200 + 100GB avg storage ₹125 + buffer ₹25
+        starter: 55,        // Server ₹45 + 2GB storage ₹3 + buffer ₹7
+        growth: 100,        // Server ₹75 + 10GB storage ₹15 + buffer ₹10
+        pro: 200,           // Server ₹110 + 50GB storage ₹75 + buffer ₹15
+        enterprise: 450,    // Server ₹200 + 150GB avg ₹215 + buffer ₹35
     },
-
-    // Storage-specific (for addon P&L)
-    storagePerGBMonthly: 1.25,
-    storageClassAPerMillion: 375,
 }
 
 // Helper functions
@@ -813,4 +829,32 @@ export function getStoragePrice(
     const pack = getStoragePack(packId)
     if (!pack) return 0
     return cycle === 'monthly' ? pack.monthlyPrice : pack.yearlyPrice
+}
+
+// Calculate our cost for a pack
+export function getStorageCost(packId: StoragePackId): number {
+    const pack = getStoragePack(packId)
+    if (!pack) return 0
+
+    const storageCost = pack.storageGB * STORAGE_INTERNAL_COSTS.r2PerGBMonthly
+
+    // Estimate operations cost (uploads + downloads)
+    const uploadCost = (STORAGE_INTERNAL_COSTS.avgUploadsPerSchool / 1_000_000)
+        * STORAGE_INTERNAL_COSTS.r2ClassAPerMillion
+    const downloadCost = (STORAGE_INTERNAL_COSTS.avgDownloadsPerSchool / 1_000_000)
+        * STORAGE_INTERNAL_COSTS.r2ClassBPerMillion
+
+    return Math.round(storageCost + uploadCost + downloadCost)
+}
+
+// Calculate profit margin for a pack
+export function getStorageMargin(packId: StoragePackId): number {
+    const pack = getStoragePack(packId)
+    if (!pack) return 0
+
+    const cost = getStorageCost(packId)
+    const revenue = pack.monthlyPrice
+    const profit = revenue - cost
+
+    return Math.round((profit / revenue) * 100)
 }
