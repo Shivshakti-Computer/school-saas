@@ -184,8 +184,11 @@ export async function uploadFormFile(
 
   if (STORAGE_PROVIDER === 'r2') {
     const contentType = file.type || getContentType(file.name)
+    
+    // ✅ FIX: generateR2Key already adds tenantId internally
+    // So just pass folder name, NOT `${tenantId}/folder`
     const key = tenantId
-      ? generateR2Key(tenantId, folder, file.name)
+      ? generateR2Key(tenantId, folder, file.name)  // ✅ No manual prefix
       : `school-saas/${folder}/${Date.now()}_${file.name}`
 
     const result = await uploadToR2(buffer, key, contentType)

@@ -1,5 +1,7 @@
 // FILE: src/components/layouts/SidebarLayout.tsx
-// COMPLETE FILE — No search bar, modern & attractive sidebar
+// ═══════════════════════════════════════════════════════════
+// ✅ FIXED: Proper logo error handling + Session re-render
+// ═══════════════════════════════════════════════════════════
 
 'use client'
 
@@ -27,7 +29,7 @@ import { ChatWidget } from '../marketing/ChatWidget'
 import { usePortalTheme } from '@/hooks/usePortalTheme'
 
 /* ─────────────────────────────────────────────────────────
-   ICON MAP — exact same as before
+   ICON MAP
 ───────────────────────────────────────────────────────── */
 const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Users, CheckSquare, CreditCard, BookOpen, Bell,
@@ -39,7 +41,7 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
 }
 
 /* ─────────────────────────────────────────────────────────
-   DASH PATHS — exact same as before
+   DASH PATHS
 ───────────────────────────────────────────────────────── */
 const DASH_PATHS: Record<string, string> = {
   superadmin: '/superadmin',
@@ -51,7 +53,7 @@ const DASH_PATHS: Record<string, string> = {
 }
 
 /* ─────────────────────────────────────────────────────────
-   ROLE CONFIG — enhanced with gradient colors
+   ROLE CONFIG
 ───────────────────────────────────────────────────────── */
 function getRoleConfig(role: string) {
   switch (role) {
@@ -107,7 +109,7 @@ function getRoleConfig(role: string) {
 }
 
 /* ─────────────────────────────────────────────────────────
-   NAV ITEM — Compact with better space utilization
+   NAV ITEM
 ───────────────────────────────────────────────────────── */
 function NavItem({
   href,
@@ -139,7 +141,6 @@ function NavItem({
         paddingLeft: 'calc(0.625rem - 2.5px)',
       } : undefined}
     >
-      {/* Icon container — smaller */}
       <div
         className={clsx(
           'w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-150',
@@ -154,7 +155,6 @@ function NavItem({
         {icon}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <p
           className={clsx(
@@ -167,7 +167,6 @@ function NavItem({
         </p>
       </div>
 
-      {/* Badge or indicator */}
       {badge ? (
         <span
           className="px-1.5 py-0.5 rounded-md text-[0.5625rem] font-bold flex-shrink-0"
@@ -185,7 +184,6 @@ function NavItem({
         />
       ) : null}
 
-      {/* Hover glow — lighter */}
       {!active && (
         <div
           className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
@@ -199,7 +197,7 @@ function NavItem({
 }
 
 /* ─────────────────────────────────────────────────────────
-   NAV SECTION LABEL — More compact
+   NAV SECTION LABEL
 ───────────────────────────────────────────────────────── */
 function NavSection({ label }: { label: string }) {
   return (
@@ -230,17 +228,24 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession()
   const pathname = usePathname()
 
-  /* ── State — exact same as original ── */
   const [mobileOpen, setMobileOpen] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
   const [systemOpen, setSystemOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [userDropdownOpen, setUserDropdownOpen] = useState(false)
+  
+  // ✅ FIX: Logo error state (instead of innerHTML)
+  const [logoError, setLogoError] = useState(false)
 
   const userDropdownRef = useRef<HTMLDivElement>(null)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
-  /* ── usePortalTheme — exact same ── */
+  // ✅ FIX: Reset logo error when logo URL changes
+  useEffect(() => {
+    setLogoError(false)
+  }, [session?.user?.schoolLogo])
+
+  /* ── usePortalTheme ── */
   usePortalTheme({
     schoolId: session?.user?.tenantId || '',
     primaryColor: (session?.user as any)?.theme?.primary,
@@ -248,10 +253,10 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     darkMode: 'light',
   })
 
-  /* ── Effects — exact same logic ── */
+  /* ── Effects ── */
   useEffect(() => {
     if (mobileOpen) closeMobile()
-  }, [pathname]) // eslint-disable-line
+  }, [pathname])
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
@@ -291,7 +296,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   if (!session) return null
 
-  /* ── Session data — exact same as original ── */
+  /* ── Session data ── */
   const role = session.user.role
   const plan = session.user.plan ?? 'starter'
   const modules = (session.user.modules ?? []) as string[]
@@ -306,7 +311,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const schoolInitial = schoolName.charAt(0).toUpperCase()
   const allowedModules = (session.user as any).allowedModules as string[] || []
 
-  /* ── Nav items — exact same logic ── */
+  /* ── Nav items ── */
   const navItems = isExpired
     ? []
     : role === 'staff'
@@ -322,7 +327,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const userName = session.user.name || 'User'
   const userInitial = userName.charAt(0).toUpperCase()
 
-  /* ── Plan badge — enhanced with icons ── */
+  /* ── Plan badge ── */
   const planBadge = isExpired
     ? { text: 'Expired', icon: X, bg: 'var(--danger-light)', color: 'var(--danger-dark)', border: 'rgba(239,68,68,0.3)' }
     : isTrial
@@ -335,12 +340,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             ? { text: 'Growth', icon: TrendingUp, bg: 'var(--info-light)', color: 'var(--info-dark)', border: 'rgba(59,130,246,0.3)' }
             : { text: 'Starter', icon: Zap, bg: 'var(--bg-muted)', color: 'var(--text-muted)', border: 'var(--border)' }
 
-  /* ── Role label — exact same ── */
+  /* ── Role label ── */
   const roleLabel = role === 'staff'
     ? `Staff${(session.user as any).staffCategory ? ` • ${(session.user as any).staffCategory}` : ''}`
     : role
 
-  /* ── Security href — exact same ── */
+  /* ── Security href ── */
   const securityHref =
     role === 'admin' || role === 'staff' ? '/admin/security'
       : role === 'teacher' ? '/teacher/security'
@@ -355,38 +360,47 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/parent/security')
 
   /* ═══════════════════════════════════════════════════
-     SIDEBAR CONTENT — Modern & Attractive
+     SIDEBAR CONTENT
   ═══════════════════════════════════════════════════ */
   const SidebarContent = ({ onNavClick }: { onNavClick?: () => void }) => (
     <div className="flex flex-col h-full">
 
-      {/* ══ SCHOOL BRANDING — Premium Design ══ */}
+      {/* ══ SCHOOL BRANDING ══ */}
       <div
         className="px-4 pt-5 pb-4 flex-shrink-0 relative overflow-hidden"
         style={{ borderBottom: '1px solid var(--border)' }}
       >
-        {/* Background decoration */}
         <div
           className="absolute -top-10 -right-10 w-32 h-32 rounded-full opacity-5 pointer-events-none"
           style={{ background: roleConfig.gradient }}
         />
 
         <div className="relative flex items-start gap-3">
-          {/* Logo with premium glow */}
+          {/* Logo */}
           <div className="relative flex-shrink-0">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden relative"
               style={{
-                background: schoolLogo ? 'var(--bg-card)' : roleConfig.gradient,
+                background: schoolLogo && !logoError ? 'var(--bg-card)' : roleConfig.gradient,
                 border: '2px solid var(--border)',
                 boxShadow: `0 4px 12px ${roleConfig.iconColor}25`,
               }}
             >
-              {schoolLogo ? (
+              {/* ✅ FIX: Proper React conditional rendering */}
+              {schoolLogo && !logoError ? (
                 <img
                   src={schoolLogo}
                   alt={schoolName}
                   className="w-full h-full object-contain p-1"
+                  onError={() => {
+                    // ✅ FIX: Use state instead of innerHTML
+                    console.error('[SidebarLayout] Logo load failed:', schoolLogo)
+                    setLogoError(true)
+                  }}
+                  onLoad={() => {
+                    // ✅ Debug: Logo loaded successfully
+                    console.log('[SidebarLayout] Logo loaded:', schoolLogo)
+                  }}
                 />
               ) : (
                 <span
@@ -438,7 +452,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               {schoolName}
             </p>
 
-            {/* Role badge with gradient */}
+            {/* Role badge */}
             <div
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
               style={{
@@ -464,10 +478,10 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {/* ══ NAV — Compact spacing ══ */}
+      {/* ══ NAV ══ */}
       <nav className="flex-1 px-2.5 py-3 overflow-y-auto portal-scrollbar">
 
-        {/* Dashboard — Featured */}
+        {/* Dashboard */}
         {!isExpired && (
           <div className="mb-1">
             <NavItem
@@ -480,7 +494,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Modules — tighter spacing */}
+        {/* Modules */}
         {navItems.length > 0 && (
           <>
             <NavSection label="Modules" />
@@ -502,7 +516,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </>
         )}
 
-        {/* Empty states — smaller padding */}
+        {/* Empty states */}
         {isStaffNoModules && !isExpired && (
           <div
             className="mx-1 my-3 p-3.5 rounded-xl text-center relative overflow-hidden"
@@ -582,7 +596,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* Trial upgrade card — compact */}
+        {/* Trial upgrade card */}
         {isTrial && role === 'admin' && (
           <div
             className="mx-1 my-3 p-3 rounded-xl relative overflow-hidden"
@@ -591,7 +605,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               border: '1px solid rgba(245,158,11,0.25)',
             }}
           >
-            {/* Decorative element — smaller */}
             <div
               className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-10"
               style={{ background: 'radial-gradient(circle, var(--warning), transparent)' }}
@@ -626,7 +639,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* ══ SYSTEM SECTION — compact ══ */}
+        {/* ══ SYSTEM SECTION ══ */}
         <div
           className="mt-3 pt-2"
           style={{ borderTop: '1px solid var(--border)' }}
@@ -743,7 +756,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      {/* ══ USER FOOTER — Premium Design ══ */}
+      {/* ══ USER FOOTER ══ */}
       <div
         ref={userMenuRef}
         className="flex-shrink-0 relative"
@@ -752,7 +765,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           background: 'var(--bg-subtle)',
         }}
       >
-        {/* Dropdown menu */}
         {userMenuOpen && (
           <div
             className="absolute bottom-full left-2 right-2 mb-2 rounded-2xl border overflow-hidden"
@@ -763,7 +775,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               animation: 'slideUp 0.2s cubic-bezier(0.16,1,0.3,1) forwards',
             }}
           >
-            {/* Menu header */}
             <div
               className="px-4 py-3 flex items-center gap-3"
               style={{
@@ -793,7 +804,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            {/* Menu items */}
             <div className="py-1.5">
               {role === 'admin' && !isExpired && (
                 <Link
@@ -853,13 +863,11 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* User trigger button */}
         <button
           type="button"
           onClick={() => setUserMenuOpen(prev => !prev)}
           className="w-full flex items-center gap-3 px-4 py-3.5 transition-all duration-200 hover:bg-[var(--bg-muted)] group"
         >
-          {/* Avatar with premium ring */}
           <div className="relative flex-shrink-0">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold text-white transition-transform group-hover:scale-105"
@@ -870,7 +878,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             >
               {userInitial}
             </div>
-            {/* Ring animation */}
             <div
               className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
               style={{
@@ -879,7 +886,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             />
           </div>
 
-          {/* Info */}
           <div className="flex-1 min-w-0 text-left">
             <p
               className="text-sm font-bold truncate leading-tight"
@@ -895,7 +901,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             </p>
           </div>
 
-          {/* Plan badge with icon */}
           <div
             className="flex items-center gap-1 px-2 py-1 rounded-lg text-[0.5625rem] font-bold flex-shrink-0"
             style={{
@@ -911,7 +916,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             <span>{planBadge.text}</span>
           </div>
 
-          {/* Arrow with rotation */}
           <div
             className="transition-transform duration-200 flex-shrink-0"
             style={{
@@ -934,8 +938,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
       className="flex h-screen overflow-hidden"
       style={{ background: 'var(--portal-bg)' }}
     >
-
-      {/* ═══ Desktop Sidebar ═══ */}
       <aside
         className="hidden md:flex w-[var(--sidebar-width)] flex-col flex-shrink-0"
         style={{
@@ -946,7 +948,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         <SidebarContent />
       </aside>
 
-      {/* ═══ Mobile Overlay + Sidebar ═══ */}
       {mobileOpen && (
         <>
           <div
@@ -972,10 +973,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      {/* ═══ Main Area ═══ */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-
-        {/* Banners */}
         {role === 'admin' && isTrial && <TrialBanner />}
 
         {role === 'admin' && isExpired && (
@@ -1008,7 +1006,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         )}
 
-        {/* ══ HEADER — Clean & Modern ══ */}
         <header
           className="flex items-center gap-4 px-5 md:px-6 flex-shrink-0"
           style={{
@@ -1017,7 +1014,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             height: 'var(--header-height)',
           }}
         >
-          {/* Mobile menu */}
           <button
             onClick={() => setMobileOpen(true)}
             className="md:hidden w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:scale-105"
@@ -1031,7 +1027,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             <Menu size={18} />
           </button>
 
-          {/* Page title placeholder */}
           <div className="flex-1 min-w-0">
             <p
               className="text-lg font-bold truncate"
@@ -1040,15 +1035,10 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 fontFamily: 'var(--font-display)',
                 letterSpacing: '-0.015em',
               }}
-            >
-              {/* Dynamic page title can go here */}
-            </p>
+            />
           </div>
 
-          {/* Right actions */}
           <div className="flex items-center gap-2.5">
-
-            {/* Notifications */}
             <button
               className="relative w-9 h-9 rounded-xl flex items-center justify-center transition-all hover:bg-[var(--bg-muted)]"
               style={{ color: 'var(--text-muted)' }}
@@ -1064,7 +1054,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               />
             </button>
 
-            {/* Plan badge */}
             {(role === 'admin' || role === 'staff') && (
               <Link href={role === 'admin' ? '/admin/subscription' : '#'}>
                 <div
@@ -1088,7 +1077,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
             <div className="w-px h-6 hidden sm:block" style={{ background: 'var(--border)' }} />
 
-            {/* User dropdown */}
             <div className="relative" ref={userDropdownRef}>
               <button
                 onClick={() => setUserDropdownOpen(prev => !prev)}
@@ -1131,7 +1119,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 </div>
               </button>
 
-              {/* Dropdown */}
               {userDropdownOpen && (
                 <div
                   className="absolute right-0 top-full mt-2 w-56 rounded-2xl border overflow-hidden z-50"
@@ -1230,7 +1217,6 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        {/* ══ Page Content ══ */}
         <main className="flex-1 overflow-y-auto portal-main-scroll">
           <div className="p-4 md:p-6 portal-content-enter">
             {children}

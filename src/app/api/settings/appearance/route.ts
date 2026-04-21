@@ -14,6 +14,10 @@ import { SchoolSettings } from '@/models/SchoolSettings'
 import { logAudit } from '@/lib/audit'
 import { isValidHexColor } from '@/types/settings'
 import type { UpdateAppearanceBody } from '@/types/settings'
+import { checkStorageLimit, updateStorageUsage } from '@/lib/storageAddon'
+import { getStorageProvider, uploadFormFile } from '@/lib/storage'
+import { deleteFromR2 } from '@/lib/r2Client'
+import { PlanId } from '@/config/pricing'
 
 // ── Cloudinary config — module level ──────────────────────
 // ✅ Ek baar config karo, har request pe nahi
@@ -233,10 +237,7 @@ export async function POST(req: NextRequest) {
             'image/svg+xml',
         ] as const
 
-        type AllowedMime = typeof ALLOWED_MIME[number]
-
-        // ✅ Type-safe mime check
-        const isAllowedMime = (mime: string): mime is AllowedMime =>
+        const isAllowedMime = (mime: string): mime is typeof ALLOWED_MIME[number] =>
             (ALLOWED_MIME as readonly string[]).includes(mime)
 
         if (!isAllowedMime(file.type)) {
@@ -254,71 +255,105 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        // ── Upload to Cloudinary ───────────────────────────
-        const buffer = Buffer.from(await file.arrayBuffer())
-        const folder = `school-saas/logos/${tenantId}`
-        const publicId = `${type}_${Date.now()}`
-        const isSVG = file.type === 'image/svg+xml'
+        // ── Storage limit check ────────────────────────────
+        await connectDB()
+        const school = await School.findById(tenantId)
+            .select('plan addonLimits')
+            .lean() as any
 
-        // ✅ uploadToCloudinary helper use karo — proper types
-        const uploadResult = await uploadToCloudinary(buffer, {
-            folder,
-            public_id: publicId,
-            resource_type: 'image',
-            ...(!isSVG && {
-                transformation: [
-                    {
-                        width: 400,
-                        height: 400,
-                        crop: 'limit',
-                        quality: 'auto',
-                        fetch_format: 'auto',
-                    },
-                ],
-            }),
-        })
+        const planId: PlanId = (school?.plan as PlanId) || 'starter'
 
-        // ── Delete old logo ────────────────────────────────
+        const storageCheck = await checkStorageLimit(
+            tenantId,
+            planId,
+            file.size,
+            school?.addonLimits
+        )
+
+        if (!storageCheck.canUpload) {
+            return NextResponse.json(
+                { error: storageCheck.message ?? 'Storage limit exceeded' },
+                { status: 413 }
+            )
+        }
+
+        // ── Get old logo URL (for cleanup) ─────────────────
+        let oldLogoUrl: string | null = null
         try {
-            await connectDB()
-
             const existing = await SchoolSettings
                 .findOne({ tenantId })
-                .select('appearance.schoolLogoPublicId appearance.faviconPublicId')
+                .select('appearance.schoolLogo appearance.favicon')
                 .lean() as {
                     appearance?: {
-                        schoolLogoPublicId?: string
-                        faviconPublicId?: string
+                        schoolLogo?: string
+                        favicon?: string
                     }
-                } | null                                   // ✅ lean() type cast
+                } | null
 
-            const oldPublicId =
-                type === 'logo'
-                    ? existing?.appearance?.schoolLogoPublicId
-                    : existing?.appearance?.faviconPublicId
-
-            if (oldPublicId && oldPublicId !== uploadResult.public_id) {
-                await cloudinary.uploader.destroy(oldPublicId)
-            }
+            oldLogoUrl = type === 'logo'
+                ? existing?.appearance?.schoolLogo || null
+                : existing?.appearance?.favicon || null
         } catch {
-            // Old logo delete fail — non-critical, log only
-            console.warn('[appearance/upload] Old logo delete failed — non-critical')
+            console.warn('[appearance/upload] Old logo lookup failed — non-critical')
+        }
+
+        // ── Upload (R2 or Cloudinary via storage.ts) ───────
+        // ✅ FIX: Folder path fix — no duplicate tenantId
+        const url = await uploadFormFile(
+            file,
+            'logos',  // ✅ Just 'logos', NOT `${tenantId}/logos`
+            tenantId
+        )
+
+        // ── Track storage usage ────────────────────────────
+        await updateStorageUsage(tenantId, file.size)
+
+        // ── Delete old logo (if exists) ────────────────────
+        if (oldLogoUrl && oldLogoUrl !== url) {
+            try {
+                // Check if it's R2 URL
+                if (oldLogoUrl.includes('r2.cloudflarestorage.com')) {
+                    // Extract key from R2 URL
+                    const r2BaseUrl = process.env.R2_PUBLIC_URL || ''
+                    if (r2BaseUrl && oldLogoUrl.startsWith(r2BaseUrl)) {
+                        const key = oldLogoUrl.replace(`${r2BaseUrl}/`, '')
+                        await deleteFromR2(key)
+                        console.log('[appearance/upload] Old R2 logo deleted:', key)
+                    }
+                } 
+                // Check if it's Cloudinary
+                else if (oldLogoUrl.includes('cloudinary.com')) {
+                    // Extract public_id from Cloudinary URL
+                    const parts = oldLogoUrl.split('/')
+                    const publicIdWithExt = parts[parts.length - 1]
+                    const publicId = publicIdWithExt.split('.')[0]
+                    
+                    // Reconstruct full public_id with folder
+                    const folderIndex = parts.findIndex(p => p === 'school-saas')
+                    if (folderIndex !== -1) {
+                        const fullPublicId = parts.slice(folderIndex, -1).join('/') + '/' + publicId
+                        await cloudinary.uploader.destroy(fullPublicId)
+                        console.log('[appearance/upload] Old Cloudinary logo deleted:', fullPublicId)
+                    }
+                }
+            } catch (err) {
+                console.warn('[appearance/upload] Old logo delete failed — non-critical:', err)
+            }
         }
 
         // ── Save to DB ─────────────────────────────────────
-        await connectDB()
         const setFields: Record<string, unknown> = {}
 
         if (type === 'logo') {
-            setFields['appearance.schoolLogo'] = uploadResult.secure_url
-            setFields['appearance.schoolLogoPublicId'] = uploadResult.public_id
+            setFields['appearance.schoolLogo'] = url
+            setFields['appearance.schoolLogoPublicId'] = url
 
             await School.findByIdAndUpdate(tenantId, {
-                $set: { logo: uploadResult.secure_url },
+                $set: { logo: url },
             })
         } else {
-            setFields['appearance.favicon'] = uploadResult.secure_url
-            setFields['appearance.faviconPublicId'] = uploadResult.public_id
+            setFields['appearance.favicon'] = url
+            setFields['appearance.faviconPublicId'] = url
         }
 
         await SchoolSettings.findOneAndUpdate(
@@ -327,10 +362,31 @@ export async function POST(req: NextRequest) {
             { upsert: true }
         )
 
+        // ── Audit Log ──────────────────────────────────────
+        await logAudit({
+            tenantId,
+            userId: session.user.id,
+            userName: session.user.name || 'Admin',
+            userRole: session.user.role,
+            action: 'SETTINGS_CHANGE',
+            resource: 'School',
+            resourceId: tenantId,
+            description: `${type === 'logo' ? 'Logo' : 'Favicon'} uploaded`,
+            metadata: {
+                type,
+                size: file.size,
+                url,
+                storageProvider: getStorageProvider(),
+                oldLogoUrl: oldLogoUrl || undefined,
+            },
+            ipAddress: 'unknown',
+            userAgent: 'unknown',
+        })
+
         return NextResponse.json({
             success: true,
-            url: uploadResult.secure_url,
-            publicId: uploadResult.public_id,
+            url,
+            publicId: url,
             message: `${type === 'logo' ? 'Logo' : 'Favicon'} uploaded successfully`,
         })
 

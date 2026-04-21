@@ -41,7 +41,9 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
         type: 'success' | 'error'; msg: string
     } | null>(null)
 
+    // ✅ FIX: Logo state alag se — save hone tak wait karega
     const [logo, setLogo] = useState<string | undefined>(school.logo)
+    const [logoPreview, setLogoPreview] = useState<string | undefined>(school.logo)  // ✅ Preview ke liye
     const [uploading, setUploading] = useState(false)
     const [uploadError, setUploadError] = useState<string | null>(null)
     const [dragOver, setDragOver] = useState(false)
@@ -101,6 +103,12 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
             if (form.phone !== school.phone) body.phone = form.phone.trim()
             if (form.address !== school.address) body.address = form.address.trim()
 
+            // ✅ FIX: Logo bhi body me include karo (agar change hua hai)
+            if (logoPreview !== school.logo) {
+                body.logo = logoPreview
+                body.logoPublicId = logoPreview  // R2 me URL hi key hai
+            }
+
             const res = await fetch('/api/settings/schools', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -115,12 +123,15 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
 
             setIsDirty(false)
             setAlert({ type: 'success', msg: 'School profile saved successfully' })
-            onSaved({ ...form, logo })
+            onSaved({ ...form, logo: logoPreview })
 
-            // ✅ KEY FIX: Session update karo — JWT mein schoolName update ho
-            // trigger === 'update' handle hoga auth.ts mein
-            if (body.name) {
-                await updateSession({ schoolName: body.name.trim() })
+            // ✅ FIX: Session update — sidebar turant update hoga
+            const updateData: Record<string, string> = {}
+            if (body.name) updateData.schoolName = body.name.trim()
+            if (body.logo) updateData.schoolLogo = body.logo
+
+            if (Object.keys(updateData).length > 0) {
+                await updateSession(updateData)
             }
 
         } catch (err: any) {
@@ -138,11 +149,14 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
             phone: school.phone || '',
             address: school.address || '',
         })
+        setLogoPreview(school.logo)  // ✅ Reset preview
+        setLogo(school.logo)
         setErrors({})
         setIsDirty(false)
         setAlert(null)
     }
 
+    // ✅ FIX: Logo upload ab sirf preview karega — save button pe actual save hoga
     const handleLogoUpload = useCallback(async (file: File) => {
         const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
         const MAX_MB = 2
@@ -172,19 +186,20 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Upload failed')
 
-            setLogo(data.url)
-            onSaved({ logo: data.url })
-            setAlert({ type: 'success', msg: 'Logo uploaded successfully' })
+            // ✅ FIX: Sirf preview update karo — actual save handleSave me hoga
+            setLogoPreview(data.url)
+            setIsDirty(true)  // ✅ Form dirty mark karo
 
-            // ✅ Logo bhi session mein update karo — sidebar mein turant dikhega
-            await updateSession({ schoolLogo: data.url })
+            setAlert({ type: 'success', msg: 'Logo uploaded. Click Save to confirm.' })
 
         } catch (err: any) {
+            console.error('[SchoolProfileTab] Logo upload error:', err)
             setUploadError(err.message || 'Upload failed')
+            setAlert({ type: 'error', msg: err.message || 'Upload failed' })
         } finally {
             setUploading(false)
         }
-    }, [onSaved, updateSession])
+    }, [])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -229,22 +244,25 @@ export function SchoolProfileTab({ school, onSaved }: SchoolProfileTabProps) {
             >
                 <div className="flex flex-col sm:flex-row items-start gap-5">
                     <div className="flex-shrink-0">
-                        <div className="
+                        <div className="flex-shrink-0">
+                            <div className="
                             w-24 h-24 rounded-[var(--radius-lg)]
                             border-2 border-[var(--border)]
                             bg-[var(--bg-muted)]
                             flex items-center justify-center
                             overflow-hidden
                         ">
-                            {logo ? (
-                                <img
-                                    src={logo}
-                                    alt="School logo"
-                                    className="w-full h-full object-contain p-1"
-                                />
-                            ) : (
-                                <Building2 size={32} className="text-[var(--text-light)]" />
-                            )}
+                                {/* ✅ FIX: logoPreview use karo */}
+                                {logoPreview ? (
+                                    <img
+                                        src={logoPreview}
+                                        alt="School logo"
+                                        className="w-full h-full object-contain p-1"
+                                    />
+                                ) : (
+                                    <Building2 size={32} className="text-[var(--text-light)]" />
+                                )}
+                            </div>
                         </div>
                     </div>
 

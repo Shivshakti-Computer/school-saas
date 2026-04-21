@@ -41,7 +41,7 @@ function getR2Client(): S3Client {
 }
 
 const BUCKET = process.env.R2_BUCKET_NAME || 'skolify-storage'
-const PUBLIC_URL = process.env.R2_PUBLIC_URL || ''
+const PUBLIC_URL = (process.env.R2_PUBLIC_URL || '').replace(/\/$/, '')
 
 // ─────────────────────────────────────────────────────────
 // UPLOAD FILE TO R2
@@ -51,6 +51,17 @@ export interface R2UploadResult {
   url: string       // Public URL
   key: string       // R2 object key (for delete)
   size: number      // Bytes
+  contentType: string
+}
+
+// ─────────────────────────────────────────────────────────
+// UPLOAD FILE TO R2
+// ─────────────────────────────────────────────────────────
+
+export interface R2UploadResult {
+  url: string
+  key: string
+  size: number
   contentType: string
 }
 
@@ -70,10 +81,15 @@ export async function uploadToR2(
       ContentType: contentType,
       ContentLength: buffer.length,
       Metadata: metadata,
+      // ✅ FIX: Make object publicly readable
+      ACL: 'public-read',
     })
   )
 
-  const url = `${PUBLIC_URL}/${key}`
+  // ✅ FIX: Proper URL construction (no double slashes)
+  const url = PUBLIC_URL
+    ? `${PUBLIC_URL}/${key}`
+    : `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${BUCKET}/${key}`
 
   return {
     url,
@@ -201,12 +217,17 @@ export function generateR2Key(
   folder: string,
   filename: string
 ): string {
-  // Format: schools/{tenantId}/{folder}/{timestamp}_{filename}
+  // ✅ FIX: Format: schools/{tenantId}/{folder}/{timestamp}_{filename}
+  // NOT: schools/{tenantId}/{tenantId}/{folder}/...
   const timestamp = Date.now()
   const sanitizedFilename = filename
     .replace(/[^a-zA-Z0-9._-]/g, '_')
     .toLowerCase()
-  return `schools/${tenantId}/${folder}/${timestamp}_${sanitizedFilename}`
+  
+  // ✅ FIX: Clean folder path — remove any leading/trailing slashes
+  const cleanFolder = folder.replace(/^\/+|\/+$/g, '')
+  
+  return `schools/${tenantId}/${cleanFolder}/${timestamp}_${sanitizedFilename}`
 }
 
 // ─────────────────────────────────────────────────────────

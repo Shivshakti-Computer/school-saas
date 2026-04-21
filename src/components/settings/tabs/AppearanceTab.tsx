@@ -217,14 +217,14 @@ export function AppearanceTab({
     // ── Logo Upload ──
     const handleLogoUpload = useCallback(async (file: File) => {
         const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
-        const MAX_BYTES = 2 * 1024 * 1024
+        const MAX_MB = 2
 
         if (!ALLOWED.includes(file.type)) {
             setUploadError('Invalid file type. Use JPG, PNG, WebP, or SVG')
             return
         }
-        if (file.size > MAX_BYTES) {
-            setUploadError('File too large. Max 2MB')
+        if (file.size > MAX_MB * 1024 * 1024) {
+            setUploadError(`File too large. Max ${MAX_MB}MB`)
             return
         }
 
@@ -240,16 +240,25 @@ export function AppearanceTab({
                 method: 'POST',
                 body: formData,
             })
+
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Upload failed')
 
-            setForm((prev) => ({ ...prev, schoolLogo: data.url, schoolLogoPublicId: data.publicId }))
-            setSuccess('Logo uploaded successfully')
+            // ✅ FIX: Form state update + dirty flag
+            setForm(prev => ({
+                ...prev,
+                schoolLogo: data.url,
+                schoolLogoPublicId: data.url,
+            }))
+            setIsDirty(true)
 
-            // Session update karo — sidebar mein turant logo dikhega
+            // ✅ FIX: Session update for sidebar
             await updateSession({ schoolLogo: data.url })
 
+            setSuccess('Logo uploaded successfully!')
+
         } catch (err: any) {
+            console.error('[AppearanceTab] Logo upload error:', err)
             setUploadError(err.message || 'Upload failed')
         } finally {
             setUploading(false)
