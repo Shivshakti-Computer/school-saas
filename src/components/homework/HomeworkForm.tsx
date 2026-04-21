@@ -325,7 +325,7 @@ export function HomeworkForm({
             },
         }))
     }
-
+    
     // ── File upload ──
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
@@ -333,7 +333,6 @@ export function HomeworkForm({
 
         setUploading(true)
         try {
-            // ✅ FIX: Explicit type from imported interface
             const uploadedFiles: HomeworkAttachment[] = []
 
             for (let i = 0; i < files.length; i++) {
@@ -349,7 +348,7 @@ export function HomeworkForm({
 
                 const formData = new FormData()
                 formData.append('file', file)
-                formData.append('folder', 'homework')
+                formData.append('folder', 'homework')  // ✅ Just 'homework', NOT 'tenantId/homework'
 
                 const res = await fetch('/api/upload', {
                     method: 'POST',
@@ -364,7 +363,7 @@ export function HomeworkForm({
                         url: data.url,
                         type: getFileType(file.name),
                         size: file.size,
-                        uploadedAt: new Date().toISOString(), // ✅ Optional field
+                        uploadedAt: new Date().toISOString(),
                     })
                 } else {
                     throw new Error(data.error)

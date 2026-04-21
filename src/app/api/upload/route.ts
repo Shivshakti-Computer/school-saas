@@ -53,10 +53,9 @@ export async function POST(req: NextRequest) {
   // Upload
   const url = await uploadFormFile(
     file,
-    `${session.user.tenantId}/${folder}`,
+    folder,                    // ← Changed here
     session.user.tenantId
   )
-
   // ── Track storage usage ──
   await updateStorageUsage(session.user.tenantId, file.size)
 

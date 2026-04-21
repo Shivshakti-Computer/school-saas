@@ -52,7 +52,7 @@ export default function StudentHomeworkPage() {
             for (const file of files) {
                 const formData = new FormData()
                 formData.append('file', file)
-                formData.append('folder', 'homework-submissions')
+                formData.append('folder', 'homework-submissions')  // ✅ Correct folder
 
                 const uploadRes = await fetch('/api/upload', {
                     method: 'POST',
