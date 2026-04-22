@@ -723,50 +723,50 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="py-1.5">
-  {role === 'admin' && !isExpired && (
-    <Link
-      href="/admin/settings"  // ✅ Keep as is
-      onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
-      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
-      style={{ color: 'var(--text-secondary)' }}
-    >
-      <Settings size={15} style={{ color: 'var(--text-muted)' }} />
-      Settings
-    </Link>
-  )}
+              {role === 'admin' && !isExpired && (
+                <Link
+                  href="/admin/settings"  // ✅ Keep as is
+                  onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Settings size={15} style={{ color: 'var(--text-muted)' }} />
+                  Settings
+                </Link>
+              )}
 
-  {role === 'admin' && (
-    <Link
-      href={subscriptionHref}  // ← CHANGE: /admin/subscription → subscriptionHref
-      onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
-      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
-      style={{ color: 'var(--text-secondary)' }}
-    >
-      <Zap size={15} style={{ color: 'var(--text-muted)' }} />
-      Subscription
-      {isTrial && (
-        <span
-          className="ml-auto px-2 py-0.5 rounded-md text-[0.5625rem] font-bold"
-          style={{ background: 'var(--warning-light)', color: 'var(--warning-dark)' }}
-        >
-          Trial
-        </span>
-      )}
-    </Link>
-  )}
+              {role === 'admin' && (
+                <Link
+                  href={subscriptionHref}  // ← CHANGE: /admin/subscription → subscriptionHref
+                  onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Zap size={15} style={{ color: 'var(--text-muted)' }} />
+                  Subscription
+                  {isTrial && (
+                    <span
+                      className="ml-auto px-2 py-0.5 rounded-md text-[0.5625rem] font-bold"
+                      style={{ background: 'var(--warning-light)', color: 'var(--warning-dark)' }}
+                    >
+                      Trial
+                    </span>
+                  )}
+                </Link>
+              )}
 
-  {!isExpired && (
-    <Link
-      href={securityHref}  // ✅ Already correct
-      onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
-      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
-      style={{ color: 'var(--text-secondary)' }}
-    >
-      <Shield size={15} style={{ color: 'var(--text-muted)' }} />
-      Security
-    </Link>
-  )}
-</div>
+              {!isExpired && (
+                <Link
+                  href={securityHref}  // ✅ Already correct
+                  onClick={() => { setUserMenuOpen(false); onNavClick?.() }}
+                  className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
+                  <Shield size={15} style={{ color: 'var(--text-muted)' }} />
+                  Security
+                </Link>
+              )}
+            </div>
 
             <div className="border-t py-1.5" style={{ borderColor: 'var(--border)' }}>
               <button
@@ -1074,50 +1074,50 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                   </div>
 
                   <div className="py-1.5">
-  {role === 'admin' && !isExpired && (
-    <Link
-      href="/admin/settings"  // ✅ Keep as is
-      onClick={() => setUserDropdownOpen(false)}
-      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
-      style={{ color: 'var(--text-secondary)' }}
-    >
-      <Settings size={15} style={{ color: 'var(--text-muted)' }} />
-      Settings
-    </Link>
-  )}
+                    {role === 'admin' && !isExpired && (
+                      <Link
+                        href="/admin/settings"  // ✅ Keep as is
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Settings size={15} style={{ color: 'var(--text-muted)' }} />
+                        Settings
+                      </Link>
+                    )}
 
-  {role === 'admin' && (
-    <Link
-      href={subscriptionHref}  // ← CHANGE: /admin/subscription → subscriptionHref
-      onClick={() => setUserDropdownOpen(false)}
-      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
-      style={{ color: 'var(--text-secondary)' }}
-    >
-      <Zap size={15} style={{ color: 'var(--text-muted)' }} />
-      Subscription
-      {isTrial && (
-        <span
-          className="ml-auto px-2 py-0.5 rounded-md text-[0.5625rem] font-bold"
-          style={{ background: 'var(--warning-light)', color: 'var(--warning-dark)' }}
-        >
-          Trial
-        </span>
-      )}
-    </Link>
-  )}
+                    {role === 'admin' && (
+                      <Link
+                        href={subscriptionHref}  // ← CHANGE: /admin/subscription → subscriptionHref
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Zap size={15} style={{ color: 'var(--text-muted)' }} />
+                        Subscription
+                        {isTrial && (
+                          <span
+                            className="ml-auto px-2 py-0.5 rounded-md text-[0.5625rem] font-bold"
+                            style={{ background: 'var(--warning-light)', color: 'var(--warning-dark)' }}
+                          >
+                            Trial
+                          </span>
+                        )}
+                      </Link>
+                    )}
 
-  {!isExpired && (
-    <Link
-      href={securityHref}  // ✅ Already correct
-      onClick={() => setUserDropdownOpen(false)}
-      className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
-      style={{ color: 'var(--text-secondary)' }}
-    >
-      <Shield size={15} style={{ color: 'var(--text-muted)' }} />
-      Security
-    </Link>
-  )}
-</div>
+                    {!isExpired && (
+                      <Link
+                        href={securityHref}  // ✅ Already correct
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-[var(--bg-muted)]"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        <Shield size={15} style={{ color: 'var(--text-muted)' }} />
+                        Security
+                      </Link>
+                    )}
+                  </div>
 
                   <div className="border-t py-1.5" style={{ borderColor: 'var(--border)' }}>
                     <button

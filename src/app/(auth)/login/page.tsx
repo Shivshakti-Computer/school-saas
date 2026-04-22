@@ -148,6 +148,7 @@ function OTPInput({
             'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10',
             'disabled:opacity-50 disabled:cursor-not-allowed',
           ].join(' ')}
+          suppressHydrationWarning  // ← FIX
         />
       ))}
     </div>
@@ -318,8 +319,8 @@ function TwoFactorScreen({
                     {countdown > 0
                       ? <p className="text-[12px] text-slate-400">Resend in <strong className="text-slate-600">{countdown}s</strong></p>
                       : <button onClick={sendOTP} disabled={sending} className="text-[12px] text-blue-600 font-semibold hover:underline disabled:opacity-50">
-                          {sending ? 'Sending...' : 'Resend OTP'}
-                        </button>
+                        {sending ? 'Sending...' : 'Resend OTP'}
+                      </button>
                     }
                   </div>
                 </>
@@ -614,7 +615,7 @@ function LoginInner() {
 
   const handle2FACancel = () => {
     setShow2FA(false); setTwoFactorData(null)
-    fetch('/api/auth/signout', { method: 'POST' }).catch(() => {})
+    fetch('/api/auth/signout', { method: 'POST' }).catch(() => { })
   }
 
   // 2FA screen
@@ -724,6 +725,7 @@ function LoginInner() {
                     autoCapitalize="off"
                     spellCheck={false}
                     autoFocus
+                    suppressHydrationWarning  // ← FIX
                   />
                   {form.schoolCode && (
                     <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-emerald-500">
@@ -757,6 +759,7 @@ function LoginInner() {
                     placeholder="Your password"
                     required
                     autoComplete="current-password"
+                    suppressHydrationWarning  // ← FIX
                   />
                   <button
                     type="button"
