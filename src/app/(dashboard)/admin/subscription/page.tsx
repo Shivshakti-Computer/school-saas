@@ -1289,10 +1289,9 @@ function UpgradeModal({
     )
 }
 
-// ═══════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════
-function SubscriptionInner() {
+
+// ADD this export for Settings tab
+export function SubscriptionContent() {
     const searchParams = useSearchParams()
     const highlightPlan = searchParams.get('highlight') as PlanId | null
     const blockedModule = searchParams.get('blocked')
@@ -1445,8 +1444,7 @@ function SubscriptionInner() {
 
     return (
         <div className="portal-content-enter">
-            <PageHeader title="Subscription & Credits" subtitle="Manage your plan, credits, and add-ons" />
-
+        
             {/* ── Modals ── */}
             {upgradeModal && (
                 <Portal>
@@ -1901,6 +1899,19 @@ function SubscriptionInner() {
     )
 }
 
+// ═══════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════
+function SubscriptionInner() {
+    return (
+        <>
+            <PageHeader title="Subscription & Credits" subtitle="Manage your plan, credits, and add-ons" />
+            <SubscriptionContent />
+        </>
+    )
+}
+
+// Keep existing default export
 export default function SubscriptionPage() {
     return (
         <Suspense fallback={<div className="flex justify-center py-12"><Spinner size="lg" /></div>}>

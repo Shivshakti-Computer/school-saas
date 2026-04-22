@@ -1,8 +1,7 @@
 // FILE: src/types/settings.ts
 // ═══════════════════════════════════════════════════════════
-// All TypeScript types for Settings module
-// Import from models wale types bhi re-export kiye hain
-// Taaki components mein ek jagah se import ho
+// UPDATED: Added 'security' and 'subscription' tabs
+// BACKWARD COMPATIBLE — existing tabs unchanged
 // ═══════════════════════════════════════════════════════════
 
 import type {
@@ -65,7 +64,7 @@ export interface SchoolProfileData {
     }
     razorpayConfigured: boolean
     enabledModules?: string[]
-    hiddenModules:  string[]
+    hiddenModules: string[]
 }
 
 export interface SettingsMeta {
@@ -129,7 +128,6 @@ export interface UpdatePaymentBody {
     lateFineGraceDays?: number
     enableOnlinePayment?: boolean
     paymentMethods?: ('card' | 'upi' | 'netbanking' | 'wallet')[]
-    // Razorpay keys — encrypted save honge
     razorpayKeyId?: string
     razorpayKeySecret?: string
     clearRazorpayKeys?: boolean
@@ -160,10 +158,9 @@ export interface UpdateModulesBody {
     fees?: Partial<IModuleSettings['fees']>
     attendance?: Partial<IModuleSettings['attendance']>
     exams?: Partial<IModuleSettings['exams']>
-    // ✅ FIX 5: IModuleSettings['library'] ab finePerDay use karega (sync)
     library?: Partial<IModuleSettings['library']>
     homework?: Partial<IModuleSettings['homework']>
-    hr?: Partial<IModuleSettings['hr']>  // ✅ NEW
+    hr?: Partial<IModuleSettings['hr']>
 }
 
 // ─────────────────────────────────────────────────────────
@@ -210,7 +207,7 @@ export interface AuditLogEntry {
     status: 'SUCCESS' | 'FAILURE'
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
     createdAt: string
-    metadata?: Record<string, unknown>  // ✅ Better than Record<string, any>
+    metadata?: Record<string, unknown>
 }
 
 export interface AuditLogResponse {
@@ -269,7 +266,7 @@ export interface ExportResponse {
 }
 
 // ─────────────────────────────────────────────────────────
-// Settings Tab Navigation
+// Settings Tab Navigation — UPDATED
 // ─────────────────────────────────────────────────────────
 
 export type SettingsTab =
@@ -280,6 +277,8 @@ export type SettingsTab =
     | 'appearance'
     | 'modules'
     | 'data'
+    | 'security'      // ← NEW
+    | 'subscription'  // ← NEW (admin only)
 
 export interface SettingsTabConfig {
     id: SettingsTab
@@ -332,6 +331,20 @@ export const SETTINGS_TABS: SettingsTabConfig[] = [
         label: 'Data & Audit',
         icon: 'Database',
         description: 'Export data, audit logs',
+    },
+    // ── NEW TABS ─────────────────────────────────────────
+    {
+        id: 'security',
+        label: 'Security',
+        icon: 'Shield',
+        description: 'Password, 2FA, account security',
+    },
+    {
+        id: 'subscription',
+        label: 'Subscription',
+        icon: 'Zap',
+        description: 'Plan, billing, upgrade',
+        requiredPlan: 'starter',
     },
 ]
 
@@ -435,7 +448,6 @@ export const INDIAN_STATES = [
     'Sikkim', 'Tamil Nadu', 'Telangana',
     'Tripura', 'Uttar Pradesh', 'Uttarakhand',
     'West Bengal',
-    // UTs
     'Andaman and Nicobar Islands', 'Chandigarh',
     'Dadra and Nagar Haveli', 'Daman and Diu',
     'Delhi', 'Jammu and Kashmir',

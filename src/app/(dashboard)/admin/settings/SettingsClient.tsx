@@ -1,6 +1,6 @@
 // FILE: src/app/(dashboard)/admin/settings/SettingsClient.tsx
-// ✅ FIX: enabledModules ab initialData.school.enabledModules se aayega
-// Session.modules pe depend nahi karega — DB fresh data use hoga
+// UPDATED: Added security and subscription tab cases
+// ═══════════════════════════════════════════════════════════
 
 'use client'
 
@@ -13,6 +13,8 @@ import { PaymentTab } from '@/components/settings/tabs/PaymentTab'
 import { AppearanceTab } from '@/components/settings/tabs/AppearanceTab'
 import { ModulesTab } from '@/components/settings/tabs/ModulesTab'
 import { DataTab } from '@/components/settings/tabs/DataTab'
+import { SecurityTab } from '@/components/settings/tabs/SecurityTab'
+import { SubscriptionTab } from '@/components/settings/tabs/SubscriptionTab'
 import type { SettingsResponse, SettingsTab } from '@/types/settings'
 import { useSearchParams } from 'next/navigation'
 
@@ -26,15 +28,12 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
     const activeTab = (searchParams.get('tab') || 'school') as SettingsTab
     const [data, setData] = useState<SettingsResponse>(initialData)
 
-    // ✅ FIX: DB se aaya fresh enabledModules use karo
-    // initialData.school.enabledModules = planModules - hiddenModules (page.tsx me calculate hua)
     const [enabledModules, setEnabledModules] = useState<string[]>(
         initialData.school.enabledModules || []
     )
 
     const renderTab = () => {
         switch (activeTab) {
-
             case 'school':
                 return (
                     <SchoolProfileTab
@@ -97,12 +96,10 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 return (
                     <ModulesTab
                         modules={data.modules}
-                        // ✅ FIX: alag state se — save ke baad bhi persist rahega
                         enabledModules={enabledModules}
                         plan={data.school.plan}
                         onSaved={({ modules, enabledModules: newEnabled }) => {
                             setData((prev) => ({ ...prev, modules }))
-                            // ✅ Local state update — hard refresh tak ke liye
                             setEnabledModules(newEnabled)
                         }}
                     />
@@ -110,6 +107,12 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
 
             case 'data':
                 return <DataTab />
+
+            case 'security':
+                return <SecurityTab />
+
+            case 'subscription':
+                return <SubscriptionTab />
 
             default:
                 return (
@@ -128,8 +131,6 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
 
     return (
         <div className="flex gap-6 items-start">
-
-            {/* Desktop Sidebar */}
             <aside
                 className="
                     hidden md:flex flex-col
@@ -139,16 +140,8 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                     overflow-y-auto scrollbar-hide
                 "
             >
-                <div className="
-                    pb-3 mb-1
-                    border-b border-[var(--border)]
-                    flex-shrink-0
-                ">
-                    <h1 className="
-                        text-base font-700
-                        text-[var(--text-primary)]
-                        leading-tight
-                    ">
+                <div className="pb-3 mb-1 border-b border-[var(--border)] flex-shrink-0">
+                    <h1 className="text-base font-700 text-[var(--text-primary)] leading-tight">
                         Settings
                     </h1>
                     <p className="text-xs text-[var(--text-muted)] mt-0.5 leading-tight">
@@ -171,7 +164,6 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 </div>
             </aside>
 
-            {/* Mobile */}
             <div className="md:hidden w-full">
                 <div className="mb-4">
                     <h1 className="text-xl font-700 text-[var(--text-primary)]">
@@ -189,7 +181,6 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 </div>
             </div>
 
-            {/* Tab Content */}
             <main className="flex-1 min-w-0 pb-10">
                 {renderTab()}
             </main>
@@ -203,12 +194,7 @@ export function SettingsClient({ initialData, lastUpdatedBy }: SettingsClientPro
             fallback={
                 <div className="flex items-center justify-center py-20">
                     <div className="flex flex-col items-center gap-3">
-                        <div className="
-                            w-8 h-8 border-2
-                            border-[var(--primary-200)]
-                            border-t-[var(--primary-600)]
-                            rounded-full animate-spin
-                        " />
+                        <div className="w-8 h-8 border-2 border-[var(--primary-200)] border-t-[var(--primary-600)] rounded-full animate-spin" />
                         <p className="text-sm text-[var(--text-muted)]">
                             Loading settings...
                         </p>
