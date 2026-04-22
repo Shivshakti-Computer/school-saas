@@ -69,6 +69,93 @@ export const EMAIL_TEMPLATES = {
     `,
   }),
 
+
+  // Superadmin Notification - New School Registration
+  newSchoolRegistration: (
+    schoolName: string,
+    schoolCode: string,
+    adminName: string,
+    phone: string,
+    email: string,
+    trialDays: number,
+    registrationDate: string,
+    dashboardUrl: string
+  ) => ({
+    subject: `🆕 New School Registration - ${schoolName}`,
+    html: `
+    <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px 20px;background:#f8fafc">
+      <div style="background:white;border-radius:16px;padding:32px;border:1px solid #e2e8f0">
+        
+        <!-- Header -->
+        <div style="text-align:center;margin-bottom:24px;padding-bottom:20px;border-bottom:2px solid #eef2ff">
+          <h1 style="margin:0;color:#1e293b;font-size:24px">🎉 New School Registration</h1>
+          <p style="margin:8px 0 0;color:#64748b;font-size:13px">${registrationDate}</p>
+        </div>
+
+        <!-- School Info Card -->
+        <div style="background:linear-gradient(135deg,#eef2ff,#faf5ff);border:1.5px solid #c7d2fe;border-radius:12px;padding:20px;margin-bottom:20px">
+          <h2 style="margin:0 0 16px;color:#4338ca;font-size:18px">🏫 School Details</h2>
+          
+          <table style="width:100%;border-collapse:collapse">
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600">School Name:</td>
+              <td style="padding:6px 0;color:#1e293b;font-size:14px;font-weight:700">${schoolName}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600">School Code:</td>
+              <td style="padding:6px 0;color:#1e293b;font-size:14px;font-family:monospace;background:#f1f5f9;padding:4px 8px;border-radius:4px;display:inline-block">${schoolCode}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600">Admin Name:</td>
+              <td style="padding:6px 0;color:#1e293b;font-size:14px">${adminName}</td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600">Phone:</td>
+              <td style="padding:6px 0;color:#1e293b;font-size:14px">
+                <a href="tel:${phone}" style="color:#4338ca;text-decoration:none">${phone}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600">Email:</td>
+              <td style="padding:6px 0;color:#1e293b;font-size:14px">
+                <a href="mailto:${email}" style="color:#4338ca;text-decoration:none">${email || 'Not provided'}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:6px 0;color:#64748b;font-size:13px;font-weight:600">Trial Period:</td>
+              <td style="padding:6px 0;color:#059669;font-size:14px;font-weight:700">${trialDays} Days</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="text-align:center;margin:24px 0">
+          <a href="${dashboardUrl}" 
+            style="display:inline-block;background:linear-gradient(135deg,#6366f1,#4f46e5);color:white;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;margin:0 8px">
+            View in Dashboard →
+          </a>
+        </div>
+
+        <!-- Quick Stats -->
+        <div style="background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:16px;margin-top:20px">
+          <p style="margin:0;color:#92400e;font-size:13px;line-height:1.6">
+            ⚡ <strong>Quick Info:</strong><br>
+            • Trial Credits: Granted automatically<br>
+            • All Modules: Unlocked during trial<br>
+            • Phone Verified: ✅ Yes
+          </p>
+        </div>
+
+        <!-- Footer -->
+        <p style="color:#94a3b8;font-size:11px;text-align:center;margin:20px 0 0;padding-top:16px;border-top:1px solid #e2e8f0">
+          Automated notification from Skolify Registration System<br>
+          Shivshakti Computer Academy
+        </p>
+      </div>
+    </div>
+  `,
+  }),
+
   // OTP Email
   otp: (otp: string) => ({
     subject: `${otp} — Skolify Verification Code`,

@@ -18,9 +18,11 @@ export type MessagePurpose =
     | 'trial_reminder'
     | 'subscription_confirm'
     | 'credit_low'
+    | 'registration'
+    | 'system'
 
 export interface IMessageLog extends Document {
-    tenantId: mongoose.Types.ObjectId
+    tenantId?: mongoose.Types.ObjectId  // ← was: tenantId (required)
     channel: MessageChannel
     purpose: MessagePurpose
     recipient: string
@@ -43,7 +45,7 @@ const MessageLogSchema = new Schema<IMessageLog>(
         tenantId: {
             type: Schema.Types.ObjectId,
             ref: 'School',
-            required: true,
+            required: false,
             index: true,
         },
         channel: {
@@ -65,6 +67,8 @@ const MessageLogSchema = new Schema<IMessageLog>(
                 'trial_reminder',
                 'subscription_confirm',
                 'credit_low',
+                'registration',   // ← NEW
+                'system',         // ← NEW
             ],
             required: true,
         },

@@ -18,6 +18,8 @@ import {
 import { logAudit } from '@/lib/audit'
 import { TRIAL_CONFIG } from '@/config/pricing'
 import { grantTrialCredits } from '@/lib/credits'
+import { sendSystemEmail, sendSuperadminEmail } from '@/lib/message/systemEmail'
+import { EMAIL_TEMPLATES } from '@/lib/message/templates'
 
 export async function POST(req: NextRequest) {
 
@@ -347,43 +349,62 @@ export async function POST(req: NextRequest) {
       console.error('[REGISTER] ⚠️ Audit log failed:', auditError)
     }
 
-    // ── Welcome Email ──────────────────────────────────────
+    const appUrl = process.env.NEXT_PUBLIC_APP_DOMAIN || 'http://localhost:3000'
+
+    // 1. Welcome Email → School Admin (email ho tab hi)
     if (email?.trim()) {
       try {
-        // ✅ FIX: resend.ts directly — @/lib/email exist nahi karta
-        const { resendSendEmail } = await import(
-          '@/lib/message/providers/resend'
-        )
-        const { EMAIL_TEMPLATES } = await import(
-          '@/lib/message/templates'
-        )
-
-        const appUrl =
-          process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-
-        const { subject, html } = EMAIL_TEMPLATES.welcome(
+        const welcomeTemplate = EMAIL_TEMPLATES.welcome(
           schoolName.trim(),
           adminName.trim(),
           `${appUrl}/login`
         )
 
-        // isHtml = true — full HTML system email
-        await resendSendEmail(
-          email.trim(),
-          subject,
-          html,
-          'Skolify Team',
-          true    // ← isHtml: true
-        )
+        await sendSystemEmail({
+          to: email.trim(),
+          subject: welcomeTemplate.subject,
+          html: welcomeTemplate.html,
+          fromName: 'Skolify Team',
+          tenantId: school._id.toString(),
+          metadata: {
+            schoolCode,
+            trialDays: TRIAL_CONFIG.durationDays,
+          },
+        })
 
-        console.log('[REGISTER] ✅ Welcome email sent to:', email.trim())
+        console.log('[REGISTER] ✅ Welcome email sent:', email.trim())
       } catch (emailError) {
-        console.error(
-          '[REGISTER] ⚠️ Welcome email failed (non-critical):',
-          emailError
-        )
-        // Non-critical — registration already successful
+        console.error('[REGISTER] ⚠️ Welcome email failed:', emailError)
       }
+    }
+
+    // 2. Superadmin Notification (email ho ya na ho — ALWAYS)
+    try {
+      const registrationTime = new Date().toLocaleString('en-IN', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'Asia/Kolkata',
+      })
+
+      const superadminTemplate = EMAIL_TEMPLATES.newSchoolRegistration(
+        schoolName.trim(),
+        schoolCode,
+        adminName.trim(),
+        cleanPhone,
+        email?.trim() || 'Not provided',
+        TRIAL_CONFIG.durationDays,
+        registrationTime,
+        `${appUrl}/superadmin/schools/${school._id}`,
+      )
+
+      await sendSuperadminEmail(
+        superadminTemplate.subject,
+        superadminTemplate.html,
+      )
+
+      console.log('[REGISTER] ✅ Superadmin notification sent')
+    } catch (superadminError) {
+      console.error('[REGISTER] ⚠️ Superadmin notification failed:', superadminError)
     }
 
     // ── Success Response ───────────────────────────────────
