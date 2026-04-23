@@ -105,6 +105,8 @@ export interface ISchool extends Document {
   addonLimits: IAddonLimits    // Extra students/teachers purchased
   storageAddon: IStorageAddon
   storageUsedBytes: number
+  // New field
+  institutionType: 'school' | 'academy' | 'coaching'
   createdAt: Date
   updatedAt: Date
 }
@@ -206,6 +208,12 @@ const SchoolSchema = new Schema<ISchool>({
     downloadCompleted: { type: Boolean, default: false },
   },
   storageUsedBytes: { type: Number, default: 0 },
+  institutionType: {
+    type: String,
+    enum: ['school', 'academy', 'coaching'],
+    default: 'school',
+    required: true,
+  },
 }, { timestamps: true })
 
 export const School =

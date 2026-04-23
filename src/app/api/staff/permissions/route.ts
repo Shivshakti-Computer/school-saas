@@ -11,6 +11,7 @@ import { Staff } from '@/models/Staff'
 import { logDataChange } from '@/lib/audit'
 import { getClientInfo, sanitizeBody } from '@/lib/security'
 import { getStaffAssignableModules } from '@/lib/moduleRegistry'
+import type { InstitutionType } from '@/lib/institutionConfig'
 
 export async function PUT(req: NextRequest) {
     const session = await getServerSession(authOptions)
@@ -37,10 +38,12 @@ export async function PUT(req: NextRequest) {
         }, { status: 400 })
     }
 
-    // Validate that modules are actually assignable
+    // ✅ FIX: institutionType session se lo
     const enabledModules = session.user.modules || []
     const plan = session.user.plan || 'starter'
-    const assignable = getStaffAssignableModules(enabledModules, plan)
+    const institutionType = (session.user as any).institutionType as InstitutionType || 'school'
+
+    const assignable = getStaffAssignableModules(enabledModules, plan, institutionType)
     const assignableKeys = assignable.map(m => m.key)
 
     const validModules = allowedModules.filter((m: string) => assignableKeys.includes(m as any))
@@ -85,9 +88,12 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // ✅ FIX: institutionType session se lo
     const enabledModules = session.user.modules || []
     const plan = session.user.plan || 'starter'
-    const assignable = getStaffAssignableModules(enabledModules, plan)
+    const institutionType = (session.user as any).institutionType as InstitutionType || 'school'
+
+    const assignable = getStaffAssignableModules(enabledModules, plan, institutionType)
 
     return NextResponse.json({ modules: assignable })
 }

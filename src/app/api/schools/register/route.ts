@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
       password,
       address,
       verificationToken,
+      institutionType = 'school',  // ← ADD THIS
     } = body
 
     console.log('[REGISTER] Registration request received')
@@ -115,6 +116,14 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         )
       }
+    }
+
+    // ── Institution Type Validation ──
+    if (!['school', 'academy', 'coaching'].includes(institutionType)) {
+      return NextResponse.json(
+        { error: 'Invalid institution type' },
+        { status: 400 }
+      )
     }
 
     // ── School Code Validation ─────────────────────────────
@@ -279,6 +288,7 @@ export async function POST(req: NextRequest) {
     const school = await School.create({
       name: schoolName.trim(),
       subdomain: schoolCode,
+      institutionType, 
       address: address?.trim() || '',
       phone: cleanPhone,
       email: email?.trim() || '',

@@ -110,7 +110,7 @@ function StepPills({ current }: { current: number }) {
               flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium transition-all duration-300
               ${done ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                 : active ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                : 'bg-slate-100 text-slate-400 border border-slate-200'}
+                  : 'bg-slate-100 text-slate-400 border border-slate-200'}
             `}>
               {done
                 ? <span className="text-emerald-500"><Check size={11} /></span>
@@ -227,8 +227,8 @@ function OtpChannelSelector({
             isSending
               ? 'opacity-60 cursor-not-allowed border-slate-200'
               : hasEmail
-              ? 'cursor-pointer border-slate-200 hover:border-slate-300 hover:shadow-sm'
-              : 'cursor-default border-slate-200',
+                ? 'cursor-pointer border-slate-200 hover:border-slate-300 hover:shadow-sm'
+                : 'cursor-default border-slate-200',
           ].join(' ')}
         >
           {/* Icon */}
@@ -390,6 +390,7 @@ export default function RegisterPage() {
 
   const [form, setForm] = useState({
     schoolName: '', schoolCode: '', address: '',
+    institutionType: 'school' as 'school' | 'academy' | 'coaching',  // ← ADD
     adminName: '', phone: '', email: '',
     password: '', confirmPwd: '',
   })
@@ -488,7 +489,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/schools/register', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          schoolName: form.schoolName.trim(), subdomain: form.schoolCode.trim(),
+          schoolName: form.schoolName.trim(), subdomain: form.schoolCode.trim(), institutionType: form.institutionType, 
           address: form.address.trim(), adminName: form.adminName.trim(),
           phone: form.phone.trim(), email: form.email.trim(),
           password: form.password, verificationToken: vToken,
@@ -610,17 +611,15 @@ export default function RegisterPage() {
           <StepPills current={step} />
 
           <div className="bg-white rounded-2xl border border-slate-200 shadow-soft overflow-hidden">
-            <div className={`h-[3px] transition-all duration-500 ${
-              step === 1 ? 'bg-blue-500' : step === 2 ? 'bg-violet-500' : verified ? 'bg-emerald-500' : 'bg-amber-500'
-            }`} />
+            <div className={`h-[3px] transition-all duration-500 ${step === 1 ? 'bg-blue-500' : step === 2 ? 'bg-violet-500' : verified ? 'bg-emerald-500' : 'bg-amber-500'
+              }`} />
 
             <div className="px-7 py-7">
 
               {/* Step label */}
               <div className="flex items-center gap-2 mb-6">
-                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white ${
-                  step === 1 ? 'bg-blue-500' : step === 2 ? 'bg-violet-500' : 'bg-amber-500'
-                }`}>{step}</div>
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white ${step === 1 ? 'bg-blue-500' : step === 2 ? 'bg-violet-500' : 'bg-amber-500'
+                  }`}>{step}</div>
                 <p className="text-[13px] font-semibold text-slate-600">
                   {step === 1 ? 'School Information' : step === 2 ? 'Admin Account Setup' : 'Verify Your Phone'}
                 </p>
@@ -645,6 +644,58 @@ export default function RegisterPage() {
                       />
                     </Field>
 
+                    <Field label="Institution Type" required>
+                      <div className="grid grid-cols-3 gap-2.5">
+                        {[
+                          {
+                            value: 'school' as const,
+                            icon: '🏫',
+                            label: 'School',
+                            desc: 'K-12 Education',
+                          },
+                          {
+                            value: 'academy' as const,
+                            icon: '💻',
+                            label: 'Computer Academy',
+                            desc: 'IT Training',
+                          },
+                          {
+                            value: 'coaching' as const,
+                            icon: '📚',
+                            label: 'Coaching',
+                            desc: 'Competitive Exams',
+                          },
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => set('institutionType', opt.value)}
+                            className={`
+          flex flex-col items-center gap-2 p-3.5 rounded-xl border-2 transition-all
+          ${form.institutionType === opt.value
+                                ? 'border-blue-500 bg-blue-50 shadow-sm shadow-blue-200'
+                                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                              }
+        `}
+                          >
+                            <span className="text-3xl">{opt.icon}</span>
+                            <div className="text-center">
+                              <p className={`text-xs font-bold ${form.institutionType === opt.value ? 'text-blue-700' : 'text-slate-700'
+                                }`}>
+                                {opt.label}
+                              </p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
+                            </div>
+                            {form.institutionType === opt.value && (
+                              <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                                <Check size={11} />
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </Field>
+
                     <Field label="School Code" required hint="Unique ID — teachers & parents use this to login. Cannot be changed later.">
                       <div className="relative">
                         <input
@@ -652,6 +703,7 @@ export default function RegisterPage() {
                           onChange={e => set('schoolCode', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
                           className={`${baseInput} font-mono pr-28`} placeholder="e.g. svm_ambikapur"
                           required autoCapitalize="off" autoCorrect="off" spellCheck={false}
+                          suppressHydrationWarning  // ← FIX
                         />
                         {form.schoolCode && (
                           <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
@@ -719,11 +771,10 @@ export default function RegisterPage() {
                       {form.password && (
                         <div className="flex gap-1 mt-1.5">
                           {[6, 9, 12, 15].map((len, i) => (
-                            <div key={i} className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ${
-                              form.password.length >= len
+                            <div key={i} className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ${form.password.length >= len
                                 ? i < 2 ? 'bg-amber-400' : i === 2 ? 'bg-blue-400' : 'bg-emerald-500'
                                 : 'bg-slate-200'
-                            }`} />
+                              }`} />
                           ))}
                         </div>
                       )}
@@ -968,7 +1019,7 @@ export default function RegisterPage() {
                       {loading
                         ? <><Spinner /> Creating account...</>
                         : step < 3 ? <>Continue <ArrowRight /></>
-                        : <>Create Account <Check /></>
+                          : <>Create Account <Check /></>
                       }
                     </button>
                   )}

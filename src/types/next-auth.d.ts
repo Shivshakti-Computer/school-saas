@@ -17,6 +17,7 @@ declare module 'next-auth' {
         schoolName: string
         schoolLogo?: string          // ← NEW
         modules: string[]
+        institutionType: 'school' | 'academy' | 'coaching'
         trialEndsAt: string
         subscriptionId: string | null
         subscriptionEnd: string | null
@@ -54,6 +55,7 @@ declare module 'next-auth' {
             schoolName: string
             schoolLogo?: string        // ← NEW
             modules: string[]
+            institutionType: 'school' | 'academy' | 'coaching'
             trialEndsAt: string
             subscriptionId: string | null
             subscriptionEnd: string | null
@@ -91,6 +93,7 @@ declare module 'next-auth/jwt' {
         schoolName: string
         schoolLogo?: string          // ← NEW
         modules: string[]
+        institutionType: 'school' | 'academy' | 'coaching'
         trialEndsAt: string
         subscriptionId: string | null
         subscriptionEnd: string | null

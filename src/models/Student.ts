@@ -13,6 +13,12 @@ export interface IStudent extends Document {
     class: string
     section: string
     stream?: string
+
+        // ── Academy/Coaching fields (optional) ──
+    enrollments?: mongoose.Types.ObjectId[]
+    currentBatch?: mongoose.Types.ObjectId
+    currentCourse?: mongoose.Types.ObjectId
+    
     dateOfBirth: Date
     gender: 'male' | 'female' | 'other'
     bloodGroup?: string
@@ -117,6 +123,20 @@ const StudentSchema = new Schema<IStudent>({
     parentPhone: { type: String, required: true },
     parentEmail: { type: String },
 
+    // ── Academy/Coaching fields ──
+    enrollments: [{
+        type: Schema.Types.ObjectId,
+        ref: 'Enrollment',
+    }],
+    currentBatch: {
+        type: Schema.Types.ObjectId,
+        ref: 'Batch',
+    },
+    currentCourse: {
+        type: Schema.Types.ObjectId,
+        ref: 'Course',
+    },
+
     // ── Address ──
     address: { type: String, required: true },
     city: { type: String },
@@ -174,7 +194,7 @@ const StudentSchema = new Schema<IStudent>({
 const VALID_STREAMS = ['science', 'commerce', 'arts', 'vocational']
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
 
-StudentSchema.pre('save', function() {
+StudentSchema.pre('save', function () {
     // Stream normalize
     if (this.stream) {
         const normalized = this.stream.toLowerCase().trim()

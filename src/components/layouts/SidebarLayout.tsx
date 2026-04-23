@@ -22,6 +22,7 @@ import {
   Shield, Lock, ChevronUp, ChevronDown,
   ChevronsUpDown, Sparkles, TrendingUp, Crown,
   Star, Flame,
+  MapPin, Edit,  // ← ADD: franchise aur assignments ke liye
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { TrialBanner } from '@/components/ui/TrialBanner'
@@ -39,6 +40,8 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Image: ImageIcon, Clock, FileText, FileCheck,
   MessageSquare, Award, PlayCircle, Bus, Building,
   Package, UserPlus, Heart, GraduationCap,
+  MapPin,  // ← ADD: Franchise module ke liye
+  Edit,    // ← ADD: Assignments module ke liye
 }
 
 /* ─────────────────────────────────────────────────────────
@@ -307,11 +310,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const allowedModules = (session.user as any).allowedModules as string[] || []
 
   /* ── Nav items ── */
+  const institutionType = (session.user as any).institutionType || 'school'
   const navItems = isExpired
     ? []
     : role === 'staff'
-      ? getSidebarNav(modules, plan, 'staff', allowedModules)
-      : getSidebarNav(modules, plan, role)
+      ? getSidebarNav(modules, plan, 'staff', institutionType, allowedModules, isTrial)
+      : getSidebarNav(modules, plan, role, institutionType, undefined, isTrial)
 
   const isTeacherRestricted = false
   const isStaffNoModules = role === 'staff' && allowedModules.length === 0

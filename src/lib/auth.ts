@@ -126,6 +126,7 @@ async function resolveSubscriptionStatus(
         ? new Date(activeSub.currentPeriodEnd)
         : null
 
+    // ── Paid Subscription Active ──
     if (hasPaidSub && subEnd && subEnd > now) {
         const allModules: string[] = school.modules || []
         const visibleModules = allModules.filter(
@@ -142,20 +143,24 @@ async function resolveSubscriptionStatus(
         }
     }
 
+    // ── Trial Active ──
     if (!hasPaidSub && trialEnd > now) {
+        // ✅ DB ke modules use karo (23 modules already hain)
+        // getSidebarNav me isTrial=true pass hone se plan check bypass hoga
         const baseModules =
             school.modules?.length > 0 ? school.modules : TRIAL_MODULES
         const visibleModules = baseModules.filter(
             (m: string) => !hiddenModules.includes(m)
         )
         return {
-            effectivePlan: TRIAL_PLAN,
+            effectivePlan: school.plan || TRIAL_CONFIG.plan,
             effectiveModules: visibleModules,
             subscriptionStatus: 'trial',
             subscriptionEnd: null,
         }
     }
 
+    // ── Expired ──
     return {
         effectivePlan: 'starter',
         effectiveModules: [],
@@ -247,6 +252,10 @@ export const authOptions: NextAuthOptions = {
                         subdomain,
                         isActive: true,
                     }).lean() as any
+
+                    // institutionType to session
+                    const institutionType = school.institutionType || 'school'
+
                     if (!school) return null
 
                     const loginId = credentials.phone.trim()
@@ -395,6 +404,7 @@ export const authOptions: NextAuthOptions = {
                         schoolName: school.name,
                         schoolLogo: school.logo || undefined,
                         modules: effectiveModules,
+                        institutionType: institutionType as 'school' | 'academy' | 'coaching',  // ← TYPE ASSERTION
                         trialEndsAt: trialEnd.toISOString(),
                         subscriptionId: school.subscriptionId ?? null,
                         subscriptionEnd,
@@ -435,6 +445,7 @@ export const authOptions: NextAuthOptions = {
                 token.schoolName = (user as any).schoolName
                 token.schoolLogo = (user as any).schoolLogo
                 token.modules = (user as any).modules
+                token.institutionType = (user as any).institutionType as 'school' | 'academy' | 'coaching'  // ← TYPE ASSERTION
                 token.trialEndsAt = (user as any).trialEndsAt
                 token.subscriptionId = (user as any).subscriptionId
                 token.subscriptionEnd = (user as any).subscriptionEnd
@@ -591,6 +602,7 @@ export const authOptions: NextAuthOptions = {
                 session.user.schoolName = token.schoolName as string
                 session.user.schoolLogo = token.schoolLogo as string | undefined
                 session.user.modules = token.modules as string[]
+                session.user.institutionType = (token.institutionType as 'school' | 'academy' | 'coaching') || 'school'  // ← TYPE 
                 session.user.trialEndsAt = token.trialEndsAt as string
                 session.user.subscriptionId =
                     token.subscriptionId as string | null
