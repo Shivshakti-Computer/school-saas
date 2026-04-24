@@ -16,6 +16,7 @@ const PUBLIC_ROUTES = [
   '/terms',
   '/refund',
   '/features',
+  '/verify',
   '/modules',
   '/pricing',
   '/security',

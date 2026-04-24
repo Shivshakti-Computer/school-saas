@@ -11,6 +11,7 @@ const footerLinks = {
       { href: '/features', label: 'Features' },
       { href: '/modules', label: 'All Modules' },
       { href: '/pricing', label: 'Pricing' },
+      { href: '/verify', label: 'Verify Certificate' }, // ← ADD THIS
       { href: '/security', label: 'Security' },
       { href: '/faq', label: 'FAQ' },
     ],

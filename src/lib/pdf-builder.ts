@@ -714,3 +714,397 @@ export async function generatePdfFromHtml(htmlContent: string): Promise<Buffer> 
     content,
   })
 }
+
+
+
+/* ============================================================
+   CERTIFICATE PDF GENERATION
+   Professional certificate with QR verification
+   ============================================================ */
+
+export interface CertificatePdfOptions {
+  // School details
+  schoolName: string
+  schoolLogo?: string
+  accreditations?: {
+    affiliations?: string[]
+    registrations?: string[]
+    recognitions?: string[]
+  }
+
+  // Certificate details
+  certificateType: string
+  certificateNumber: string
+  title: string
+  recipientName: string
+  content: string
+
+  // Verification
+  verificationCode: string
+  verificationUrl?: string
+
+  // Customization
+  layout?: 'classic' | 'modern' | 'elegant'
+  signatureLabel?: string
+  issuedDate?: string
+  borderStyle?: string
+}
+
+/**
+ * Generate professional certificate PDF
+ * Used for merit, participation, achievement certificates
+ * 
+ * @param opts Certificate options
+ * @returns PDF buffer
+ */
+export async function buildCertificatePdf(opts: CertificatePdfOptions): Promise<Buffer> {
+  const {
+    schoolName,
+    certificateType,
+    certificateNumber,
+    title,
+    recipientName,
+    content,
+    verificationCode,
+    layout = 'modern',
+    signatureLabel = 'Principal',
+    issuedDate = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }),
+    accreditations,
+  } = opts
+
+  const pdfDoc = await PDFDocument.create()
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const boldItalic = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique)
+  const reg = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const italic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+
+  // ── A4 Landscape for certificates ──────────────────────────
+  const W = 841.89  // A4 landscape width
+  const H = 595.28  // A4 landscape height
+
+  const margin = {
+    top: 60,
+    right: 60,
+    bottom: 60,
+    left: 60,
+  }
+
+  const page = pdfDoc.addPage([W, H])
+
+  // ── Border (decorative) ────────────────────────────────────
+  const borderPadding = 20
+  const borderColor = layout === 'elegant' 
+    ? C.indigo 
+    : layout === 'modern' 
+    ? [0.8, 0.6, 0.2] as [number, number, number]  // Gold
+    : C.slate700
+
+  // Outer border
+  page.drawRectangle({
+    x: borderPadding,
+    y: borderPadding,
+    width: W - borderPadding * 2,
+    height: H - borderPadding * 2,
+    borderColor: rgb(...borderColor),
+    borderWidth: 3,
+  })
+
+  // Inner border (double border effect)
+  page.drawRectangle({
+    x: borderPadding + 8,
+    y: borderPadding + 8,
+    width: W - (borderPadding + 8) * 2,
+    height: H - (borderPadding + 8) * 2,
+    borderColor: rgb(...borderColor),
+    borderWidth: 1,
+  })
+
+  let cursorY = H - margin.top
+
+  // ── Header Section ─────────────────────────────────────────
+  // School name (centered, elegant)
+  const schoolNameSize = 24
+  const schoolNameWidth = bold.widthOfTextAtSize(schoolName.toUpperCase(), schoolNameSize)
+
+  page.drawText(schoolName.toUpperCase(), {
+    x: (W - schoolNameWidth) / 2,
+    y: cursorY,
+    font: bold,
+    size: schoolNameSize,
+    color: rgb(...C.slate900),
+  })
+
+  cursorY -= 35
+
+  // Accreditations (if any)
+  if (accreditations) {
+    const accLines: string[] = []
+    
+    if (accreditations.affiliations?.length) {
+      accLines.push(accreditations.affiliations.join(' • '))
+    }
+    if (accreditations.registrations?.length) {
+      accLines.push(accreditations.registrations.join(' • '))
+    }
+    
+    accLines.forEach(line => {
+      const lineSize = 9
+      const lineWidth = reg.widthOfTextAtSize(line, lineSize)
+      
+      page.drawText(line, {
+        x: (W - lineWidth) / 2,
+        y: cursorY,
+        font: reg,
+        size: lineSize,
+        color: rgb(...C.slate600),
+      })
+      
+      cursorY -= 14
+    })
+  }
+
+  cursorY -= 10
+
+  // Decorative line
+  const lineMargin = 150
+  page.drawLine({
+    start: { x: lineMargin, y: cursorY },
+    end: { x: W - lineMargin, y: cursorY },
+    thickness: 1,
+    color: rgb(...borderColor),
+  })
+
+  cursorY -= 35
+
+  // ── Certificate Type Label ─────────────────────────────────
+  const certTypeText = 'CERTIFICATE'
+  const certTypeSize = 16
+  const certTypeWidth = bold.widthOfTextAtSize(certTypeText, certTypeSize)
+
+  page.drawText(certTypeText, {
+    x: (W - certTypeWidth) / 2,
+    y: cursorY,
+    font: bold,
+    size: certTypeSize,
+    color: rgb(...borderColor),
+  })
+
+  cursorY -= 22
+
+  // Certificate subtype
+  const subTypeText = certificateType.toUpperCase()
+  const subTypeSize = 12
+  const subTypeWidth = reg.widthOfTextAtSize(subTypeText, subTypeSize)
+
+  page.drawText(subTypeText, {
+    x: (W - subTypeWidth) / 2,
+    y: cursorY,
+    font: reg,
+    size: subTypeSize,
+    color: rgb(...C.slate700),
+  })
+
+  cursorY -= 40
+
+  // ── Award Text ──────────────────────────────────────────────
+  const awardText = 'This is proudly presented to'
+  const awardSize = 11
+  const awardWidth = italic.widthOfTextAtSize(awardText, awardSize)
+
+  page.drawText(awardText, {
+    x: (W - awardWidth) / 2,
+    y: cursorY,
+    font: italic,
+    size: awardSize,
+    color: rgb(...C.slate700),
+  })
+
+  cursorY -= 35
+
+  // ── Recipient Name (large, elegant) ────────────────────────
+  const nameSize = 28
+  const nameWidth = boldItalic.widthOfTextAtSize(recipientName, nameSize)
+
+  page.drawText(recipientName, {
+    x: (W - nameWidth) / 2,
+    y: cursorY,
+    font: boldItalic,
+    size: nameSize,
+    color: rgb(...C.slate900),
+  })
+
+  // Underline name
+  const underlineMargin = 80
+  page.drawLine({
+    start: { x: (W - nameWidth) / 2 - 20, y: cursorY - 5 },
+    end: { x: (W - nameWidth) / 2 + nameWidth + 20, y: cursorY - 5 },
+    thickness: 1.5,
+    color: rgb(...borderColor),
+  })
+
+  cursorY -= 45
+
+  // ── Title/Reason ────────────────────────────────────────────
+  const titleSize = 13
+  const titleLines = wrapText(title, W - 200, reg, titleSize)
+
+  titleLines.forEach(line => {
+    const lineWidth = reg.widthOfTextAtSize(line, titleSize)
+    
+    page.drawText(line, {
+      x: (W - lineWidth) / 2,
+      y: cursorY,
+      font: reg,
+      size: titleSize,
+      color: rgb(...C.slate800),
+    })
+    
+    cursorY -= 20
+  })
+
+  cursorY -= 10
+
+  // ── Content (if any) ────────────────────────────────────────
+  if (content && content.trim()) {
+    const contentSize = 11
+    const contentLines = content.split('\n').filter(l => l.trim())
+
+    contentLines.forEach(line => {
+      const wrapped = wrapText(line.trim(), W - 200, reg, contentSize)
+      
+      wrapped.forEach(wLine => {
+        const lineWidth = reg.widthOfTextAtSize(wLine, contentSize)
+        
+        page.drawText(wLine, {
+          x: (W - lineWidth) / 2,
+          y: cursorY,
+          font: reg,
+          size: contentSize,
+          color: rgb(...C.slate700),
+          maxWidth: W - 200,
+        })
+        
+        cursorY -= 16
+      })
+    })
+  }
+
+  // ── Footer Section ──────────────────────────────────────────
+  const footerY = margin.bottom + 70
+
+  // Date (left)
+  const dateText = `Date: ${issuedDate}`
+  page.drawText(dateText, {
+    x: margin.left + 40,
+    y: footerY,
+    font: reg,
+    size: 10,
+    color: rgb(...C.slate800),
+  })
+
+  // Signature (right)
+  const signatureX = W - margin.right - 180
+
+  // Signature line
+  page.drawLine({
+    start: { x: signatureX, y: footerY + 50 },
+    end: { x: W - margin.right - 20, y: footerY + 50 },
+    thickness: 1,
+    color: rgb(...C.slate900),
+  })
+
+  // Signature label
+  const sigLabelSize = 11
+  const sigLabel = signatureLabel
+  const sigLabelWidth = reg.widthOfTextAtSize(sigLabel, sigLabelSize)
+
+  page.drawText(sigLabel, {
+    x: signatureX + (160 - sigLabelWidth) / 2,
+    y: footerY + 35,
+    font: reg,
+    size: sigLabelSize,
+    color: rgb(...C.slate800),
+  })
+
+  page.drawText('(Authorized Signatory)', {
+    x: signatureX + 20,
+    y: footerY + 20,
+    font: reg,
+    size: 8,
+    color: rgb(...C.slate600),
+  })
+
+  // ── Certificate Number & Verification ──────────────────────
+  const certNumText = `Certificate No: ${certificateNumber}`
+  const certNumSize = 9
+  const certNumWidth = reg.widthOfTextAtSize(certNumText, certNumSize)
+
+  page.drawText(certNumText, {
+    x: (W - certNumWidth) / 2,
+    y: footerY - 10,
+    font: reg,
+    size: certNumSize,
+    color: rgb(...C.slate600),
+  })
+
+  // Verification code
+  const verifyText = `Verification Code: ${verificationCode}`
+  const verifySize = 8
+  const verifyWidth = reg.widthOfTextAtSize(verifyText, verifySize)
+
+  page.drawText(verifyText, {
+    x: (W - verifyWidth) / 2,
+    y: footerY - 25,
+    font: reg,
+    size: verifySize,
+    color: rgb(...C.slate500),
+  })
+
+  // Verify instruction
+  const verifyInst = 'Scan QR code or visit verification URL to verify authenticity'
+  const verifyInstSize = 7
+  const verifyInstWidth = reg.widthOfTextAtSize(verifyInst, verifyInstSize)
+
+  page.drawText(verifyInst, {
+    x: (W - verifyInstWidth) / 2,
+    y: footerY - 37,
+    font: italic,
+    size: verifyInstSize,
+    color: rgb(...C.slate400),
+  })
+
+  // ── Generate PDF ────────────────────────────────────────────
+  const bytes = await pdfDoc.save()
+  return Buffer.from(bytes)
+}
+
+// ── Helper: Word Wrap ───────────────────────────────────────
+function wrapText(
+  text: string,
+  maxWidth: number,
+  font: any,
+  fontSize: number
+): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let currentLine = ''
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word
+    const testWidth = font.widthOfTextAtSize(testLine, fontSize)
+
+    if (testWidth > maxWidth && currentLine) {
+      lines.push(currentLine)
+      currentLine = word
+    } else {
+      currentLine = testLine
+    }
+  }
+
+  if (currentLine) lines.push(currentLine)
+  return lines
+}

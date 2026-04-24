@@ -129,6 +129,8 @@ export function ModulesTab({
                     exams: moduleSettings.exams,
                     library: moduleSettings.library,
                     homework: moduleSettings.homework,
+                    hr: moduleSettings.hr,
+                    certificates: moduleSettings.certificates,
                 }),
             })
 
@@ -865,6 +867,65 @@ export function ModulesTab({
                             {(moduleSettings.hr?.payslipFooterText ?? '').length}/200
                         </p>
                     </SettingRow>
+                </SettingSection>
+            )}
+
+            {/* ✅ NEW: Certificate Settings Section */}
+            {activeModules.includes('certificates') && (
+                <SettingSection
+                    title="Certificate Settings"
+                    description="Configure certificate number format and prefix"
+                >
+                    <ToggleRow
+                        label="Auto-generate Prefix"
+                        description="Use institution code (subdomain) as certificate prefix"
+                        checked={moduleSettings.certificates?.autoGeneratePrefix ?? true}
+                        onChange={(v) =>
+                            updateModuleSetting('certificates', 'autoGeneratePrefix', v)
+                        }
+                    />
+
+                    {!moduleSettings.certificates?.autoGeneratePrefix && (
+                        <>
+                            <SettingRow
+                                horizontal
+                                label="Custom Prefix"
+                                description="Custom code for certificate numbers (max 6 chars, alphanumeric)"
+                            >
+                                <input
+                                    type="text"
+                                    value={moduleSettings.certificates?.prefix ?? ''}
+                                    onChange={(e) => {
+                                        // Auto uppercase, alphanumeric only, max 6 chars
+                                        const val = e.target.value
+                                            .toUpperCase()
+                                            .replace(/[^A-Z0-9]/g, '')
+                                            .slice(0, 6)
+                                        updateModuleSetting('certificates', 'prefix', val)
+                                    }}
+                                    placeholder="e.g., SHIV, DPS, CAREER"
+                                    className="input-clean w-32 font-mono uppercase"
+                                    maxLength={6}
+                                />
+                            </SettingRow>
+                            <p className="text-xs text-[var(--text-muted)] mt-1 ml-1">
+                                Preview:{' '}
+                                <span className="font-mono">
+                                    {(moduleSettings.certificates?.prefix || 'INST')}-MERI-{new Date().getFullYear()}-0001
+                                </span>
+                            </p>
+                        </>
+                    )}
+
+                    {moduleSettings.certificates?.autoGeneratePrefix && (
+                        <p className="text-xs text-[var(--text-muted)] mt-1 ml-1">
+                            Prefix will be auto-generated from your institution code.
+                            Preview:{' '}
+                            <span className="font-mono">
+                                INST-MERI-{new Date().getFullYear()}-0001
+                            </span>
+                        </p>
+                    )}
                 </SettingSection>
             )}
 

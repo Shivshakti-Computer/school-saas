@@ -197,6 +197,11 @@ export interface IModuleSettings {
     defaultModules: string[]   // e.g. ['attendance', 'exams', 'homework', 'notices']
     autoAssignModules: boolean // true = creation par auto assign karo
   }
+
+  certificates: {
+    prefix: string              // e.g., "SHIV", "DPS", "CAREER"
+    autoGeneratePrefix: boolean // true = use subdomain, false = custom prefix
+  }
 }
 
 export interface ISchoolSettingsModel extends Model<ISchoolSettings> {
@@ -418,6 +423,10 @@ const ModuleSettingsSchema = new Schema<IModuleSettings>(
       },
       autoAssignModules: { type: Boolean, default: true },
     },
+    certificates: {
+      prefix: { type: String, default: '' },
+      autoGeneratePrefix: { type: Boolean, default: true },
+    }
   },
   { _id: false }
 )
