@@ -440,3 +440,277 @@ export async function buildPdf(opts: BuildPdfOptions): Promise<Buffer> {
   const bytes = await pdfDoc.save()
   return Buffer.from(bytes)
 }
+
+
+/* ============================================================
+   DOCUMENT CERTIFICATE PDF GENERATION
+   Simple HTML-like content to professional PDF converter
+   For TC, CC, Bonafide certificates
+   ============================================================ */
+
+export interface DocumentPdfOptions {
+  schoolName: string
+  documentType: string  // TC, CC, BONAFIDE, CERTIFICATE
+  serialNo: string
+  content: string       // Plain text content with \n line breaks
+  issuedDate?: string
+  footerSignature?: string
+}
+
+/**
+ * Generate professional document certificate PDF
+ * Used for TC, CC, Bonafide, Custom certificates
+ * 
+ * @param opts Document options
+ * @returns PDF buffer
+ */
+export async function buildDocumentPdf(opts: DocumentPdfOptions): Promise<Buffer> {
+  const {
+    schoolName,
+    documentType,
+    serialNo,
+    content,
+    issuedDate = new Date().toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }),
+    footerSignature = 'Principal / Director',
+  } = opts
+
+  const pdfDoc = await PDFDocument.create()
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  const reg = await pdfDoc.embedFont(StandardFonts.Helvetica)
+
+  // ── A4 Portrait dimensions ───────────────────────────────
+  const W = 595.28  // A4 width in points
+  const H = 841.89  // A4 height in points
+
+  const margin = {
+    top: 70,
+    right: 50,
+    bottom: 70,
+    left: 50,
+  }
+
+  const page = pdfDoc.addPage([W, H])
+
+  // ── Header Section ───────────────────────────────────────
+  let cursorY = H - margin.top
+
+  // School name (centered, bold, large)
+  const schoolNameSize = 18
+  const schoolNameWidth = bold.widthOfTextAtSize(schoolName.toUpperCase(), schoolNameSize)
+  
+  page.drawText(schoolName.toUpperCase(), {
+    x: (W - schoolNameWidth) / 2,
+    y: cursorY,
+    font: bold,
+    size: schoolNameSize,
+    color: rgb(...C.slate900),
+  })
+
+  cursorY -= 25
+
+  // Document type (centered, bold, underlined)
+  const docTypeText = documentType.toUpperCase()
+  const docTypeSize = 14
+  const docTypeWidth = bold.widthOfTextAtSize(docTypeText, docTypeSize)
+  const docTypeX = (W - docTypeWidth) / 2
+
+  page.drawText(docTypeText, {
+    x: docTypeX,
+    y: cursorY,
+    font: bold,
+    size: docTypeSize,
+    color: rgb(...C.slate900),
+  })
+
+  // Underline document type
+  page.drawLine({
+    start: { x: docTypeX - 10, y: cursorY - 3 },
+    end: { x: docTypeX + docTypeWidth + 10, y: cursorY - 3 },
+    thickness: 1,
+    color: rgb(...C.slate900),
+  })
+
+  cursorY -= 22
+
+  // Serial number (centered, smaller)
+  const serialText = `Serial No: ${serialNo}`
+  const serialSize = 10
+  const serialWidth = reg.widthOfTextAtSize(serialText, serialSize)
+
+  page.drawText(serialText, {
+    x: (W - serialWidth) / 2,
+    y: cursorY,
+    font: reg,
+    size: serialSize,
+    color: rgb(...C.slate600),
+  })
+
+  cursorY -= 25
+
+  // Header separator line
+  page.drawLine({
+    start: { x: margin.left, y: cursorY },
+    end: { x: W - margin.right, y: cursorY },
+    thickness: 2,
+    color: rgb(...C.slate900),
+  })
+
+  cursorY -= 30
+
+  // ── Content Section ──────────────────────────────────────
+  const contentSize = 11
+  const lineHeight = 20
+  const maxWidth = W - margin.left - margin.right
+
+  // Split content into lines
+  const lines = content.split('\n')
+
+  for (const line of lines) {
+    // Check if page break needed (keep 150pt for footer)
+    if (cursorY - lineHeight < margin.bottom + 150) {
+      // Would overflow — truncate for single page
+      // (For multi-page support, create new page here)
+      break
+    }
+
+    const trimmedLine = line.trim()
+    
+    // Skip empty lines but add half spacing
+    if (!trimmedLine) {
+      cursorY -= lineHeight / 2
+      continue
+    }
+
+    // Word wrap if line too long
+    const words = trimmedLine.split(' ')
+    let currentLine = ''
+
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word
+      const testWidth = reg.widthOfTextAtSize(testLine, contentSize)
+
+      if (testWidth > maxWidth && currentLine) {
+        // Draw current line
+        page.drawText(currentLine, {
+          x: margin.left,
+          y: cursorY,
+          font: reg,
+          size: contentSize,
+          color: rgb(...C.slate800),
+          maxWidth,
+        })
+        cursorY -= lineHeight
+        currentLine = word
+      } else {
+        currentLine = testLine
+      }
+    }
+
+    // Draw remaining text
+    if (currentLine) {
+      page.drawText(currentLine, {
+        x: margin.left,
+        y: cursorY,
+        font: reg,
+        size: contentSize,
+        color: rgb(...C.slate800),
+        maxWidth,
+      })
+      cursorY -= lineHeight
+    }
+  }
+
+  // ── Footer Section ───────────────────────────────────────
+  const footerY = margin.bottom + 80
+
+  // Date (left aligned)
+  const dateText = `Date: ${issuedDate}`
+  page.drawText(dateText, {
+    x: margin.left,
+    y: footerY,
+    font: reg,
+    size: 10,
+    color: rgb(...C.slate800),
+  })
+
+  // Signature section (right aligned)
+  const signatureX = W - margin.right - 150
+
+  // Signature line
+  page.drawLine({
+    start: { x: signatureX, y: footerY + 50 },
+    end: { x: W - margin.right, y: footerY + 50 },
+    thickness: 1,
+    color: rgb(...C.slate900),
+  })
+
+  // Signature label
+  const signatureSize = 10
+  const signatureWidth = reg.widthOfTextAtSize(footerSignature, signatureSize)
+  
+  page.drawText(footerSignature, {
+    x: signatureX + (150 - signatureWidth) / 2,
+    y: footerY + 35,
+    font: reg,
+    size: signatureSize,
+    color: rgb(...C.slate800),
+  })
+
+  page.drawText('(Signature & Seal)', {
+    x: signatureX + 15,
+    y: footerY + 20,
+    font: reg,
+    size: 8,
+    color: rgb(...C.slate600),
+  })
+
+  // ── Generate PDF buffer ──────────────────────────────────
+  const bytes = await pdfDoc.save()
+  return Buffer.from(bytes)
+}
+
+/**
+ * HTML-like content to PDF (for backward compatibility)
+ * Strips basic HTML tags and converts to plain text PDF
+ * 
+ * @param htmlContent HTML string (basic tags only)
+ * @returns PDF buffer
+ */
+
+// ✅ OPTION 2: Replace regex flags manually (if tsconfig can't change)
+export async function generatePdfFromHtml(htmlContent: string): Promise<Buffer> {
+  // Extract metadata from HTML
+  // ✅ FIX: Replace /s flag with [\s\S]* (ES5 compatible)
+  const schoolNameMatch = htmlContent.match(/<div class="school-name">([\s\S]*?)<\/div>/)
+  const docTitleMatch = htmlContent.match(/<div class="doc-title">([\s\S]*?)<\/div>/)
+  const serialMatch = htmlContent.match(/Serial No:\s*(\S+)/)
+  const contentMatch = htmlContent.match(/<div class="content">([\s\S]*?)<\/div>/)
+
+  const schoolName = schoolNameMatch?.[1]?.trim() || 'Institution'
+  const docType = docTitleMatch?.[1]?.trim() || 'CERTIFICATE'
+  const serialNo = serialMatch?.[1]?.trim() || 'N/A'
+  
+  // Clean content — remove HTML tags
+  let content = contentMatch?.[1] || htmlContent
+  content = content
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<p>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim()
+
+  return buildDocumentPdf({
+    schoolName,
+    documentType: docType,
+    serialNo,
+    content,
+  })
+}
