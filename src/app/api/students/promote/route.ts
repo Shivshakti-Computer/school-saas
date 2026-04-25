@@ -8,6 +8,7 @@ import { User } from '@/models/User'
 import { Fee } from '@/models/Fee'
 import { FeeStructure } from '@/models/FeeStructure'
 import { getCurrentAcademicYear } from '@/lib/admissionUtils'
+import { School } from '@/models'
 
 /**
  * POST /api/students/promote
@@ -40,6 +41,27 @@ export async function POST(req: NextRequest) {
     }
 
     await connectDB()
+
+    // ✅ ADD: Institution type check — promotion only for schools
+    const school = await School.findById(session.user.tenantId)
+        .select('institutionType').lean() as any
+
+    if (!school) {
+        return NextResponse.json(
+            { error: 'School not found' },
+            { status: 404 }
+        )
+    }
+
+    if (school.institutionType !== 'school') {
+        return NextResponse.json(
+            { 
+                error: 'Promotion feature is only available for schools',
+                message: 'Academy and coaching institutes use batch completion instead of promotion',
+            },
+            { status: 403 }
+        )
+    }
 
     const body = await req.json()
     const {

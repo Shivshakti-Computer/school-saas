@@ -130,6 +130,25 @@ export async function POST(req: NextRequest) {
 
   await connectDB()
 
+  // ✅ ADD: Institution type check
+  const school = await School.findById(session.user.tenantId)
+    .select('institutionType subdomain')
+    .lean() as { institutionType?: string; subdomain?: string } | null
+
+  const institutionType = school?.institutionType || 'school'
+  const subdomain = school?.subdomain || 'SCH'
+
+  // ✅ Bulk import currently only for schools
+  if (institutionType !== 'school') {
+    return NextResponse.json(
+      {
+        error: 'Bulk import currently only available for schools',
+        message: 'Academy/Coaching student enrollment coming soon',
+      },
+      { status: 403 }
+    )
+  }
+
   const formData = await req.formData()
   const file = formData.get('file') as File
   if (!file) {
@@ -165,12 +184,7 @@ export async function POST(req: NextRequest) {
     }, { status: 403 })
   }
 
-  // ── School info ──
-  const school = await School.findById(session.user.tenantId)
-    .select('subdomain')
-    .lean() as { subdomain?: string } | null
-
-  const subdomain = school?.subdomain || 'SCH'
+  // ── School code (already fetched above) ──
   const schoolCode = getSchoolCode(subdomain)
 
   const results = {

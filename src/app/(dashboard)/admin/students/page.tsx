@@ -16,6 +16,7 @@ import { Spinner, Alert } from '@/components/ui'
 import { Portal } from '@/components/ui/Portal'
 import { INDIA_STATES, STATE_CITIES } from '@/lib/india-locations'
 import { useAcademicSettings } from '@/hooks/useAcademicSettings'
+import { useSession } from 'next-auth/react'
 
 /* ═══ Types ═══ */
 interface Student {
@@ -711,6 +712,9 @@ function AddressStep({
 function AddStudentModal({
   open, onClose, onSuccess,
   availableClasses, availableSections, streamConfig, currentAcademicYear, academicYearStartMonth,
+  institutionType,  // ✅ ADD
+  batches,          // ✅ ADD
+  courses,          // ✅ ADD
 }: {
   open: boolean
   onClose: () => void
@@ -720,10 +724,15 @@ function AddStudentModal({
   streamConfig: typeof DEFAULT_STREAM_CONFIG
   currentAcademicYear: string
   academicYearStartMonth: number
+  institutionType: 'school' | 'academy' | 'coaching'  // ✅ ADD
+  batches: any[]                                      // ✅ ADD
+  courses: any[]                                      // ✅ ADD
 }) {
   const initForm = () => ({
     name: '', phone: '', email: '',
     class: '', section: availableSections[0] || 'A', stream: '',
+    currentBatch: '',
+    currentCourse: '',
     academicYear: currentAcademicYear,
     admissionDate: new Date().toISOString().split('T')[0],
     dateOfBirth: '', gender: 'male',
@@ -754,6 +763,15 @@ function AddStudentModal({
 
   const isHigherSecondary = ['11', '12'].includes(form.class)
 
+  // ✅ Validation helper — institution-aware
+  const isFormValid = () => {
+    if (institutionType === 'school') {
+      return form.class && form.section && (isHigherSecondary ? form.stream : true)
+    } else {
+      return form.currentBatch && (institutionType === 'academy' ? form.currentCourse : true)
+    }
+  }
+
   const setField = useCallback((key: string, val: string) => {
     setForm(prev => {
       const updated = { ...prev, [key]: val }
@@ -773,13 +791,24 @@ function AddStudentModal({
   const handleNext = useCallback(() => {
     if (step === 1) {
       if (!form.name.trim()) { setError('Student name is required'); return }
-      if (!form.class) { setError('Please select a class'); return }
+
+      // ✅ Conditional validation
+      if (institutionType === 'school') {
+        if (!form.class) { setError('Please select a class'); return }
+        if (isHigherSecondary && !form.stream) {
+          setError('Stream selection is required for Class 11/12')
+          return
+        }
+      } else {
+        if (!form.currentBatch) { setError('Please select a batch'); return }
+        if (institutionType === 'academy' && !form.currentCourse) {
+          setError('Please select a course')
+          return
+        }
+      }
+
       if (form.phone.trim() && !/^\d{10}$/.test(form.phone.trim())) {
         setError('Phone number must be 10 digits')
-        return
-      }
-      if (isHigherSecondary && !form.stream) {
-        setError('Stream selection is required for Class 11/12')
         return
       }
     }
@@ -895,8 +924,8 @@ function AddStudentModal({
                   />
                   <p className="input-hint mt-1">
                     {form.phone.trim()
-                      ? 'Login: Phone + Parent Phone'
-                      : 'Login: Admission No + DOB (auto-set)'}
+                      ? 'Login: Phone + DOB password'
+                      : 'Login: Admission No + DOB password'}
                   </p>
                 </div>
                 <FormInput
@@ -906,54 +935,131 @@ function AddStudentModal({
                   type="email"
                   placeholder="student@email.com"
                 />
-                {/* ✅ Settings se academic year options */}
-                <FormSelect
-                  label="Academic Year"
-                  value={form.academicYear}
-                  onChange={val => setField('academicYear', val)}
-                  required
-                  options={yearOptions.map(y => ({ value: y, label: y }))}
-                />
-                {/* ✅ Settings se active classes */}
-                <FormSelect
-                  label="Class"
-                  value={form.class}
-                  onChange={val => setField('class', val)}
-                  required
-                  options={[
-                    { value: '', label: 'Select Class' },
-                    ...availableClasses.map(c => ({ value: c, label: `Class ${c}` })),
-                  ]}
-                />
-                {/* ✅ Settings se active sections */}
-                <FormSelect
-                  label="Section"
-                  value={form.section}
-                  onChange={val => setField('section', val)}
-                  required
-                  options={availableSections.map(s => ({ value: s, label: `Section ${s}` }))}
-                />
-                <FormInput
-                  label="Admission Date"
-                  value={form.admissionDate}
-                  onChange={val => setField('admissionDate', val)}
-                  type="date"
-                  required
-                />
-                {isHigherSecondary && (
-                  <StreamSelector
-                    value={form.stream}
-                    onChange={val => setField('stream', val)}
-                    streamConfig={streamConfig}
-                  />
-                )}
-                {form.class && (
-                  <FeePreviewCard
-                    selectedClass={form.class}
-                    selectedSection={form.section}
-                    selectedStream={form.stream}   // ✅ add karo
-                    academicYear={form.academicYear}
-                  />
+
+                {/* ✅ Conditional fields based on institution type */}
+                {institutionType === 'school' ? (
+                  <>
+                    {/* ✅ Settings se academic year options */}
+                    <FormSelect
+                      label="Academic Year"
+                      value={form.academicYear}
+                      onChange={val => setField('academicYear', val)}
+                      required
+                      options={yearOptions.map(y => ({ value: y, label: y }))}
+                    />
+                    {/* ✅ Settings se active classes */}
+                    <FormSelect
+                      label="Class"
+                      value={form.class}
+                      onChange={val => setField('class', val)}
+                      required
+                      options={[
+                        { value: '', label: 'Select Class' },
+                        ...availableClasses.map(c => ({ value: c, label: `Class ${c}` })),
+                      ]}
+                    />
+                    {/* ✅ Settings se active sections */}
+                    <FormSelect
+                      label="Section"
+                      value={form.section}
+                      onChange={val => setField('section', val)}
+                      required
+                      options={availableSections.map(s => ({ value: s, label: `Section ${s}` }))}
+                    />
+                    <FormInput
+                      label="Admission Date"
+                      value={form.admissionDate}
+                      onChange={val => setField('admissionDate', val)}
+                      type="date"
+                      required
+                    />
+                    {isHigherSecondary && (
+                      <StreamSelector
+                        value={form.stream}
+                        onChange={val => setField('stream', val)}
+                        streamConfig={streamConfig}
+                      />
+                    )}
+                    {form.class && (
+                      <FeePreviewCard
+                        selectedClass={form.class}
+                        selectedSection={form.section}
+                        selectedStream={form.stream}
+                        academicYear={form.academicYear}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {/* ✅ Academy/Coaching fields */}
+                    <FormSelect
+                      label="Batch"
+                      value={form.currentBatch}
+                      onChange={val => setField('currentBatch', val)}
+                      required
+                      options={[
+                        { value: '', label: 'Select Batch' },
+                        ...batches.map(b => ({ value: b._id, label: b.batchName })),
+                      ]}
+                      helper="Select the batch student will be enrolled in"
+                    />
+
+                    {institutionType === 'academy' && (
+                      <FormSelect
+                        label="Course"
+                        value={form.currentCourse}
+                        onChange={val => setField('currentCourse', val)}
+                        required
+                        options={[
+                          { value: '', label: 'Select Course' },
+                          ...courses.map(c => ({ value: c._id, label: c.name })),
+                        ]}
+                        helper="Select the course student is enrolling for"
+                      />
+                    )}
+
+                    <FormInput
+                      label="Enrollment Date"
+                      value={form.admissionDate}
+                      onChange={val => setField('admissionDate', val)}
+                      type="date"
+                      required
+                    />
+
+                    {/* Info card for academy/coaching */}
+                    <div
+                      className="col-span-2 rounded-xl overflow-hidden"
+                      style={{
+                        border: '1px solid var(--color-info-200)',
+                        backgroundColor: 'var(--color-info-50)',
+                      }}
+                    >
+                      <div
+                        className="flex items-center gap-2 px-4 py-2.5"
+                        style={{
+                          backgroundColor: 'var(--color-info-100)',
+                          borderBottom: '1px solid var(--color-info-200)',
+                        }}
+                      >
+                        <Info size={13} style={{ color: 'var(--color-info-600)' }} />
+                        <span className="text-xs font-bold" style={{ color: 'var(--color-info-700)' }}>
+                          Enrollment Information
+                        </span>
+                      </div>
+                      <div className="px-4 py-3">
+                        <p className="text-xs" style={{ color: 'var(--color-info-700)' }}>
+                          {form.currentBatch && batches.find(b => b._id === form.currentBatch)
+                            ? `Selected Batch: ${batches.find(b => b._id === form.currentBatch)?.batchName}`
+                            : 'Please select a batch'}
+                        </p>
+                        {institutionType === 'academy' && form.currentCourse && (
+                          <p className="text-xs mt-1" style={{ color: 'var(--color-info-700)' }}>
+                            Selected Course: {courses.find(c => c._id === form.currentCourse)?.name}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -1194,6 +1300,7 @@ function Section({
    ═══════════════════════════════════════════ */
 function ViewStudentModal({
   open, student, onClose, onEdit, onIdCard, streamConfig,
+  institutionType,  // ✅ ADD
 }: {
   open: boolean
   student: Student
@@ -1201,6 +1308,7 @@ function ViewStudentModal({
   onEdit: () => void
   onIdCard: () => void
   streamConfig: typeof DEFAULT_STREAM_CONFIG
+  institutionType: 'school' | 'academy' | 'coaching'  // ✅ ADD
 }) {
   const [fullData, setFullData] = useState<any>(null)
   const [loading, setLoading] = useState(false)
@@ -1314,17 +1422,39 @@ function ViewStudentModal({
             <div className="flex justify-center py-12"><Spinner size="lg" /></div>
           ) : (
             <div className="space-y-5">
-              <Section title="Academic Information" icon={<GraduationCap size={14} />}>
-                <Row label="Admission No" value={s.admissionNo} />
-                <Row label="Academic Year" value={s.academicYear} />
-                <Row label="Class & Section" value={`Class ${s.class} - Section ${s.section}`} />
-                {s.stream && <Row label="Stream" value={streamInfo?.label} />}
-                <Row label="Roll Number" value={`#${s.rollNo}`} />
-                <Row
-                  label="Admission Date"
-                  value={s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN') : ''}
-                />
-              </Section>
+              {/* ✅ Conditional Academic/Enrollment section */}
+              {institutionType === 'school' ? (
+                <Section title="Academic Information" icon={<GraduationCap size={14} />}>
+                  <Row label="Admission No" value={s.admissionNo} />
+                  <Row label="Academic Year" value={s.academicYear} />
+                  <Row label="Class & Section" value={`Class ${s.class} - Section ${s.section}`} />
+                  {s.stream && <Row label="Stream" value={streamInfo?.label} />}
+                  <Row label="Roll Number" value={`#${s.rollNo}`} />
+                  <Row
+                    label="Admission Date"
+                    value={s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN') : ''}
+                  />
+                </Section>
+              ) : (
+                <Section title="Enrollment Information" icon={<BookOpen size={14} />}>
+                  <Row label="Admission No" value={s.admissionNo} />
+                  <Row label="Academic Year" value={s.academicYear} />
+                  <Row
+                    label="Batch"
+                    value={(s as any).currentBatch?.batchName || '—'}
+                  />
+                  {institutionType === 'academy' && (
+                    <Row
+                      label="Course"
+                      value={(s as any).currentCourse?.name || '—'}
+                    />
+                  )}
+                  <Row
+                    label="Enrollment Date"
+                    value={s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN') : ''}
+                  />
+                </Section>
+              )}
 
               <Section title="Personal Information" icon={<UserCheck size={14} />}>
                 <Row
@@ -1459,6 +1589,9 @@ const Field = ({
 function EditStudentModal({
   open, student, onClose, onSuccess,
   availableClasses, availableSections, streamConfig,
+  institutionType,  // ✅ ADD
+  batches,          // ✅ ADD
+  courses,          // ✅ ADD
 }: {
   open: boolean
   student: Student
@@ -1467,6 +1600,9 @@ function EditStudentModal({
   availableClasses: string[]
   availableSections: string[]
   streamConfig: typeof DEFAULT_STREAM_CONFIG
+  institutionType: 'school' | 'academy' | 'coaching'  // ✅ ADD
+  batches: any[]                                      // ✅ ADD
+  courses: any[]                                      // ✅ ADD
 }) {
   const [form, setForm] = useState<any>({})
   const [loading, setLoading] = useState(false)
@@ -1494,9 +1630,14 @@ function EditStudentModal({
       .then(d => {
         const s = d.student
         setForm({
-          class: s.class,
-          section: s.section,
+          // School fields
+          class: s.class || '',
+          section: s.section || '',
           stream: s.stream || '',
+          // Academy/Coaching fields
+          currentBatch: s.currentBatch?._id || s.currentBatch || '',
+          currentCourse: s.currentCourse?._id || s.currentCourse || '',
+          // Rest same
           fatherName: s.fatherName,
           motherName: s.motherName || '',
           fatherOccupation: s.fatherOccupation || '',
@@ -1587,36 +1728,63 @@ function EditStudentModal({
             <div className="flex-1 overflow-y-auto portal-scrollbar px-6 py-4">
               <div className="space-y-5">
 
-                {/* Academic */}
+                {/* Academic / Enrollment */}
                 <div>
                   <h4 className="text-2xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--text-muted)' }}>
-                    Academic
+                    {institutionType === 'school' ? 'Academic' : 'Enrollment'}
                   </h4>
                   <div className="grid grid-cols-2 gap-3">
-                    {/* ✅ Settings se active classes */}
-                    <Field
-                      label="Class" field="class"
-                      form={form} onChange={set}
-                      options={[
-                        { value: '', label: 'Select' },
-                        ...availableClasses.map(c => ({ value: c, label: `Class ${c}` })),
-                      ]}
-                    />
-                    {/* ✅ Settings se active sections */}
-                    <Field
-                      label="Section" field="section"
-                      form={form} onChange={set}
-                      options={availableSections.map(s => ({ value: s, label: `Section ${s}` }))}
-                    />
-                    {isHigherSecondary && (
-                      <div className="col-span-2">
-                        <StreamSelector
-                          value={form.stream || ''}
-                          onChange={val => set('stream', val)}
-                          streamConfig={streamConfig}
+                    {institutionType === 'school' ? (
+                      <>
+                        {/* ✅ Settings se active classes */}
+                        <Field
+                          label="Class" field="class"
+                          form={form} onChange={set}
+                          options={[
+                            { value: '', label: 'Select' },
+                            ...availableClasses.map(c => ({ value: c, label: `Class ${c}` })),
+                          ]}
                         />
-                      </div>
+                        {/* ✅ Settings se active sections */}
+                        <Field
+                          label="Section" field="section"
+                          form={form} onChange={set}
+                          options={availableSections.map(s => ({ value: s, label: `Section ${s}` }))}
+                        />
+                        {isHigherSecondary && (
+                          <div className="col-span-2">
+                            <StreamSelector
+                              value={form.stream || ''}
+                              onChange={val => set('stream', val)}
+                              streamConfig={streamConfig}
+                            />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* ✅ Academy/Coaching fields */}
+                        <Field
+                          label="Batch" field="currentBatch"
+                          form={form} onChange={set}
+                          options={[
+                            { value: '', label: 'Select Batch' },
+                            ...batches.map(b => ({ value: b._id, label: b.batchName })),
+                          ]}
+                        />
+                        {institutionType === 'academy' && (
+                          <Field
+                            label="Course" field="currentCourse"
+                            form={form} onChange={set}
+                            options={[
+                              { value: '', label: 'Select Course' },
+                              ...courses.map(c => ({ value: c._id, label: c.name })),
+                            ]}
+                          />
+                        )}
+                      </>
                     )}
+
                     <Field
                       label="Status" field="status"
                       form={form} onChange={set}
@@ -1997,26 +2165,33 @@ function PromoteModal({
    MAIN PAGE — Academic Settings se sync
    ═══════════════════════════════════════════ */
 export default function StudentsPage() {
+  // ✅ Institution type from session
+  const { data: session } = useSession()
+  const institutionType = session?.user?.institutionType || 'school'
+
   // ✅ Academic settings hook - BroadcastChannel se auto-sync
   const { settings: academicSettings, loading: settingsLoading } = useAcademicSettings()
 
-  // ✅ Derived values - settings se, fallback constants ke saath
-  const availableClasses = academicSettings
-    ? academicSettings.classes
-      .filter(c => c.isActive)
-      .sort((a, b) => a.order - b.order)
-      // unique class names (sr_secondary mein 11 Science, 11 Commerce — sirf "11" ek baar)
-      .reduce<string[]>((acc, c) => {
-        if (!acc.includes(c.name)) acc.push(c.name)
-        return acc
-      }, [])
-    : FALLBACK_CLASSES
+  // ✅ Derived values - conditional based on institution type
+  const availableClasses = institutionType === 'school'
+    ? (academicSettings
+      ? academicSettings.classes
+        .filter(c => c.isActive)
+        .sort((a, b) => a.order - b.order)
+        .reduce<string[]>((acc, c) => {
+          if (!acc.includes(c.name)) acc.push(c.name)
+          return acc
+        }, [])
+      : FALLBACK_CLASSES)
+    : []
 
-  const availableSections = academicSettings
-    ? academicSettings.sections
-      .filter(s => s.isActive)
-      .map(s => s.name)
-    : FALLBACK_SECTIONS
+  const availableSections = institutionType === 'school'
+    ? (academicSettings
+      ? academicSettings.sections
+        .filter(s => s.isActive)
+        .map(s => s.name)
+      : FALLBACK_SECTIONS)
+    : []
 
   // ✅ Stream config — subjects settings se, structure same
   const streamConfig = academicSettings
@@ -2062,6 +2237,27 @@ export default function StudentsPage() {
   })
   const [showFilters, setShowFilters] = useState(false)
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ✅ NEW: Batches and Courses for Academy/Coaching
+  const [batches, setBatches] = useState<any[]>([])
+  const [courses, setCourses] = useState<any[]>([])
+
+  // ✅ Fetch batches/courses for non-school institutions
+  useEffect(() => {
+    if (institutionType !== 'school') {
+      fetch('/api/batches')
+        .then(r => r.json())
+        .then(d => setBatches(d.batches || []))
+        .catch(() => setBatches([]))
+
+      if (institutionType === 'academy') {
+        fetch('/api/courses')
+          .then(r => r.json())
+          .then(d => setCourses(d.courses || []))
+          .catch(() => setCourses([]))
+      }
+    }
+  }, [institutionType])
 
   // ✅ Academic settings update hone par filters ka academicYear sync karo
   useEffect(() => {
@@ -2157,7 +2353,8 @@ export default function StudentsPage() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {selectedIds.length > 0 && (
+          {/* ✅ Promote button — only for schools */}
+          {institutionType === 'school' && selectedIds.length > 0 && (
             <button
               onClick={() => setShowPromote(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
@@ -2172,110 +2369,119 @@ export default function StudentsPage() {
             </button>
           )}
 
-          <button
-            onClick={() => {
-              const year = filters.academicYear || currentAcademicYear
-              window.location.href =
-                `/api/students/bulk-import/template?academicYear=${encodeURIComponent(year)}`
-            }}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
-            style={{
-              backgroundColor: 'var(--color-info-50)',
-              color: 'var(--color-info-700)',
-              border: '1px solid var(--color-info-200)',
-            }}
-            title={`Template for ${filters.academicYear || currentAcademicYear}`}
-          >
-            <svg
-              width="14" height="14" viewBox="0 0 24 24"
-              fill="none" stroke="currentColor"
-              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span className="hidden sm:inline">Template</span>
-            <span
-              className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-2xs font-bold"
-              style={{
-                backgroundColor: 'var(--color-info-100)',
-                color: 'var(--color-info-800)',
+          {/* ✅ Template download — only for schools */}
+          {institutionType === 'school' && (
+            <button
+              onClick={() => {
+                const year = filters.academicYear || currentAcademicYear
+                window.location.href =
+                  `/api/students/bulk-import/template?academicYear=${encodeURIComponent(year)}`
               }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all active:scale-[0.98]"
+              style={{
+                backgroundColor: 'var(--color-info-50)',
+                color: 'var(--color-info-700)',
+                border: '1px solid var(--color-info-200)',
+              }}
+              title={`Template for ${filters.academicYear || currentAcademicYear}`}
             >
-              {filters.academicYear || currentAcademicYear}
-            </span>
-          </button>
+              <svg
+                width="14" height="14" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span className="hidden sm:inline">Template</span>
+              <span
+                className="hidden md:inline-flex items-center px-1.5 py-0.5 rounded text-2xs font-bold"
+                style={{
+                  backgroundColor: 'var(--color-info-100)',
+                  color: 'var(--color-info-800)',
+                }}
+              >
+                {filters.academicYear || currentAcademicYear}
+              </span>
+            </button>
+          )}
 
-          <label
-            htmlFor="excel-upload"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all active:scale-[0.98]"
-            style={{
-              backgroundColor: 'var(--bg-card)',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <Upload size={14} />
-            <span className="hidden sm:inline">Import Excel</span>
-          </label>
-          <input
-            id="excel-upload"
-            type="file"
-            accept=".xlsx,.xls"
-            className="hidden"
-            onChange={async e => {
-              const file = e.target.files?.[0]
-              if (!file) return
-              showSuccess('Importing...')
-              const fd = new FormData()
-              fd.append('file', file)
-              fd.append('academicYear', filters.academicYear || currentAcademicYear)
-              try {
-                const res = await fetch('/api/students/bulk-import', { method: 'POST', body: fd })
-                const data = await res.json()
-                if (!res.ok) {
-                  showError(data.error || 'Import failed')
-                  e.target.value = ''
-                  return
-                }
-                if (data.success > 0) {
-                  showSuccess(
-                    `${data.success} students imported for ${data.academicYear}` +
-                    (data.failed > 0 ? ` · ${data.failed} failed` : '')
-                  )
-                }
-                if (data.failed > 0 && data.errors?.length > 0) {
-                  console.group(`[Bulk Import] ${data.failed} rows failed`)
-                  data.errors.forEach((err: {
-                    row: number; name: string; field: string; message: string
-                  }) => {
-                    console.warn(`Row ${err.row} (${err.name}) | ${err.field}: ${err.message}`)
-                  })
-                  console.groupEnd()
-                  const preview = data.errors.slice(0, 3)
-                  const moreCount = data.errors.length - 3
-                  const errorLines = preview
-                    .map((err: { row: number; name: string; field: string; message: string }) =>
-                      `Row ${err.row} (${err.name}): [${err.field}] ${err.message}`
-                    )
-                    .join('\n')
-                  const fullMsg = data.success > 0
-                    ? `⚠️ ${data.failed} rows failed:\n${errorLines}` +
-                    (moreCount > 0 ? `\n...aur ${moreCount} errors (console mein dekho)` : '')
-                    : `❌ Import failed:\n${errorLines}` +
-                    (moreCount > 0 ? `\n...aur ${moreCount} errors (console mein dekho)` : '')
-                  if (data.success > 0) setTimeout(() => showError(fullMsg), 1000)
-                  else showError(fullMsg)
-                }
-                fetchStudents(1)
-              } catch {
-                showError('Network error — please try again')
-              } finally {
-                e.target.value = ''
-              }
-            }}
-          />
+          {/* ✅ Excel import — only for schools */}
+          {institutionType === 'school' && (
+            <>
+              <label
+                htmlFor="excel-upload"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-all active:scale-[0.98]"
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <Upload size={14} />
+                <span className="hidden sm:inline">Import Excel</span>
+              </label>
+              <input
+                id="excel-upload"
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={async e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  showSuccess('Importing...')
+                  const fd = new FormData()
+                  fd.append('file', file)
+                  fd.append('academicYear', filters.academicYear || currentAcademicYear)
+                  try {
+                    const res = await fetch('/api/students/bulk-import', { method: 'POST', body: fd })
+                    const data = await res.json()
+                    if (!res.ok) {
+                      showError(data.error || 'Import failed')
+                      e.target.value = ''
+                      return
+                    }
+                    if (data.success > 0) {
+                      showSuccess(
+                        `${data.success} students imported for ${data.academicYear}` +
+                        (data.failed > 0 ? ` · ${data.failed} failed` : '')
+                      )
+                    }
+                    if (data.failed > 0 && data.errors?.length > 0) {
+                      console.group(`[Bulk Import] ${data.failed} rows failed`)
+                      data.errors.forEach((err: {
+                        row: number; name: string; field: string; message: string
+                      }) => {
+                        console.warn(`Row ${err.row} (${err.name}) | ${err.field}: ${err.message}`)
+                      })
+                      console.groupEnd()
+                      const preview = data.errors.slice(0, 3)
+                      const moreCount = data.errors.length - 3
+                      const errorLines = preview
+                        .map((err: { row: number; name: string; field: string; message: string }) =>
+                          `Row ${err.row} (${err.name}): [${err.field}] ${err.message}`
+                        )
+                        .join('\n')
+                      const fullMsg = data.success > 0
+                        ? `⚠️ ${data.failed} rows failed:\n${errorLines}` +
+                        (moreCount > 0 ? `\n...aur ${moreCount} errors (console mein dekho)` : '')
+                        : `❌ Import failed:\n${errorLines}` +
+                        (moreCount > 0 ? `\n...aur ${moreCount} errors (console mein dekho)` : '')
+                      if (data.success > 0) setTimeout(() => showError(fullMsg), 1000)
+                      else showError(fullMsg)
+                    }
+                    fetchStudents(1)
+                  } catch {
+                    showError('Network error — please try again')
+                  } finally {
+                    e.target.value = ''
+                  }
+                }}
+              />
+            </>
+          )}
+
 
           <button
             onClick={() => setShowAdd(true)}
@@ -2306,21 +2512,23 @@ export default function StudentsPage() {
               </div>
             </div>
 
-            {/* ✅ Settings se active classes */}
-            <select
-              className="input-clean h-9 px-3 text-sm cursor-pointer"
-              style={{ minWidth: '120px' }}
-              value={filters.class}
-              onChange={e => {
-                setFilter('class', e.target.value)
-                if (!['11', '12'].includes(e.target.value)) setFilter('stream', '')
-              }}
-            >
-              <option value="">All Classes</option>
-              {availableClasses.map(c => (
-                <option key={c} value={c}>Class {c}</option>
-              ))}
-            </select>
+            {/* ✅ Class filter — only for schools */}
+            {institutionType === 'school' && (
+              <select
+                className="input-clean h-9 px-3 text-sm cursor-pointer"
+                style={{ minWidth: '120px' }}
+                value={filters.class}
+                onChange={e => {
+                  setFilter('class', e.target.value)
+                  if (!['11', '12'].includes(e.target.value)) setFilter('stream', '')
+                }}
+              >
+                <option value="">All Classes</option>
+                {availableClasses.map(c => (
+                  <option key={c} value={c}>Class {c}</option>
+                ))}
+              </select>
+            )}
 
             {/* Stream filter - sirf 11/12 ke liye */}
             {(filters.class === '11' || filters.class === '12') && (
@@ -2338,6 +2546,36 @@ export default function StudentsPage() {
                 <option value="">All Streams</option>
                 {streamConfig.map(s => (
                   <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            )}
+
+            {/* ✅ NEW: Batch filter — for academy/coaching */}
+            {institutionType !== 'school' && (
+              <select
+                className="input-clean h-9 px-3 text-sm cursor-pointer"
+                style={{ minWidth: '150px' }}
+                value={filters.class}  // reuse class field for batchId
+                onChange={e => setFilter('class', e.target.value)}
+              >
+                <option value="">All Batches</option>
+                {batches.map(b => (
+                  <option key={b._id} value={b._id}>{b.batchName}</option>
+                ))}
+              </select>
+            )}
+
+            {/* ✅ NEW: Course filter — for academy only */}
+            {institutionType === 'academy' && (
+              <select
+                className="input-clean h-9 px-3 text-sm cursor-pointer"
+                style={{ minWidth: '150px' }}
+                value={filters.section}  // reuse section field for courseId
+                onChange={e => setFilter('section', e.target.value)}
+              >
+                <option value="">All Courses</option>
+                {courses.map(c => (
+                  <option key={c._id} value={c._id}>{c.name}</option>
                 ))}
               </select>
             )}
@@ -2542,8 +2780,20 @@ export default function StudentsPage() {
                   </th>
                   <th>Adm. No</th>
                   <th>Student</th>
-                  <th>Class</th>
-                  <th>Roll No</th>
+
+                  {/* ✅ Conditional headers */}
+                  {institutionType === 'school' ? (
+                    <>
+                      <th>Class</th>
+                      <th>Roll No</th>
+                    </>
+                  ) : (
+                    <>
+                      <th>Batch</th>
+                      {institutionType === 'academy' && <th>Course</th>}
+                    </>
+                  )}
+
                   <th>Father</th>
                   <th>Contact</th>
                   <th>Gender</th>
@@ -2600,27 +2850,47 @@ export default function StudentsPage() {
                         </div>
                       </div>
                     </td>
-                    <td>
-                      <div className="flex flex-col gap-1">
-                        <span
-                          className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold w-fit"
-                          style={{
-                            backgroundColor: 'var(--color-primary-100)',
-                            color: 'var(--color-primary-600)',
-                          }}
-                        >
-                          {s.class}-{s.section}
-                        </span>
-                        {s.stream && (
-                          <StreamBadge stream={s.stream} streamConfig={streamConfig} />
+                    {/* ✅ Conditional columns */}
+                    {institutionType === 'school' ? (
+                      <>
+                        <td>
+                          <div className="flex flex-col gap-1">
+                            <span
+                              className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold w-fit"
+                              style={{
+                                backgroundColor: 'var(--color-primary-100)',
+                                color: 'var(--color-primary-600)',
+                              }}
+                            >
+                              {s.class}-{s.section}
+                            </span>
+                            {s.stream && (
+                              <StreamBadge stream={s.stream} streamConfig={streamConfig} />
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <span className="text-sm font-mono font-medium" style={{ color: 'var(--text-secondary)' }}>
+                            #{s.rollNo}
+                          </span>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td>
+                          <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {(s as any).currentBatch?.batchName || '—'}
+                          </span>
+                        </td>
+                        {institutionType === 'academy' && (
+                          <td>
+                            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                              {(s as any).currentCourse?.name || '—'}
+                            </span>
+                          </td>
                         )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="text-sm font-mono font-medium" style={{ color: 'var(--text-secondary)' }}>
-                        #{s.rollNo}
-                      </span>
-                    </td>
+                      </>
+                    )}
                     <td>
                       <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{s.fatherName}</p>
                       {s.motherName && (
@@ -2767,6 +3037,9 @@ export default function StudentsPage() {
           streamConfig={streamConfig}
           currentAcademicYear={currentAcademicYear}
           academicYearStartMonth={academicYearStartMonth}
+          institutionType={institutionType}  // ✅ ADD
+          batches={batches}                  // ✅ ADD
+          courses={courses}                  // ✅ ADD
         />
 
         {selectedStudent && (
@@ -2777,6 +3050,7 @@ export default function StudentsPage() {
             onEdit={() => { setShowView(false); setShowEdit(true) }}
             onIdCard={() => window.open(`/api/pdf/idcard/${selectedStudent._id}`, '_blank')}
             streamConfig={streamConfig}
+            institutionType={institutionType}  // ✅ ADD
           />
         )}
 
@@ -2793,24 +3067,30 @@ export default function StudentsPage() {
             availableClasses={availableClasses}
             availableSections={availableSections}
             streamConfig={streamConfig}
+            institutionType={institutionType}  // ✅ ADD
+            batches={batches}                  // ✅ ADD
+            courses={courses}                  // ✅ ADD
           />
         )}
 
-        <PromoteModal
-          open={showPromote}
-          studentIds={selectedIds}
-          onClose={() => setShowPromote(false)}
-          onSuccess={(msg) => {
-            setShowPromote(false)
-            setSelectedIds([])
-            fetchStudents(page)
-            showSuccess(msg)
-          }}
-          availableClasses={availableClasses}
-          availableSections={availableSections}
-          streamConfig={streamConfig}
-          academicYearStartMonth={academicYearStartMonth}
-        />
+        {/* ✅ Promote — only for schools */}
+        {institutionType === 'school' && (
+          <PromoteModal
+            open={showPromote}
+            studentIds={selectedIds}
+            onClose={() => setShowPromote(false)}
+            onSuccess={(msg) => {
+              setShowPromote(false)
+              setSelectedIds([])
+              fetchStudents(page)
+              showSuccess(msg)
+            }}
+            availableClasses={availableClasses}
+            availableSections={availableSections}
+            streamConfig={streamConfig}
+            academicYearStartMonth={academicYearStartMonth}
+          />
+        )}  {/* ✅ ADD closing */}
 
         {/* Optional Fee Modal */}
         {showOptionalFeeModal && newlyCreatedStudent && (

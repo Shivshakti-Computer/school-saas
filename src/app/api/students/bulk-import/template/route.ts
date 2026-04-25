@@ -3,6 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { isValidAcademicYear, getCurrentAcademicYear } from '@/lib/admissionUtils'
 import * as XLSX from 'xlsx'
+import { connectDB } from '@/lib/db'  // ✅ ADD
+import { School } from '@/models/School'  // ✅ ADD
 
 // ── getCurrentAcademicYear admissionUtils se import ho rahi hai ──
 // Local function hatao — duplicate avoid karo
@@ -12,6 +14,19 @@ export async function GET(req: NextRequest) {
     if (!session?.user || session.user.role !== 'admin') {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // ✅ ADD: Institution type check
+    await connectDB();
+    const school = await School.findById(session.user.tenantId)
+        .select('institutionType').lean() as any
+
+    if (school?.institutionType !== 'school') {
+        return NextResponse.json(
+            { error: 'Template only available for schools' },
+            { status: 403 }
+        )
+    }
+
 
     // ✅ Query param se academicYear lo — UI se aayega
     // Agar nahi aaya / invalid hai to current year use karo

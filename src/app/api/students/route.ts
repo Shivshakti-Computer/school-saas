@@ -17,6 +17,62 @@ import {
 } from '@/lib/admissionUtils'
 import bcrypt from 'bcryptjs'
 
+
+// ─────────────────────────────────────────────
+// Helper — Academy/Coaching Student Data Builder
+// ─────────────────────────────────────────────
+function buildAcademyCoachingData(
+    body: any,
+    userId: string,
+    tenantId: string,
+    admissionNo: string,
+    academicYear: string,
+) {
+    return {
+        tenantId,
+        userId,
+        admissionNo,
+        // ✅ School fields blank — model mein optional hain
+        rollNo: '',
+        class: '',
+        section: '',
+        stream: '',
+        academicYear,
+        admissionDate: new Date(body.admissionDate || Date.now()),
+        admissionClass: '',
+        // ✅ Academy/Coaching fields
+        currentBatch: body.currentBatch,
+        currentCourse: body.currentCourse || null,
+        enrollments: body.enrollments || [],
+        // ✅ Personal fields — same as school
+        dateOfBirth: new Date(body.dateOfBirth),
+        gender: body.gender,
+        bloodGroup: body.bloodGroup || '',
+        nationality: body.nationality || 'Indian',
+        religion: body.religion || '',
+        category: body.category || 'general',
+        fatherName: body.fatherName.trim(),
+        fatherOccupation: body.fatherOccupation || '',
+        fatherPhone: body.fatherPhone || '',
+        motherName: body.motherName || '',
+        motherOccupation: body.motherOccupation || '',
+        motherPhone: body.motherPhone || '',
+        parentPhone: body.parentPhone.trim(),
+        parentEmail: body.parentEmail || '',
+        address: body.address?.trim() || 'Not provided',
+        city: body.city || '',
+        state: body.state || '',
+        pincode: body.pincode || '',
+        emergencyContact: body.emergencyContact || '',
+        emergencyName: body.emergencyName || '',
+        previousSchool: body.previousSchool || '',
+        previousClass: body.previousClass || '',
+        tcNumber: body.tcNumber || '',
+        sessionHistory: [],
+        status: 'active',
+    }
+}
+
 // ─────────────────────────────────────────────
 // Password Generator
 //
@@ -193,26 +249,58 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json()
 
-        // ── Required fields ──
-        const required = [
-            'name', 'class', 'section',
-            'fatherName', 'parentPhone',
-            'dateOfBirth', 'gender', 'admissionDate',
-        ]
-        for (const field of required) {
-            if (!body[field]?.toString().trim()) {
+        // ✅ BACKWARD COMPATIBLE — Institution type check
+        const school = await School.findById(session.user.tenantId)
+            .select('institutionType subdomain').lean() as any
+
+        const institutionType = school?.institutionType || 'school'
+        const subdomain = school?.subdomain || 'SCH'
+
+        // ── Required fields — conditional based on institution type ──
+        let required: string[] = []
+
+        if (institutionType === 'school') {
+            // School validations — same as before
+            required = [
+                'name', 'class', 'section',
+                'fatherName', 'parentPhone',
+                'dateOfBirth', 'gender', 'admissionDate',
+            ]
+            for (const field of required) {
+                if (!body[field]?.toString().trim()) {
+                    return NextResponse.json(
+                        { error: `${field} is required`, field },
+                        { status: 400 }
+                    )
+                }
+            }
+            if (['11', '12'].includes(body.class) && !body.stream) {
                 return NextResponse.json(
-                    { error: `${field} is required`, field },
+                    { error: 'Class 11/12 ke liye stream required hai', field: 'stream' },
                     { status: 400 }
                 )
             }
-        }
-
-        if (['11', '12'].includes(body.class) && !body.stream) {
-            return NextResponse.json(
-                { error: 'Class 11/12 ke liye stream required hai', field: 'stream' },
-                { status: 400 }
-            )
+        } else {
+            // Academy/Coaching validations
+            required = [
+                'name', 'currentBatch',
+                'fatherName', 'parentPhone',
+                'dateOfBirth', 'gender',
+            ]
+            for (const field of required) {
+                if (!body[field]?.toString().trim()) {
+                    return NextResponse.json(
+                        { error: `${field} is required`, field },
+                        { status: 400 }
+                    )
+                }
+            }
+            if (institutionType === 'academy' && !body.currentCourse) {
+                return NextResponse.json(
+                    { error: 'Course selection required for academy', field: 'currentCourse' },
+                    { status: 400 }
+                )
+            }
         }
 
         const parentPhone = body.parentPhone.trim()
@@ -266,19 +354,21 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // ── School + Year ──
-        const school = await School.findById(session.user.tenantId)
-            .select('subdomain').lean() as any
-
-        const subdomain = school?.subdomain || 'SCH'
+        // ── Academic Year ──
         const academicYear = body.academicYear || getCurrentAcademicYear()
 
+        // ── Generate Admission No (same for all types) ──
         const admissionNo = await generateAdmissionNo(
             session.user.tenantId, subdomain, academicYear
         )
-        const rollNo = await generateRollNo(
-            session.user.tenantId, body.class, body.section, academicYear
-        )
+
+        // ── Roll No — only for schools ──
+        let rollNo = ''
+        if (institutionType === 'school') {
+            rollNo = await generateRollNo(
+                session.user.tenantId, body.class, body.section, academicYear
+            )
+        }
 
         // ✅ Password = DOB (DDMMYYYY) — simple
         const dobPassword = formatDOBPassword(body.dateOfBirth)
@@ -308,17 +398,23 @@ export async function POST(req: NextRequest) {
             throw userErr
         }
 
-        // ── Create Student Record ──
+        // ── Create Student Record — conditional builder ──
         let student: any
 
         try {
-            student = await Student.create(
-                buildStudentData(
+            const studentData = institutionType === 'school'
+                ? buildStudentData(
                     body, studentUser._id,
                     session.user.tenantId,
                     admissionNo, rollNo, academicYear,
                 )
-            )
+                : buildAcademyCoachingData(
+                    body, studentUser._id,
+                    session.user.tenantId,
+                    admissionNo, academicYear,
+                )
+
+            student = await Student.create(studentData)
         } catch (studentErr: any) {
             if (studentUser?._id) {
                 await User.findByIdAndDelete(studentUser._id)
@@ -388,6 +484,7 @@ export async function POST(req: NextRequest) {
         }
 
         // ── Fee Auto-Assign ──
+        // ── Fee Auto-Assign — only for schools ──
         let feesAssigned = 0
         const optionalFees: Array<{
             _id: string
@@ -397,71 +494,73 @@ export async function POST(req: NextRequest) {
             dueDate: string
         }> = []
 
-        try {
-            const structures = await FeeStructure.find({
-                tenantId: session.user.tenantId,
-                isActive: true,
-                autoAssign: true,
-                academicYear,
-                $or: [
-                    { class: 'all' },
-                    { class: body.class },
-                    { class: { $regex: `(^|,)\\s*${body.class}\\s*(,|$)` } },
-                ],
-            }).lean() as any[]
+        if (institutionType === 'school') {
+            try {
+                const structures = await FeeStructure.find({
+                    tenantId: session.user.tenantId,
+                    isActive: true,
+                    autoAssign: true,
+                    academicYear,
+                    $or: [
+                        { class: 'all' },
+                        { class: body.class },
+                        { class: { $regex: `(^|,)\\s*${body.class}\\s*(,|$)` } },
+                    ],
+                }).lean() as any[]
 
-            const matched = structures.filter((fs: any) => {
-                const sectionOk = !fs.section || fs.section === 'all' || fs.section === body.section
-                const streamOk = !fs.stream || fs.stream === '' || fs.stream === body.stream
-                return sectionOk && streamOk
-            })
+                const matched = structures.filter((fs: any) => {
+                    const sectionOk = !fs.section || fs.section === 'all' || fs.section === body.section
+                    const streamOk = !fs.stream || fs.stream === '' || fs.stream === body.stream
+                    return sectionOk && streamOk
+                })
 
-            if (matched.length > 0) {
-                const mandatoryOps: any[] = []
-                for (const fs of matched) {
-                    const mandatoryItems = fs.items.filter((i: any) => !i.isOptional)
-                    const optionalItems = fs.items.filter((i: any) => i.isOptional)
+                if (matched.length > 0) {
+                    const mandatoryOps: any[] = []
+                    for (const fs of matched) {
+                        const mandatoryItems = fs.items.filter((i: any) => !i.isOptional)
+                        const optionalItems = fs.items.filter((i: any) => i.isOptional)
 
-                    if (mandatoryItems.length > 0) {
-                        const mandatoryAmount = mandatoryItems.reduce(
-                            (sum: number, i: any) => sum + i.amount, 0
-                        )
-                        mandatoryOps.push({
-                            insertOne: {
-                                document: {
-                                    tenantId: session.user.tenantId,
-                                    studentId: student._id,
-                                    structureId: fs._id,
-                                    amount: mandatoryAmount,
-                                    discount: 0,
-                                    lateFine: 0,
-                                    finalAmount: mandatoryAmount,
-                                    dueDate: fs.dueDate,
-                                    status: 'pending',
-                                    paidAmount: 0,
+                        if (mandatoryItems.length > 0) {
+                            const mandatoryAmount = mandatoryItems.reduce(
+                                (sum: number, i: any) => sum + i.amount, 0
+                            )
+                            mandatoryOps.push({
+                                insertOne: {
+                                    document: {
+                                        tenantId: session.user.tenantId,
+                                        studentId: student._id,
+                                        structureId: fs._id,
+                                        amount: mandatoryAmount,
+                                        discount: 0,
+                                        lateFine: 0,
+                                        finalAmount: mandatoryAmount,
+                                        dueDate: fs.dueDate,
+                                        status: 'pending',
+                                        paidAmount: 0,
+                                    },
                                 },
-                            },
-                        })
-                        feesAssigned++
-                    }
+                            })
+                            feesAssigned++
+                        }
 
-                    for (const item of optionalItems) {
-                        optionalFees.push({
-                            _id: `${fs._id.toString()}_${item.label}`,
-                            structureId: fs._id.toString(),
-                            name: item.label,
-                            amount: item.amount,
-                            dueDate: fs.dueDate.toISOString(),
-                        })
+                        for (const item of optionalItems) {
+                            optionalFees.push({
+                                _id: `${fs._id.toString()}_${item.label}`,
+                                structureId: fs._id.toString(),
+                                name: item.label,
+                                amount: item.amount,
+                                dueDate: fs.dueDate.toISOString(),
+                            })
+                        }
+                    }
+                    if (mandatoryOps.length > 0) {
+                        await Fee.bulkWrite(mandatoryOps)
                     }
                 }
-                if (mandatoryOps.length > 0) {
-                    await Fee.bulkWrite(mandatoryOps)
-                }
+            } catch (feeErr) {
+                console.error('[Fee Auto-Assign Error]', feeErr)
             }
-        } catch (feeErr) {
-            console.error('[Fee Auto-Assign Error]', feeErr)
-        }
+        }  // ✅ Add this closing brace
 
         // ── Parent Account — Sibling Aware ──
         ; (async () => {
