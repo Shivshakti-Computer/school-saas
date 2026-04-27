@@ -30,3 +30,7 @@ export { Route } from './Transport'
 export { HostelRoom, MessMenu } from './Hostel'
 export { Course } from './LMS'
 
+// Academy/Coaching modules
+export { Course as AcademyCourse } from './Course'
+export { Batch } from './Batch'
+export { Enrollment } from './Enrollment'

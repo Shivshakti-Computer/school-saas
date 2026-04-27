@@ -14,7 +14,7 @@ export interface IFeePayment {
 export interface IFee extends Document {
   tenantId: mongoose.Types.ObjectId
   studentId: mongoose.Types.ObjectId
-  structureId: mongoose.Types.ObjectId
+  structureId?: mongoose.Types.ObjectId  // ← optional
   amount: number
   discount: number
   lateFine: number
@@ -53,7 +53,7 @@ const FeeSchema = new Schema<IFee>({
     type: Schema.Types.ObjectId, ref: 'School', required: true, index: true,
   },
   studentId: { type: Schema.Types.ObjectId, ref: 'Student', required: true },
-  structureId: { type: Schema.Types.ObjectId, ref: 'FeeStructure', required: true },
+  structureId: { type: Schema.Types.ObjectId, ref: 'FeeStructure', required: false },
   amount: { type: Number, required: true },
   discount: { type: Number, default: 0 },
   lateFine: { type: Number, default: 0 },

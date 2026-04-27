@@ -1,5 +1,5 @@
 // FILE: src/app/api/courses/route.ts
-// Manage courses (Academy/Coaching only)
+// PRODUCTION READY — Complete CRUD with filters
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -7,17 +7,21 @@ import { apiGuard, apiGuardWithBody } from '@/lib/apiGuard'
 import { connectDB } from '@/lib/db'
 import { Course } from '@/models/Course'
 import { School } from '@/models/School'
+import { Enrollment } from '@/models/Enrollment'
 
+/* ══════════════════════════════════════════════
+   GET /api/courses
+   ══════════════════════════════════════════════ */
 export async function GET(req: NextRequest) {
     const guard = await apiGuard(req, {
-        allowedRoles: ['admin', 'staff'],
+        allowedRoles: ['admin', 'staff', 'teacher'],
     })
     if (guard instanceof NextResponse) return guard
 
     const { session } = guard
     await connectDB()
 
-    // Check institution type
+    // ── Institution type check ──
     const school = await School.findById(session.user.tenantId)
         .select('institutionType').lean() as any
 
@@ -31,6 +35,9 @@ export async function GET(req: NextRequest) {
     const { searchParams } = req.nextUrl
     const category = searchParams.get('category')
     const isActive = searchParams.get('isActive')
+    const search = searchParams.get('search')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
 
     const query: any = {
         tenantId: session.user.tenantId,
@@ -39,15 +46,51 @@ export async function GET(req: NextRequest) {
 
     if (category) query.category = category
     if (isActive !== null) query.isActive = isActive === 'true'
+    if (search) {
+        query.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { code: { $regex: search, $options: 'i' } },
+            { category: { $regex: search, $options: 'i' } },
+        ]
+    }
 
-    const courses = await Course.find(query)
-        .populate('createdBy', 'name')
-        .sort({ createdAt: -1 })
-        .lean()
+    const [courses, total] = await Promise.all([
+        Course.find(query)
+            .populate('createdBy', 'name')
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .lean(),
+        Course.countDocuments(query),
+    ])
 
-    return NextResponse.json({ courses })
+    // ── Get enrollment counts for each course ──
+    const coursesWithStats = await Promise.all(
+        courses.map(async (course: any) => {
+            const enrollmentCount = await Enrollment.countDocuments({
+                tenantId: session.user.tenantId,
+                courseId: course._id,
+                status: { $in: ['active', 'completed'] },
+            })
+
+            return {
+                ...course,
+                enrollmentCount,
+            }
+        })
+    )
+
+    return NextResponse.json({
+        courses: coursesWithStats,
+        total,
+        page,
+        pages: Math.ceil(total / limit),
+    })
 }
 
+/* ══════════════════════════════════════════════
+   POST /api/courses
+   ══════════════════════════════════════════════ */
 export async function POST(req: NextRequest) {
     const guard = await apiGuardWithBody(req, {
         allowedRoles: ['admin'],
@@ -57,7 +100,7 @@ export async function POST(req: NextRequest) {
     const { session, body } = guard
     await connectDB()
 
-    // Check institution type
+    // ── Institution type check ──
     const school = await School.findById(session.user.tenantId)
         .select('institutionType').lean() as any
 
@@ -68,40 +111,87 @@ export async function POST(req: NextRequest) {
         )
     }
 
-    // Validation
-    if (!body.name || !body.code || !body.category || !body.feeAmount) {
+    // ── Validation ──
+    if (!body.name?.trim()) {
         return NextResponse.json(
-            { error: 'name, code, category, and feeAmount are required' },
+            { error: 'Course name is required' },
             { status: 400 }
         )
     }
 
-    // Check duplicate code
+    if (!body.code?.trim()) {
+        return NextResponse.json(
+            { error: 'Course code is required' },
+            { status: 400 }
+        )
+    }
+
+    if (!body.category?.trim()) {
+        return NextResponse.json(
+            { error: 'Category is required' },
+            { status: 400 }
+        )
+    }
+
+    if (!body.feeAmount || body.feeAmount < 0) {
+        return NextResponse.json(
+            { error: 'Valid fee amount is required' },
+            { status: 400 }
+        )
+    }
+
+    if (!body.durationValue || body.durationValue < 1) {
+        return NextResponse.json(
+            { error: 'Valid duration is required' },
+            { status: 400 }
+        )
+    }
+
+    // ── Check duplicate code ──
     const existing = await Course.findOne({
         tenantId: session.user.tenantId,
-        code: body.code.toUpperCase(),
+        code: body.code.toUpperCase().trim(),
     })
 
     if (existing) {
         return NextResponse.json(
-            { error: `Course code ${body.code} already exists` },
+            { error: `Course code "${body.code}" already exists` },
             { status: 409 }
         )
     }
 
+    // ── Installment validation ──
+    if (body.feeType === 'installment') {
+        if (!body.installments?.number || body.installments.number < 2) {
+            return NextResponse.json(
+                { error: 'Installment plan requires at least 2 installments' },
+                { status: 400 }
+            )
+        }
+        if (!body.installments?.dueDay || body.installments.dueDay < 1 || body.installments.dueDay > 28) {
+            return NextResponse.json(
+                { error: 'Installment due day must be between 1 and 28' },
+                { status: 400 }
+            )
+        }
+        // Auto-calculate installment amount
+        body.installments.amount = Math.ceil(body.feeAmount / body.installments.number)
+    }
+
+    // ── Create course ──
     const course = await Course.create({
         tenantId: session.user.tenantId,
         institutionType: school.institutionType,
-        name: body.name,
-        code: body.code.toUpperCase(),
-        category: body.category,
+        name: body.name.trim(),
+        code: body.code.toUpperCase().trim(),
+        category: body.category.trim(),
         durationType: body.durationType || 'months',
-        durationValue: body.durationValue || 3,
-        customDurationText: body.customDurationText,
+        durationValue: body.durationValue,
+        customDurationText: body.customDurationText?.trim(),
         feeAmount: body.feeAmount,
         feeType: body.feeType || 'one-time',
         installments: body.installments,
-        description: body.description || '',
+        description: body.description?.trim() || '',
         syllabus: body.syllabus || [],
         prerequisites: body.prerequisites || [],
         learningOutcomes: body.learningOutcomes || [],
@@ -114,7 +204,10 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json(
-        { course, message: 'Course created successfully' },
+        {
+            course,
+            message: 'Course created successfully',
+        },
         { status: 201 }
     )
 }
