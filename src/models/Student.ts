@@ -1,5 +1,3 @@
-// FILE: src/models/Student.ts
-
 import mongoose, { Schema, Document } from 'mongoose'
 
 export interface IStudent extends Document {
@@ -14,11 +12,11 @@ export interface IStudent extends Document {
     section: string
     stream?: string
 
-        // ── Academy/Coaching fields (optional) ──
+    // ── Academy/Coaching fields (optional) ──
     enrollments?: mongoose.Types.ObjectId[]
     currentBatch?: mongoose.Types.ObjectId
     currentCourse?: mongoose.Types.ObjectId
-    
+
     dateOfBirth: Date
     gender: 'male' | 'female' | 'other'
     bloodGroup?: string
@@ -76,21 +74,39 @@ const StudentSchema = new Schema<IStudent>({
 
     // ── Admission Info ──
     admissionNo: { type: String, required: true },
-    rollNo: { type: String, required: true },
+
+    // ✅ FIX: Make school-specific fields optional
+    rollNo: {
+        type: String,
+        required: false,  // ← CHANGE: true → false
+        default: '',      // ← ADD: empty string for academy/coaching
+    },
+
     academicYear: { type: String, required: true },
     admissionDate: { type: Date, required: true },
-    admissionClass: { type: String, required: true },
+
+    admissionClass: {
+        type: String,
+        required: false,  // ← CHANGE: true → false
+        default: '',      // ← ADD: empty for academy/coaching
+    },
 
     // ── Current Academic ──
-    class: { type: String, required: true },
-    section: { type: String, required: true },
+    class: {
+        type: String,
+        required: false,  // ← CHANGE: true → false
+        default: '',      // ← ADD: empty for academy/coaching
+    },
 
-    // ✅ FIX: enum hatao — lowercase normalize karo pre-save hook mein
-    // Enum validation fail karta tha "Science" (capital) pe
+    section: {
+        type: String,
+        required: false,  // ← CHANGE: true → false
+        default: '',      // ← ADD: empty for academy/coaching
+    },
+
     stream: {
         type: String,
         default: '',
-        // Enum nahi — hook se normalize karenge
     },
 
     // ── Personal ──
@@ -183,13 +199,9 @@ const StudentSchema = new Schema<IStudent>({
 
 }, { timestamps: true })
 
-// ─────────────────────────────────────────────────────
-// ✅ Pre-save Hook — Normalize fields before saving
-// Stream: "Science" → "science", "COMMERCE" → "commerce"
-// Gender: "Male" → "male"
-// Category: "OBC" → "obc"
-// BloodGroup: "a+" → "A+"
-// ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// Pre-save Hook — Normalize fields
+// ═══════════════════════════════════════════════════════════
 
 const VALID_STREAMS = ['science', 'commerce', 'arts', 'vocational']
 const VALID_BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-']
@@ -218,7 +230,7 @@ StudentSchema.pre('save', function () {
     }
 })
 
-// Pre insertMany/bulkWrite ke liye — hook alag hota hai
+// Pre insertMany/bulkWrite ke liye
 StudentSchema.pre('insertMany', function (next, docs) {
     if (Array.isArray(docs)) {
         docs.forEach((doc: any) => {
@@ -246,6 +258,10 @@ StudentSchema.index({ tenantId: 1, class: 1, section: 1 })
 StudentSchema.index({ tenantId: 1, admissionNo: 1 }, { unique: true })
 StudentSchema.index({ tenantId: 1, academicYear: 1, class: 1, section: 1, rollNo: 1 })
 StudentSchema.index({ tenantId: 1, status: 1 })
+
+// ✅ NEW: Index for academy/coaching queries
+StudentSchema.index({ tenantId: 1, currentBatch: 1 })
+StudentSchema.index({ tenantId: 1, currentCourse: 1 })
 
 export const Student = mongoose.models.Student
     || mongoose.model<IStudent>('Student', StudentSchema)

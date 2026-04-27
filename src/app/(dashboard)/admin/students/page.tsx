@@ -36,7 +36,21 @@ interface Student {
   category?: string
   dateOfBirth?: string
   address?: string
+  // ✅ ADD: Populated fields
+  currentBatch?: {
+    _id: string
+    batchCode: string
+    batchName: string
+    status: string
+  }
+  currentCourse?: {
+    _id: string
+    code: string
+    name: string
+    category: string
+  }
   userId: { name: string; phone: string; email?: string }
+
 }
 
 interface FeeStructure {
@@ -2258,6 +2272,7 @@ export default function StudentsPage() {
       }
     }
   }, [institutionType])
+
 
   // ✅ Academic settings update hone par filters ka academicYear sync karo
   useEffect(() => {

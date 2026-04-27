@@ -205,6 +205,9 @@ export async function GET(req: NextRequest) {
     const [students, total] = await Promise.all([
         Student.find(query)
             .populate('userId', 'name phone email admissionNo')
+            // ✅ ADD: Populate batch & course for academy/coaching
+            .populate('currentBatch', 'batchCode batchName status')
+            .populate('currentCourse', 'code name category')
             .sort({ class: 1, section: 1, rollNo: 1 })
             .skip((page - 1) * limit)
             .limit(limit)

@@ -97,11 +97,18 @@ export function EnrollmentForm({ open, onClose, onSuccess, institutionType }: En
 
   const fetchBatches = async (courseId: string) => {
     try {
-      const res = await fetch(`/api/batches?courseId=${courseId}&status=upcoming,ongoing`)
+      // ✅ FIX: Status comma-separated ki jagah do alag requests
+      // Ya batches API ko bina status filter ke call karo
+      // aur frontend pe filter karo
+      const res = await fetch(`/api/batches?courseId=${courseId}`)
       const data = await res.json()
 
       if (res.ok) {
-        setBatches(data.batches || [])
+        // ✅ Frontend pe filter karo — upcoming aur ongoing hi dikhao
+        const activeBatches = (data.batches || []).filter(
+          (b: any) => b.status === 'upcoming' || b.status === 'ongoing'
+        )
+        setBatches(activeBatches)
       }
     } catch (err) {
       console.error('Failed to load batches', err)
