@@ -65,6 +65,9 @@ export interface SchoolProfileData {
     razorpayConfigured: boolean
     enabledModules?: string[]
     hiddenModules: string[]
+    // ✅ FIX: Ye dono fields add karo
+    subscriptionStatus?: string
+    institutionType?: 'school' | 'academy' | 'coaching'
 }
 
 export interface SettingsMeta {

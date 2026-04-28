@@ -2,6 +2,8 @@
 // ═══════════════════════════════════════════════════════════
 // UPDATED: Institution-aware module filtering + franchise support
 // School, Academy, Coaching — each gets relevant modules only
+// ✅ FIXED: Fee module unified for all institution types
+// ✅ REMOVED: coursePayments module (merged into fees)
 // ═══════════════════════════════════════════════════════════
 
 import type { InstitutionType } from './institutionConfig'
@@ -12,12 +14,14 @@ export type ModuleKey =
   | 'website' | 'gallery' | 'reports' | 'communication'
   | 'documents' | 'certificates'
   // ── School-specific ──
-  | 'fees' | 'exams' | 'timetable' | 'homework'
+  | 'exams' | 'timetable' | 'homework'
   | 'library' | 'lms' | 'hr' | 'transport'
   | 'hostel' | 'inventory' | 'visitor' | 'health' | 'alumni'
   // ── Academy/Coaching-specific ──
   | 'courses' | 'batches' | 'enrollments' | 'franchises'
-  | 'assessments' | 'assignments' | 'coursePayments'
+  | 'assessments' | 'assignments'
+  // ── Multi-tenant (all institution types) ──
+  | 'fees'
   // ── Internal ──
   | 'studentAttendance'
 
@@ -30,7 +34,6 @@ export interface ModuleConfig {
   icon: string
   plans: Plan[]
   roles: Role[]
-  // ✅ NEW: Institution type restriction
   institutionTypes: InstitutionType[]
   adminRoute?: string
   teacherRoute?: string
@@ -200,16 +203,17 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
   },
 
   // ═══════════════════════════════════════════════════════════
-  // SCHOOL-ONLY MODULES
+  // FEE MANAGEMENT — MULTI-TENANT (All Institution Types)
+  // School: Fee Management | Academy/Coaching: Course Payments
   // ═══════════════════════════════════════════════════════════
 
   fees: {
-    label: 'Fee Management',
+    label: 'Fee Management', // Dynamic in getSidebarNav
     description: 'Fee structure, online payments, receipts',
     icon: 'CreditCard',
     plans: ['growth', 'pro', 'enterprise'],
     roles: ['admin', 'staff'],
-    institutionTypes: ['school'],
+    institutionTypes: ['school', 'academy', 'coaching'], // ✅ All types
     adminRoute: '/admin/fees',
     staffRoute: '/admin/fees',
     apiBase: '/api/fees',
@@ -217,6 +221,10 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     isCore: false,
     staffAssignable: true,
   },
+
+  // ═══════════════════════════════════════════════════════════
+  // SCHOOL-ONLY MODULES
+  // ═══════════════════════════════════════════════════════════
 
   exams: {
     label: 'Exam & Results',
@@ -497,21 +505,6 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
     staffAssignable: true,
   },
 
-  coursePayments: {
-    label: 'Course Payments',
-    description: 'Course fee collection, installments',
-    icon: 'CreditCard',
-    plans: ['growth', 'pro', 'enterprise'],
-    roles: ['admin', 'staff'],
-    institutionTypes: ['academy', 'coaching'],
-    adminRoute: '/admin/course-payments',
-    staffRoute: '/admin/course-payments',
-    apiBase: '/api/course-payments',
-    color: '#F97316',
-    isCore: false,
-    staffAssignable: true,
-  },
-
   // ─── Internal ───
   studentAttendance: {
     label: 'Attendance',
@@ -531,6 +524,36 @@ export const MODULE_REGISTRY: Record<ModuleKey, ModuleConfig> = {
 // UTILITY FUNCTIONS — UPDATED
 // ═══════════════════════════════════════════════════════════
 
+/**
+ * Check if module is valid for institution type
+ */
+export function isModuleValidForInstitution(
+  moduleKey: ModuleKey,
+  institutionType: InstitutionType
+): boolean {
+  const mod = MODULE_REGISTRY[moduleKey]
+  if (!mod) return false
+  return mod.institutionTypes.includes(institutionType)
+}
+
+/**
+ * Filter enabled modules by institution type
+ * Runtime safety: DB mein galat modules hain to unhe filter karo
+ */
+export function filterModulesByInstitution(
+  enabledModules: string[],
+  institutionType: InstitutionType
+): string[] {
+  return enabledModules.filter(key => {
+    const mod = MODULE_REGISTRY[key as ModuleKey]
+    if (!mod) return false
+    return mod.institutionTypes.includes(institutionType)
+  })
+}
+
+/**
+ * Get modules for user with institution type filtering
+ */
 export function getModulesForUser(
   enabledModules: ModuleKey[],
   plan: Plan,
@@ -544,12 +567,15 @@ export function getModulesForUser(
         (enabledModules.includes(k) || mod.isCore) &&
         mod.plans.includes(plan) &&
         mod.roles.includes(role) &&
-        mod.institutionTypes.includes(institutionType)  // ← KEY FILTER
+        mod.institutionTypes.includes(institutionType)
       )
     })
     .map(([key, mod]) => ({ key: key as ModuleKey, ...mod }))
 }
 
+/**
+ * Get staff assignable modules for institution type
+ */
 export function getStaffAssignableModules(
   enabledModules: string[],
   plan: string,
@@ -561,59 +587,85 @@ export function getStaffAssignableModules(
         mod.staffAssignable &&
         (enabledModules.includes(key) || mod.isCore) &&
         mod.plans.includes(plan as Plan) &&
-        mod.institutionTypes.includes(institutionType) &&  // ← KEY FILTER
+        mod.institutionTypes.includes(institutionType) &&
         !mod.comingSoon
       )
     })
-    .map(([key, mod]) => ({
-      key: key as ModuleKey,
-      label: mod.label,
-      icon: mod.icon,
-      description: mod.description,
-      color: mod.color,
-    }))
+    .map(([key, mod]) => {
+      // Dynamic label for fees module
+      let label = mod.label
+      if (key === 'fees') {
+        label = institutionType === 'school' ? 'Fee Management' : 'Course Payments'
+      }
+
+      return {
+        key: key as ModuleKey,
+        label,
+        icon: mod.icon,
+        description: mod.description,
+        color: mod.color,
+      }
+    })
 }
 
-// ── getSidebarNav — FIXED: Trial me plan check bypass ──
+/**
+ * Get sidebar navigation with dynamic labels
+ * ✅ UPDATED: Dynamic label for fees module based on institution type
+ */
 export function getSidebarNav(
   enabledModules: string[],
   plan: string,
   role: string,
   institutionType: InstitutionType,
   staffAllowedModules?: string[],
-  isTrial: boolean = false  // ← NEW param
+  isTrial: boolean = false
 ) {
+  // Runtime safety: DB mein galat modules hain to filter karo
+  const safeEnabledModules = filterModulesByInstitution(
+    enabledModules,
+    institutionType
+  )
+
   if (role === 'admin') {
     return Object.entries(MODULE_REGISTRY)
       .filter(([key, mod]) => {
-        // Institution type check — hamesha strict
         if (!mod.institutionTypes.includes(institutionType)) return false
         if (!mod.roles.includes('admin')) return false
         if (mod.comingSoon) return false
 
-        // ✅ Trial me plan check skip — DB modules jo hain wo sab dikhao
         if (isTrial) {
-          return enabledModules.includes(key) || mod.isCore
+          return safeEnabledModules.includes(key) || mod.isCore
         }
 
-        // Paid: plan check strict
         return (
-          (enabledModules.includes(key) || mod.isCore) &&
+          (safeEnabledModules.includes(key) || mod.isCore) &&
           mod.plans.includes(plan as Plan)
         )
       })
-      .map(([key, mod]) => ({
-        key,
-        label: mod.label,
-        icon: mod.icon,
-        href: mod.adminRoute,
-        color: mod.color,
-      }))
+      .map(([key, mod]) => {
+        // ✅ Dynamic label for fees module
+        let label = mod.label
+        if (key === 'fees') {
+          label = institutionType === 'school' ? 'Fee Management' : 'Course Payments'
+        }
+
+        return {
+          key,
+          label,
+          icon: mod.icon,
+          href: mod.adminRoute,
+          color: mod.color,
+        }
+      })
       .filter(item => item.href)
   }
 
   if (role === 'staff') {
-    const allowed = staffAllowedModules || []
+    const allowed = (staffAllowedModules || []).filter(m => {
+      const mod = MODULE_REGISTRY[m as ModuleKey]
+      return mod?.institutionTypes.includes(institutionType)
+    })
+
     if (allowed.length === 0) return []
 
     return Object.entries(MODULE_REGISTRY)
@@ -624,21 +676,29 @@ export function getSidebarNav(
         if (!allowed.includes(key)) return false
 
         if (isTrial) {
-          return enabledModules.includes(key) || mod.isCore
+          return safeEnabledModules.includes(key) || mod.isCore
         }
 
         return (
-          (enabledModules.includes(key) || mod.isCore) &&
+          (safeEnabledModules.includes(key) || mod.isCore) &&
           mod.plans.includes(plan as Plan)
         )
       })
-      .map(([key, mod]) => ({
-        key,
-        label: mod.label,
-        icon: mod.icon,
-        href: mod.staffRoute || mod.adminRoute,
-        color: mod.color,
-      }))
+      .map(([key, mod]) => {
+        // ✅ Dynamic label for fees module
+        let label = mod.label
+        if (key === 'fees') {
+          label = institutionType === 'school' ? 'Fee Management' : 'Course Payments'
+        }
+
+        return {
+          key,
+          label,
+          icon: mod.icon,
+          href: mod.staffRoute || mod.adminRoute,
+          color: mod.color,
+        }
+      })
       .filter(item => item.href)
   }
 
@@ -650,11 +710,11 @@ export function getSidebarNav(
         if (mod.comingSoon) return false
 
         if (isTrial) {
-          return enabledModules.includes(key) || mod.isCore
+          return safeEnabledModules.includes(key) || mod.isCore
         }
 
         return (
-          (enabledModules.includes(key) || mod.isCore) &&
+          (safeEnabledModules.includes(key) || mod.isCore) &&
           mod.plans.includes(plan as Plan)
         )
       })
@@ -680,8 +740,8 @@ export function getSidebarNav(
       ]
 
       const homeworkAllowed = isTrial
-        ? enabledModules.includes('homework')
-        : MODULE_REGISTRY.homework.plans.includes(plan as Plan) && enabledModules.includes('homework')
+        ? safeEnabledModules.includes('homework')
+        : MODULE_REGISTRY.homework.plans.includes(plan as Plan) && safeEnabledModules.includes('homework')
 
       if (homeworkAllowed) {
         baseItems.splice(3, 0, {
@@ -698,15 +758,14 @@ export function getSidebarNav(
 
     // Academy/Coaching student
     if (institutionType === 'academy' || institutionType === 'coaching') {
-      const baseItems = [
+      return [
         { key: 'attendance', label: 'Attendance', icon: 'CheckSquare', href: '/student/attendance', color: '#059669' },
         { key: 'courses', label: 'My Courses', icon: 'BookOpen', href: '/student/courses', color: '#3B82F6' },
         { key: 'batch', label: 'My Batch', icon: 'Users', href: '/student/batch', color: '#8B5CF6' },
-        { key: 'coursePayments', label: 'Fees', icon: 'CreditCard', href: '/student/fees', color: '#F97316' },
+        { key: 'fees', label: 'Course Fees', icon: 'CreditCard', href: '/student/fees', color: '#F97316' },
         { key: 'notices', label: 'Notices', icon: 'Bell', href: '/student/notices', color: '#7C3AED' },
         { key: 'profile', label: 'My Profile', icon: 'User', href: '/student/profile', color: '#6B7280' },
       ]
-      return baseItems
     }
   }
 
@@ -721,8 +780,8 @@ export function getSidebarNav(
       ]
 
       const homeworkAllowed = isTrial
-        ? enabledModules.includes('homework')
-        : MODULE_REGISTRY.homework.plans.includes(plan as Plan) && enabledModules.includes('homework')
+        ? safeEnabledModules.includes('homework')
+        : MODULE_REGISTRY.homework.plans.includes(plan as Plan) && safeEnabledModules.includes('homework')
 
       if (homeworkAllowed) {
         baseItems.splice(4, 0, {
@@ -741,7 +800,7 @@ export function getSidebarNav(
     if (institutionType === 'academy' || institutionType === 'coaching') {
       return [
         { key: 'attendance', label: 'Attendance', icon: 'CheckSquare', href: '/parent/attendance', color: '#059669' },
-        { key: 'coursePayments', label: 'Fee Payment', icon: 'CreditCard', href: '/parent/fees', color: '#F97316' },
+        { key: 'fees', label: 'Fee Payment', icon: 'CreditCard', href: '/parent/fees', color: '#F97316' },
         { key: 'notices', label: 'Notices', icon: 'Bell', href: '/parent/notices', color: '#7C3AED' },
       ]
     }

@@ -12,6 +12,8 @@ import {
 import { Spinner, Alert } from '@/components/ui'
 import { Portal } from '@/components/ui/Portal'
 import { useAcademicSettings } from '@/hooks/useAcademicSettings'
+import { useSession } from 'next-auth/react' // ✅ ADD
+import { getTerm } from '@/lib/institutionConfig' // ✅ ADD
 
 /* ═══ Types ═══ */
 interface FeeStructure {
@@ -226,7 +228,41 @@ function MiniStatCard({
    MAIN CLIENT COMPONENT
    ═══════════════════════════════════════════ */
 export default function FeesClient() {
-    const [tab, setTab] = useState<'fees' | 'structures' | 'settings'>('fees')
+
+    // Tab type
+    type TabId = 'fees' | 'structures' | 'settings'
+
+    // Session + institution
+    const { data: session } = useSession()
+    const institutionType = session?.user?.institutionType || 'school'
+    const isSchool = institutionType === 'school'
+
+    // Dynamic labels
+    const studentLabel = getTerm(institutionType, 'student')
+
+    // Tab state
+    const [tab, setTab] = useState<TabId>('fees')
+
+    // Tabs config — typed array
+    const TABS: Array<{ id: TabId; label: string; icon: React.ReactNode }> = useMemo(() => [
+        {
+            id: 'fees',
+            label: `${studentLabel} Fees`,
+            icon: <CreditCard size={14} />,
+        },
+        {
+            id: 'structures',
+            label: 'Fee Structures',
+            icon: <BarChart2 size={14} />,
+        },
+        {
+            id: 'settings',
+            label: 'Payment Settings',
+            icon: <Settings size={14} />,
+        },
+    ], [studentLabel])
+    const [selectedCourseId, setSelectedCourseId] = useState('')
+    // const [tab, setTab] = useState<'fees' | 'structures' | 'settings'>('fees')
     const [fees, setFees] = useState<Fee[]>([])
     const [structures, setStructures] = useState<FeeStructure[]>([])
     const [loading, setLoading] = useState(true)
@@ -325,19 +361,30 @@ export default function FeesClient() {
         }
     }, [filterStatus, filterClass, filterSearch])
 
-    /* ── Fetch structures ── */
-    const fetchStructures = useCallback(async () => {
+    // ✅ Update fetchStructures to accept optional courseId
+    const fetchStructures = useCallback(async (courseIdOverride?: string) => {
         setLoading(true)
         try {
             const params = new URLSearchParams()
-            if (structureClass) params.set('class', structureClass)
+
+            // School filter
+            if (isSchool && structureClass) {
+                params.set('class', structureClass)
+            }
+
+            // Academy/Coaching filter
+            const cid = courseIdOverride ?? selectedCourseId
+            if (!isSchool && cid) {
+                params.set('courseId', cid)
+            }
+
             const res = await fetch(`/api/fees/structure?${params}`)
             const data = await res.json()
             setStructures(data.structures ?? [])
         } finally {
             setLoading(false)
         }
-    }, [structureClass])
+    }, [isSchool, structureClass, selectedCourseId])
 
     useEffect(() => {
         if (tab === 'fees') fetchFees()
@@ -439,16 +486,10 @@ export default function FeesClient() {
         } catch { showError('Failed to load receipt') }
     }
 
-    const TABS = [
-        { id: 'fees', label: 'Student Fees', icon: <CreditCard size={14} /> },
-        { id: 'structures', label: 'Fee Structures', icon: <BarChart2 size={14} /> },
-        { id: 'settings', label: 'Payment Settings', icon: <Settings size={14} /> },
-    ] as const
-
     return (
         <div className="space-y-5 pb-8">
 
-            {/* ═══ PAGE HEADER ═══ */}
+            {/* ═══ PAGE HEADER — small update ═══ */}
             <div className="portal-page-header">
                 <div>
                     <div className="portal-breadcrumb mb-1.5">
@@ -458,7 +499,10 @@ export default function FeesClient() {
                     </div>
                     <h1 className="portal-page-title">Fee Management</h1>
                     <p className="portal-page-subtitle">
-                        School fees manage karein · Structures, collection aur payments
+                        {isSchool
+                            ? 'School fees manage karein · Structures, collection aur payments'
+                            : 'Course fees manage karein · Structures, collection aur payments'
+                        }
                     </p>
                 </div>
                 <div className="flex gap-2">
@@ -468,7 +512,7 @@ export default function FeesClient() {
                             className="btn-primary btn-sm"
                         >
                             <Plus size={14} strokeWidth={2.5} />
-                            New Structure
+                            {isSchool ? 'New Structure' : 'New Course Fee Structure'}
                         </button>
                     )}
                     {tab === 'fees' && (
@@ -495,7 +539,7 @@ export default function FeesClient() {
                 {TABS.map(t => (
                     <button
                         key={t.id}
-                        onClick={() => setTab(t.id)}
+                        onClick={() => setTab(t.id)}  // ✅ Now works — t.id is TabId
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[var(--radius-sm)] text-[0.8125rem] font-medium transition-all"
                         style={{
                             backgroundColor: tab === t.id ? 'var(--bg-card)' : 'transparent',
@@ -751,20 +795,39 @@ export default function FeesClient() {
             {/* ═══ TAB: FEE STRUCTURES ═══ */}
             {tab === 'structures' && (
                 <div className="space-y-4">
+
+                    {/* ✅ CONDITIONAL FILTERS */}
                     <div className="portal-card">
                         <div className="portal-card-body-sm flex flex-wrap gap-3">
-                            <select
-                                className="input-clean"
-                                style={{ minWidth: '140px' }}
-                                value={structureClass}
-                                onChange={e => setStructureClass(e.target.value)}
-                            >
-                                <option value="">All Classes</option>
-                                <option value="all">Global (All Classes)</option>
-                                {academicConfig.classes.map(c => (
-                                    <option key={c} value={c}>Class {c}</option>
-                                ))}
-                            </select>
+
+                            {/* SCHOOL: Class filter */}
+                            {institutionType === 'school' && (
+                                <select
+                                    className="input-clean"
+                                    style={{ minWidth: '140px' }}
+                                    value={structureClass}
+                                    onChange={e => setStructureClass(e.target.value)}
+                                >
+                                    <option value="">All Classes</option>
+                                    <option value="all">Global (All Classes)</option>
+                                    {academicConfig.classes.map(c => (
+                                        <option key={c} value={c}>Class {c}</option>
+                                    ))}
+                                </select>
+                            )}
+
+                            {/* ACADEMY/COACHING: Course filter */}
+                            {(institutionType === 'academy' || institutionType === 'coaching') && (
+                                <CourseFilterDropdown
+                                    value={selectedCourseId}
+                                    onChange={val => {
+                                        setSelectedCourseId(val)
+                                        // ✅ Trigger structure refetch with courseId
+                                        fetchStructures(val)
+                                    }}
+                                />
+                            )}
+
                             <button
                                 onClick={() => fetchStructures()}
                                 className="btn-icon"
@@ -775,6 +838,7 @@ export default function FeesClient() {
                         </div>
                     </div>
 
+                    {/* Structures Table */}
                     <div className="portal-card overflow-hidden">
                         {loading ? (
                             <div className="portal-empty py-20">
@@ -786,13 +850,17 @@ export default function FeesClient() {
                                 <div className="portal-empty-icon"><BarChart2 size={24} /></div>
                                 <p className="portal-empty-title">No fee structures</p>
                                 <p className="portal-empty-text">
-                                    Fee structure banao — class-wise fees define karein
+                                    {institutionType === 'school'
+                                        ? 'Fee structure banao — class-wise fees define karein'
+                                        : 'Course-wise fee structure banao — course select karke fees set karein'
+                                    }
                                 </p>
                                 <button
                                     onClick={() => { setEditStructure(null); setShowStructureModal(true) }}
                                     className="btn-primary btn-sm mt-4"
                                 >
-                                    <Plus size={14} /> Create First Structure
+                                    <Plus size={14} />
+                                    {institutionType === 'school' ? 'Create Structure' : 'Create Course Fee Structure'}
                                 </button>
                             </div>
                         ) : (
@@ -801,7 +869,11 @@ export default function FeesClient() {
                                     <thead>
                                         <tr>
                                             <th>Name</th>
-                                            <th>Class</th>
+                                            {/* ✅ CONDITIONAL column header */}
+                                            {institutionType === 'school'
+                                                ? <th>Class</th>
+                                                : <th>Course</th>
+                                            }
                                             <th>Term</th>
                                             <th>Amount</th>
                                             <th>Due Date</th>
@@ -813,6 +885,8 @@ export default function FeesClient() {
                                     <tbody>
                                         {structures.map(s => (
                                             <tr key={s._id}>
+
+                                                {/* Name + Academic Year */}
                                                 <td>
                                                     <p className="text-sm font-semibold text-[var(--text-primary)]">
                                                         {s.name}
@@ -821,15 +895,40 @@ export default function FeesClient() {
                                                         {s.academicYear}
                                                     </p>
                                                 </td>
+
+                                                {/* ✅ CONDITIONAL: Class OR Course */}
                                                 <td>
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="badge badge-brand">
-                                                            {s.class === 'all' ? 'All Classes' : `Class ${s.class}`}
-                                                            {s.section && s.section !== 'all' ? `-${s.section}` : ''}
-                                                        </span>
-                                                        {s.stream && <StreamBadge stream={s.stream} />}
-                                                    </div>
+                                                    {institutionType === 'school' ? (
+                                                        /* School: Class + Section + Stream badges */
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="badge badge-brand">
+                                                                {s.class === 'all'
+                                                                    ? 'All Classes'
+                                                                    : `Class ${s.class}`
+                                                                }
+                                                                {s.section && s.section !== 'all'
+                                                                    ? `-${s.section}`
+                                                                    : ''
+                                                                }
+                                                            </span>
+                                                            {s.stream && <StreamBadge stream={s.stream} />}
+                                                        </div>
+                                                    ) : (
+                                                        /* Academy/Coaching: Course name + code */
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="badge badge-brand">
+                                                                {(s as any).courseId?.name || '—'}
+                                                            </span>
+                                                            {(s as any).courseId?.code && (
+                                                                <p className="text-[0.625rem] font-mono text-[var(--text-muted)]">
+                                                                    {(s as any).courseId.code}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
+
+                                                {/* Term */}
                                                 <td>
                                                     <span
                                                         className="text-xs font-medium px-2 py-1 rounded-[var(--radius-sm)]"
@@ -841,6 +940,8 @@ export default function FeesClient() {
                                                         {s.term}
                                                     </span>
                                                 </td>
+
+                                                {/* Amount + Late Fine */}
                                                 <td>
                                                     <p className="text-sm font-bold tabular-nums text-[var(--text-primary)]">
                                                         ₹{s.totalAmount.toLocaleString('en-IN')}
@@ -852,62 +953,93 @@ export default function FeesClient() {
                                                         </p>
                                                     )}
                                                 </td>
+
+                                                {/* Due Date */}
                                                 <td>
                                                     <p className="text-sm text-[var(--text-secondary)]">
                                                         {new Date(s.dueDate).toLocaleDateString('en-IN', {
-                                                            day: 'numeric', month: 'short', year: '2-digit',
+                                                            day: 'numeric',
+                                                            month: 'short',
+                                                            year: '2-digit',
                                                         })}
                                                     </p>
                                                 </td>
+
+                                                {/* Assigned count */}
                                                 <td>
                                                     <span className={`badge ${s.assignedCount > 0 ? 'badge-success' : 'badge-neutral'}`}>
                                                         <Users size={10} />
-                                                        {s.assignedCount} students
+                                                        {s.assignedCount}{' '}
+                                                        {institutionType === 'school' ? 'students' : 'enrolled'}
                                                     </span>
                                                 </td>
+
+                                                {/* Status */}
                                                 <td>
                                                     <span className={`status-pill ${s.isActive ? 'status-active' : 'status-inactive'}`}>
                                                         {s.isActive ? 'Active' : 'Inactive'}
                                                     </span>
                                                 </td>
+
+                                                {/* Actions */}
                                                 <td>
                                                     <div className="flex items-center gap-1 justify-end">
+
+                                                        {/* Edit */}
                                                         <button
-                                                            onClick={() => { setEditStructure(s); setShowStructureModal(true) }}
+                                                            onClick={() => {
+                                                                setEditStructure(s)
+                                                                setShowStructureModal(true)
+                                                            }}
                                                             className="btn-icon btn-icon-sm"
                                                             title="Edit Structure"
                                                         >
                                                             <Edit2 size={13} />
                                                         </button>
+
+                                                        {/* Assign to all */}
                                                         <button
                                                             onClick={() => assignToAll(s._id, s.name)}
                                                             className="btn-icon btn-icon-sm"
-                                                            title="Assign to all students"
+                                                            title={
+                                                                institutionType === 'school'
+                                                                    ? 'Assign to all students in class'
+                                                                    : 'Assign to all enrolled students'
+                                                            }
                                                         >
                                                             <Users size={13} />
                                                         </button>
+
+                                                        {/* Late fine — only if configured */}
                                                         {s.lateFinePerDay > 0 && (
                                                             <button
                                                                 onClick={() => applyLateFine(s._id, s.name)}
                                                                 className="btn-icon btn-icon-sm"
-                                                                title="Apply late fine"
+                                                                title="Apply late fine to overdue fees"
                                                             >
                                                                 <Clock size={13} />
                                                             </button>
                                                         )}
+
+                                                        {/* Optional fees — only if structure has optional items */}
                                                         {s.items.some((i: any) => i.isOptional) && (
                                                             <button
-                                                                onClick={() => { setSelectedStructure(s); setShowOptionalModal(true) }}
+                                                                onClick={() => {
+                                                                    setSelectedStructure(s)
+                                                                    setShowOptionalModal(true)
+                                                                }}
                                                                 className="btn-icon btn-icon-sm"
-                                                                title="Assign optional fees"
+                                                                title="Assign optional fees to students"
                                                             >
                                                                 <Sparkles size={13} />
                                                             </button>
                                                         )}
+
+                                                        {/* Deactivate */}
                                                         <button
                                                             onClick={() => deleteStructure(s._id)}
                                                             className="btn-icon btn-icon-sm"
-                                                            title="Deactivate"
+                                                            title="Deactivate structure"
                                                         >
                                                             <Trash2 size={13} />
                                                         </button>
@@ -2738,7 +2870,7 @@ function ReceiptModal({
 
 
 /* ═══════════════════════════════════════════════════════════════
-   FEE STRUCTURE MODAL
+   FEE STRUCTURE MODAL — MULTI-TENANT UPDATED
    ═══════════════════════════════════════════════════════════════ */
 function FeeStructureModal({
     open, editItem, academicConfig, onClose, onSuccess,
@@ -2749,26 +2881,53 @@ function FeeStructureModal({
     onClose: () => void
     onSuccess: (msg: string) => void
 }) {
-    const initForm = () => ({
-        name: '',
-        class: '',
-        section: 'all',
-        stream: '',
-        academicYear: academicConfig.currentAcademicYear,
-        term: 'Term 1',
-        dueDate: '',
-        lateFinePerDay: 0,
-        lateFineType: 'fixed',
-        maxLateFine: 0,
-        autoAssign: true,
-        items: [{ label: 'Tuition Fee', amount: 0, isOptional: false }],
-    })
+    // ✅ Institution type from session
+    const { data: session } = useSession()
+    const institutionType = session?.user?.institutionType || 'school'
+    const isSchool = institutionType === 'school'
 
-    const [form, setForm] = useState(initForm())
+    // ✅ Courses list for academy/coaching
+    const [courses, setCourses] = useState<Array<{
+        _id: string
+        name: string
+        code: string
+        category: string
+        feeAmount: number
+        feeType: string
+    }>>([])
+
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
-    const isHigherSecondary = ['11', '12'].includes(form.class)
+    // ─────────────────────────────────────────────────────────
+    // Form initial state — conditional by institution type
+    // ─────────────────────────────────────────────────────────
+    const initForm = useCallback(() => {
+        const base = {
+            name: '',
+            academicYear: academicConfig.currentAcademicYear,
+            term: 'Term 1',
+            dueDate: '',
+            lateFinePerDay: 0,
+            lateFineType: 'fixed',
+            maxLateFine: 0,
+            autoAssign: true,
+            items: [{ label: 'Tuition Fee', amount: 0, isOptional: false }],
+        }
+
+        if (isSchool) {
+            return { ...base, class: '', section: 'all', stream: '', courseId: '' }
+        } else {
+            return { ...base, class: '', section: 'all', stream: '', courseId: '' }
+        }
+    }, [academicConfig.currentAcademicYear, isSchool])
+
+    const [form, setForm] = useState(initForm)
+
+    // ─────────────────────────────────────────────────────────
+    // Computed values
+    // ─────────────────────────────────────────────────────────
+    const isHigherSecondary = isSchool && ['11', '12'].includes(form.class)
 
     const mandatoryTotal = form.items
         .filter(i => !i.isOptional)
@@ -2778,13 +2937,50 @@ function FeeStructureModal({
         .filter(i => i.isOptional)
         .reduce((s, i) => s + Number(i.amount), 0)
 
+    // ─────────────────────────────────────────────────────────
+    // Effects
+    // ─────────────────────────────────────────────────────────
+
+    // Fetch courses for academy/coaching
     useEffect(() => {
+        if (!isSchool && open) {
+            fetch('/api/courses')
+                .then(r => r.json())
+                .then(d => setCourses(d.courses ?? []))
+                .catch(() => { })
+        }
+    }, [isSchool, open])
+
+    // Pre-fill items from selected course (only when creating new, not editing)
+    useEffect(() => {
+        if (!form.courseId || courses.length === 0 || editItem) return
+
+        const course = courses.find(c => c._id === form.courseId)
+        if (!course) return
+
+        // ✅ Pre-fill name and amount from course (adjustable)
+        setForm(f => ({
+            ...f,
+            name: f.name || `${course.name} Fee - ${f.academicYear}`,
+            items: [{
+                label: `${course.name} Course Fee`,
+                amount: course.feeAmount || 0,
+                isOptional: false,
+            }],
+        }))
+    }, [form.courseId, courses, editItem])
+
+    // Populate form when editing
+    useEffect(() => {
+        if (!open) return
+
         if (editItem) {
             setForm({
                 name: editItem.name,
-                class: editItem.class,
-                section: editItem.section || 'all',
-                stream: editItem.stream || '',
+                class: editItem.class ?? '',
+                section: editItem.section ?? 'all',
+                stream: editItem.stream ?? '',
+                courseId: (editItem as any).courseId?._id ?? (editItem as any).courseId ?? '',
                 academicYear: editItem.academicYear,
                 term: editItem.term,
                 dueDate: new Date(editItem.dueDate).toISOString().split('T')[0],
@@ -2798,13 +2994,22 @@ function FeeStructureModal({
             setForm(initForm())
         }
         setError('')
-    }, [editItem, open, academicConfig.currentAcademicYear])
+    }, [editItem, open, initForm])
 
+    // ─────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────
     const setField = (key: string, val: any) => {
         setForm(f => {
             const updated = { ...f, [key]: val }
+            // Reset stream when class changes away from 11/12
             if (key === 'class' && !['11', '12'].includes(val)) {
                 updated.stream = ''
+            }
+            // Reset items when course changes (only for new structures)
+            if (key === 'courseId' && !editItem) {
+                updated.items = [{ label: 'Tuition Fee', amount: 0, isOptional: false }]
+                updated.name = ''
             }
             return updated
         })
@@ -2821,18 +3026,36 @@ function FeeStructureModal({
     const removeItem = (idx: number) =>
         setField('items', form.items.filter((_, i) => i !== idx))
 
+    // ─────────────────────────────────────────────────────────
+    // Submit
+    // ─────────────────────────────────────────────────────────
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setError('')
 
-        if (!form.class) { setError('Class select karo'); return }
-        if (!form.dueDate) { setError('Due date set karo'); return }
-        if (!form.name.trim()) { setError('Fee name required hai'); return }
-        // if (isHigherSecondary && !form.stream) {
-        //     setError('Class 11/12 ke liye stream select karna zaroori hai')
-        //     return
-        // }
-        if (form.items.some(i => !i.label || Number(i.amount) <= 0)) {
+        // ── Validation ──
+        if (!form.name.trim()) {
+            setError('Fee name required hai')
+            return
+        }
+        if (!form.dueDate) {
+            setError('Due date set karo')
+            return
+        }
+
+        // School-specific validation
+        if (isSchool && !form.class) {
+            setError('Class select karo')
+            return
+        }
+
+        // Academy/Coaching-specific validation
+        if (!isSchool && !form.courseId) {
+            setError('Course select karo')
+            return
+        }
+
+        if (form.items.some(i => !i.label.trim() || Number(i.amount) <= 0)) {
             setError('Saare fee items ka label aur amount fill karo')
             return
         }
@@ -2851,38 +3074,61 @@ function FeeStructureModal({
 
         setLoading(true)
         try {
-            const url = editItem ? `/api/fees/structure/${editItem._id}` : '/api/fees/structure'
+            const url = editItem
+                ? `/api/fees/structure/${editItem._id}`
+                : '/api/fees/structure'
             const method = editItem ? 'PUT' : 'POST'
+
+            const payload: any = {
+                name: form.name.trim(),
+                academicYear: form.academicYear,
+                term: form.term,
+                dueDate: form.dueDate,
+                items: form.items,
+                totalAmount: mTotal,
+                optionalTotal: oTotal,
+                lateFinePerDay: form.lateFinePerDay,
+                lateFineType: form.lateFineType,
+                maxLateFine: form.maxLateFine,
+                autoAssign: form.autoAssign,
+            }
+
+            // ✅ Conditional payload fields
+            if (isSchool) {
+                payload.class = form.class
+                payload.section = form.section
+                payload.stream = isHigherSecondary ? form.stream : undefined
+            } else {
+                payload.courseId = form.courseId
+            }
+
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    ...form,
-                    totalAmount: mTotal,
-                    optionalTotal: oTotal,
-                    stream: isHigherSecondary ? form.stream : undefined,
-                }),
+                body: JSON.stringify(payload),
             })
             const data = await res.json()
-            if (!res.ok) { setError(data.error ?? 'Something went wrong'); return }
 
-            const streamLabel = !isHigherSecondary
-                ? ''
-                : !form.stream
-                    ? ' (All Streams)'
-                    : ` (${form.stream})`
+            if (!res.ok) {
+                setError(data.error ?? 'Something went wrong')
+                return
+            }
 
-            onSuccess(
-                editItem
-                    ? 'Fee structure updated successfully!'
-                    : `Fee structure created${streamLabel}!${data.feesCreated > 0
-                        ? ` ${data.feesCreated} students assigned ₹${mTotal.toLocaleString('en-IN')}`
-                        : ''
-                    }${oTotal > 0
-                        ? ` | ₹${oTotal.toLocaleString('en-IN')} optional fees need manual assignment`
-                        : ''
-                    }`
-            )
+            // ✅ Success message — institution-aware
+            let successMsg = editItem
+                ? 'Fee structure updated successfully!'
+                : buildSuccessMsg({
+                    institutionType,
+                    isSchool,
+                    form,
+                    isHigherSecondary,
+                    mTotal,
+                    oTotal,
+                    feesCreated: data.feesCreated ?? 0,
+                })
+
+            onSuccess(successMsg)
+
         } finally {
             setLoading(false)
         }
@@ -2890,6 +3136,9 @@ function FeeStructureModal({
 
     if (!open) return null
 
+    // ─────────────────────────────────────────────────────────
+    // Render
+    // ─────────────────────────────────────────────────────────
     return (
         <div className="modal-backdrop">
             <div
@@ -2897,14 +3146,19 @@ function FeeStructureModal({
                 style={{ maxWidth: 'var(--width-modal-lg)' }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* Header */}
+                {/* ── Header ── */}
                 <div className="modal-header">
                     <div>
                         <h3 className="modal-title">
                             {editItem ? `Edit: ${editItem.name}` : 'Create Fee Structure'}
                         </h3>
                         <p className="text-xs mt-0.5 text-[var(--text-muted)]">
-                            {editItem ? 'Fee structure update karein' : 'Class-wise fees define karein'}
+                            {editItem
+                                ? 'Fee structure update karein'
+                                : isSchool
+                                    ? 'Class-wise fees define karein'
+                                    : 'Course-wise fees define karein'
+                            }
                         </p>
                     </div>
                     <button onClick={onClose} className="modal-close">
@@ -2912,27 +3166,33 @@ function FeeStructureModal({
                     </button>
                 </div>
 
-                {/* Form */}
+                {/* ── Form ── */}
                 <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
                     <div className="modal-body space-y-5">
 
-                        {/* ── Basic Info ── */}
+                        {/* ══ SECTION: Basic Info ══ */}
                         <div>
                             <p className="text-xs font-bold uppercase tracking-wider mb-3 text-[var(--text-muted)]">
                                 Basic Info
                             </p>
                             <div className="grid grid-cols-2 gap-4">
+
+                                {/* Name — full width */}
                                 <div className="col-span-2">
                                     <FormInput
                                         label="Fee Structure Name"
                                         value={form.name}
                                         onChange={val => setField('name', val)}
                                         required
-                                        placeholder="e.g. Term 1 Fee 2025-26"
+                                        placeholder={
+                                            isSchool
+                                                ? 'e.g. Term 1 Fee 2025-26'
+                                                : 'e.g. Python Course Fee - Jan 2025'
+                                        }
                                     />
                                 </div>
 
-                                {/* ✅ Academic Year — academicConfig se */}
+                                {/* Academic Year */}
                                 <FormSelect
                                     label="Academic Year"
                                     value={form.academicYear}
@@ -2943,42 +3203,122 @@ function FeeStructureModal({
                                     }))}
                                 />
 
+                                {/* Term */}
                                 <FormSelect
-                                    label="Term"
+                                    label="Term / Period"
                                     value={form.term}
                                     onChange={val => setField('term', val)}
                                     required
                                     options={TERMS.map(t => ({ value: t, label: t }))}
                                 />
 
-                                {/* ✅ Classes — academicConfig se */}
-                                <FormSelect
-                                    label="For Class"
-                                    value={form.class}
-                                    onChange={val => setField('class', val)}
-                                    required
-                                    options={[
-                                        { value: '', label: 'Select Class' },
-                                        { value: 'all', label: 'All Classes' },
-                                        ...academicConfig.classes.map(c => ({
-                                            value: c, label: `Class ${c}`,
-                                        })),
-                                    ]}
-                                />
+                                {/* ✅ CONDITIONAL: Class selector (School) OR Course selector (Academy/Coaching) */}
+                                {isSchool ? (
+                                    <>
+                                        {/* SCHOOL: Class */}
+                                        <FormSelect
+                                            label="For Class"
+                                            value={form.class}
+                                            onChange={val => setField('class', val)}
+                                            required
+                                            options={[
+                                                { value: '', label: 'Select Class' },
+                                                { value: 'all', label: 'All Classes' },
+                                                ...academicConfig.classes.map(c => ({
+                                                    value: c, label: `Class ${c}`,
+                                                })),
+                                            ]}
+                                        />
 
-                                {/* ✅ Sections — academicConfig se */}
-                                <FormSelect
-                                    label="Section"
-                                    value={form.section}
-                                    onChange={val => setField('section', val)}
-                                    options={[
-                                        { value: 'all', label: 'All Sections' },
-                                        ...academicConfig.sections.map(s => ({
-                                            value: s, label: `Section ${s}`,
-                                        })),
-                                    ]}
-                                />
+                                        {/* SCHOOL: Section */}
+                                        <FormSelect
+                                            label="Section"
+                                            value={form.section}
+                                            onChange={val => setField('section', val)}
+                                            options={[
+                                                { value: 'all', label: 'All Sections' },
+                                                ...academicConfig.sections.map(s => ({
+                                                    value: s, label: `Section ${s}`,
+                                                })),
+                                            ]}
+                                        />
+                                    </>
+                                ) : (
+                                    /* ACADEMY/COACHING: Course selector — full width */
+                                    <div className="col-span-2">
+                                        <div className="flex flex-col gap-1">
+                                            <label className="input-label">
+                                                Select Course
+                                                <span className="text-[var(--danger)]"> *</span>
+                                            </label>
 
+                                            {courses.length === 0 ? (
+                                                <div
+                                                    className="input-clean flex items-center gap-2"
+                                                    style={{ color: 'var(--text-muted)' }}
+                                                >
+                                                    <Spinner size="sm" />
+                                                    <span className="text-sm">Loading courses...</span>
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    className="input-clean"
+                                                    value={form.courseId}
+                                                    onChange={e => setField('courseId', e.target.value)}
+                                                    required={!isSchool}
+                                                >
+                                                    <option value="">— Choose a course —</option>
+                                                    {courses.map(c => (
+                                                        <option key={c._id} value={c._id}>
+                                                            {c.name} ({c.code}) — ₹{(c.feeAmount || 0).toLocaleString('en-IN')}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+
+                                            <p className="input-hint">
+                                                Course select karne par amount auto-fill hoga (aap change kar sakte hain)
+                                            </p>
+                                        </div>
+
+                                        {/* ✅ Selected course info card */}
+                                        {form.courseId && (() => {
+                                            const selectedCourse = courses.find(c => c._id === form.courseId)
+                                            if (!selectedCourse) return null
+                                            return (
+                                                <div
+                                                    className="mt-2 px-3 py-2.5 rounded-[var(--radius-lg)] flex items-center gap-3"
+                                                    style={{
+                                                        backgroundColor: 'var(--primary-50)',
+                                                        border: '1px solid var(--primary-200)',
+                                                    }}
+                                                >
+                                                    <div
+                                                        className="w-8 h-8 rounded-[var(--radius-md)] flex items-center justify-center flex-shrink-0"
+                                                        style={{ backgroundColor: 'var(--primary-100)' }}
+                                                    >
+                                                        <span className="text-xs font-bold text-[var(--primary-700)]">
+                                                            {selectedCourse.code?.slice(0, 2).toUpperCase()}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-xs font-semibold text-[var(--primary-700)] truncate">
+                                                            {selectedCourse.name}
+                                                        </p>
+                                                        <p className="text-[0.625rem] text-[var(--primary-500)]">
+                                                            {selectedCourse.category} · Base fee: ₹{(selectedCourse.feeAmount || 0).toLocaleString('en-IN')}
+                                                        </p>
+                                                    </div>
+                                                    <span className="badge badge-brand flex-shrink-0">
+                                                        {selectedCourse.feeType}
+                                                    </span>
+                                                </div>
+                                            )
+                                        })()}
+                                    </div>
+                                )}
+
+                                {/* Due Date — always */}
                                 <FormInput
                                     label="Due Date"
                                     value={form.dueDate}
@@ -2988,24 +3328,30 @@ function FeeStructureModal({
                                 />
                             </div>
 
-                            {/* Stream selector — only Class 11/12 */}
-                            {isHigherSecondary && (
+                            {/* ✅ Stream selector — School only, Class 11/12 only */}
+                            {isSchool && isHigherSecondary && (
                                 <div className="mt-4">
                                     <label className="input-label mb-2 block">
                                         Stream / Faculty
                                         <span className="ml-1 font-normal text-[var(--text-muted)]">
-                                            — leave blank to apply to all streams
+                                            — blank rakho to apply to all streams
                                         </span>
                                     </label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {/* All streams option */}
+                                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+
+                                        {/* All Streams option */}
                                         <button
                                             type="button"
                                             onClick={() => setField('stream', '')}
                                             className="flex items-center gap-2.5 px-3 py-2.5 rounded-[var(--radius-lg)] text-left transition-all"
                                             style={{
-                                                border: `2px solid ${!form.stream ? 'var(--text-secondary)' : 'var(--border)'}`,
-                                                backgroundColor: !form.stream ? 'var(--bg-subtle)' : 'var(--bg-card)',
+                                                border: `2px solid ${!form.stream
+                                                    ? 'var(--text-secondary)'
+                                                    : 'var(--border)'
+                                                    }`,
+                                                backgroundColor: !form.stream
+                                                    ? 'var(--bg-subtle)'
+                                                    : 'var(--bg-card)',
                                             }}
                                         >
                                             <div
@@ -3033,7 +3379,7 @@ function FeeStructureModal({
                                             </p>
                                             {!form.stream && (
                                                 <div
-                                                    className="w-4 h-4 rounded-full flex items-center justify-center ml-auto"
+                                                    className="w-4 h-4 rounded-full flex items-center justify-center ml-auto flex-shrink-0"
                                                     style={{ backgroundColor: 'var(--text-secondary)' }}
                                                 >
                                                     <span className="text-white text-[0.5rem]">✓</span>
@@ -3041,6 +3387,7 @@ function FeeStructureModal({
                                             )}
                                         </button>
 
+                                        {/* Individual stream buttons */}
                                         {STREAMS.map(s => (
                                             <button
                                                 key={s.value}
@@ -3048,7 +3395,10 @@ function FeeStructureModal({
                                                 onClick={() => setField('stream', s.value)}
                                                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-[var(--radius-lg)] text-left transition-all"
                                                 style={{
-                                                    border: `2px solid ${form.stream === s.value ? s.color : 'var(--border)'}`,
+                                                    border: `2px solid ${form.stream === s.value
+                                                        ? s.color
+                                                        : 'var(--border)'
+                                                        }`,
                                                     backgroundColor: form.stream === s.value
                                                         ? s.bg
                                                         : 'var(--bg-card)',
@@ -3079,7 +3429,7 @@ function FeeStructureModal({
                                                 </p>
                                                 {form.stream === s.value && (
                                                     <div
-                                                        className="w-4 h-4 rounded-full flex items-center justify-center ml-auto"
+                                                        className="w-4 h-4 rounded-full flex items-center justify-center ml-auto flex-shrink-0"
                                                         style={{ backgroundColor: s.color }}
                                                     >
                                                         <span className="text-white text-[0.5rem]">✓</span>
@@ -3092,7 +3442,7 @@ function FeeStructureModal({
                             )}
                         </div>
 
-                        {/* ── Late Fine Settings ── */}
+                        {/* ══ SECTION: Late Fine Settings ══ */}
                         <div>
                             <p className="text-xs font-bold uppercase tracking-wider mb-3 text-[var(--text-muted)]">
                                 Late Fine Settings
@@ -3134,12 +3484,19 @@ function FeeStructureModal({
                             </div>
                         </div>
 
-                        {/* ── Fee Items ── */}
+                        {/* ══ SECTION: Fee Items ══ */}
                         <div>
                             <div className="flex items-center justify-between mb-3">
-                                <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                                    Fee Items
-                                </p>
+                                <div>
+                                    <p className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                                        Fee Items
+                                    </p>
+                                    {!isSchool && (
+                                        <p className="text-[0.625rem] text-[var(--text-muted)] mt-0.5">
+                                            Course se pre-filled hai — aap adjust kar sakte hain
+                                        </p>
+                                    )}
+                                </div>
                                 <button
                                     type="button"
                                     onClick={addItem}
@@ -3155,8 +3512,13 @@ function FeeStructureModal({
                                         key={idx}
                                         className="flex gap-2 items-center p-3 rounded-[var(--radius-lg)]"
                                         style={{
-                                            backgroundColor: 'var(--bg-subtle)',
-                                            border: '1px solid var(--border)',
+                                            backgroundColor: item.isOptional
+                                                ? 'var(--warning-50)'
+                                                : 'var(--bg-subtle)',
+                                            border: `1px solid ${item.isOptional
+                                                ? 'var(--warning-200)'
+                                                : 'var(--border)'
+                                                }`,
                                         }}
                                     >
                                         <input
@@ -3171,12 +3533,11 @@ function FeeStructureModal({
                                             type="number"
                                             placeholder="Amount ₹"
                                             value={item.amount || ''}
+                                            min={0}
                                             onChange={e => updateItem(idx, 'amount', Number(e.target.value))}
                                             required
                                         />
-                                        <label
-                                            className="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap text-[var(--text-secondary)]"
-                                        >
+                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer whitespace-nowrap text-[var(--text-secondary)]">
                                             <input
                                                 type="checkbox"
                                                 className="rounded"
@@ -3200,6 +3561,7 @@ function FeeStructureModal({
 
                             {/* Totals */}
                             <div className="mt-3 space-y-2">
+
                                 {/* Mandatory total */}
                                 <div
                                     className="flex items-center justify-between px-4 py-3 rounded-[var(--radius-lg)]"
@@ -3213,7 +3575,10 @@ function FeeStructureModal({
                                             Mandatory Total
                                         </span>
                                         <p className="text-[0.625rem] mt-0.5 text-[var(--info-500)]">
-                                            Yeh amount sabhi students ko assign hogi
+                                            {isSchool
+                                                ? 'Yeh amount sabhi class students ko assign hogi'
+                                                : 'Yeh amount sabhi enrolled students ko assign hogi'
+                                            }
                                         </p>
                                     </div>
                                     <span className="text-lg font-extrabold tabular-nums text-[var(--info-dark)]">
@@ -3221,7 +3586,7 @@ function FeeStructureModal({
                                     </span>
                                 </div>
 
-                                {/* Optional total — only when optional items exist */}
+                                {/* Optional total */}
                                 {optionalTotal > 0 && (
                                     <>
                                         <div
@@ -3260,7 +3625,7 @@ function FeeStructureModal({
                             </div>
                         </div>
 
-                        {/* ── Auto Assign Toggle ── */}
+                        {/* ══ SECTION: Auto Assign Toggle — create only ══ */}
                         {!editItem && (
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-wider mb-3 text-[var(--text-muted)]">
@@ -3276,10 +3641,11 @@ function FeeStructureModal({
                                             : 'var(--bg-subtle)',
                                         border: `1.5px solid ${form.autoAssign
                                             ? 'var(--info-200)'
-                                            : 'var(--border)'}`,
+                                            : 'var(--border)'
+                                            }`,
                                     }}
                                 >
-                                    {/* Toggle switch */}
+                                    {/* Toggle pill */}
                                     <div
                                         className="w-10 h-5 rounded-full relative flex-shrink-0 transition-colors"
                                         style={{
@@ -3297,6 +3663,7 @@ function FeeStructureModal({
                                             }}
                                         />
                                     </div>
+
                                     <div className="flex-1">
                                         <p
                                             className="text-sm font-semibold"
@@ -3306,13 +3673,17 @@ function FeeStructureModal({
                                                     : 'var(--text-secondary)',
                                             }}
                                         >
-                                            Auto-assign to existing students
+                                            Auto-assign to existing{' '}
+                                            {isSchool ? 'students' : 'enrolled students'}
                                         </p>
                                         <p className="text-[0.6875rem] mt-0.5 text-[var(--text-muted)]">
-                                            Is class ke saare active students ko yeh fee
-                                            automatically assign hogi
+                                            {isSchool
+                                                ? 'Is class ke saare active students ko yeh fee automatically assign hogi'
+                                                : 'Is course ke saare active enrollments ko yeh fee automatically assign hogi'
+                                            }
                                         </p>
                                     </div>
+
                                     <Zap
                                         size={16}
                                         style={{
@@ -3324,6 +3695,7 @@ function FeeStructureModal({
                                 </button>
                             </div>
                         )}
+
                     </div>
 
                     {/* Error */}
@@ -3345,11 +3717,7 @@ function FeeStructureModal({
 
                     {/* Footer */}
                     <div className="modal-footer">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="btn-ghost"
-                        >
+                        <button type="button" onClick={onClose} className="btn-ghost">
                             Cancel
                         </button>
                         <button
@@ -3370,6 +3738,90 @@ function FeeStructureModal({
                 </form>
             </div>
         </div>
+    )
+}
+
+/* ─── Helper: Build success message ─── */
+function buildSuccessMsg({
+    institutionType, isSchool, form, isHigherSecondary,
+    mTotal, oTotal, feesCreated,
+}: {
+    institutionType: string
+    isSchool: boolean
+    form: any
+    isHigherSecondary: boolean
+    mTotal: number
+    oTotal: number
+    feesCreated: number
+}): string {
+    let msg = 'Fee structure created'
+
+    if (isSchool) {
+        const streamLabel = !isHigherSecondary
+            ? ''
+            : !form.stream
+                ? ' (All Streams)'
+                : ` (${form.stream})`
+        msg += streamLabel
+    } else {
+        msg += ' for course'
+    }
+
+    msg += '!'
+
+    if (feesCreated > 0) {
+        msg += ` ${feesCreated} ${isSchool ? 'students' : 'enrollments'} assigned ₹${mTotal.toLocaleString('en-IN')}`
+    }
+
+    if (oTotal > 0) {
+        msg += ` | ₹${oTotal.toLocaleString('en-IN')} optional fees need manual assignment`
+    }
+
+    return msg
+}
+
+
+/* ─── Helper Component: Course Filter Dropdown ─── */
+function CourseFilterDropdown({
+    value, onChange,
+}: {
+    value: string
+    onChange: (val: string) => void
+}) {
+    const [courses, setCourses] = useState<Array<{
+        _id: string
+        name: string
+        code: string
+        category: string
+    }>>([])
+    const [loading, setLoading] = useState(false)
+
+    useEffect(() => {
+        setLoading(true)
+        fetch('/api/courses')
+            .then(r => r.json())
+            .then(d => setCourses(d.courses ?? []))
+            .catch(() => { })
+            .finally(() => setLoading(false))
+    }, [])
+
+    return (
+        <select
+            className="input-clean"
+            style={{ minWidth: '220px' }}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            disabled={loading}
+        >
+            <option value="">
+                {loading ? 'Loading courses...' : 'All Courses'}
+            </option>
+            {courses.map(c => (
+                <option key={c._id} value={c._id}>
+                    {c.name} ({c.code})
+                </option>
+            ))}
+        </select>
     )
 }
 

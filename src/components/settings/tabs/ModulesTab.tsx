@@ -1,6 +1,5 @@
 // FILE: src/components/settings/tabs/ModulesTab.tsx
-// ✅ FIX: enabledModules ab sahi source se aa raha hai (page.tsx → DB fresh)
-// initialHidden calculation correct hoga ab
+// COMPLETE FILE — replace karo
 
 'use client'
 
@@ -12,16 +11,19 @@ import {
     Globe, Image, Clock, FileText, FileCheck, BarChart2,
     MessageSquare, Library, Award, PlayCircle, Briefcase,
     Bus, Building, Package, UserPlus, Heart, GraduationCap,
-    Lock, Info,
+    Lock, Info, MapPin, Edit,
 } from 'lucide-react'
 import { SettingSection } from '../shared/SettingSection'
 import { ToggleRow, SettingRow } from '../shared/SettingRow'
 import { SaveBar } from '../shared/SaveButton'
 import { MODULE_REGISTRY } from '@/lib/moduleRegistry'
 import { getPlan } from '@/lib/plans'
+import { filterModulesByInstitution } from '@/lib/moduleRegistry'
 import type { IModuleSettings } from '@/types/settings'
 import type { ModuleKey } from '@/lib/moduleRegistry'
 import type { PlanId } from '@/lib/plans'
+import { getTrialModulesForInstitution } from '@/lib/plans'
+import type { InstitutionType } from '@/lib/institutionConfig'
 
 const MODULE_ICONS: Record<string, React.ElementType> = {
     Users, CheckSquare, CreditCard, BookOpen, Bell,
@@ -29,13 +31,17 @@ const MODULE_ICONS: Record<string, React.ElementType> = {
     MessageSquare, Library, Award, PlayCircle, Briefcase,
     Bus, Building, Package, UserPlus, Heart, GraduationCap,
     UserCheck: Users,
+    MapPin,
+    Edit,
 }
 
 interface ModulesTabProps {
     modules: IModuleSettings
-    // ✅ DB se fresh: planModules - hiddenModules
     enabledModules: string[]
     plan: string
+    subscriptionStatus?: string   // ✅ ADD
+    institutionType?: string      // ✅ ADD
+    isTrial?: boolean           // ✅ ADD
     onSaved: (updated: {
         modules: IModuleSettings
         enabledModules: string[]
@@ -46,26 +52,47 @@ export function ModulesTab({
     modules,
     enabledModules,
     plan,
+    subscriptionStatus,
+    institutionType = 'school',  // ✅ Default fallback
+    isTrial = false,            // ✅ ADD
     onSaved,
 }: ModulesTabProps) {
     const router = useRouter()
     const { update: updateSession } = useSession()
 
+    // ✅ FIX: institutionType ko InstitutionType mein cast karo
+    const instType = (institutionType as InstitutionType) || 'school'
+
     // Plan ke saare modules = base set
     const planConfig = getPlan(plan as PlanId)
-    const planModules = planConfig.modules
 
-    // ✅ FIX: hiddenModules = planModules - enabledModules
-    // enabledModules ab sahi source se aa raha hai (DB fresh, page.tsx se)
-    const initialHidden = planModules.filter(
-        (m) => !enabledModules.includes(m)
+    // ✅ FIX: Trial mein institution-specific full modules
+    // Paid plan mein plan ke modules
+    const planModules = isTrial
+        ? getTrialModulesForInstitution(instType)
+        : planConfig.modules
+
+    // ✅ Institution type ke hisaab se filter (same as before)
+    const institutionFilteredPlanModules = filterModulesByInstitution(
+        planModules,
+        instType
+    )
+
+    // ✅ enabledModules bhi institution filter se guzaro
+    const institutionFilteredEnabled = filterModulesByInstitution(
+        enabledModules,
+        instType
+    )
+
+    const initialHidden = institutionFilteredPlanModules.filter(
+        (m) => !institutionFilteredEnabled.includes(m)
     )
 
     const [moduleSettings, setModuleSettings] = useState<IModuleSettings>({
         ...modules,
     })
     const [activeModules, setActiveModules] = useState<string[]>([
-        ...enabledModules,
+        ...institutionFilteredEnabled,
     ])
     const [hiddenModules, setHiddenModules] = useState<string[]>(initialHidden)
 
@@ -77,7 +104,7 @@ export function ModulesTab({
     const toggleModule = (key: string) => {
         const config = MODULE_REGISTRY[key as ModuleKey]
         if (!config || config.isCore) return
-        if (!planModules.includes(key)) return
+        if (!institutionFilteredPlanModules.includes(key)) return
 
         const isCurrentlyActive = activeModules.includes(key)
 
@@ -112,9 +139,9 @@ export function ModulesTab({
 
         try {
             const toEnable = activeModules.filter(
-                (m) => !enabledModules.includes(m)
+                (m) => !institutionFilteredEnabled.includes(m)
             )
-            const toDisable = enabledModules.filter(
+            const toDisable = institutionFilteredEnabled.filter(
                 (m) => !activeModules.includes(m)
             )
 
@@ -148,15 +175,11 @@ export function ModulesTab({
             await updateSession({ modules: activeModules })
             router.refresh()
 
-            // ✅ 3 seconds baad success message auto-remove
             setTimeout(() => setSuccess(null), 3000)
 
         } catch (err: any) {
             setError(err.message)
-
-            // ✅ Error bhi 5 seconds baad auto-remove
             setTimeout(() => setError(null), 5000)
-
         } finally {
             setSaving(false)
         }
@@ -164,7 +187,7 @@ export function ModulesTab({
 
     const handleDiscard = () => {
         setModuleSettings({ ...modules })
-        setActiveModules([...enabledModules])
+        setActiveModules([...institutionFilteredEnabled])
         setHiddenModules(initialHidden)
         setIsDirty(false)
         setError(null)
@@ -180,8 +203,8 @@ export function ModulesTab({
         isCore: boolean
     }
 
-    // Plan ke modules — toggle wale
-    const planModulesList: AllModule[] = planModules
+    // ✅ FIX: institutionFilteredPlanModules use karo — school-only modules filter ho jayenge
+    const planModulesList: AllModule[] = institutionFilteredPlanModules
         .filter((key) => {
             const config = MODULE_REGISTRY[key as ModuleKey]
             return config && config.adminRoute && !config.comingSoon
@@ -191,33 +214,45 @@ export function ModulesTab({
             return {
                 key,
                 config,
-                // ✅ Core modules hamesha enabled
                 isEnabled: config.isCore ? true : activeModules.includes(key),
                 isInPlan: true,
                 isCore: config.isCore || false,
             }
         })
 
-    // Plan me nahi hain — locked dikhao
-    const lockedModules: AllModule[] = Object.entries(MODULE_REGISTRY)
-        .filter(([key, config]) => {
-            return (
-                !planModules.includes(key) &&
-                config.adminRoute &&
-                !config.comingSoon &&
-                !config.isCore
-            )
-        })
-        .map(([key, config]) => ({
-            key,
-            config,
-            isEnabled: false,
-            isInPlan: false,
-            isCore: false,
-        }))
+    // ✅ FIX: Locked modules bhi institution filter se guzaro
+    // Academy ke liye school-only locked modules nahi dikhenge
+    const lockedModules: AllModule[] = isTrial
+        ? []  // ✅ Trial mein koi locked module nahi
+        : Object.entries(MODULE_REGISTRY)
+            .filter(([key, config]) => {
+                if (!config.institutionTypes.includes(instType)) return false
+                if (institutionFilteredPlanModules.includes(key)) return false
+                return (
+                    config.adminRoute &&
+                    !config.comingSoon &&
+                    !config.isCore
+                )
+            })
+            .map(([key, config]) => ({
+                key,
+                config,
+                isEnabled: false,
+                isInPlan: false,
+                isCore: false,
+            }))
+
+    // ✅ Dynamic label for fees
+    const getModuleLabel = (key: string, label: string): string => {
+        if (key === 'fees') {
+            return instType === 'school' ? 'Fee Management' : 'Course Payments'
+        }
+        return label
+    }
 
     const renderModuleCard = (mod: AllModule) => {
         const Icon = MODULE_ICONS[mod.config.icon] || Users
+        const displayLabel = getModuleLabel(mod.key, mod.config.label)
 
         return (
             <div
@@ -239,7 +274,6 @@ export function ModulesTab({
                     mod.isInPlan && !mod.isCore && toggleModule(mod.key)
                 }
             >
-                {/* Icon */}
                 <div
                     className="w-9 h-9 rounded-[var(--radius-md)] flex items-center justify-center flex-shrink-0"
                     style={{
@@ -260,11 +294,10 @@ export function ModulesTab({
                     />
                 </div>
 
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
                         <p className="text-sm font-600 text-[var(--text-primary)] truncate">
-                            {mod.config.label}
+                            {displayLabel}
                         </p>
                         {mod.isCore && (
                             <span className="badge badge-brand text-[10px] px-1.5 py-0.5 flex-shrink-0">
@@ -282,7 +315,6 @@ export function ModulesTab({
                     </p>
                 </div>
 
-                {/* Toggle / Lock / Always On */}
                 <div className="flex-shrink-0">
                     {!mod.isInPlan ? (
                         <div className="flex items-center gap-1 text-[var(--text-muted)]">
@@ -325,6 +357,19 @@ export function ModulesTab({
         )
     }
 
+    // ✅ Institution-specific section title
+    const sectionTitle = isTrial
+        ? instType === 'school'
+            ? 'Trial — All School Modules'
+            : instType === 'academy'
+                ? 'Trial — All Academy Modules'
+                : 'Trial — All Coaching Modules'
+        : instType === 'school'
+            ? `${planConfig.name} Plan Modules`
+            : instType === 'academy'
+                ? `${planConfig.name} Plan — Academy Modules`
+                : `${planConfig.name} Plan — Coaching Modules`
+
     return (
         <div className="space-y-5 portal-content-enter">
 
@@ -339,7 +384,6 @@ export function ModulesTab({
                 </div>
             )}
 
-            {/* Info banner */}
             <div
                 className="flex items-start gap-3 p-3.5 rounded-[var(--radius-md)] border text-sm"
                 style={{
@@ -350,25 +394,32 @@ export function ModulesTab({
             >
                 <Info size={15} className="flex-shrink-0 mt-0.5" />
                 <p>
-                    All modules included in your <strong>{planConfig.name} Plan</strong> are listed below.
-                    Disable any module to hide it from the sidebar.
-                    Re-enable it anytime to restore access.
+                    {isTrial
+                        ? <>
+                            <strong>60-day Trial</strong> mein aapke institution type ke <strong>saare modules</strong> available hain.
+                            Use karke dekho, habit banao — phir apna plan choose karo!
+                        </>
+                        : <>
+                            All modules included in your <strong>{planConfig.name} Plan</strong> are listed below.
+                            Disable any module to hide it from the sidebar.
+                            Re-enable it anytime to restore access.
+                        </>
+                    }
                 </p>
             </div>
 
-            {/* Plan modules — toggle wale */}
             <SettingSection
-                title={`${planConfig.name} Plan Modules`}
+                title={sectionTitle}
                 description={`${activeModules.length} active · ${hiddenModules.filter(
                     (m) => !MODULE_REGISTRY[m as ModuleKey]?.isCore
-                ).length} hidden`}
+                ).length} hidden${isTrial ? ' · Trial: All modules unlocked' : ''}`}
+
             >
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {planModulesList.map(renderModuleCard)}
                 </div>
             </SettingSection>
 
-            {/* Locked modules */}
             {lockedModules.length > 0 && (
                 <SettingSection
                     title="Upgrade Required"
@@ -380,15 +431,16 @@ export function ModulesTab({
                 </SettingSection>
             )}
 
-            {/* Module feature settings — sirf active modules ke liye */}
+            {/* ── Module feature settings — institution-aware ── */}
+
             {activeModules.includes('fees') && (
                 <SettingSection
-                    title="Fee Module Settings"
-                    description="Configure fee module behavior"
+                    title={instType === 'school' ? 'Fee Module Settings' : 'Course Payment Settings'}
+                    description="Configure payment module behavior"
                 >
                     <ToggleRow
                         label="Allow Partial Payment"
-                        description="Students can pay partial fee amount"
+                        description="Students can pay partial amount"
                         checked={moduleSettings.fees?.allowPartialPayment ?? false}
                         onChange={(v) =>
                             updateModuleSetting('fees', 'allowPartialPayment', v)
@@ -412,7 +464,7 @@ export function ModulesTab({
                 >
                     <ToggleRow
                         label="Allow Teacher Edit"
-                        description="Teachers can edit submitted attendance"
+                        description={`${instType === 'school' ? 'Teachers' : 'Instructors'} can edit submitted attendance`}
                         checked={moduleSettings.attendance?.allowTeacherEdit ?? true}
                         onChange={(v) =>
                             updateModuleSetting('attendance', 'allowTeacherEdit', v)
@@ -429,9 +481,7 @@ export function ModulesTab({
                                     type="number"
                                     min={1}
                                     max={72}
-                                    value={
-                                        moduleSettings.attendance?.editWindowHours ?? 24
-                                    }
+                                    value={moduleSettings.attendance?.editWindowHours ?? 24}
                                     onChange={(e) =>
                                         updateModuleSetting(
                                             'attendance',
@@ -441,16 +491,15 @@ export function ModulesTab({
                                     }
                                     className="input-clean w-20"
                                 />
-                                <span className="text-sm text-[var(--text-muted)]">
-                                    hours
-                                </span>
+                                <span className="text-sm text-[var(--text-muted)]">hours</span>
                             </div>
                         </SettingRow>
                     )}
                 </SettingSection>
             )}
 
-            {activeModules.includes('exams') && (
+            {/* ✅ School-only settings — academy/coaching mein nahi dikhenge */}
+            {instType === 'school' && activeModules.includes('exams') && (
                 <SettingSection
                     title="Exam Module Settings"
                     description="Configure exam and result behavior"
@@ -490,9 +539,7 @@ export function ModulesTab({
                                     type="number"
                                     min={0}
                                     max={10}
-                                    value={
-                                        moduleSettings.exams?.gracemarksLimit ?? 5
-                                    }
+                                    value={moduleSettings.exams?.gracemarksLimit ?? 5}
                                     onChange={(e) =>
                                         updateModuleSetting(
                                             'exams',
@@ -509,7 +556,7 @@ export function ModulesTab({
                 </SettingSection>
             )}
 
-            {activeModules.includes('library') && (
+            {instType === 'school' && activeModules.includes('library') && (
                 <SettingSection
                     title="Library Module Settings"
                     description="Book issue and fine configuration"
@@ -520,15 +567,9 @@ export function ModulesTab({
                                 type="number"
                                 min={1}
                                 max={20}
-                                value={
-                                    moduleSettings.library?.maxBooksPerStudent ?? 2
-                                }
+                                value={moduleSettings.library?.maxBooksPerStudent ?? 2}
                                 onChange={(e) =>
-                                    updateModuleSetting(
-                                        'library',
-                                        'maxBooksPerStudent',
-                                        parseInt(e.target.value) || 2
-                                    )
+                                    updateModuleSetting('library', 'maxBooksPerStudent', parseInt(e.target.value) || 2)
                                 }
                                 className="input-clean"
                             />
@@ -540,11 +581,7 @@ export function ModulesTab({
                                 max={60}
                                 value={moduleSettings.library?.maxIssueDays ?? 14}
                                 onChange={(e) =>
-                                    updateModuleSetting(
-                                        'library',
-                                        'maxIssueDays',
-                                        parseInt(e.target.value) || 14
-                                    )
+                                    updateModuleSetting('library', 'maxIssueDays', parseInt(e.target.value) || 14)
                                 }
                                 className="input-clean"
                             />
@@ -555,11 +592,7 @@ export function ModulesTab({
                                 min={0}
                                 value={moduleSettings.library?.finePerDay ?? 2}
                                 onChange={(e) =>
-                                    updateModuleSetting(
-                                        'library',
-                                        'finePerDay',
-                                        parseFloat(e.target.value) || 0
-                                    )
+                                    updateModuleSetting('library', 'finePerDay', parseFloat(e.target.value) || 0)
                                 }
                                 className="input-clean"
                             />
@@ -568,7 +601,7 @@ export function ModulesTab({
                 </SettingSection>
             )}
 
-            {activeModules.includes('homework') && (
+            {instType === 'school' && activeModules.includes('homework') && (
                 <SettingSection
                     title="Homework Module Settings"
                     description="Student submission configuration"
@@ -576,15 +609,9 @@ export function ModulesTab({
                     <ToggleRow
                         label="Allow Student Submission"
                         description="Students can submit homework files"
-                        checked={
-                            moduleSettings.homework?.allowStudentSubmission ?? true
-                        }
+                        checked={moduleSettings.homework?.allowStudentSubmission ?? true}
                         onChange={(v) =>
-                            updateModuleSetting(
-                                'homework',
-                                'allowStudentSubmission',
-                                v
-                            )
+                            updateModuleSetting('homework', 'allowStudentSubmission', v)
                         }
                     />
                     {moduleSettings.homework?.allowStudentSubmission && (
@@ -598,279 +625,139 @@ export function ModulesTab({
                                     type="number"
                                     min={1}
                                     max={50}
-                                    value={
-                                        moduleSettings.homework?.maxFileSizeMB ?? 10
-                                    }
+                                    value={moduleSettings.homework?.maxFileSizeMB ?? 10}
                                     onChange={(e) =>
-                                        updateModuleSetting(
-                                            'homework',
-                                            'maxFileSizeMB',
-                                            parseInt(e.target.value) || 10
-                                        )
+                                        updateModuleSetting('homework', 'maxFileSizeMB', parseInt(e.target.value) || 10)
                                     }
                                     className="input-clean w-20"
                                 />
-                                <span className="text-sm text-[var(--text-muted)]">
-                                    MB
-                                </span>
+                                <span className="text-sm text-[var(--text-muted)]">MB</span>
                             </div>
                         </SettingRow>
                     )}
                 </SettingSection>
             )}
 
-            {activeModules.includes('hr') && (
+            {instType === 'school' && activeModules.includes('hr') && (
                 <SettingSection
                     title="HR & Payroll Settings"
                     description="Salary structure, leave policy, and payslip configuration"
                 >
-                    {/* ── Salary Slip Notifications ── */}
-                    {/* NotificationsTab se sync — ye toggles wahi kaam karte hain */}
                     <div className="mb-1">
                         <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                             Salary Slip Notifications
                         </p>
                     </div>
-
                     <ToggleRow
                         label="Send Salary Slip via Email"
                         description="Email salary slip to staff when payroll is generated"
                         checked={moduleSettings.hr?.sendSalarySlipEmail ?? false}
-                        onChange={(v) =>
-                            updateModuleSetting('hr', 'sendSalarySlipEmail', v)
-                        }
+                        onChange={(v) => updateModuleSetting('hr', 'sendSalarySlipEmail', v)}
                     />
                     <ToggleRow
                         label="Send Salary Slip via SMS"
                         description="SMS notification to staff on salary day (uses credits)"
                         checked={moduleSettings.hr?.sendSalarySlipSMS ?? false}
-                        onChange={(v) =>
-                            updateModuleSetting('hr', 'sendSalarySlipSMS', v)
-                        }
+                        onChange={(v) => updateModuleSetting('hr', 'sendSalarySlipSMS', v)}
                     />
-
-                    {/* ── PF & ESI Settings ── */}
                     <div className="mt-4 mb-1 pt-4 border-t border-[var(--border)]">
                         <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                             Statutory Deductions
                         </p>
                     </div>
-
                     <ToggleRow
                         label="Enable PF Deduction"
-                        description="Provident Fund deduction from salary (Employee contribution)"
+                        description="Provident Fund deduction from salary"
                         checked={moduleSettings.hr?.pfEnabled ?? true}
-                        onChange={(v) =>
-                            updateModuleSetting('hr', 'pfEnabled', v)
-                        }
+                        onChange={(v) => updateModuleSetting('hr', 'pfEnabled', v)}
                     />
-
                     {moduleSettings.hr?.pfEnabled && (
-                        <SettingRow
-                            horizontal
-                            label="PF Percentage"
-                            description="Standard rate is 12% of basic salary"
-                        >
+                        <SettingRow horizontal label="PF Percentage" description="Standard rate is 12%">
                             <div className="flex items-center gap-2">
                                 <input
-                                    type="number"
-                                    min={0}
-                                    max={30}
-                                    step={0.5}
+                                    type="number" min={0} max={30} step={0.5}
                                     value={moduleSettings.hr?.pfPercentage ?? 12}
-                                    onChange={(e) =>
-                                        updateModuleSetting(
-                                            'hr',
-                                            'pfPercentage',
-                                            parseFloat(e.target.value) || 12
-                                        )
-                                    }
+                                    onChange={(e) => updateModuleSetting('hr', 'pfPercentage', parseFloat(e.target.value) || 12)}
                                     className="input-clean w-20"
                                 />
-                                <span className="text-sm text-[var(--text-muted)]">
-                                    % of basic salary
-                                </span>
+                                <span className="text-sm text-[var(--text-muted)]">% of basic salary</span>
                             </div>
                         </SettingRow>
                     )}
-
                     <ToggleRow
                         label="Enable ESI Deduction"
-                        description="Employee State Insurance (applicable if gross salary ≤ ₹21,000)"
+                        description="Employee State Insurance"
                         checked={moduleSettings.hr?.esiEnabled ?? false}
-                        onChange={(v) =>
-                            updateModuleSetting('hr', 'esiEnabled', v)
-                        }
+                        onChange={(v) => updateModuleSetting('hr', 'esiEnabled', v)}
                     />
-
                     {moduleSettings.hr?.esiEnabled && (
-                        <SettingRow
-                            horizontal
-                            label="ESI Percentage"
-                            description="Standard rate is 0.75% of gross salary"
-                        >
+                        <SettingRow horizontal label="ESI Percentage" description="Standard rate is 0.75%">
                             <div className="flex items-center gap-2">
                                 <input
-                                    type="number"
-                                    min={0}
-                                    max={10}
-                                    step={0.25}
+                                    type="number" min={0} max={10} step={0.25}
                                     value={moduleSettings.hr?.esiPercentage ?? 0.75}
-                                    onChange={(e) =>
-                                        updateModuleSetting(
-                                            'hr',
-                                            'esiPercentage',
-                                            parseFloat(e.target.value) || 0.75
-                                        )
-                                    }
+                                    onChange={(e) => updateModuleSetting('hr', 'esiPercentage', parseFloat(e.target.value) || 0.75)}
                                     className="input-clean w-20"
                                 />
-                                <span className="text-sm text-[var(--text-muted)]">
-                                    % of gross salary
-                                </span>
+                                <span className="text-sm text-[var(--text-muted)]">% of gross salary</span>
                             </div>
                         </SettingRow>
                     )}
-
                     <ToggleRow
                         label="Enable Professional Tax"
                         description="State-wise professional tax deduction"
                         checked={moduleSettings.hr?.professionalTaxEnabled ?? false}
-                        onChange={(v) =>
-                            updateModuleSetting('hr', 'professionalTaxEnabled', v)
-                        }
+                        onChange={(v) => updateModuleSetting('hr', 'professionalTaxEnabled', v)}
                     />
-
-                    {/* ── Leave Policy ── */}
                     <div className="mt-4 mb-1 pt-4 border-t border-[var(--border)]">
                         <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                             Annual Leave Policy
                         </p>
-                        <p className="text-xs text-[var(--text-muted)] mb-3">
-                            New staff records will get these leave balances by default
-                        </p>
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <SettingRow
-                            label="Casual Leaves / Year"
-                            description="CL per year"
-                        >
-                            <input
-                                type="number"
-                                min={0}
-                                max={30}
+                        <SettingRow label="Casual Leaves / Year">
+                            <input type="number" min={0} max={30}
                                 value={moduleSettings.hr?.casualLeavesPerYear ?? 12}
-                                onChange={(e) =>
-                                    updateModuleSetting(
-                                        'hr',
-                                        'casualLeavesPerYear',
-                                        parseInt(e.target.value) || 12
-                                    )
-                                }
-                                className="input-clean"
-                            />
+                                onChange={(e) => updateModuleSetting('hr', 'casualLeavesPerYear', parseInt(e.target.value) || 12)}
+                                className="input-clean" />
                         </SettingRow>
-                        <SettingRow
-                            label="Sick Leaves / Year"
-                            description="SL per year"
-                        >
-                            <input
-                                type="number"
-                                min={0}
-                                max={30}
+                        <SettingRow label="Sick Leaves / Year">
+                            <input type="number" min={0} max={30}
                                 value={moduleSettings.hr?.sickLeavesPerYear ?? 10}
-                                onChange={(e) =>
-                                    updateModuleSetting(
-                                        'hr',
-                                        'sickLeavesPerYear',
-                                        parseInt(e.target.value) || 10
-                                    )
-                                }
-                                className="input-clean"
-                            />
+                                onChange={(e) => updateModuleSetting('hr', 'sickLeavesPerYear', parseInt(e.target.value) || 10)}
+                                className="input-clean" />
                         </SettingRow>
-                        <SettingRow
-                            label="Earned Leaves / Year"
-                            description="EL accrued per year"
-                        >
-                            <input
-                                type="number"
-                                min={0}
-                                max={60}
+                        <SettingRow label="Earned Leaves / Year">
+                            <input type="number" min={0} max={60}
                                 value={moduleSettings.hr?.earnedLeavesPerYear ?? 15}
-                                onChange={(e) =>
-                                    updateModuleSetting(
-                                        'hr',
-                                        'earnedLeavesPerYear',
-                                        parseInt(e.target.value) || 15
-                                    )
-                                }
-                                className="input-clean"
-                            />
+                                onChange={(e) => updateModuleSetting('hr', 'earnedLeavesPerYear', parseInt(e.target.value) || 15)}
+                                className="input-clean" />
                         </SettingRow>
                     </div>
-
-                    {/* ── Payroll Settings ── */}
                     <div className="mt-4 mb-1 pt-4 border-t border-[var(--border)]">
                         <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">
                             Payroll Configuration
                         </p>
                     </div>
-
-                    <SettingRow
-                        horizontal
-                        label="Salary Disbursement Day"
-                        description="What day of the month is the salary process?"
-                    >
+                    <SettingRow horizontal label="Salary Disbursement Day" description="Day of month for salary">
                         <div className="flex items-center gap-2">
-                            <input
-                                type="number"
-                                min={1}
-                                max={28}
+                            <input type="number" min={1} max={28}
                                 value={moduleSettings.hr?.salaryDisbursementDay ?? 1}
-                                onChange={(e) =>
-                                    updateModuleSetting(
-                                        'hr',
-                                        'salaryDisbursementDay',
-                                        parseInt(e.target.value) || 1
-                                    )
-                                }
-                                className="input-clean w-20"
-                            />
-                            <span className="text-sm text-[var(--text-muted)]">
-                                of every month
-                            </span>
+                                onChange={(e) => updateModuleSetting('hr', 'salaryDisbursementDay', parseInt(e.target.value) || 1)}
+                                className="input-clean w-20" />
+                            <span className="text-sm text-[var(--text-muted)]">of every month</span>
                         </div>
                     </SettingRow>
-
-                    <SettingRow
-                        horizontal
-                        label="Payslip Footer Text"
-                        description="Text shown at bottom of salary slip email"
-                    >
-                        <input
-                            type="text"
+                    <SettingRow horizontal label="Payslip Footer Text">
+                        <input type="text"
                             value={moduleSettings.hr?.payslipFooterText ?? ''}
-                            onChange={(e) =>
-                                updateModuleSetting(
-                                    'hr',
-                                    'payslipFooterText',
-                                    e.target.value
-                                )
-                            }
+                            onChange={(e) => updateModuleSetting('hr', 'payslipFooterText', e.target.value)}
                             placeholder="This is a computer generated payslip."
-                            className="input-clean"
-                            maxLength={200}
-                        />
-                        <p className="input-hint text-right">
-                            {(moduleSettings.hr?.payslipFooterText ?? '').length}/200
-                        </p>
+                            className="input-clean" maxLength={200} />
                     </SettingRow>
                 </SettingSection>
             )}
 
-            {/* ✅ NEW: Certificate Settings Section */}
             {activeModules.includes('certificates') && (
                 <SettingSection
                     title="Certificate Settings"
@@ -878,25 +765,17 @@ export function ModulesTab({
                 >
                     <ToggleRow
                         label="Auto-generate Prefix"
-                        description="Use institution code (subdomain) as certificate prefix"
+                        description="Use institution code as certificate prefix"
                         checked={moduleSettings.certificates?.autoGeneratePrefix ?? true}
-                        onChange={(v) =>
-                            updateModuleSetting('certificates', 'autoGeneratePrefix', v)
-                        }
+                        onChange={(v) => updateModuleSetting('certificates', 'autoGeneratePrefix', v)}
                     />
-
                     {!moduleSettings.certificates?.autoGeneratePrefix && (
                         <>
-                            <SettingRow
-                                horizontal
-                                label="Custom Prefix"
-                                description="Custom code for certificate numbers (max 6 chars, alphanumeric)"
-                            >
+                            <SettingRow horizontal label="Custom Prefix" description="Max 6 chars, alphanumeric">
                                 <input
                                     type="text"
                                     value={moduleSettings.certificates?.prefix ?? ''}
                                     onChange={(e) => {
-                                        // Auto uppercase, alphanumeric only, max 6 chars
                                         const val = e.target.value
                                             .toUpperCase()
                                             .replace(/[^A-Z0-9]/g, '')
@@ -909,22 +788,11 @@ export function ModulesTab({
                                 />
                             </SettingRow>
                             <p className="text-xs text-[var(--text-muted)] mt-1 ml-1">
-                                Preview:{' '}
-                                <span className="font-mono">
+                                Preview: <span className="font-mono">
                                     {(moduleSettings.certificates?.prefix || 'INST')}-MERI-{new Date().getFullYear()}-0001
                                 </span>
                             </p>
                         </>
-                    )}
-
-                    {moduleSettings.certificates?.autoGeneratePrefix && (
-                        <p className="text-xs text-[var(--text-muted)] mt-1 ml-1">
-                            Prefix will be auto-generated from your institution code.
-                            Preview:{' '}
-                            <span className="font-mono">
-                                INST-MERI-{new Date().getFullYear()}-0001
-                            </span>
-                        </p>
                     )}
                 </SettingSection>
             )}

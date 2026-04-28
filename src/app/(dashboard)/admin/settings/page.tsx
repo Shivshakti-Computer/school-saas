@@ -14,9 +14,11 @@ import {
 } from '@/lib/academicDefaults'
 import { getCurrentAcademicYear } from '@/lib/academicYear'
 import { SettingsClient } from './SettingsClient'
-import { getPlan } from '@/lib/plans'
 import type { SettingsResponse, SchoolProfileData } from '@/types/settings'
 import type { PlanId } from '@/config/pricing'
+import { getPlan, getTrialModulesForInstitution } from '@/lib/plans'
+import { isValidInstitutionType } from '@/lib/institutionConfig'
+import type { InstitutionType } from '@/lib/institutionConfig'
 
 export const metadata = {
     title: 'Settings — Skolify',
@@ -41,7 +43,7 @@ export default async function SettingsPage() {
                 .select(
                     'name subdomain email phone address logo plan modules ' +
                     'trialEndsAt creditBalance isActive onboardingComplete ' +
-                    'theme paymentSettings'
+                    'theme paymentSettings institutionType subscriptionStatus'  // ✅ ADD
                 )
                 .lean() as Promise<any>,
 
@@ -72,20 +74,25 @@ export default async function SettingsPage() {
             settingsDoc = created.toObject()
         }
 
-        // ✅ KEY FIX:
-        // planModules = plan ke saare allowed modules (base set)
-        // hiddenModules = admin ne jo disable kiye hain (SchoolSettings me stored)
-        // enabledModules = planModules - hiddenModules (jo sidebar me dikhne chahiye)
+        const institutionType: InstitutionType = isValidInstitutionType(school.institutionType)
+            ? school.institutionType
+            : 'school'
+
+        const subscriptionStatus = school.subscriptionStatus || 'trial'
+        const isTrial = subscriptionStatus === 'trial'
+
+        // ✅ FIX: Trial mein institution-specific full modules, paid plan mein plan modules
         const planConfig = getPlan(school.plan as PlanId)
-        const planModules: string[] = planConfig.modules
+        const planModules: string[] = isTrial
+            ? getTrialModulesForInstitution(institutionType)
+            : planConfig.modules
 
         const hiddenModules: string[] = settingsDoc.modules?.hiddenModules || []
 
-        // enabledModules = plan ke modules minus hidden ones
+        // enabledModules = planModules - hiddenModules
         const enabledModules: string[] = planModules.filter(
             (m: string) => !hiddenModules.includes(m)
         )
-
         const razorpayConfigured = Boolean(
             school.paymentSettings?.razorpayKeyId &&
             school.paymentSettings?.razorpayKeySecret
@@ -111,7 +118,9 @@ export default async function SettingsPage() {
             razorpayConfigured,
             // ✅ DB se fresh — session pe depend nahi
             enabledModules,
-            hiddenModules
+            hiddenModules,
+            subscriptionStatus: school.subscriptionStatus || 'trial',    // ✅ ADD
+            institutionType: school.institutionType || 'school',         // ✅ ADD
         }
 
         const initialData: SettingsResponse = {

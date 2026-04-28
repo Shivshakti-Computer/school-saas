@@ -1,6 +1,7 @@
 // FILE: src/lib/plans.ts
 // Re-export everything from config/pricing
 // Backward compatible — purani imports kaam karengi
+// ✅ UPDATED: getTrialModulesForInstitution + getModulesForInstitution added
 
 export type {
     PlanId,
@@ -9,11 +10,14 @@ export type {
     CreditPackId,
     ExtraStudentPackId,
     ExtraTeacherPackId,
+    PriceBreakdown,
+    UpgradeBreakdown,
 } from '@/config/pricing'
 
 export {
     PLANS,
     TRIAL_CONFIG,
+    INSTITUTION_MODULES,    // ✅ ADD: Migration script + guards use karte hain
     GST_CONFIG,
     RAZORPAY_CONFIG,
     CREDIT_COSTS,
@@ -25,7 +29,9 @@ export {
     isModuleAllowed,
     getTrialDaysRemaining,
     isTrialExpired,
-    getTrialModules,
+    getTrialModules,                    // existing
+    getTrialModulesForInstitution,      // ✅ ADD: Registration use karta hai
+    getModulesForInstitution,           // ✅ ADD: Paid plan filtering
     calculateCreditCost,
     getPriceBreakdown,
     getRazorpayBreakdown,
@@ -34,7 +40,6 @@ export {
     getCreditPack,
     getExtraStudentPack,
     getExtraTeacherPack,
-    // ✅ DEMO_CONFIG ab pricing.ts se aata hai — plans.ts mein duplicate nahi
     DEMO_CONFIG,
 } from '@/config/pricing'
 
@@ -150,8 +155,6 @@ export function getTrialDurationDays(): number {
     return _TRIAL_CONFIG.durationDays
 }
 
-export type { PriceBreakdown } from '@/config/pricing'
-
 export function getPlanPriceBreakdown(
     planId: string,
     cycle: string
@@ -159,5 +162,3 @@ export function getPlanPriceBreakdown(
     const price = _getPrice(planId as _PlanId, cycle as _BillingCycle)
     return _getPriceBreakdown(price)
 }
-
-export type { UpgradeBreakdown } from '@/config/pricing'

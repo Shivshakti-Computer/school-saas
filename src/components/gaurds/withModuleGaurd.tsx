@@ -12,27 +12,30 @@ export function withModuleGuard(
   return async function GuardedPage() {
     const session = await getServerSession(authOptions)
 
-    // FIX: Not logged in → redirect to login
     if (!session?.user) {
       redirect('/login')
     }
 
-    // FIX: session.user.plan may be undefined if authOptions doesn't set it
-    // Fallback to 'starter' so LockedModule renders instead of crashing
     const userPlan = (session.user.plan ?? 'starter') as PlanId
-
-    // FIX: Guard against unknown plan IDs (e.g. stale session after plan rename)
     const planConfig = PLANS[userPlan]
+
     if (!planConfig) {
-      // Unknown plan — redirect to subscription page
       redirect('/admin/subscription')
     }
 
+    // ✅ FIX: Trial mein sab modules unlocked
+    const subscriptionStatus = (session.user as any).subscriptionStatus || 'trial'
+    const isTrial = subscriptionStatus === 'trial'
+
+    // ✅ Trial mein direct render — guard bypass
+    if (isTrial) {
+      return <ClientPage />
+    }
+
+    // ✅ Paid plan — normal module check
     const allowedModules = planConfig.modules
 
     if (!allowedModules.includes(moduleKey)) {
-      // FIX: Pass `blocked` query param so subscription page shows banner
-      // But first show LockedModule UI — redirect only if you prefer hard redirect
       return (
         <LockedModule
           moduleKey={moduleKey}
@@ -61,6 +64,14 @@ export async function checkModuleAccess(moduleKey: string): Promise<{
 
   if (!planConfig) {
     return { allowed: false, plan: userPlan, redirect: '/admin/subscription' }
+  }
+
+  // ✅ FIX: Trial mein sab allowed
+  const subscriptionStatus = (session.user as any).subscriptionStatus || 'trial'
+  const isTrial = subscriptionStatus === 'trial'
+
+  if (isTrial) {
+    return { allowed: true, plan: userPlan }
   }
 
   const allowed = planConfig.modules.includes(moduleKey)

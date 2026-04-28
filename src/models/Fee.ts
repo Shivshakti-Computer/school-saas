@@ -1,4 +1,7 @@
-// src/models/Fee.ts
+// FILE: src/models/Fee.ts
+// ✅ UPDATED: Multi-tenant support
+// ✅ BACKWARD COMPATIBLE: Existing school fees work as-is
+
 import mongoose, { Schema, Document } from 'mongoose'
 
 export interface IFeePayment {
@@ -14,7 +17,17 @@ export interface IFeePayment {
 export interface IFee extends Document {
   tenantId: mongoose.Types.ObjectId
   studentId: mongoose.Types.ObjectId
-  structureId?: mongoose.Types.ObjectId  // ← optional
+  
+  // ✅ NEW — Institution context
+  institutionType: 'school' | 'academy' | 'coaching'
+  
+  // ✅ NEW — Academy/Coaching fields
+  courseId?: mongoose.Types.ObjectId
+  batchId?: mongoose.Types.ObjectId
+  enrollmentId?: mongoose.Types.ObjectId
+  
+  // ── Common fields (existing) ──
+  structureId?: mongoose.Types.ObjectId
   amount: number
   discount: number
   lateFine: number
@@ -32,15 +45,23 @@ export interface IFee extends Document {
   reminderSentAt?: Date
   notes?: string
   payments: IFeePayment[]
-  // ✅ NEW — optional fee tracking
+  
+  // ── Optional fee tracking ──
   isOptionalFee: boolean
-  optionalItemLabels?: string
+  optionalItemLabels?: string[]
   academicYear?: string
+  
+  createdAt: Date
+  updatedAt: Date
 }
 
 const FeePaymentSchema = new Schema({
   amount: { type: Number, required: true },
-  paymentMode: { type: String, enum: ['online', 'cash', 'cheque', 'dd'], required: true },
+  paymentMode: { 
+    type: String, 
+    enum: ['online', 'cash', 'cheque', 'dd'], 
+    required: true 
+  },
   razorpayPaymentId: { type: String },
   receiptNumber: { type: String, required: true },
   paidAt: { type: Date, default: Date.now },
@@ -50,10 +71,45 @@ const FeePaymentSchema = new Schema({
 
 const FeeSchema = new Schema<IFee>({
   tenantId: {
-    type: Schema.Types.ObjectId, ref: 'School', required: true, index: true,
+    type: Schema.Types.ObjectId, 
+    ref: 'School', 
+    required: true, 
+    index: true,
   },
-  studentId: { type: Schema.Types.ObjectId, ref: 'Student', required: true },
-  structureId: { type: Schema.Types.ObjectId, ref: 'FeeStructure', required: false },
+  studentId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Student', 
+    required: true 
+  },
+  
+  // ✅ NEW — Default 'school' for backward compatibility
+  institutionType: {
+    type: String,
+    enum: ['school', 'academy', 'coaching'],
+    default: 'school',
+    required: true,
+  },
+  
+  // ✅ NEW — Academy/Coaching fields
+  courseId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Course',
+  },
+  batchId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Batch',
+  },
+  enrollmentId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'Enrollment',
+  },
+  
+  // ── Existing fields ──
+  structureId: { 
+    type: Schema.Types.ObjectId, 
+    ref: 'FeeStructure', 
+    required: false 
+  },
   amount: { type: Number, required: true },
   discount: { type: Number, default: 0 },
   lateFine: { type: Number, default: 0 },
@@ -68,37 +124,36 @@ const FeeSchema = new Schema<IFee>({
   paidAt: { type: Date },
   razorpayOrderId: { type: String },
   razorpayPaymentId: { type: String },
-  paymentMode: { type: String, enum: ['online', 'cash', 'cheque', 'dd'] },
+  paymentMode: { 
+    type: String, 
+    enum: ['online', 'cash', 'cheque', 'dd'] 
+  },
   receiptUrl: { type: String },
   receiptNumber: { type: String },
   collectedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   reminderSentAt: { type: Date },
   notes: { type: String },
   payments: [FeePaymentSchema],
-
-  // ✅ NEW — optional fee fields
-  isOptionalFee: {
-    type: Boolean,
-    default: false,
-  },
-  optionalItemLabels: {
-    type: [String],
-    default: null,
-  },
-  academicYear: {
-    type: String,
-  },
+  
+  // ── Optional fees ──
+  isOptionalFee: { type: Boolean, default: false },
+  optionalItemLabels: { type: [String], default: null },
+  academicYear: { type: String },
 
 }, { timestamps: true })
 
-// Existing indexes
+// ── Indexes ──
 FeeSchema.index({ tenantId: 1, studentId: 1, status: 1 })
 FeeSchema.index({ tenantId: 1, dueDate: 1, status: 1 })
 FeeSchema.index({ razorpayOrderId: 1 })
-
-// ✅ NEW indexes — optional fee queries fast honge
 FeeSchema.index({ tenantId: 1, structureId: 1, optionalItemLabel: 1 })
 FeeSchema.index({ tenantId: 1, isOptionalFee: 1, status: 1 })
+
+// ✅ NEW — Academy/Coaching indexes
+FeeSchema.index({ tenantId: 1, courseId: 1, status: 1 })
+FeeSchema.index({ tenantId: 1, batchId: 1, status: 1 })
+FeeSchema.index({ tenantId: 1, enrollmentId: 1 })
+FeeSchema.index({ tenantId: 1, institutionType: 1, status: 1 })
 
 export const Fee =
   mongoose.models.Fee ||

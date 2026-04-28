@@ -1,7 +1,4 @@
 // FILE: src/app/api/settings/modules/route.ts
-// ═══════════════════════════════════════════════════════════
-// UPDATED: Homework validation + homework settings save
-// ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
 import { apiGuardWithBody } from '@/lib/apiGuard'
@@ -10,23 +7,37 @@ import { School } from '@/models/School'
 import { SchoolSettings } from '@/models/SchoolSettings'
 import { logAudit } from '@/lib/audit'
 import { MODULE_REGISTRY } from '@/lib/moduleRegistry'
-import { isModuleAllowed, getPlan } from '@/lib/plans'
+import { isModuleAllowed, getPlan, getTrialModulesForInstitution } from '@/lib/plans'
 import { invalidateModuleSettingsCache } from '@/lib/getModuleSettings'
+import { filterModulesByInstitution } from '@/lib/moduleRegistry'
 import type { UpdateModulesBody } from '@/types/settings'
 import type { ModuleKey } from '@/lib/moduleRegistry'
 import type { PlanId } from '@/lib/plans'
+import type { InstitutionType } from '@/lib/institutionConfig'
 
 // ══════════════════════════════════════════════════════════
 // Validation
 // ══════════════════════════════════════════════════════════
 
-function validateModules(body: UpdateModulesBody, currentPlan: string): string | null {
+function validateModules(
+    body: UpdateModulesBody,
+    currentPlan: string,
+    institutionType: string = 'school',
+    isTrial: boolean = false
+): string | null {
     if (body.enableModules?.length) {
         for (const mod of body.enableModules) {
             const config = MODULE_REGISTRY[mod as ModuleKey]
             if (!config) return `Unknown module: ${mod}`
-            if (!isModuleAllowed(currentPlan as PlanId, mod)) {
+
+            // ✅ Trial mein plan check skip — sab modules allowed
+            if (!isTrial && !isModuleAllowed(currentPlan as PlanId, mod)) {
                 return `Module '${config.label}' is not available in your ${currentPlan} plan`
+            }
+
+            // Institution type check hamesha — trial mein bhi
+            if (!config.institutionTypes.includes(institutionType as any)) {
+                return `Module '${config.label}' is not available for your institution type`
             }
         }
     }
@@ -38,11 +49,6 @@ function validateModules(body: UpdateModulesBody, currentPlan: string): string |
                 return `'${config.label}' is a core module and cannot be disabled`
             }
         }
-    }
-
-    // Fees validation
-    if (body.fees) {
-        // no extra validation needed currently
     }
 
     // Attendance validation
@@ -72,7 +78,7 @@ function validateModules(body: UpdateModulesBody, currentPlan: string): string |
         }
     }
 
-    // ✅ Homework validation
+    // Homework validation
     if (body.homework) {
         if (body.homework.maxFileSizeMB !== undefined &&
             (body.homework.maxFileSizeMB < 1 || body.homework.maxFileSizeMB > 50)) {
@@ -137,7 +143,13 @@ export async function PATCH(req: NextRequest) {
     const tenantId = session.user.tenantId
     const currentPlan = guard.freshPlan as PlanId
 
-    const validationError = validateModules(body, currentPlan)
+    // ✅ Session se institutionType aur subscriptionStatus lo
+    const institutionType = ((session.user as any).institutionType || 'school') as InstitutionType
+    const subscriptionStatus = (session.user as any).subscriptionStatus || 'trial'
+    const isTrial = subscriptionStatus === 'trial'
+
+    // ✅ Validation — trial mein plan check skip
+    const validationError = validateModules(body, currentPlan, institutionType, isTrial)
     if (validationError) {
         return NextResponse.json({ error: validationError }, { status: 400 })
     }
@@ -146,23 +158,35 @@ export async function PATCH(req: NextRequest) {
         await connectDB()
 
         const planConfig = getPlan(currentPlan)
-        const planModules = planConfig.modules
 
-        // Current hidden modules
+        // ✅ Trial mein institution-specific full modules
+        // Paid plan mein plan ke modules
+        const planModules = isTrial
+            ? getTrialModulesForInstitution(institutionType)
+            : planConfig.modules
+
+        // ✅ Institution type ke hisaab se filter
+        // Academy ko school-only modules save nahi hone chahiye
+        const institutionSafePlanModules = filterModulesByInstitution(
+            planModules,
+            institutionType
+        )
+
+        // Current hidden modules DB se lo
         const currentSettings = await SchoolSettings.findOne({ tenantId })
             .select('modules.hiddenModules')
             .lean() as any
 
         let hiddenModules: string[] = currentSettings?.modules?.hiddenModules || []
 
-        // Enable = hidden se hata do
+        // ✅ Enable = hidden se hata do
         if (body.enableModules?.length) {
             hiddenModules = hiddenModules.filter(
                 (m) => !body.enableModules!.includes(m)
             )
         }
 
-        // Disable = hidden mein add karo (sirf non-core)
+        // ✅ Disable = hidden mein add karo (sirf non-core)
         if (body.disableModules?.length) {
             body.disableModules.forEach((mod) => {
                 const config = MODULE_REGISTRY[mod as ModuleKey]
@@ -172,25 +196,25 @@ export async function PATCH(req: NextRequest) {
             })
         }
 
-        // School.modules = plan ke saare modules (hamesha)
+        // ✅ School.modules = institution-safe plan modules (hamesha)
         await School.findByIdAndUpdate(tenantId, {
-            $set: { modules: planModules }
+            $set: { modules: institutionSafePlanModules }
         })
 
-        // ✅ Build setFields — sab module settings
+        // Build setFields
         const setFields: Record<string, any> = {
             lastUpdatedBy: session.user.id,
             lastUpdatedByName: session.user.name,
             'modules.hiddenModules': hiddenModules,
         }
 
-        // ✅ Section map — including homework
+        // Section map
         const sectionMap: Record<string, any> = {
             fees: body.fees,
             attendance: body.attendance,
             exams: body.exams,
             library: body.library,
-            homework: body.homework,  // ✅ Homework section
+            homework: body.homework,
             hr: body.hr,
         }
 
@@ -213,8 +237,8 @@ export async function PATCH(req: NextRequest) {
         // Cache invalidate
         invalidateModuleSettingsCache(tenantId)
 
-        // Effective modules = planModules - hiddenModules
-        const effectiveModules = planModules.filter(
+        // ✅ Effective modules = institutionSafePlanModules - hiddenModules
+        const effectiveModules = institutionSafePlanModules.filter(
             (m) => !hiddenModules.includes(m)
         )
 
@@ -238,9 +262,10 @@ export async function PATCH(req: NextRequest) {
                 enabledLabels?.length ? `Enabled: ${enabledLabels.join(', ')}` : '',
                 disabledLabels?.length ? `Disabled: ${disabledLabels.join(', ')}` : '',
                 body.homework ? 'Homework settings updated' : '',
+                `Institution: ${institutionType} | Trial: ${isTrial}`,
                 'Module settings updated',
             ].filter(Boolean).join(' | '),
-            newData: { hiddenModules, effectiveModules },
+            newData: { hiddenModules, effectiveModules, institutionType, isTrial },
             ipAddress: clientInfo.ip,
             userAgent: clientInfo.userAgent,
         })

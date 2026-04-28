@@ -1,5 +1,6 @@
 // FILE: src/app/(dashboard)/admin/settings/SettingsClient.tsx
-// UPDATED: Added security and subscription tab cases
+// ═══════════════════════════════════════════════════════════
+// ✅ UPDATED: Added subscriptionStatus + institutionType to ModulesTab
 // ═══════════════════════════════════════════════════════════
 
 'use client'
@@ -98,6 +99,9 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                         modules={data.modules}
                         enabledModules={enabledModules}
                         plan={data.school.plan}
+                        subscriptionStatus={data.school.subscriptionStatus}
+                        institutionType={data.school.institutionType}
+                        isTrial={data.school.subscriptionStatus === 'trial'}  // ✅ ADD
                         onSaved={({ modules, enabledModules: newEnabled }) => {
                             setData((prev) => ({ ...prev, modules }))
                             setEnabledModules(newEnabled)
@@ -145,7 +149,11 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                         Settings
                     </h1>
                     <p className="text-xs text-[var(--text-muted)] mt-0.5 leading-tight">
-                        School configuration
+                        {data.school.institutionType === 'academy'
+                            ? 'Academy configuration'
+                            : data.school.institutionType === 'coaching'
+                                ? 'Institute configuration'
+                                : 'School configuration'}
                     </p>
                     {lastUpdatedBy && (
                         <p className="text-[10px] text-[var(--text-muted)] mt-1.5 leading-tight">
@@ -170,7 +178,11 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                         Settings
                     </h1>
                     <p className="text-sm text-[var(--text-muted)] mt-0.5">
-                        School configuration
+                        {data.school.institutionType === 'academy'
+                            ? 'Academy configuration'
+                            : data.school.institutionType === 'coaching'
+                                ? 'Institute configuration'
+                                : 'School configuration'}
                     </p>
                 </div>
                 <div className="mb-4">

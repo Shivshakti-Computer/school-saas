@@ -16,7 +16,7 @@ import {
   getClientInfo,
 } from '@/lib/security'
 import { logAudit } from '@/lib/audit'
-import { TRIAL_CONFIG } from '@/config/pricing'
+import { getTrialModulesForInstitution, TRIAL_CONFIG } from '@/config/pricing'
 import { grantTrialCredits } from '@/lib/credits'
 import { sendSystemEmail, sendSuperadminEmail } from '@/lib/message/systemEmail'
 import { EMAIL_TEMPLATES } from '@/lib/message/templates'
@@ -288,13 +288,16 @@ export async function POST(req: NextRequest) {
     const school = await School.create({
       name: schoolName.trim(),
       subdomain: schoolCode,
-      institutionType, 
+      institutionType,
       address: address?.trim() || '',
       phone: cleanPhone,
       email: email?.trim() || '',
       plan: TRIAL_CONFIG.plan,
       trialEndsAt,
-      modules: TRIAL_CONFIG.modules,
+      // ✅ NEW:
+      modules: getTrialModulesForInstitution(
+        institutionType as 'school' | 'academy' | 'coaching'
+      ),
       isActive: true,
       onboardingComplete: false,
       creditBalance: 0,

@@ -1,14 +1,10 @@
 'use client'
-// =============================================================
-// FILE: src/components/guards/LockedModule.tsx
-// Aapke existing PLANS structure ke saath kaam karta hai
-// =============================================================
 
 import Link from 'next/link'
 import { PLANS } from '@/lib/plans'
 import type { PlanId } from '@/lib/plans'
 
-// Har module ka display info — icon aur features
+// Module display info
 const MODULE_INFO: Record<string, {
     name: string
     icon: string
@@ -18,83 +14,93 @@ const MODULE_INFO: Record<string, {
     students: {
         name: 'Student Management',
         icon: '👨‍🎓',
-        desc: 'Student profiles, ID cards, admission management sab ek jagah.',
-        features: ['Student profiles + photos', 'Auto admission number', 'ID card PDF download', 'Excel import/export'],
+        desc: 'Complete student profiles, ID cards, and admission management in one place.',
+        features: ['Student profiles with photos', 'Auto admission numbers', 'ID card PDF download', 'Excel import/export'],
     },
     attendance: {
         name: 'Attendance',
         icon: '📋',
-        desc: 'Daily attendance marking aur parent ko automatic SMS.',
-        features: ['Class-wise attendance', 'Absent SMS to parents', 'Monthly attendance report', 'Teacher portal access'],
+        desc: 'Daily attendance tracking with automatic parent SMS notifications.',
+        features: ['Class-wise attendance', 'Absent alerts to parents', 'Monthly reports', 'Teacher portal access'],
     },
     fees: {
         name: 'Fee Management',
         icon: '💳',
-        desc: 'Online fee collection, receipts, late fines — sab automated.',
-        features: ['Online payment (UPI, Card, NetBanking)', 'Auto receipt PDF generation', 'Late fine calculator', 'SMS reminder to parents', 'Class-wise fee structure'],
+        desc: 'Online fee collection, receipts, late fines — fully automated.',
+        features: ['Online payments (UPI, Card, NetBanking)', 'Auto receipt PDF generation', 'Late fine calculator', 'SMS reminders to parents', 'Class-wise fee structure'],
     },
     exams: {
         name: 'Exam & Results',
         icon: '📝',
-        desc: 'Exam scheduling, marks entry, result cards PDF.',
-        features: ['Exam scheduling', 'Subject-wise marks entry', 'Grade card PDF', 'Result SMS to parents', 'Class topper report'],
+        desc: 'Exam scheduling, marks entry, and result card PDF generation.',
+        features: ['Exam scheduling', 'Subject-wise marks entry', 'Report card PDF', 'Result SMS to parents', 'Class topper reports'],
     },
     library: {
         name: 'Library Management',
         icon: '📚',
-        desc: 'Book catalogue, issue/return tracking, overdue management.',
-        features: ['Book catalogue management', 'Issue & return tracking', 'Overdue alerts to students', 'Borrowing history'],
+        desc: 'Book catalog, issue/return tracking, and overdue management.',
+        features: ['Book catalog management', 'Issue & return tracking', 'Overdue alerts', 'Borrowing history'],
     },
     hr: {
         name: 'HR & Payroll',
         icon: '💼',
-        desc: 'Staff salary, attendance, leave management.',
+        desc: 'Staff salary, attendance, and leave management.',
         features: ['Salary slip PDF generation', 'Staff attendance tracking', 'Leave management', 'PF/ESI calculation'],
     },
     transport: {
         name: 'Transport Tracking',
         icon: '🚌',
-        desc: 'Route management, GPS tracking, transport fee.',
+        desc: 'Route management, GPS tracking, and transport fees.',
         features: ['Route & stop management', 'GPS live tracking', 'Transport fee collection', 'Parent notifications'],
     },
     website: {
         name: 'School Website',
         icon: '🌐',
-        desc: '3 professional templates se apni school ki website banao.',
+        desc: 'Create your school website with 3 professional templates.',
         features: ['3 premium templates', 'Online admission form', 'Gallery & news section', 'Mobile-friendly design'],
     },
     notices: {
         name: 'Notice Board',
         icon: '📢',
-        desc: 'School notices aur announcements sab tak pahunchao.',
-        features: ['Notice post karo', 'SMS blast to parents', 'Role-wise notices', 'Notice history'],
+        desc: 'Share school notices and announcements with everyone.',
+        features: ['Post notices', 'SMS blast to parents', 'Role-based notices', 'Notice history'],
     },
     teachers: {
         name: 'Teacher Portal',
         icon: '👨‍🏫',
-        desc: 'Teacher login, attendance marking, marks entry.',
-        features: ['Teacher dashboard', 'Class attendance marking', 'Marks entry', 'Notice post karna'],
+        desc: 'Teacher login, attendance marking, and marks entry.',
+        features: ['Teacher dashboard', 'Class attendance marking', 'Marks entry', 'Notice posting'],
     },
     reports: {
         name: 'Advanced Reports',
         icon: '📊',
-        desc: 'Detailed analytics, Excel/PDF export.',
+        desc: 'Detailed analytics with Excel/PDF export.',
         features: ['Fee collection reports', 'Attendance analytics', 'Result analysis', 'Excel & PDF export'],
+    },
+    certificates: {
+        name: 'Certificates',
+        icon: '🏆',
+        desc: 'Issue digital certificates with unique verification codes.',
+        features: ['Custom certificate templates', 'Bulk issue', 'QR code verification', 'Download & print'],
+    },
+    homework: {
+        name: 'Homework',
+        icon: '📝',
+        desc: 'Assign, submit, and grade homework online.',
+        features: ['Online assignments', 'File submissions', 'Grading & feedback', 'Parent notifications'],
     },
 }
 
-// Konse plan mein konsa module pehle milta hai
 function findUnlockPlan(moduleKey: string): PlanId {
-    const order: PlanId[] = ['starter', 'pro', 'enterprise']
+    const order: PlanId[] = ['starter', 'growth', 'pro', 'enterprise']
     for (const planId of order) {
         if (PLANS[planId].modules.includes(moduleKey)) return planId
     }
     return 'enterprise'
 }
 
-// Current plan se upar ke plans
 function getUpgradePlans(currentPlan: string): PlanId[] {
-    const order: PlanId[] = ['starter', 'pro', 'enterprise']
+    const order: PlanId[] = ['starter', 'growth', 'pro', 'enterprise']
     const idx = order.indexOf(currentPlan as PlanId)
     return order.slice(idx + 1)
 }
@@ -108,7 +114,7 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
     const info = MODULE_INFO[moduleKey] ?? {
         name: moduleKey.charAt(0).toUpperCase() + moduleKey.slice(1),
         icon: '🔒',
-        desc: 'Yeh module aapke current plan mein available nahi hai.',
+        desc: 'This module is not available in your current plan.',
         features: [],
     }
 
@@ -137,7 +143,7 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
                     marginBottom: 16,
                 }}>
 
-                    {/* Lock badge - top */}
+                    {/* Lock badge */}
                     <div style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                         background: '#FEF3C7', border: '1px solid #FDE68A',
@@ -145,7 +151,7 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
                         fontSize: 12, color: '#92400E', fontWeight: 500,
                         marginBottom: 20,
                     }}>
-                        🔒 Aapke plan mein nahi hai
+                        🔒 Not available in your plan
                     </div>
 
                     {/* Module icon */}
@@ -183,7 +189,7 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
                                 color: 'var(--color-text-secondary)', marginBottom: 14,
                                 textTransform: 'uppercase',
                             }}>
-                                Is module mein milega:
+                                What you'll get:
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
                                 {info.features.map(f => (
@@ -211,7 +217,7 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
                     }}>
                         <span style={{ fontSize: 16 }}>⚡</span>
                         <span style={{ color: 'var(--color-text-secondary)' }}>
-                            {requiredPlan.name} plan mein unlock hoga
+                            Unlocks in {requiredPlan.name} plan
                         </span>
                         <span style={{
                             fontWeight: 700, color: requiredPlan.color,
@@ -233,7 +239,7 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
                                 display: 'inline-flex', alignItems: 'center', gap: 6,
                             }}
                         >
-                            {requiredPlan.name} plan lo →
+                            Upgrade to {requiredPlan.name} →
                         </Link>
                         <Link
                             href="/admin/dashboard"
@@ -250,7 +256,7 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
                     </div>
                 </div>
 
-                {/* Current plan + all plans link */}
+                {/* Current plan info */}
                 <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '12px 16px',
@@ -274,11 +280,11 @@ export function LockedModule({ moduleKey, currentPlan }: Props) {
                     <Link href="/admin/subscription" style={{
                         fontSize: 13, color: '#4F46E5', textDecoration: 'none', fontWeight: 500,
                     }}>
-                        Sab plans dekhein →
+                        View all plans →
                     </Link>
                 </div>
 
-                {/* Upgrade path hint — agar multiple plans upgrade karane hain */}
+                {/* Upgrade path */}
                 {upgradePlans.length > 1 && (
                     <div style={{
                         marginTop: 12, padding: '10px 16px', borderRadius: 10,
