@@ -39,6 +39,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 return (
                     <SchoolProfileTab
                         school={data.school}
+                        institutionType={data.school.institutionType as any} // ✅ ADD
                         onSaved={(updated) =>
                             setData((prev) => ({
                                 ...prev,
@@ -52,6 +53,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 return (
                     <AcademicTab
                         academic={data.academic}
+                        institutionType={data.school.institutionType as any} // ✅ ADD
                         onSaved={(updated) =>
                             setData((prev) => ({ ...prev, academic: updated }))
                         }
@@ -123,6 +125,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                 return (
                     <SchoolProfileTab
                         school={data.school}
+                        institutionType={data.school.institutionType as any} // ✅ ADD
                         onSaved={(updated) =>
                             setData((prev) => ({
                                 ...prev,
