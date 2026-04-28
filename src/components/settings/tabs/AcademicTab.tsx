@@ -1,17 +1,17 @@
 // FILE: src/components/settings/tabs/AcademicTab.tsx
-// ═══════════════════════════════════════════════════════════
-// ✅ UPDATED: Broadcast settings update after save
-// ✅ Real-time sync with all modules via BroadcastChannel
-// ═══════════════════════════════════════════════════════════
+// ✅ UPDATED: Multi-tenant support — School vs Academy/Coaching
+// School: Classes, Sections, Subjects, Grading
+// Academy/Coaching: Course Structure placeholder (separate management)
 
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSession } from 'next-auth/react'
 import {
   Plus, Trash2, GraduationCap, Clock, BookOpen,
-  BarChart2, ChevronDown, ChevronUp, Save,
+  BarChart2, ChevronDown, ChevronUp,
   RotateCcw, Sparkles, AlertTriangle, Check,
-  Loader2, X as XIcon,
+  X as XIcon, Info,
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { SettingSection } from '../shared/SettingSection'
@@ -36,9 +36,10 @@ import type {
   ClassGroup,
   GradingSystem,
 } from '@/types/settings'
+import type { InstitutionType } from '@/lib/institutionConfig'
 
 // ─────────────────────────────────────────────────────────
-// Toast Hook
+// Toast Hook (same as before)
 // ─────────────────────────────────────────────────────────
 
 type ToastType = 'success' | 'error' | 'warning' | 'info'
@@ -70,10 +71,6 @@ function useToast() {
 
   return { toasts, show, dismiss }
 }
-
-// ─────────────────────────────────────────────────────────
-// Toast Container
-// ─────────────────────────────────────────────────────────
 
 function ToastContainer({
   toasts,
@@ -119,7 +116,7 @@ function ToastContainer({
 }
 
 // ─────────────────────────────────────────────────────────
-// Client Validation
+// Validation
 // ─────────────────────────────────────────────────────────
 
 function validateAcademicForm(form: IAcademicConfig): string | null {
@@ -144,7 +141,7 @@ function validateAcademicForm(form: IAcademicConfig): string | null {
   if (form.schoolTimings) {
     const { start, end } = form.schoolTimings
     if (start >= end) {
-      return 'School start time must be before end time'
+      return 'Start time must be before end time'
     }
   }
 
@@ -181,13 +178,24 @@ function validateAcademicForm(form: IAcademicConfig): string | null {
 interface AcademicTabProps {
   academic: IAcademicConfig
   onSaved: (updated: IAcademicConfig) => void
+  institutionType?: InstitutionType  // ✅ ADD
 }
 
-export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
+export function AcademicTab({ 
+  academic, 
+  onSaved,
+  institutionType,
+}: AcademicTabProps) {
   const router = useRouter()
+  const { data: session } = useSession()
   const { toasts, show: showToast, dismiss: dismissToast } = useToast()
 
-  // ── State ──
+  // ✅ Fallback to session if not passed
+  const instType = institutionType || ((session?.user as any)?.institutionType as InstitutionType) || 'school'
+  
+  // ✅ Academy/Coaching — different UI
+  const isAcademyCoaching = instType === 'academy' || instType === 'coaching'
+
   const [form, setForm] = useState<IAcademicConfig>({ ...academic })
   const [originalData, setOriginalData] = useState<IAcademicConfig>({
     ...academic,
@@ -196,9 +204,9 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
   const [saving, setSaving] = useState(false)
   const [expandedGroup, setExpandedGroup] = useState<ClassGroup | null>(null)
 
-  // ── Auto-save draft ──
   const autoSaveTimerRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
+  // Auto-save draft
   useEffect(() => {
     if (isDirty) {
       clearTimeout(autoSaveTimerRef.current)
@@ -217,7 +225,7 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     return () => clearTimeout(autoSaveTimerRef.current)
   }, [form, isDirty])
 
-  // ── Load draft on mount ──
+  // Load draft on mount
   useEffect(() => {
     try {
       const draft = localStorage.getItem('academic-settings-draft')
@@ -247,7 +255,7 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Unsaved changes warning ──
+  // Unsaved changes warning
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty) {
@@ -260,7 +268,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [isDirty])
 
-  // ── Update helper ──
   const update = useCallback(
     <K extends keyof IAcademicConfig>(
       field: K,
@@ -272,9 +279,7 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     []
   )
 
-  // ── Save ──
   const handleSave = async () => {
-    // Client validation
     const validationError = validateAcademicForm(form)
     if (validationError) {
       showToast('error', 'Validation Error', validationError)
@@ -283,7 +288,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
 
     setSaving(true)
 
-    // Optimistic update
     const backup = { ...originalData }
     setOriginalData({ ...form })
     onSaved(form)
@@ -312,7 +316,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
         'Academic settings updated successfully'
       )
 
-      // ✅ FIX 1: Update cache
       const cache = {
         data: form,
         timestamp: Date.now(),
@@ -322,7 +325,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
         JSON.stringify(cache)
       )
 
-      // ✅ FIX 2: Broadcast to other tabs & modules
       try {
         const channel = new BroadcastChannel('settings-update')
         channel.postMessage({
@@ -335,10 +337,8 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
         console.error('[AcademicTab] Broadcast failed', err)
       }
 
-      // ✅ FIX 3: Refresh server components
       router.refresh()
 
-      // ✅ FIX 4: Show affected modules
       if (data.affectedModules && data.affectedModules.length > 0) {
         setTimeout(() => {
           const modules = data.affectedModules.join(', ')
@@ -350,7 +350,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
         }, 2000)
       }
     } catch (err: any) {
-      // Rollback optimistic update
       setOriginalData(backup)
       onSaved(backup)
       setForm(backup)
@@ -365,7 +364,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     }
   }
 
-  // ── Discard changes ──
   const handleDiscard = useCallback(() => {
     if (isDirty) {
       const confirm = window.confirm(
@@ -380,7 +378,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     showToast('info', 'Changes Discarded', 'Form reset to last saved state')
   }, [isDirty, originalData, showToast])
 
-  // ── Class helpers ──
   const toggleClass = useCallback(
     (index: number) => {
       const updated = [...form.classes]
@@ -398,7 +395,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     showToast('info', 'Classes Reset', 'Default class structure restored')
   }, [update, showToast])
 
-  // ── Section helpers ──
   const addSection = useCallback(() => {
     const names = ['D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
     const existing = form.sections.map((s) => s.name.toUpperCase())
@@ -447,7 +443,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     [form.sections, update]
   )
 
-  // ── Subject helpers ──
   const getSubjectsForGroup = useCallback(
     (group: ClassGroup, stream?: string): string[] => {
       const entry = form.subjects.find(
@@ -480,7 +475,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     [form.subjects, update]
   )
 
-  // ── Grade scale helpers ──
   const addGrade = useCallback(() => {
     const newGrade: IGradeScale = {
       grade: '',
@@ -524,10 +518,8 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
     showToast('info', 'Grade Scale Reset', 'Default grading system restored')
   }, [update, showToast])
 
-  // ── Keyboard shortcuts ──
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl/Cmd + S → Save
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault()
         if (isDirty && !saving) {
@@ -535,7 +527,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
         }
       }
 
-      // Escape → Discard
       if (e.key === 'Escape' && isDirty && !saving) {
         handleDiscard()
       }
@@ -547,10 +538,148 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
 
   const yearOptions = getAcademicYearOptions()
 
+  // ✅ Academy/Coaching — redirect to separate management
+  if (isAcademyCoaching) {
+    return (
+      <div className="space-y-5 portal-content-enter">
+        <div
+          className="p-6 rounded-[var(--radius-lg)] border text-center"
+          style={{
+            background: 'var(--info-light)',
+            borderColor: 'rgba(59,130,246,0.2)',
+          }}
+        >
+          <div
+            className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center"
+            style={{
+              background: 'var(--primary-100)',
+              border: '2px solid var(--primary-200)',
+            }}
+          >
+            <BookOpen size={28} style={{ color: 'var(--primary-600)' }} />
+          </div>
+
+          <h3 className="text-lg font-700 mb-2" style={{ color: 'var(--primary-700)' }}>
+            {instType === 'academy' ? 'Course Structure' : 'Batch Structure'}
+          </h3>
+          
+          <p className="text-sm mb-4" style={{ color: 'var(--info-dark)' }}>
+            {instType === 'academy'
+              ? 'Courses and batches are managed separately from here'
+              : 'Batches and courses are managed from their dedicated modules'
+            }
+          </p>
+
+          <div className="flex gap-3 justify-center">
+            <a
+              href="/admin/courses"
+              className="btn-primary btn-md"
+            >
+              <BookOpen size={15} />
+              Manage Courses
+            </a>
+            <a
+              href="/admin/batches"
+              className="btn-secondary btn-md"
+            >
+              <GraduationCap size={15} />
+              Manage Batches
+            </a>
+          </div>
+        </div>
+
+        {/* Common settings — timing, grading etc. */}
+        <SettingSection
+          title={instType === 'academy' ? 'Academy Timings' : 'Institute Timings'}
+          description="Daily schedule and working hours"
+          icon={Clock}
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <SettingRow label="Start Time" required>
+              <input
+                type="time"
+                value={form.schoolTimings?.start || '08:00'}
+                onChange={(e) =>
+                  update('schoolTimings', {
+                    ...form.schoolTimings,
+                    start: e.target.value,
+                  })
+                }
+                className="input-clean"
+              />
+            </SettingRow>
+
+            <SettingRow label="End Time" required>
+              <input
+                type="time"
+                value={form.schoolTimings?.end || '14:00'}
+                onChange={(e) =>
+                  update('schoolTimings', {
+                    ...form.schoolTimings,
+                    end: e.target.value,
+                  })
+                }
+                className="input-clean"
+              />
+            </SettingRow>
+
+            <SettingRow label="Working Days/Week">
+              <div className="flex gap-2">
+                {[5, 6, 7].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => update('workingDaysPerWeek', d)}
+                    className={`
+                      flex-1 py-2 rounded-[var(--radius-md)]
+                      text-sm font-600 border transition-all
+                      ${form.workingDaysPerWeek === d
+                        ? 'bg-[var(--primary-50)] border-[var(--primary-300)] text-[var(--primary-600)]'
+                        : 'bg-[var(--bg-muted)] border-[var(--border)] text-[var(--text-secondary)]'
+                      }
+                    `}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </SettingRow>
+
+            <SettingRow label="Attendance Threshold">
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={form.attendanceThreshold}
+                  onChange={(e) =>
+                    update('attendanceThreshold', parseInt(e.target.value) || 75)
+                  }
+                  className="input-clean pr-8"
+                />
+                <span
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--text-muted)]"
+                >
+                  %
+                </span>
+              </div>
+            </SettingRow>
+          </div>
+        </SettingSection>
+
+        <SaveBar
+          isDirty={isDirty}
+          onSave={handleSave}
+          onDiscard={handleDiscard}
+          saving={saving}
+        />
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="space-y-5 portal-content-enter">
-        {/* ── Header Actions ── */}
         <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[var(--border)]">
           <div>
             <h2 className="text-lg font-700 text-[var(--text-primary)]">
@@ -576,7 +705,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
                   update('currentAcademicYear', e.target.value)
                 }
                 className="input-clean"
-                aria-label="Select current academic year"
               >
                 {yearOptions.map((y) => (
                   <option key={y.value} value={y.value}>
@@ -599,7 +727,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
                   )
                 }
                 className="input-clean"
-                aria-label="Select academic year start month"
               >
                 {[
                   { value: 1, label: 'January' },
@@ -1290,7 +1417,6 @@ export function AcademicTab({ academic, onSaved }: AcademicTabProps) {
         />
       </div>
 
-      {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </>
   )

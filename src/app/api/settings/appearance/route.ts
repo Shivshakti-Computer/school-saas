@@ -1,11 +1,13 @@
 // FILE: src/app/api/settings/appearance/route.ts
+// ✅ UPDATED: Trial mein sab appearance features allowed
+// ✅ Plan gating sirf paid subscriptions pe
 
 import { NextRequest, NextResponse } from 'next/server'
-import { v2 as cloudinary } from 'cloudinary'                          // ✅ top-level import
-import type { 
-    UploadApiResponse, 
+import { v2 as cloudinary } from 'cloudinary'
+import type {
+    UploadApiResponse,
     UploadApiErrorResponse,
-    UploadApiOptions          // ✅ yeh sahi type hai options ke liye
+    UploadApiOptions
 } from 'cloudinary'
 import { apiGuardWithBody, apiGuard } from '@/lib/apiGuard'
 import { connectDB } from '@/lib/db'
@@ -19,13 +21,24 @@ import { getStorageProvider, uploadFormFile } from '@/lib/storage'
 import { deleteFromR2 } from '@/lib/r2Client'
 import { PlanId } from '@/config/pricing'
 
-// ── Cloudinary config — module level ──────────────────────
-// ✅ Ek baar config karo, har request pe nahi
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
     api_key: process.env.CLOUDINARY_API_KEY!,
     api_secret: process.env.CLOUDINARY_API_SECRET!,
 })
+
+// ─────────────────────────────────────────────────────────
+// Plan Feature Gates
+// ✅ Trial mein sab allowed — sirf paid plan check
+// ─────────────────────────────────────────────────────────
+
+const PLAN_ORDER: Record<string, number> = {
+    starter: 1, growth: 2, pro: 3, enterprise: 4,
+}
+
+function isPlanAllowed(currentPlan: string, requiredPlan: string): boolean {
+    return (PLAN_ORDER[currentPlan] || 0) >= (PLAN_ORDER[requiredPlan] || 0)
+}
 
 // ─────────────────────────────────────────────────────────
 // Validate appearance body
@@ -64,13 +77,12 @@ function validateAppearance(body: UpdateAppearanceBody): string | null {
 }
 
 // ─────────────────────────────────────────────────────────
-// Upload helper — Promise wrapper around upload_stream
-// ✅ Proper Cloudinary types use kiye
+// Upload helper
 // ─────────────────────────────────────────────────────────
 
 function uploadToCloudinary(
     buffer: Buffer,
-    options: UploadApiOptions  // ✅ correct type
+    options: UploadApiOptions
 ): Promise<UploadApiResponse> {
     return new Promise<UploadApiResponse>((resolve, reject) => {
         cloudinary.uploader
@@ -80,7 +92,7 @@ function uploadToCloudinary(
                     err: UploadApiErrorResponse | undefined,
                     result: UploadApiResponse | undefined
                 ) => {
-                    if (err)     return reject(err)
+                    if (err) return reject(err)
                     if (!result) return reject(new Error('Upload failed: no result'))
                     resolve(result)
                 }
@@ -104,10 +116,55 @@ export async function PATCH(req: NextRequest) {
 
     const { session, body, clientInfo } = guard
     const tenantId = session.user.tenantId
+    const currentPlan = (guard.freshPlan as string) || session.user.plan || 'starter'
+
+    // ✅ Trial check — trial mein sab allowed
+    const subscriptionStatus = (session.user as any).subscriptionStatus || 'trial'
+    const isTrial = subscriptionStatus === 'trial'
 
     const validationError = validateAppearance(body)
     if (validationError) {
         return NextResponse.json({ error: validationError }, { status: 400 })
+    }
+
+    // ✅ Plan-based feature gating — sirf paid plan pe
+    // Trial mein ye checks skip
+    if (!isTrial) {
+        if (body.portalTheme?.primaryColor || body.portalTheme?.accentColor) {
+            if (!isPlanAllowed(currentPlan, 'growth')) {
+                return NextResponse.json(
+                    { error: 'Theme colors require Growth plan or higher' },
+                    { status: 403 }
+                )
+            }
+        }
+
+        if (body.portalTheme?.darkMode) {
+            if (!isPlanAllowed(currentPlan, 'growth')) {
+                return NextResponse.json(
+                    { error: 'Dark mode requires Growth plan or higher' },
+                    { status: 403 }
+                )
+            }
+        }
+
+        if (body.printHeader) {
+            if (!isPlanAllowed(currentPlan, 'pro')) {
+                return NextResponse.json(
+                    { error: 'Print header settings require Pro plan or higher' },
+                    { status: 403 }
+                )
+            }
+        }
+
+        if (body.printHeader?.customTagline) {
+            if (!isPlanAllowed(currentPlan, 'pro')) {
+                return NextResponse.json(
+                    { error: 'Custom tagline requires Pro plan or higher' },
+                    { status: 403 }
+                )
+            }
+        }
     }
 
     try {
@@ -118,7 +175,6 @@ export async function PATCH(req: NextRequest) {
             lastUpdatedByName: session.user.name,
         }
 
-        // Logo
         if (body.schoolLogo !== undefined) {
             setFields['appearance.schoolLogo'] = body.schoolLogo
             setFields['appearance.schoolLogoPublicId'] = body.schoolLogoPublicId || ''
@@ -128,12 +184,10 @@ export async function PATCH(req: NextRequest) {
             })
         }
 
-        // Favicon
         if (body.favicon !== undefined) {
             setFields['appearance.favicon'] = body.favicon
         }
 
-        // Portal theme
         if (body.portalTheme) {
             if (body.portalTheme.primaryColor !== undefined) {
                 setFields['appearance.portalTheme.primaryColor'] =
@@ -157,7 +211,6 @@ export async function PATCH(req: NextRequest) {
             }
         }
 
-        // Print header
         if (body.printHeader) {
             Object.entries(body.printHeader).forEach(([key, val]) => {
                 if (val !== undefined) {
@@ -180,7 +233,7 @@ export async function PATCH(req: NextRequest) {
             action: 'SETTINGS_CHANGE',
             resource: 'School',
             resourceId: tenantId,
-            description: 'Appearance settings updated',
+            description: `Appearance settings updated${isTrial ? ' (trial)' : ''}`,
             newData: {
                 ...body,
                 schoolLogoPublicId: body.schoolLogoPublicId ? '[SET]' : undefined,
@@ -204,7 +257,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 // ─────────────────────────────────────────────────────────
-// POST — Logo Upload (multipart/form-data)
+// POST — Logo Upload
 // ─────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -229,7 +282,6 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        // ── Validate file ──────────────────────────────────
         const ALLOWED_MIME = [
             'image/jpeg',
             'image/png',
@@ -247,7 +299,7 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        const MAX_SIZE_BYTES = 2 * 1024 * 1024 // 2MB
+        const MAX_SIZE_BYTES = 2 * 1024 * 1024
         if (file.size > MAX_SIZE_BYTES) {
             return NextResponse.json(
                 { error: 'File too large. Max size: 2MB' },
@@ -255,7 +307,6 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        // ── Storage limit check ────────────────────────────
         await connectDB()
         const school = await School.findById(tenantId)
             .select('plan addonLimits')
@@ -277,7 +328,6 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        // ── Get old logo URL (for cleanup) ─────────────────
         let oldLogoUrl: string | null = null
         try {
             const existing = await SchoolSettings
@@ -297,43 +347,30 @@ export async function POST(req: NextRequest) {
             console.warn('[appearance/upload] Old logo lookup failed — non-critical')
         }
 
-        // ── Upload (R2 or Cloudinary via storage.ts) ───────
-        // ✅ FIX: Folder path fix — no duplicate tenantId
         const url = await uploadFormFile(
             file,
-            'logos',  // ✅ Just 'logos', NOT `${tenantId}/logos`
+            'logos',
             tenantId
         )
 
-        // ── Track storage usage ────────────────────────────
         await updateStorageUsage(tenantId, file.size)
 
-        // ── Delete old logo (if exists) ────────────────────
         if (oldLogoUrl && oldLogoUrl !== url) {
             try {
-                // Check if it's R2 URL
                 if (oldLogoUrl.includes('r2.cloudflarestorage.com')) {
-                    // Extract key from R2 URL
                     const r2BaseUrl = process.env.R2_PUBLIC_URL || ''
                     if (r2BaseUrl && oldLogoUrl.startsWith(r2BaseUrl)) {
                         const key = oldLogoUrl.replace(`${r2BaseUrl}/`, '')
                         await deleteFromR2(key)
-                        console.log('[appearance/upload] Old R2 logo deleted:', key)
                     }
-                } 
-                // Check if it's Cloudinary
-                else if (oldLogoUrl.includes('cloudinary.com')) {
-                    // Extract public_id from Cloudinary URL
+                } else if (oldLogoUrl.includes('cloudinary.com')) {
                     const parts = oldLogoUrl.split('/')
                     const publicIdWithExt = parts[parts.length - 1]
                     const publicId = publicIdWithExt.split('.')[0]
-                    
-                    // Reconstruct full public_id with folder
                     const folderIndex = parts.findIndex(p => p === 'school-saas')
                     if (folderIndex !== -1) {
                         const fullPublicId = parts.slice(folderIndex, -1).join('/') + '/' + publicId
                         await cloudinary.uploader.destroy(fullPublicId)
-                        console.log('[appearance/upload] Old Cloudinary logo deleted:', fullPublicId)
                     }
                 }
             } catch (err) {
@@ -341,7 +378,6 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // ── Save to DB ─────────────────────────────────────
         const setFields: Record<string, unknown> = {}
 
         if (type === 'logo') {
@@ -362,7 +398,6 @@ export async function POST(req: NextRequest) {
             { upsert: true }
         )
 
-        // ── Audit Log ──────────────────────────────────────
         await logAudit({
             tenantId,
             userId: session.user.id,

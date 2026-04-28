@@ -87,6 +87,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                     <AppearanceTab
                         appearance={data.appearance}
                         schoolName={data.school.name}
+                        institutionType={data.school.institutionType as any}  // ✅ ADD
                         onSaved={(updated) =>
                             setData((prev) => ({ ...prev, appearance: updated }))
                         }
@@ -168,6 +169,7 @@ function SettingsInner({ initialData, lastUpdatedBy }: SettingsClientProps) {
                     <SettingsNav
                         activeTab={activeTab}
                         plan={data.school.plan}
+                        institutionType={data.school.institutionType as any}  // ✅ ADD
                     />
                 </div>
             </aside>

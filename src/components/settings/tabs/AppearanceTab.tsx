@@ -1,11 +1,7 @@
 // FILE: src/components/settings/tabs/AppearanceTab.tsx
-// ═══════════════════════════════════════════════════════════
-// CHANGES:
-// 1. Plan gating add kiya — pricing.ts ke PLANS se
-// 2. applyAndSaveTheme — save hone pe turant DOM update
-// 3. Logo upload section add kiya (SchoolProfile se alag)
-// 4. Locked features visually indicate kiye
-// ═══════════════════════════════════════════════════════════
+// ✅ UPDATED: Multi-tenant support — dynamic terminology
+// School/Academy/Coaching ke liye institution-aware labels
+// ✅ COMPLETE FILE — koi bhi section skip nahi
 
 'use client'
 
@@ -13,7 +9,7 @@ import { useState, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import {
     Lock, Upload, X, CheckCircle2,
-    Info, AlertTriangle,
+    Info,
 } from 'lucide-react'
 import { SettingSection } from '../shared/SettingSection'
 import { SettingRow, ToggleRow } from '../shared/SettingRow'
@@ -23,21 +19,19 @@ import { isValidHexColor } from '@/types/settings'
 import { PLANS } from '@/config/pricing'
 import type { IAppearanceSettings } from '@/types/settings'
 import type { PlanId } from '@/config/pricing'
+import type { InstitutionType } from '@/lib/institutionConfig'
+
 
 // ─────────────────────────────────────────────────────────
 // Plan Feature Gates
 // ─────────────────────────────────────────────────────────
 const APPEARANCE_PLAN_GATES = {
-    logoUpload: ['starter', 'growth', 'pro', 'enterprise'],  // All plans
-    themeColors: ['growth', 'pro', 'enterprise'],             // Growth+
-    darkMode: ['growth', 'pro', 'enterprise'],             // Growth+
-    printHeader: ['pro', 'enterprise'],                       // Pro+
-    customTagline: ['pro', 'enterprise'],                       // Pro+
+    logoUpload: ['starter', 'growth', 'pro', 'enterprise'],
+    themeColors: ['growth', 'pro', 'enterprise'],
+    darkMode: ['growth', 'pro', 'enterprise'],
+    printHeader: ['pro', 'enterprise'],
+    customTagline: ['pro', 'enterprise'],
 } as const
-
-const PLAN_ORDER: Record<string, number> = {
-    starter: 1, growth: 2, pro: 3, enterprise: 4,
-}
 
 function isPlanFeatureAllowed(
     currentPlan: string,
@@ -62,34 +56,23 @@ function LockedFeature({
 
     return (
         <div className="relative">
-            {/* Blurred content */}
             <div className="pointer-events-none select-none opacity-40 blur-[1px]">
                 {children}
             </div>
-
-            {/* Lock overlay */}
             <div
-                className="
-          absolute inset-0 flex flex-col items-center justify-center
-          rounded-[var(--radius-md)] z-10
-        "
+                className="absolute inset-0 flex flex-col items-center justify-center rounded-[var(--radius-md)] z-10"
                 style={{
                     background: 'rgba(var(--bg-card), 0.85)',
                     backdropFilter: 'blur(2px)',
                 }}
             >
                 <div
-                    className="
-            w-10 h-10 rounded-full flex items-center justify-center mb-2
-          "
+                    className="w-10 h-10 rounded-full flex items-center justify-center mb-2"
                     style={{ background: 'var(--bg-muted)', border: '1px solid var(--border)' }}
                 >
                     <Lock size={16} style={{ color: 'var(--text-muted)' }} />
                 </div>
-                <p
-                    className="text-xs font-700 mb-0.5"
-                    style={{ color: 'var(--text-primary)' }}
-                >
+                <p className="text-xs font-700 mb-0.5" style={{ color: 'var(--text-primary)' }}>
                     {planLabel} Plan Required
                 </p>
                 <a
@@ -125,16 +108,30 @@ interface AppearanceTabProps {
     appearance: IAppearanceSettings
     schoolName: string
     onSaved: (updated: IAppearanceSettings) => void
+    institutionType?: InstitutionType  // ✅ ADD
 }
 
 export function AppearanceTab({
     appearance,
     schoolName,
     onSaved,
+    institutionType,
 }: AppearanceTabProps) {
     const { data: session, update: updateSession } = useSession()
     const currentPlan = (session?.user?.plan || 'starter') as string
     const tenantId = session?.user?.tenantId || ''
+
+    // ✅ Fallback to session
+    const instType = institutionType ||
+        ((session?.user as any)?.institutionType as InstitutionType) ||
+        'school'
+
+    // ✅ Dynamic terminology
+    const institutionLabel = instType === 'school'
+        ? 'School'
+        : instType === 'academy'
+            ? 'Academy'
+            : 'Institute'
 
     const [form, setForm] = useState<IAppearanceSettings>({ ...appearance })
     const [isDirty, setIsDirty] = useState(false)
@@ -145,17 +142,21 @@ export function AppearanceTab({
         primary?: string; accent?: string
     }>({})
 
-    // Logo upload state
     const [uploading, setUploading] = useState(false)
     const [uploadError, setUploadError] = useState<string | null>(null)
     const [dragOver, setDragOver] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    // Feature permission helpers
-    const canTheme = isPlanFeatureAllowed(currentPlan, 'themeColors')
-    const canDarkMode = isPlanFeatureAllowed(currentPlan, 'darkMode')
-    const canPrint = isPlanFeatureAllowed(currentPlan, 'printHeader')
-    const canTagline = isPlanFeatureAllowed(currentPlan, 'customTagline')
+
+
+
+    const subscriptionStatus = (session?.user as any)?.subscriptionStatus || 'trial'
+    const isTrial = subscriptionStatus === 'trial'
+
+    const canTheme = isTrial || isPlanFeatureAllowed(currentPlan, 'themeColors')
+    const canDarkMode = isTrial || isPlanFeatureAllowed(currentPlan, 'darkMode')
+    const canPrint = isTrial || isPlanFeatureAllowed(currentPlan, 'printHeader')
+    const canTagline = isTrial || isPlanFeatureAllowed(currentPlan, 'customTagline')
 
     const update = <K extends keyof IAppearanceSettings>(
         field: K,
@@ -205,7 +206,6 @@ export function AppearanceTab({
         setIsDirty(true)
         setColorErrors({})
 
-        // Live preview — turant apply karo (save se pehle bhi)
         applyAndSaveTheme(
             tenantId,
             preset.primary,
@@ -244,7 +244,6 @@ export function AppearanceTab({
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Upload failed')
 
-            // ✅ FIX: Form state update + dirty flag
             setForm(prev => ({
                 ...prev,
                 schoolLogo: data.url,
@@ -252,9 +251,7 @@ export function AppearanceTab({
             }))
             setIsDirty(true)
 
-            // ✅ FIX: Session update for sidebar
             await updateSession({ schoolLogo: data.url })
-
             setSuccess('Logo uploaded successfully!')
 
         } catch (err: any) {
@@ -280,7 +277,6 @@ export function AppearanceTab({
 
     // ── Save ──
     const handleSave = async () => {
-        // Validate colors (only if plan allows)
         if (canTheme) {
             const errors: typeof colorErrors = {}
             if (
@@ -306,14 +302,19 @@ export function AppearanceTab({
         setSuccess(null)
 
         try {
-            // Only send what plan allows
             const payload: Partial<IAppearanceSettings> = {}
 
             if (canTheme || canDarkMode) {
                 payload.portalTheme = {
-                    primaryColor: canTheme ? form.portalTheme?.primaryColor || '#6366f1' : appearance.portalTheme?.primaryColor || '#6366f1',
-                    accentColor: canTheme ? form.portalTheme?.accentColor || '#f97316' : appearance.portalTheme?.accentColor || '#f97316',
-                    darkMode: canDarkMode ? form.portalTheme?.darkMode || 'light' : appearance.portalTheme?.darkMode || 'light',
+                    primaryColor: canTheme
+                        ? form.portalTheme?.primaryColor || '#6366f1'
+                        : appearance.portalTheme?.primaryColor || '#6366f1',
+                    accentColor: canTheme
+                        ? form.portalTheme?.accentColor || '#f97316'
+                        : appearance.portalTheme?.accentColor || '#f97316',
+                    darkMode: canDarkMode
+                        ? form.portalTheme?.darkMode || 'light'
+                        : appearance.portalTheme?.darkMode || 'light',
                 }
             }
 
@@ -329,7 +330,6 @@ export function AppearanceTab({
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Save failed')
 
-            // ✅ Turant theme apply karo — no reload needed
             if (canTheme || canDarkMode) {
                 applyAndSaveTheme(
                     tenantId,
@@ -357,7 +357,6 @@ export function AppearanceTab({
         setError(null)
         setSuccess(null)
         setColorErrors({})
-        // Revert theme preview
         if (canTheme) {
             applyAndSaveTheme(
                 tenantId,
@@ -402,7 +401,7 @@ export function AppearanceTab({
             )}
 
             {/* Plan info banner */}
-            {currentPlan === 'starter' && (
+            {currentPlan === 'starter' && !isTrial && (
                 <div
                     className="flex items-start gap-3 p-3.5 rounded-[var(--radius-md)] border text-sm"
                     style={{
@@ -414,44 +413,35 @@ export function AppearanceTab({
                     <Info size={15} className="flex-shrink-0 mt-0.5" />
                     <p>
                         <strong>Starter Plan:</strong> Logo upload available.
-                        Upgrade to <strong>Growth</strong> for theme colors,
-                        <strong> Pro</strong> for print settings.
+                        Upgrade to <strong>Growth</strong> for theme colors,{' '}
+                        <strong>Pro</strong> for print settings.
                     </p>
                 </div>
             )}
 
-            {/* ── School Logo (All Plans) ── */}
+            {/* ── Logo Section ── */}
             <SettingSection
-                title="School Logo"
-                description="Shown in sidebar, reports, receipts and print documents"
+                title={`${institutionLabel} Logo`}
+                description={`Shown in sidebar, reports, receipts and print documents`}
                 badge={{ label: 'All Plans', color: 'success' }}
             >
                 <div className="flex flex-col sm:flex-row items-start gap-5">
                     {/* Preview */}
                     <div className="flex-shrink-0">
                         <div
-                            className="
-                w-24 h-24 rounded-[var(--radius-lg)]
-                border-2 border-[var(--border)]
-                bg-[var(--bg-muted)]
-                flex items-center justify-center
-                overflow-hidden
-              "
+                            className="w-24 h-24 rounded-[var(--radius-lg)] border-2 border-[var(--border)] bg-[var(--bg-muted)] flex items-center justify-center overflow-hidden"
                         >
                             {form.schoolLogo ? (
                                 <img
                                     src={form.schoolLogo}
-                                    alt="School logo"
+                                    alt={`${institutionLabel} logo`}
                                     className="w-full h-full object-contain p-1"
                                 />
                             ) : (
                                 <div
-                                    className="
-                    w-full h-full flex items-center justify-center
-                    text-2xl font-bold
-                  "
+                                    className="w-full h-full flex items-center justify-center text-2xl font-bold"
                                     style={{
-                                        background: `linear-gradient(135deg, var(--primary-100), var(--primary-50))`,
+                                        background: 'linear-gradient(135deg, var(--primary-100), var(--primary-50))',
                                         color: 'var(--primary-500)',
                                     }}
                                 >
@@ -460,31 +450,26 @@ export function AppearanceTab({
                             )}
                         </div>
                         {form.schoolLogo && (
-                            <p className="text-[10px] text-center mt-1" style={{ color: 'var(--text-muted)' }}>
+                            <p
+                                className="text-[10px] text-center mt-1"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
                                 Current logo
                             </p>
                         )}
                     </div>
 
-                    {/* Upload */}
+                    {/* Upload zone */}
                     <div className="flex-1 min-w-0">
                         <div
                             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
                             onDragLeave={() => setDragOver(false)}
                             onDrop={handleDrop}
                             onClick={() => fileInputRef.current?.click()}
-                            className="
-                relative border-2 border-dashed rounded-[var(--radius-md)]
-                p-5 text-center cursor-pointer
-                transition-all duration-150
-              "
+                            className="relative border-2 border-dashed rounded-[var(--radius-md)] p-5 text-center cursor-pointer transition-all duration-150"
                             style={{
-                                borderColor: dragOver
-                                    ? 'var(--primary-400)'
-                                    : 'var(--border)',
-                                background: dragOver
-                                    ? 'var(--primary-50)'
-                                    : 'transparent',
+                                borderColor: dragOver ? 'var(--primary-400)' : 'var(--border)',
+                                background: dragOver ? 'var(--primary-50)' : 'transparent',
                             }}
                         >
                             <input
@@ -494,26 +479,26 @@ export function AppearanceTab({
                                 className="hidden"
                                 onChange={handleFileChange}
                             />
-
                             {uploading ? (
                                 <div className="flex flex-col items-center gap-2">
                                     <div
-                                        className="
-                      w-7 h-7 border-2 rounded-full animate-spin
-                    "
+                                        className="w-7 h-7 border-2 rounded-full animate-spin"
                                         style={{
                                             borderColor: 'var(--primary-200)',
                                             borderTopColor: 'var(--primary-600)',
                                         }}
                                     />
                                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                        Uploading to Cloudinary...
+                                        Uploading...
                                     </p>
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-center gap-1.5">
                                     <Upload size={20} style={{ color: 'var(--text-muted)' }} />
-                                    <p className="text-sm font-500" style={{ color: 'var(--text-secondary)' }}>
+                                    <p
+                                        className="text-sm font-500"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                    >
                                         Click or drag to upload
                                     </p>
                                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -530,11 +515,14 @@ export function AppearanceTab({
                         {form.schoolLogo && (
                             <button
                                 type="button"
-                                onClick={() => setForm((prev) => ({
-                                    ...prev,
-                                    schoolLogo: undefined,
-                                    schoolLogoPublicId: undefined,
-                                }))}
+                                onClick={() => {
+                                    setForm((prev) => ({
+                                        ...prev,
+                                        schoolLogo: undefined,
+                                        schoolLogoPublicId: undefined,
+                                    }))
+                                    setIsDirty(true)
+                                }}
                                 className="mt-2 text-xs flex items-center gap-1 hover:underline"
                                 style={{ color: 'var(--danger)' }}
                             >
@@ -545,7 +533,7 @@ export function AppearanceTab({
                 </div>
             </SettingSection>
 
-            {/* ── Portal Theme (Growth+) ── */}
+            {/* ── Portal Theme Colors ── */}
             <SettingSection
                 title="Portal Theme Colors"
                 description="Primary and accent colors used throughout the portal"
@@ -580,17 +568,32 @@ export function AppearanceTab({
                                 border: `1px solid ${primaryColor}30`,
                             }}
                         >
-                            <div className="w-8 h-8 rounded-full shadow-sm" style={{ background: primaryColor }} />
-                            <div className="h-7 w-20 rounded-[var(--radius-sm)] shadow-sm" style={{ background: primaryColor }} />
-                            <div className="w-5 h-5 rounded-full shadow-sm" style={{ background: accentColor }} />
-                            <p className="text-xs absolute bottom-1.5 right-3" style={{ color: 'var(--text-muted)' }}>
+                            <div
+                                className="w-8 h-8 rounded-full shadow-sm"
+                                style={{ background: primaryColor }}
+                            />
+                            <div
+                                className="h-7 w-20 rounded-[var(--radius-sm)] shadow-sm"
+                                style={{ background: primaryColor }}
+                            />
+                            <div
+                                className="w-5 h-5 rounded-full shadow-sm"
+                                style={{ background: accentColor }}
+                            />
+                            <p
+                                className="text-xs absolute bottom-1.5 right-3"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
                                 Live Preview
                             </p>
                         </div>
 
                         {/* Presets */}
                         <div className="mb-4">
-                            <p className="text-xs font-600 mb-2" style={{ color: 'var(--text-secondary)' }}>
+                            <p
+                                className="text-xs font-600 mb-2"
+                                style={{ color: 'var(--text-secondary)' }}
+                            >
                                 Quick Presets
                             </p>
                             <div className="flex flex-wrap gap-2">
@@ -600,11 +603,7 @@ export function AppearanceTab({
                                         type="button"
                                         title={preset.label}
                                         onClick={() => applyPreset(preset)}
-                                        className="
-                      flex items-center gap-1.5 px-2.5 py-1.5
-                      rounded-[var(--radius-full)] border text-xs
-                      transition-all
-                    "
+                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-[var(--radius-full)] border text-xs transition-all"
                                         style={{
                                             borderColor: form.portalTheme?.primaryColor === preset.primary
                                                 ? preset.primary
@@ -625,7 +624,7 @@ export function AppearanceTab({
                             </div>
                         </div>
 
-                        {/* Custom colors */}
+                        {/* Custom Colors */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <SettingRow
                                 label="Primary Color"
@@ -642,7 +641,6 @@ export function AppearanceTab({
                                                 if (colorErrors.primary) {
                                                     setColorErrors((p) => ({ ...p, primary: undefined }))
                                                 }
-                                                // Live preview on valid hex
                                                 if (isValidHexColor(e.target.value)) {
                                                     applyAndSaveTheme(
                                                         tenantId,
@@ -674,7 +672,7 @@ export function AppearanceTab({
                                             )
                                         }}
                                         className="w-10 h-10 rounded-[var(--radius-sm)] border border-[var(--border)] cursor-pointer p-0.5"
-                                        title="Pick color"
+                                        title="Pick primary color"
                                     />
                                 </div>
                             </SettingRow>
@@ -725,14 +723,17 @@ export function AppearanceTab({
                                             )
                                         }}
                                         className="w-10 h-10 rounded-[var(--radius-sm)] border border-[var(--border)] cursor-pointer p-0.5"
-                                        title="Pick color"
+                                        title="Pick accent color"
                                     />
                                 </div>
                             </SettingRow>
                         </div>
 
-                        {/* Dark mode */}
-                        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--border)' }}>
+                        {/* Dark Mode */}
+                        <div
+                            className="mt-4 pt-4"
+                            style={{ borderTop: '1px solid var(--border)' }}
+                        >
                             <SettingRow
                                 label="Theme Mode"
                                 description="Portal light/dark mode"
@@ -743,7 +744,11 @@ export function AppearanceTab({
                                             { key: 'light', label: 'Light', icon: '☀️' },
                                             { key: 'dark', label: 'Dark', icon: '🌙' },
                                             { key: 'system', label: 'System', icon: '🖥️' },
-                                        ] as { key: 'light' | 'dark' | 'system'; label: string; icon: string }[]
+                                        ] as {
+                                            key: 'light' | 'dark' | 'system'
+                                            label: string
+                                            icon: string
+                                        }[]
                                     ).map((mode) => {
                                         const isSelected = form.portalTheme?.darkMode === mode.key
                                         return (
@@ -759,15 +764,17 @@ export function AppearanceTab({
                                                         mode.key
                                                     )
                                                 }}
-                                                className="
-                          flex flex-col items-center gap-1 py-3
-                          rounded-[var(--radius-md)] border text-xs font-600
-                          transition-all
-                        "
+                                                className="flex flex-col items-center gap-1 py-3 rounded-[var(--radius-md)] border text-xs font-600 transition-all"
                                                 style={{
-                                                    background: isSelected ? 'var(--primary-50)' : 'var(--bg-muted)',
-                                                    borderColor: isSelected ? 'var(--primary-300)' : 'var(--border)',
-                                                    color: isSelected ? 'var(--primary-600)' : 'var(--text-secondary)',
+                                                    background: isSelected
+                                                        ? 'var(--primary-50)'
+                                                        : 'var(--bg-muted)',
+                                                    borderColor: isSelected
+                                                        ? 'var(--primary-300)'
+                                                        : 'var(--border)',
+                                                    color: isSelected
+                                                        ? 'var(--primary-600)'
+                                                        : 'var(--text-secondary)',
                                                 }}
                                             >
                                                 <span className="text-base">{mode.icon}</span>
@@ -782,7 +789,7 @@ export function AppearanceTab({
                 )}
             </SettingSection>
 
-            {/* ── Print Header (Pro+) ── */}
+            {/* ── Print Header ── */}
             <SettingSection
                 title="Print Header"
                 description="Appears at top of printed reports, receipts, fee slips"
@@ -806,20 +813,20 @@ export function AppearanceTab({
                 ) : (
                     <>
                         <ToggleRow
-                            label="Show School Logo"
+                            label={`Show ${institutionLabel} Logo`}
                             description="Display logo in print header"
                             checked={form.printHeader?.showLogo ?? true}
                             onChange={(v) => updatePrintHeader('showLogo', v)}
                         />
                         <ToggleRow
-                            label="Show School Name"
-                            description="Display school name in bold"
+                            label={`Show ${institutionLabel} Name`}
+                            description={`Display ${institutionLabel.toLowerCase()} name in bold`}
                             checked={form.printHeader?.showSchoolName ?? true}
                             onChange={(v) => updatePrintHeader('showSchoolName', v)}
                         />
                         <ToggleRow
                             label="Show Address"
-                            description="Show school address"
+                            description={`Show ${institutionLabel.toLowerCase()} address`}
                             checked={form.printHeader?.showAddress ?? true}
                             onChange={(v) => updatePrintHeader('showAddress', v)}
                         />
@@ -830,26 +837,33 @@ export function AppearanceTab({
                             onChange={(v) => updatePrintHeader('showPhone', v)}
                         />
 
+                        {/* Custom Tagline */}
                         <div className="mt-4">
                             <SettingRow
                                 label="Custom Tagline"
-                                description="Optional tagline below school name (Pro+)"
+                                description={`Optional tagline below ${institutionLabel.toLowerCase()} name (Pro+)`}
                             >
                                 {!canTagline ? (
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            disabled
-                                            placeholder="Upgrade to Pro to add tagline"
-                                            className="input-clean opacity-50 cursor-not-allowed"
-                                        />
-                                    </div>
+                                    <input
+                                        type="text"
+                                        disabled
+                                        placeholder="Upgrade to Pro to add tagline"
+                                        className="input-clean opacity-50 cursor-not-allowed"
+                                    />
                                 ) : (
                                     <input
                                         type="text"
                                         value={form.printHeader?.customTagline || ''}
-                                        onChange={(e) => updatePrintHeader('customTagline', e.target.value)}
-                                        placeholder="e.g. Excellence in Education Since 1995"
+                                        onChange={(e) =>
+                                            updatePrintHeader('customTagline', e.target.value)
+                                        }
+                                        placeholder={
+                                            instType === 'school'
+                                                ? 'e.g. Excellence in Education Since 1995'
+                                                : instType === 'academy'
+                                                    ? 'e.g. Your IT Career Starts Here'
+                                                    : 'e.g. Your Path to Success'
+                                        }
                                         className="input-clean"
                                         maxLength={100}
                                     />
@@ -905,11 +919,13 @@ export function AppearanceTab({
                                     )}
                                     {form.printHeader?.showAddress && (
                                         <p className="text-xs text-gray-400">
-                                            123, School Street, City — 400001
+                                            123, {institutionLabel} Street, City — 400001
                                         </p>
                                     )}
                                     {form.printHeader?.showPhone && (
-                                        <p className="text-xs text-gray-400">📞 98765 43210</p>
+                                        <p className="text-xs text-gray-400">
+                                            📞 98765 43210
+                                        </p>
                                     )}
                                 </div>
                             </div>
