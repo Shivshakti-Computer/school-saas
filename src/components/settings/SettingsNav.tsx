@@ -1,5 +1,7 @@
 // FILE: src/components/settings/SettingsNav.tsx
-// ✅ UPDATED: Institution-aware labels (School/Academy/Coaching)
+// ✅ UPDATED: Trial users ko payment tab unlock
+//            subscriptionStatus aware isPlanAllowed
+//            Institution-aware labels (School/Academy/Coaching)
 
 'use client'
 
@@ -9,6 +11,7 @@ import {
     Building2, GraduationCap, Bell,
     CreditCard, Palette, LayoutGrid, Database,
     Shield, Zap,
+    Award,
 } from 'lucide-react'
 import { SETTINGS_TABS } from '@/types/settings'
 import type { SettingsTab } from '@/types/settings'
@@ -24,21 +27,39 @@ const ICONS: Record<string, React.ElementType> = {
     Database,
     Shield,
     Zap,
+    Award,
 }
 
 interface SettingsNavProps {
     activeTab: SettingsTab
     plan: string
-    institutionType?: InstitutionType  // ✅ ADD
+    institutionType?: InstitutionType
+    subscriptionStatus?: string  // ✅ ADD
 }
 
-export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavProps) {
+export function SettingsNav({
+    activeTab,
+    plan,
+    institutionType,
+    subscriptionStatus,
+}: SettingsNavProps) {
     const router = useRouter()
     const searchParams = useSearchParams()
     const { data: session } = useSession()
 
-    // ✅ Fallback to session if not passed
-    const instType = institutionType || ((session?.user as any)?.institutionType as InstitutionType) || 'school'
+    // ✅ institutionType — prop > session > default
+    const instType: InstitutionType =
+        institutionType ||
+        ((session?.user as any)?.institutionType as InstitutionType) ||
+        'school'
+
+    // ✅ subscriptionStatus — prop > session > default
+    const subStatus =
+        subscriptionStatus ||
+        (session?.user as any)?.subscriptionStatus ||
+        'trial'
+
+    const isTrial = subStatus === 'trial'
 
     const handleTabChange = (tab: SettingsTab) => {
         const params = new URLSearchParams(searchParams.toString())
@@ -53,15 +74,26 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
         enterprise: 4,
     }
 
-    const isPlanAllowed = (requiredPlan?: string) => {
+    // ✅ FIX: Trial mein sab unlock — paid mein plan check
+    const isPlanAllowed = (requiredPlan?: string): boolean => {
         if (!requiredPlan) return true
+        // Trial users — sabhi tabs accessible
+        if (isTrial) return true
+        // Paid users — plan tier check
         return (planOrder[plan] || 0) >= (planOrder[requiredPlan] || 0)
     }
 
-    // ✅ Dynamic tab label based on institution type
+    // ✅ Lock reason — badge text ke liye
+    const getLockReason = (requiredPlan?: string): string => {
+        if (!requiredPlan) return ''
+        if (isTrial) return ''
+        return requiredPlan
+    }
+
+    // ✅ Dynamic tab label — institution type aware
     const getTabLabel = (tab: typeof SETTINGS_TABS[number]): string => {
         if (tab.id === 'school') {
-            return instType === 'school' 
+            return instType === 'school'
                 ? 'School Profile'
                 : instType === 'academy'
                     ? 'Academy Profile'
@@ -82,7 +114,7 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
         return tab.label
     }
 
-    // ✅ Dynamic tab description
+    // ✅ Dynamic tab description — institution type aware
     const getTabDescription = (tab: typeof SETTINGS_TABS[number]): string => {
         if (tab.id === 'school') {
             return instType === 'school'
@@ -106,13 +138,26 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
         return tab.description
     }
 
+    // ✅ Tooltip text
+    const getTooltip = (
+        tab: typeof SETTINGS_TABS[number],
+        isLocked: boolean,
+        displayDesc: string
+    ): string => {
+        if (!isLocked) return displayDesc
+        if (isTrial) return displayDesc // Trial mein lock nahi
+        return `Requires ${tab.requiredPlan} plan to access`
+    }
+
     return (
         <>
+            {/* ── Desktop Nav ── */}
             <nav className="hidden md:flex flex-col gap-0.5 w-52 flex-shrink-0">
                 {SETTINGS_TABS.map((tab) => {
                     const Icon = ICONS[tab.icon]
                     const isActive = activeTab === tab.id
                     const isLocked = !isPlanAllowed(tab.requiredPlan)
+                    const lockReason = getLockReason(tab.requiredPlan)
                     const displayLabel = getTabLabel(tab)
                     const displayDesc = getTabDescription(tab)
 
@@ -122,15 +167,15 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
                             type="button"
                             onClick={() => !isLocked && handleTabChange(tab.id)}
                             disabled={isLocked}
-                            title={
-                                isLocked
-                                    ? `Requires ${tab.requiredPlan} plan`
-                                    : displayDesc
-                            }
+                            title={getTooltip(tab, isLocked, displayDesc)}
+                            aria-current={isActive ? 'page' : undefined}
                             className={`
                                 portal-nav-item w-full text-left
                                 ${isActive ? 'active' : ''}
-                                ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
+                                ${isLocked
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'cursor-pointer'
+                                }
                             `}
                         >
                             {Icon && (
@@ -138,14 +183,34 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
                                     size={16}
                                     className={`
                                         nav-icon flex-shrink-0
-                                        ${isActive ? 'text-[var(--primary-500)]' : ''}
+                                        ${isActive
+                                            ? 'text-[var(--primary-500)]'
+                                            : ''
+                                        }
                                     `}
+                                    aria-hidden="true"
                                 />
                             )}
-                            <span className="flex-1 truncate">{displayLabel}</span>
-                            {isLocked && (
-                                <span className="text-[10px] badge badge-warning px-1 py-0.5">
-                                    {tab.requiredPlan}
+                            <span className="flex-1 truncate">
+                                {displayLabel}
+                            </span>
+                            {/* ✅ Lock badge — sirf paid plan mismatch pe */}
+                            {isLocked && lockReason && (
+                                <span className="text-[10px] badge badge-warning px-1 py-0.5 flex-shrink-0">
+                                    {lockReason}
+                                </span>
+                            )}
+                            {/* ✅ Trial badge — trial mein sab accessible */}
+                            {isTrial && tab.requiredPlan && !isLocked && (
+                                <span
+                                    className="text-[9px] px-1 py-0.5 rounded flex-shrink-0 font-600"
+                                    style={{
+                                        background: 'var(--primary-50)',
+                                        color: 'var(--primary-500)',
+                                        border: '1px solid var(--primary-100)',
+                                    }}
+                                >
+                                    trial
                                 </span>
                             )}
                         </button>
@@ -153,11 +218,13 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
                 })}
             </nav>
 
+            {/* ── Mobile Nav ── */}
             <nav
                 className="
                     md:hidden flex gap-1 overflow-x-auto
                     scrollbar-hide pb-1 -mx-4 px-4
                 "
+                aria-label="Settings navigation"
             >
                 {SETTINGS_TABS.map((tab) => {
                     const Icon = ICONS[tab.icon]
@@ -171,6 +238,7 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
                             type="button"
                             onClick={() => !isLocked && handleTabChange(tab.id)}
                             disabled={isLocked}
+                            aria-current={isActive ? 'page' : undefined}
                             className={`
                                 flex items-center gap-1.5
                                 px-3 py-2 rounded-[var(--radius-md)]
@@ -180,11 +248,19 @@ export function SettingsNav({ activeTab, plan, institutionType }: SettingsNavPro
                                     ? 'bg-[var(--primary-50)] text-[var(--primary-600)] border border-[var(--primary-200)]'
                                     : 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border border-transparent'
                                 }
-                                ${isLocked ? 'opacity-50 cursor-not-allowed' : ''}
+                                ${isLocked
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'cursor-pointer'
+                                }
                             `}
                         >
-                            {Icon && <Icon size={13} />}
+                            {Icon && (
+                                <Icon size={13} aria-hidden="true" />
+                            )}
                             {displayLabel}
+                            {isLocked && (
+                                <span className="text-[9px] opacity-70">🔒</span>
+                            )}
                         </button>
                     )
                 })}

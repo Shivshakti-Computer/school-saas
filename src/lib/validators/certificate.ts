@@ -1,5 +1,6 @@
 // FILE: src/lib/validators/certificate.ts
-// FIXED: null values handled for optional URL params
+// UPDATED: Add franchiseId to issue schemas
+// ═══════════════════════════════════════════════════════════
 
 import { z } from 'zod'
 
@@ -62,6 +63,7 @@ export const createTemplateSchema = z.object({
 export const updateTemplateSchema = createTemplateSchema.partial()
 
 // ── Issue Certificate Schema ──
+// ✅ UPDATED: Add franchiseId
 export const issueCertificateSchema = z.object({
     templateId: z.string().min(1, 'Template ID required'),
 
@@ -72,6 +74,9 @@ export const issueCertificateSchema = z.object({
     title: z.string()
         .min(3, 'Title must be at least 3 characters')
         .max(200, 'Title too long'),
+
+    // ✅ NEW: Franchise ID (optional)
+    franchiseId: z.string().optional(),
 
     courseId: z.string().optional(),
     courseName: z.string().max(200).optional(),
@@ -84,6 +89,7 @@ export const issueCertificateSchema = z.object({
 })
 
 // ── Bulk Issue Schema ──
+// ✅ UPDATED: Add franchiseId
 export const bulkIssueCertificateSchema = z.object({
     templateId: z.string().min(1, 'Template ID required'),
 
@@ -96,6 +102,9 @@ export const bulkIssueCertificateSchema = z.object({
     titleTemplate: z.string()
         .min(3, 'Title template required')
         .max(200, 'Title template too long'),
+
+    // ✅ NEW: Franchise ID (optional)
+    franchiseId: z.string().optional(),
 
     commonData: z.record(z.string(), z.string()).default({}),
 })
@@ -113,12 +122,9 @@ export const revokeCertificateSchema = z.object({
 })
 
 // ── Filter Schema ──
-// ✅ KEY FIX: null → undefined transform for all optional URL params
-// searchParams.get() returns null when absent → Zod optional() needs undefined
 export const certificateFilterSchema = z.object({
     type: z.enum(['templates', 'issued']).default('templates'),
 
-    // ✅ nullish() = null | undefined dono accept karta hai, then undefined banata hai
     recipientType: z.enum(recipientTypes)
         .nullish()
         .transform(v => v ?? undefined),
@@ -139,8 +145,28 @@ export const certificateFilterSchema = z.object({
         .nullish()
         .transform(v => v ?? undefined),
 
-    page: z.coerce.number().int().positive().default(1),
-    limit: z.coerce.number().int().positive().max(100).default(20),
+    // ✅ NEW: Franchise filter
+    franchiseId: z.string()
+        .nullish()
+        .transform(v => v ?? undefined),
+
+    page: z.preprocess(
+        (val) => {
+            if (val === null || val === undefined || val === '') return 1
+            const num = Number(val)
+            return isNaN(num) || num <= 0 ? 1 : num
+        },
+        z.number().int().positive()
+    ),
+
+    limit: z.preprocess(
+        (val) => {
+            if (val === null || val === undefined || val === '') return 20
+            const num = Number(val)
+            return isNaN(num) || num <= 0 ? 20 : Math.min(num, 100)
+        },
+        z.number().int().positive().max(100)
+    ),
 
     sortBy: z.enum(['createdAt', 'issuedDate', 'recipientName'])
         .nullish()
@@ -150,7 +176,6 @@ export const certificateFilterSchema = z.object({
         .nullish()
         .transform(v => v ?? 'desc'),
 
-    // In certificate validator
     prefix: z.string()
         .max(6, 'Prefix must be 6 characters or less')
         .regex(/^[A-Z0-9]+$/, 'Prefix must be alphanumeric')
@@ -162,10 +187,8 @@ export const verifyCertificateSchema = z.object({
     code: z.string()
         .min(10, 'Invalid verification code')
         .max(20, 'Invalid verification code')
-        // ✅ Updated regex: PREFIX-CERT-XXXXXXXX
         .regex(/^[A-Z0-9]{1,6}-CERT-[A-Z0-9]{8}$/, 'Invalid code format. Expected: PREFIX-CERT-XXXXXXXX'),
 })
-
 
 // ── Type Exports ──
 export type CreateTemplateInput = z.infer<typeof createTemplateSchema>

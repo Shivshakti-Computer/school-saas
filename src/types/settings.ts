@@ -87,7 +87,67 @@ export interface UpdateSchoolProfileBody {
     address?: string
     logo?: string
     logoPublicId?: string
+
+    // ✅ ADD: Certificate settings — CertificateTab PATCH mein yahi bhejta hai
+    certificateSettings?: {
+        enableDigitalSignature: boolean
+        digitalSignatureUrl?: string
+        signatureName?: string
+        signatureDesignation?: string
+        enableQRCode: boolean
+        qrCodePosition: 'bottom-left' | 'bottom-right' | 'bottom-center'
+        showVerificationURL: boolean
+        defaultLayout: 'classic' | 'modern' | 'elegant'
+        showAccreditationsOnCertificate: boolean
+        watermarkText?: string
+        enableWatermark: boolean
+    }
+
+    // ✅ ADD: Accreditations — CertificateTab PATCH mein yahi bhejta hai
+    accreditations?: {
+        affiliations?: Array<{
+            name: string
+            logoUrl: string
+            registrationNo?: string
+            issuedBy?: string
+            validFrom?: string
+            validUntil?: string
+            isActive: boolean
+            displayOrder: number
+        }>
+        recognitions?: Array<{
+            name: string
+            logoUrl: string
+            registrationNo?: string
+            issuedBy?: string
+            validFrom?: string
+            validUntil?: string
+            isActive: boolean
+            displayOrder: number
+        }>
+        registrations?: Array<{
+            name: string
+            logoUrl: string
+            registrationNo?: string
+            issuedBy?: string
+            validFrom?: string
+            validUntil?: string
+            isActive: boolean
+            displayOrder: number
+        }>
+        partnerships?: Array<{
+            name: string
+            logoUrl: string
+            registrationNo?: string
+            issuedBy?: string
+            validFrom?: string
+            validUntil?: string
+            isActive: boolean
+            displayOrder: number
+        }>
+    }
 }
+
 
 export interface UpdateAcademicBody {
     classes?: IClassConfig[]
@@ -164,6 +224,7 @@ export interface UpdateModulesBody {
     library?: Partial<IModuleSettings['library']>
     homework?: Partial<IModuleSettings['homework']>
     hr?: Partial<IModuleSettings['hr']>
+    certificates?: Partial<IModuleSettings['certificates']>
 }
 
 // ─────────────────────────────────────────────────────────
@@ -275,6 +336,7 @@ export interface ExportResponse {
 export type SettingsTab =
     | 'school'
     | 'academic'
+    | 'certificates'
     | 'notifications'
     | 'payment'
     | 'appearance'
@@ -303,6 +365,12 @@ export const SETTINGS_TABS: SettingsTabConfig[] = [
         label: 'Academic',
         icon: 'GraduationCap',
         description: 'Classes, sections, subjects, grading',
+    },
+    {
+        id: 'certificates',
+        label: 'Certificates',
+        icon: 'Award',
+        description: 'QR codes, signatures, accreditations'
     },
     {
         id: 'notifications',

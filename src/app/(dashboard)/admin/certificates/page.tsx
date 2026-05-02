@@ -1,6 +1,6 @@
 // FILE: src/app/(dashboard)/admin/certificates/page.tsx
 // PRODUCTION READY — Certificate management page
-// FIXED: Template type union error resolved
+// FIXED: Template layout change tracking + modal close reset
 // ═══════════════════════════════════════════════════════════
 
 'use client'
@@ -37,7 +37,9 @@ import { IssuedList } from '@/components/certificates/IssuedList'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
-// ── Strict Type Unions ─────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// Strict Type Unions
+// ────────────────────────────────────────────────────────────
 
 type CertificateTypeUnion =
     | 'merit'
@@ -55,11 +57,22 @@ type CertificateTypeUnion =
 type LayoutUnion = 'classic' | 'modern' | 'elegant'
 type ApplicableToUnion = 'student' | 'staff' | 'both'
 
-// ── Constants ──────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// Constants
+// ────────────────────────────────────────────────────────────
 
 const VALID_CERT_TYPES: CertificateTypeUnion[] = [
-    'merit', 'participation', 'achievement', 'appreciation', 'custom',
-    'character', 'sports', 'completion', 'internship', 'skill', 'test_topper',
+    'merit',
+    'participation',
+    'achievement',
+    'appreciation',
+    'custom',
+    'character',
+    'sports',
+    'completion',
+    'internship',
+    'skill',
+    'test_topper',
 ]
 
 const VALID_LAYOUTS: LayoutUnion[] = ['classic', 'modern', 'elegant']
@@ -94,7 +107,9 @@ const CERT_TYPE_LABELS: Record<CertificateTypeUnion, string> = {
     custom: 'Custom',
 }
 
-// ── Interfaces ─────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// Interfaces
+// ────────────────────────────────────────────────────────────
 
 interface Template {
     _id: string
@@ -143,7 +158,9 @@ interface Pagination {
     totalPages: number
 }
 
-// ── Safe Cast Helper ───────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// Safe Cast Helper
+// ────────────────────────────────────────────────────────────
 
 function castTemplate(raw: any): Template {
     return {
@@ -176,7 +193,9 @@ function castTemplate(raw: any): Template {
     }
 }
 
-// ── Component ──────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// Component
+// ────────────────────────────────────────────────────────────
 
 export default function CertificatesPage() {
     const { data: session } = useSession()
@@ -195,6 +214,10 @@ export default function CertificatesPage() {
     const [templatesLoading, setTemplatesLoading] = useState(true)
     const [templateSearch, setTemplateSearch] = useState('')
 
+    // ✅ Template form ka current layout track karo
+    const [templateFormLayout, setTemplateFormLayout] =
+        useState<LayoutUnion | null>(null)
+
     // Issued
     const [issued, setIssued] = useState<IssuedCert[]>([])
     const [issuedLoading, setIssuedLoading] = useState(false)
@@ -202,6 +225,8 @@ export default function CertificatesPage() {
     const [issuedPage, setIssuedPage] = useState(1)
     const [issuedPagination, setIssuedPagination] =
         useState<Pagination | null>(null)
+
+    const [hasFranchises, setHasFranchises] = useState(false)
 
     // Modals
     const [createModal, setCreateModal] = useState(false)
@@ -237,12 +262,22 @@ export default function CertificatesPage() {
         Array<{ name: string }>
     >([])
 
+    // ✅ Callback: Jab user template form mein layout change kare
+    const handleTemplateLayoutChange = (layout: LayoutUnion) => {
+        setTemplateFormLayout(layout)
+        console.log('Template layout changed to:', layout)
+    }
+
     // ── Fetch Templates ────────────────────────────────────────
 
     const fetchTemplates = useCallback(async () => {
         setTemplatesLoading(true)
         try {
-            const params = new URLSearchParams({ type: 'templates' })
+            const params = new URLSearchParams({
+                type: 'templates',
+                page: '1',
+                limit: '100',
+            })
             if (templateSearch) params.set('search', templateSearch)
 
             const res = await fetch(`/api/certificates?${params}`)
@@ -307,6 +342,20 @@ export default function CertificatesPage() {
         fetchAcademicSettings()
     }, [fetchAcademicSettings])
 
+    useEffect(() => {
+        const checkFranchises = async () => {
+            if (institutionType === 'school') return
+            try {
+                const res = await fetch('/api/franchises?limit=1&status=active')
+                const data = await res.json()
+                setHasFranchises((data.total || 0) > 0)
+            } catch {
+                setHasFranchises(false)
+            }
+        }
+        checkFranchises()
+    }, [institutionType])
+
     // ── Delete Template ────────────────────────────────────────
 
     const handleDelete = async () => {
@@ -322,8 +371,8 @@ export default function CertificatesPage() {
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Failed to delete')
 
-            setTemplates(prev =>
-                prev.filter(t => t._id !== deleteModal.template!._id)
+            setTemplates((prev) =>
+                prev.filter((t) => t._id !== deleteModal.template!._id)
             )
             setDeleteModal({ open: false, template: null })
             setAlert({ type: 'success', msg: 'Template deleted successfully' })
@@ -337,7 +386,7 @@ export default function CertificatesPage() {
     // ── Filtered Templates ─────────────────────────────────────
 
     const filteredTemplates = templates.filter(
-        t =>
+        (t) =>
             !templateSearch ||
             t.name.toLowerCase().includes(templateSearch.toLowerCase()) ||
             t.type.toLowerCase().includes(templateSearch.toLowerCase())
@@ -384,7 +433,11 @@ export default function CertificatesPage() {
             >
                 {(
                     [
-                        { id: 'templates', label: 'Templates', icon: LayoutGrid },
+                        {
+                            id: 'templates',
+                            label: 'Templates',
+                            icon: LayoutGrid,
+                        },
                         { id: 'issued', label: 'Issued Certificates', icon: List },
                     ] as const
                 ).map(({ id, label, icon: Icon }) => (
@@ -424,7 +477,7 @@ export default function CertificatesPage() {
                                 type="text"
                                 placeholder="Search templates..."
                                 value={templateSearch}
-                                onChange={e => setTemplateSearch(e.target.value)}
+                                onChange={(e) => setTemplateSearch(e.target.value)}
                             />
                         </div>
                     </div>
@@ -447,7 +500,7 @@ export default function CertificatesPage() {
                         />
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {filteredTemplates.map(template => {
+                            {filteredTemplates.map((template) => {
                                 const color = CERT_TYPE_COLORS[template.type]
 
                                 return (
@@ -478,18 +531,26 @@ export default function CertificatesPage() {
                                                 <div className="flex-1 min-w-0">
                                                     <p
                                                         className="text-sm font-bold truncate"
-                                                        style={{ color: 'var(--text-primary)' }}
+                                                        style={{
+                                                            color: 'var(--text-primary)',
+                                                        }}
                                                     >
                                                         {template.name}
                                                     </p>
                                                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                                                         <Badge variant="primary">
-                                                            {CERT_TYPE_LABELS[template.type]}
+                                                            {
+                                                                CERT_TYPE_LABELS[
+                                                                template.type
+                                                                ]
+                                                            }
                                                         </Badge>
                                                         {template.category && (
                                                             <span
                                                                 className="text-[10px]"
-                                                                style={{ color: 'var(--text-muted)' }}
+                                                                style={{
+                                                                    color: 'var(--text-muted)',
+                                                                }}
                                                             >
                                                                 {template.category}
                                                             </span>
@@ -503,13 +564,17 @@ export default function CertificatesPage() {
                                                 <div className="flex items-center justify-between">
                                                     <span
                                                         className="text-xs"
-                                                        style={{ color: 'var(--text-muted)' }}
+                                                        style={{
+                                                            color: 'var(--text-muted)',
+                                                        }}
                                                     >
                                                         Layout
                                                     </span>
                                                     <span
                                                         className="text-xs font-medium capitalize"
-                                                        style={{ color: 'var(--text-secondary)' }}
+                                                        style={{
+                                                            color: 'var(--text-secondary)',
+                                                        }}
                                                     >
                                                         {template.layout}
                                                     </span>
@@ -518,13 +583,17 @@ export default function CertificatesPage() {
                                                 <div className="flex items-center justify-between">
                                                     <span
                                                         className="text-xs"
-                                                        style={{ color: 'var(--text-muted)' }}
+                                                        style={{
+                                                            color: 'var(--text-muted)',
+                                                        }}
                                                     >
                                                         Applicable To
                                                     </span>
                                                     <span
                                                         className="text-xs font-medium capitalize"
-                                                        style={{ color: 'var(--text-secondary)' }}
+                                                        style={{
+                                                            color: 'var(--text-secondary)',
+                                                        }}
                                                     >
                                                         {template.applicableTo}
                                                     </span>
@@ -533,13 +602,17 @@ export default function CertificatesPage() {
                                                 <div className="flex items-center justify-between">
                                                     <span
                                                         className="text-xs"
-                                                        style={{ color: 'var(--text-muted)' }}
+                                                        style={{
+                                                            color: 'var(--text-muted)',
+                                                        }}
                                                     >
                                                         Signature
                                                     </span>
                                                     <span
                                                         className="text-xs font-medium"
-                                                        style={{ color: 'var(--text-secondary)' }}
+                                                        style={{
+                                                            color: 'var(--text-secondary)',
+                                                        }}
                                                     >
                                                         {template.signatureLabel}
                                                     </span>
@@ -548,13 +621,17 @@ export default function CertificatesPage() {
                                                 <div className="flex items-center justify-between">
                                                     <span
                                                         className="text-xs"
-                                                        style={{ color: 'var(--text-muted)' }}
+                                                        style={{
+                                                            color: 'var(--text-muted)',
+                                                        }}
                                                     >
                                                         Dynamic Fields
                                                     </span>
                                                     <span
                                                         className="text-xs font-medium"
-                                                        style={{ color: 'var(--text-secondary)' }}
+                                                        style={{
+                                                            color: 'var(--text-secondary)',
+                                                        }}
                                                     >
                                                         {template.fields.length}
                                                     </span>
@@ -563,7 +640,9 @@ export default function CertificatesPage() {
                                                 <div className="flex items-center justify-between">
                                                     <span
                                                         className="text-xs"
-                                                        style={{ color: 'var(--text-muted)' }}
+                                                        style={{
+                                                            color: 'var(--text-muted)',
+                                                        }}
                                                     >
                                                         Accreditations
                                                     </span>
@@ -575,7 +654,9 @@ export default function CertificatesPage() {
                                                                 : 'var(--text-muted)',
                                                         }}
                                                     >
-                                                        {template.showAccreditations ? 'Shown' : 'Hidden'}
+                                                        {template.showAccreditations
+                                                            ? 'Shown'
+                                                            : 'Hidden'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -588,7 +669,10 @@ export default function CertificatesPage() {
                                                 <Button
                                                     size="sm"
                                                     onClick={() =>
-                                                        setIssueModal({ open: true, template })
+                                                        setIssueModal({
+                                                            open: true,
+                                                            template,
+                                                        })
                                                     }
                                                 >
                                                     <Send size={12} />
@@ -599,7 +683,10 @@ export default function CertificatesPage() {
                                                     variant="secondary"
                                                     size="sm"
                                                     onClick={() =>
-                                                        setBulkModal({ open: true, template })
+                                                        setBulkModal({
+                                                            open: true,
+                                                            template,
+                                                        })
                                                     }
                                                 >
                                                     <Users size={12} />
@@ -608,7 +695,10 @@ export default function CertificatesPage() {
 
                                                 <button
                                                     onClick={() =>
-                                                        setEditModal({ open: true, template })
+                                                        setEditModal({
+                                                            open: true,
+                                                            template,
+                                                        })
                                                     }
                                                     className="btn-icon btn-icon-sm"
                                                     title="Edit template"
@@ -618,7 +708,10 @@ export default function CertificatesPage() {
 
                                                 <button
                                                     onClick={() =>
-                                                        setDeleteModal({ open: true, template })
+                                                        setDeleteModal({
+                                                            open: true,
+                                                            template,
+                                                        })
                                                     }
                                                     className="btn-icon btn-icon-sm"
                                                     style={{ color: 'var(--danger)' }}
@@ -647,7 +740,7 @@ export default function CertificatesPage() {
                                 type="text"
                                 placeholder="Search by name, certificate number..."
                                 value={issuedSearch}
-                                onChange={e => {
+                                onChange={(e) => {
                                     setIssuedSearch(e.target.value)
                                     setIssuedPage(1)
                                 }}
@@ -659,9 +752,9 @@ export default function CertificatesPage() {
                         <IssuedList
                             certificates={issued}
                             loading={issuedLoading}
-                            onRevoked={id =>
-                                setIssued(prev =>
-                                    prev.map(c =>
+                            onRevoked={(id) =>
+                                setIssued((prev) =>
+                                    prev.map((c) =>
                                         c._id === id
                                             ? { ...c, status: 'revoked' as const }
                                             : c
@@ -669,8 +762,8 @@ export default function CertificatesPage() {
                                 )
                             }
                             onPdfSaved={(id, pdfUrl) =>
-                                setIssued(prev =>
-                                    prev.map(c =>
+                                setIssued((prev) =>
+                                    prev.map((c) =>
                                         c._id === id
                                             ? { ...c, pdfUrl, savedToStorage: true }
                                             : c
@@ -680,56 +773,51 @@ export default function CertificatesPage() {
                         />
 
                         {/* Pagination */}
-                        {issuedPagination &&
-                            issuedPagination.totalPages > 1 && (
-                                <div
-                                    className="flex items-center justify-between px-4 py-3
+                        {issuedPagination && issuedPagination.totalPages > 1 && (
+                            <div
+                                className="flex items-center justify-between px-4 py-3
                              border-t border-[var(--border)]"
+                            >
+                                <p
+                                    className="text-xs"
+                                    style={{ color: 'var(--text-muted)' }}
                                 >
-                                    <p
-                                        className="text-xs"
-                                        style={{ color: 'var(--text-muted)' }}
+                                    Showing {(issuedPage - 1) * 20 + 1}–
+                                    {Math.min(issuedPage * 20, issuedPagination.total)}{' '}
+                                    of {issuedPagination.total}
+                                </p>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() =>
+                                            setIssuedPage((p) => Math.max(1, p - 1))
+                                        }
+                                        disabled={issuedPage === 1}
+                                        className="btn-icon btn-icon-sm"
                                     >
-                                        Showing{' '}
-                                        {(issuedPage - 1) * 20 + 1}–
-                                        {Math.min(
-                                            issuedPage * 20,
-                                            issuedPagination.total
-                                        )}{' '}
-                                        of {issuedPagination.total}
-                                    </p>
-                                    <div className="flex items-center gap-1">
-                                        <button
-                                            onClick={() =>
-                                                setIssuedPage(p => Math.max(1, p - 1))
-                                            }
-                                            disabled={issuedPage === 1}
-                                            className="btn-icon btn-icon-sm"
-                                        >
-                                            <ChevronLeft size={14} />
-                                        </button>
-                                        <span
-                                            className="text-xs px-2"
-                                            style={{ color: 'var(--text-secondary)' }}
-                                        >
-                                            {issuedPage} / {issuedPagination.totalPages}
-                                        </span>
-                                        <button
-                                            onClick={() =>
-                                                setIssuedPage(p =>
-                                                    Math.min(issuedPagination.totalPages, p + 1)
-                                                )
-                                            }
-                                            disabled={
-                                                issuedPage === issuedPagination.totalPages
-                                            }
-                                            className="btn-icon btn-icon-sm"
-                                        >
-                                            <ChevronRight size={14} />
-                                        </button>
-                                    </div>
+                                        <ChevronLeft size={14} />
+                                    </button>
+                                    <span
+                                        className="text-xs px-2"
+                                        style={{ color: 'var(--text-secondary)' }}
+                                    >
+                                        {issuedPage} / {issuedPagination.totalPages}
+                                    </span>
+                                    <button
+                                        onClick={() =>
+                                            setIssuedPage((p) =>
+                                                Math.min(issuedPagination.totalPages, p + 1)
+                                            )
+                                        }
+                                        disabled={
+                                            issuedPage === issuedPagination.totalPages
+                                        }
+                                        className="btn-icon btn-icon-sm"
+                                    >
+                                        <ChevronRight size={14} />
+                                    </button>
                                 </div>
-                            )}
+                            </div>
+                        )}
                     </div>
                 </>
             )}
@@ -739,28 +827,42 @@ export default function CertificatesPage() {
                 {/* Create Template Modal */}
                 <Modal
                     open={createModal}
-                    onClose={() => setCreateModal(false)}
+                    onClose={() => {
+                        setCreateModal(false)
+                        setTemplateFormLayout(null) // ✅ Reset on close
+                    }}
                     title="Create Certificate Template"
                     size="lg"
                 >
                     <TemplateForm
                         institutionType={institutionType}
-                        onSuccess={rawTemplate => {
-                            setTemplates(prev => [castTemplate(rawTemplate), ...prev])
+                        onSuccess={(rawTemplate) => {
+                            setTemplates((prev) => [
+                                castTemplate(rawTemplate),
+                                ...prev,
+                            ])
                             setCreateModal(false)
+                            setTemplateFormLayout(null) // ✅ Reset on success
                             setAlert({
                                 type: 'success',
                                 msg: 'Certificate template created successfully',
                             })
                         }}
-                        onCancel={() => setCreateModal(false)}
+                        onCancel={() => {
+                            setCreateModal(false)
+                            setTemplateFormLayout(null) // ✅ Reset on cancel
+                        }}
+                        onLayoutChange={handleTemplateLayoutChange} // ✅ Track layout changes
                     />
                 </Modal>
 
                 {/* Edit Template Modal */}
                 <Modal
                     open={editModal.open}
-                    onClose={() => setEditModal({ open: false, template: null })}
+                    onClose={() => {
+                        setEditModal({ open: false, template: null })
+                        setTemplateFormLayout(null) // ✅ Reset on close
+                    }}
                     title="Edit Certificate Template"
                     size="lg"
                 >
@@ -768,22 +870,25 @@ export default function CertificatesPage() {
                         <TemplateForm
                             institutionType={institutionType}
                             initialData={editModal.template}
-                            onSuccess={rawUpdated => {
+                            onSuccess={(rawUpdated) => {
                                 const updated = castTemplate(rawUpdated)
-                                setTemplates(prev =>
-                                    prev.map(t =>
+                                setTemplates((prev) =>
+                                    prev.map((t) =>
                                         t._id === updated._id ? updated : t
                                     )
                                 )
                                 setEditModal({ open: false, template: null })
+                                setTemplateFormLayout(null) // ✅ Reset on success
                                 setAlert({
                                     type: 'success',
                                     msg: 'Template updated successfully',
                                 })
                             }}
-                            onCancel={() =>
+                            onCancel={() => {
                                 setEditModal({ open: false, template: null })
-                            }
+                                setTemplateFormLayout(null) // ✅ Reset on cancel
+                            }}
+                            onLayoutChange={handleTemplateLayoutChange} // ✅ Track layout changes
                         />
                     )}
                 </Modal>
@@ -791,17 +896,16 @@ export default function CertificatesPage() {
                 {/* Issue Modal */}
                 <Modal
                     open={issueModal.open}
-                    onClose={() =>
-                        setIssueModal({ open: false, template: null })
-                    }
+                    onClose={() => setIssueModal({ open: false, template: null })}
                     title={`Issue — ${issueModal.template?.name || ''}`}
                     size="md"
                 >
                     {issueModal.template && (
                         <IssueModal
-                            template={issueModal.template}
+                            template={issueModal.template!}
                             institutionType={institutionType}
-                            onSuccess={issuedCert => {
+                            showFranchiseSelector={hasFranchises}
+                            onSuccess={(issuedCert) => {
                                 setIssueModal({ open: false, template: null })
                                 setAlert({
                                     type: 'success',
@@ -819,16 +923,15 @@ export default function CertificatesPage() {
                 {/* Bulk Issue Modal */}
                 <Modal
                     open={bulkModal.open}
-                    onClose={() =>
-                        setBulkModal({ open: false, template: null })
-                    }
+                    onClose={() => setBulkModal({ open: false, template: null })}
                     title={`Bulk Issue — ${bulkModal.template?.name || ''}`}
                     size="md"
                 >
                     {bulkModal.template && (
                         <BulkIssueModal
-                            template={bulkModal.template}
+                            template={bulkModal.template!}
                             institutionType={institutionType}
+                            showFranchiseSelector={hasFranchises}
                             classes={academicClasses}
                             sections={academicSections}
                             onSuccess={({ count }) => {
@@ -849,9 +952,7 @@ export default function CertificatesPage() {
                 {/* Delete Confirm Modal */}
                 <Modal
                     open={deleteModal.open}
-                    onClose={() =>
-                        setDeleteModal({ open: false, template: null })
-                    }
+                    onClose={() => setDeleteModal({ open: false, template: null })}
                     title="Delete Template"
                     size="sm"
                 >

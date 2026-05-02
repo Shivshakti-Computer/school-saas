@@ -1,12 +1,8 @@
 // FILE: src/app/api/settings/schools/route.ts
-// ═══════════════════════════════════════════════════════════
-// PATCH /api/settings/schools  ← plural (file tree mein yahi hai)
-// GET   /api/settings/schools  ← current school profile fetch
-//
-// NOTE: SchoolProfileTab '/api/settings/school' (singular) call karta tha
-// Hum dono handle karenge — schools/route.ts mein hi
-// Aur ek redirect bhi banayenge school/route.ts se
-// ═══════════════════════════════════════════════════════════
+// FIXES:
+// 1. GET — certificateSettings + accreditations School se return karo
+// 2. PATCH — allowedUpdates ko updateData mein merge karo (ye kabhi save nahi ho raha tha)
+// 3. PATCH — hasUpdate check fix karo (certificateSettings/accreditations bhi valid update hai)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { apiGuardWithBody, apiGuard } from '@/lib/apiGuard'
@@ -16,34 +12,35 @@ import { SchoolSettings } from '@/models/SchoolSettings'
 import { logAudit } from '@/lib/audit'
 import type { UpdateSchoolProfileBody } from '@/types/settings'
 
-// ── Validation ──
+// ── Validation ── (UNCHANGED)
 function validateSchoolProfile(body: UpdateSchoolProfileBody): string | null {
     if (body.name !== undefined) {
         if (!body.name.trim()) return 'School name cannot be empty'
-        if (body.name.trim().length < 3) return 'School name must be at least 3 characters'
-        if (body.name.trim().length > 100) return 'School name too long (max 100 chars)'
+        if (body.name.trim().length < 3)
+            return 'School name must be at least 3 characters'
+        if (body.name.trim().length > 100)
+            return 'School name too long (max 100 chars)'
     }
-
     if (body.email !== undefined) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(body.email)) return 'Invalid email address'
     }
-
     if (body.phone !== undefined) {
         const phoneRegex = /^[6-9]\d{9}$/
         const cleaned = body.phone.replace(/[\s\-\+]/g, '')
-        if (!phoneRegex.test(cleaned)) return 'Invalid phone number (10 digits required)'
+        if (!phoneRegex.test(cleaned))
+            return 'Invalid phone number (10 digits required)'
     }
-
     if (body.address !== undefined) {
-        if (body.address.trim().length > 300) return 'Address too long (max 300 chars)'
+        if (body.address.trim().length > 300)
+            return 'Address too long (max 300 chars)'
     }
-
     return null
 }
 
 // ─────────────────────────────────────────────────────────
 // GET — Current school profile
+// ✅ FIX: certificateSettings + accreditations bhi return karo
 // ─────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
     const guard = await apiGuard(req, {
@@ -58,12 +55,21 @@ export async function GET(req: NextRequest) {
     try {
         await connectDB()
 
+        // ✅ FIX: certificateSettings + accreditations bhi select karo
         const school = await School.findById(tenantId)
-            .select('name subdomain email phone address logo plan trialEndsAt creditBalance isActive onboardingComplete theme paymentSettings modules')
+            .select(
+                'name subdomain email phone address logo plan trialEndsAt ' +
+                'creditBalance isActive onboardingComplete theme ' +
+                'paymentSettings modules ' +
+                'certificateSettings accreditations ' // ✅ ADD
+            )
             .lean() as any
 
         if (!school) {
-            return NextResponse.json({ error: 'School not found' }, { status: 404 })
+            return NextResponse.json(
+                { error: 'School not found' },
+                { status: 404 }
+            )
         }
 
         return NextResponse.json({
@@ -91,16 +97,23 @@ export async function GET(req: NextRequest) {
                 ),
                 modules: school.modules || [],
             },
+            // ✅ ADD: CertificateTab ke liye ye dono return karo
+            certificateSettings: school.certificateSettings || null,
+            accreditations: school.accreditations || null,
         })
-
     } catch (error: any) {
         console.error('[GET /api/settings/schools]', error)
-        return NextResponse.json({ error: 'Failed to fetch school profile' }, { status: 500 })
+        return NextResponse.json(
+            { error: 'Failed to fetch school profile' },
+            { status: 500 }
+        )
     }
 }
 
 // ─────────────────────────────────────────────────────────
 // PATCH — Update School Profile
+// ✅ FIX 1: allowedUpdates ko updateData mein merge karo
+// ✅ FIX 2: hasUpdate check mein certificateSettings/accreditations bhi count karo
 // ─────────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest) {
     const guard = await apiGuardWithBody<UpdateSchoolProfileBody>(req, {
@@ -119,12 +132,20 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
-    const allowedFields = ['name', 'email', 'phone', 'address', 'logo', 'logoPublicId']
-    const hasUpdate = allowedFields.some(
+    // ✅ FIX: hasUpdate mein certificateSettings + accreditations bhi check karo
+    const profileFields = ['name', 'email', 'phone', 'address', 'logo', 'logoPublicId']
+    const hasProfileUpdate = profileFields.some(
         (f) => body[f as keyof UpdateSchoolProfileBody] !== undefined
     )
-    if (!hasUpdate) {
-        return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    const hasCertUpdate =
+        body.certificateSettings !== undefined ||
+        body.accreditations !== undefined
+
+    if (!hasProfileUpdate && !hasCertUpdate) {
+        return NextResponse.json(
+            { error: 'No fields to update' },
+            { status: 400 }
+        )
     }
 
     try {
@@ -135,37 +156,118 @@ export async function PATCH(req: NextRequest) {
             .lean() as any
 
         if (!current) {
-            return NextResponse.json({ error: 'School not found' }, { status: 404 })
+            return NextResponse.json(
+                { error: 'School not found' },
+                { status: 404 }
+            )
         }
 
+        // ── Build updateData ──
         const updateData: Record<string, any> = {}
-        if (body.name !== undefined) updateData.name = body.name.trim()
-        if (body.email !== undefined) updateData.email = body.email.toLowerCase().trim()
-        if (body.phone !== undefined) updateData.phone = body.phone.replace(/[\s\-]/g, '')
-        if (body.address !== undefined) updateData.address = body.address.trim()
-        if (body.logo !== undefined) updateData.logo = body.logo
+
+        // Profile fields
+        if (body.name !== undefined)
+            updateData.name = body.name.trim()
+        if (body.email !== undefined)
+            updateData.email = body.email.toLowerCase().trim()
+        if (body.phone !== undefined)
+            updateData.phone = body.phone.replace(/[\s\-]/g, '')
+        if (body.address !== undefined)
+            updateData.address = body.address.trim()
+        if (body.logo !== undefined)
+            updateData.logo = body.logo
+
+        // ✅ FIX: certificateSettings directly updateData mein daalo
+        // (pehle allowedUpdates mein tha jo kabhi save nahi hota tha)
+        if (body.certificateSettings !== undefined) {
+            updateData.certificateSettings = {
+                enableDigitalSignature:
+                    body.certificateSettings.enableDigitalSignature ?? false,
+                digitalSignatureUrl:
+                    body.certificateSettings.digitalSignatureUrl || '',
+                signatureName:
+                    body.certificateSettings.signatureName || '',
+                signatureDesignation:
+                    body.certificateSettings.signatureDesignation ||
+                    'Principal',
+                enableQRCode:
+                    body.certificateSettings.enableQRCode ?? true,
+                qrCodePosition:
+                    body.certificateSettings.qrCodePosition ||
+                    'bottom-right',
+                showVerificationURL:
+                    body.certificateSettings.showVerificationURL ?? true,
+                defaultLayout:
+                    body.certificateSettings.defaultLayout || 'modern',
+                showAccreditationsOnCertificate:
+                    body.certificateSettings
+                        .showAccreditationsOnCertificate ?? true,
+                watermarkText:
+                    body.certificateSettings.watermarkText || '',
+                enableWatermark:
+                    body.certificateSettings.enableWatermark ?? false,
+            }
+        }
+
+        // ✅ FIX: accreditations directly updateData mein daalo
+        if (body.accreditations !== undefined) {
+            // Helper to map accreditation array
+            const mapAccred = (arr: any[] = []) =>
+                arr.map((a) => ({
+                    name: a.name || '',
+                    logoUrl: a.logoUrl || '',
+                    registrationNo: a.registrationNo || '',
+                    issuedBy: a.issuedBy || '',
+                    validFrom: a.validFrom
+                        ? new Date(a.validFrom)
+                        : undefined,
+                    validUntil: a.validUntil
+                        ? new Date(a.validUntil)
+                        : undefined,
+                    isActive: a.isActive ?? true,
+                    displayOrder: a.displayOrder ?? 0,
+                }))
+
+            updateData.accreditations = {
+                affiliations: mapAccred(
+                    body.accreditations.affiliations
+                ),
+                recognitions: mapAccred(
+                    body.accreditations.recognitions
+                ),
+                registrations: mapAccred(
+                    body.accreditations.registrations
+                ),
+                partnerships: mapAccred(
+                    body.accreditations.partnerships
+                ),
+            }
+        }
 
         const updated = await School.findByIdAndUpdate(
             tenantId,
             { $set: updateData },
             { new: true, runValidators: true }
-        ).select('name email phone address logo').lean() as any
+        )
+            .select('name email phone address logo')
+            .lean() as any
 
-        // ── Sync logo to SchoolSettings.appearance ──
+        // ── Sync logo to SchoolSettings.appearance ── (UNCHANGED)
         if (body.logo !== undefined) {
             await SchoolSettings.findOneAndUpdate(
                 { tenantId },
                 {
                     $set: {
                         'appearance.schoolLogo': body.logo,
-                        'appearance.schoolLogoPublicId': body.logoPublicId || '',
+                        'appearance.schoolLogoPublicId':
+                            body.logoPublicId || '',
                     },
                 },
                 { upsert: true }
             )
         }
 
-        // ── lastUpdatedBy sync ──
+        // ── lastUpdatedBy sync ── (UNCHANGED)
         await SchoolSettings.findOneAndUpdate(
             { tenantId },
             {
@@ -185,7 +287,9 @@ export async function PATCH(req: NextRequest) {
             action: 'UPDATE',
             resource: 'School',
             resourceId: tenantId,
-            description: 'School profile updated',
+            description: hasCertUpdate
+                ? 'Certificate settings updated'
+                : 'School profile updated',
             previousData: {
                 name: current.name,
                 email: current.email,
@@ -199,7 +303,9 @@ export async function PATCH(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            message: 'School profile updated successfully',
+            message: hasCertUpdate
+                ? 'Certificate settings saved successfully'
+                : 'School profile updated successfully',
             school: {
                 name: updated.name,
                 email: updated.email,
@@ -208,11 +314,10 @@ export async function PATCH(req: NextRequest) {
                 logo: updated.logo,
             },
         })
-
     } catch (error: any) {
         console.error('[PATCH /api/settings/schools]', error)
         return NextResponse.json(
-            { error: 'Failed to update school profile' },
+            { error: 'Failed to update' },
             { status: 500 }
         )
     }

@@ -73,11 +73,13 @@ const TEMPLATE_VARIABLES = [
 
 // ── Types ──────────────────────────────────────────────────
 
+// ✅ Props mein callback add karo:
 interface TemplateFormProps {
   institutionType: 'school' | 'academy' | 'coaching'
   onSuccess: (template: any) => void
   onCancel: () => void
   initialData?: Partial<CreateTemplateInput> & { _id?: string }
+  onLayoutChange?: (layout: 'classic' | 'modern' | 'elegant') => void // ✅ NEW
 }
 
 // ── Component ──────────────────────────────────────────────
@@ -87,6 +89,7 @@ export function TemplateForm({
   onSuccess,
   onCancel,
   initialData,
+  onLayoutChange, // ✅ NEW
 }: TemplateFormProps) {
   const isEdit = Boolean(initialData?._id)
   const certTypes = CERT_TYPES_BY_INSTITUTION[institutionType]
@@ -94,6 +97,7 @@ export function TemplateForm({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showVarGuide, setShowVarGuide] = useState(false)
+
 
   const [form, setForm] = useState<CreateTemplateInput>({
     name: initialData?.name || '',
@@ -181,13 +185,13 @@ export function TemplateForm({
     try {
       const payload = isEdit
         ? {
-            action: 'update_template',
-            ...form,
-          }
+          action: 'update_template',
+          ...form,
+        }
         : {
-            action: 'create_template',
-            ...form,
-          }
+          action: 'create_template',
+          ...form,
+        }
 
       const url = isEdit
         ? `/api/certificates?id=${initialData!._id}`
@@ -262,9 +266,11 @@ export function TemplateForm({
         <Select
           label="Certificate Layout *"
           value={form.layout}
-          onChange={e =>
-            setForm(p => ({ ...p, layout: e.target.value as any }))
-          }
+          onChange={e => {
+            const newLayout = e.target.value as 'classic' | 'modern' | 'elegant'
+            setForm(p => ({ ...p, layout: newLayout }))
+            onLayoutChange?.(newLayout) // ✅ Parent ko notify karo
+          }}
           options={LAYOUT_OPTIONS}
         />
 

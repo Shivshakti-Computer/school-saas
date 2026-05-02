@@ -1,22 +1,22 @@
 // FILE: src/models/Certificate.ts
-// PRODUCTION READY — Certificate templates + issued certificates
-// Institution-aware, verification support, optional storage
+// SAFE UPDATE: Add franchiseId support
+// Existing certificates will continue working
 // ═══════════════════════════════════════════════════════════
 
 import mongoose, { Schema, Document } from 'mongoose'
 
-// ── Certificate Types ──────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// EXISTING TYPES (UNCHANGED)
+// ────────────────────────────────────────────────────────────
+
 export type CertificateType =
-  // Common to all
   | 'merit'
   | 'participation'
   | 'achievement'
   | 'appreciation'
   | 'custom'
-  // School-specific
   | 'character'
   | 'sports'
-  // Academy/Coaching-specific
   | 'completion'
   | 'internship'
   | 'skill'
@@ -26,93 +26,90 @@ export type RecipientType = 'student' | 'staff'
 export type CertificateLayout = 'classic' | 'modern' | 'elegant'
 export type CertificateStatus = 'issued' | 'revoked'
 
-// ── Template Interface ─────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// EXISTING INTERFACES (UNCHANGED)
+// ────────────────────────────────────────────────────────────
+
 export interface ICertificateTemplate extends Document {
   tenantId: mongoose.Types.ObjectId
   name: string
   type: CertificateType
   category?: string
-  
-  // Template content
   template: string
   layout: CertificateLayout
-  
-  // Institution context
   institutionType: 'school' | 'academy' | 'coaching'
   applicableTo: RecipientType | 'both'
-  
-  // Dynamic fields (max 10)
   fields: Array<{
     name: string
     type: 'text' | 'date' | 'number'
     required: boolean
     placeholder?: string
   }>
-  
-  // Customization
   showAccreditations: boolean
   signatureLabel: string
   borderStyle?: string
-  
   isActive: boolean
   createdBy: mongoose.Types.ObjectId
   createdAt: Date
   updatedAt: Date
 }
 
-// ── Issued Certificate Interface ───────────────────────────
+// ────────────────────────────────────────────────────────────
+// UPDATE: IIssuedCertificate Interface (Add franchiseId)
+// ────────────────────────────────────────────────────────────
+
 export interface IIssuedCertificate extends Document {
   tenantId: mongoose.Types.ObjectId
+
+  // ✅ NEW: Franchise Reference (OPTIONAL — backward compatible)
+  franchiseId?: mongoose.Types.ObjectId
+
   templateId: mongoose.Types.ObjectId
-  
-  // Recipient
   recipientType: RecipientType
   recipientId: mongoose.Types.ObjectId
   recipientName: string
   recipientIdentifier: string
-  
-  // Certificate details
   certificateType: CertificateType
   certificateNumber: string
   title: string
-  
-  // Context (academy/coaching)
+
+  // Context
   courseId?: mongoose.Types.ObjectId
   courseName?: string
   batchId?: mongoose.Types.ObjectId
-  
-  // Context (school)
   class?: string
   section?: string
   academicYear?: string
-  
-  // Custom data
+
   customData: Record<string, string>
-  
+
   // Issuance
   issuedBy: mongoose.Types.ObjectId
   issuedByName: string
   issuedDate: Date
-  
-  // Storage (optional)
+
+  // Storage
   pdfUrl?: string
   savedToStorage: boolean
-  
+
   // Verification
   verificationCode: string
   isVerified: boolean
   verifiedAt?: Date
-  
+
   // Status
   status: CertificateStatus
   revokedAt?: Date
   revokedReason?: string
-  
+
   createdAt: Date
   updatedAt: Date
 }
 
-// ── Template Schema ────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// EXISTING SCHEMAS (UNCHANGED)
+// ────────────────────────────────────────────────────────────
+
 const FieldSchema = new Schema({
   name: { type: String, required: true },
   type: {
@@ -179,7 +176,10 @@ const CertificateTemplateSchema = new Schema<ICertificateTemplate>({
 CertificateTemplateSchema.index({ tenantId: 1, type: 1 })
 CertificateTemplateSchema.index({ tenantId: 1, isActive: 1 })
 
-// ── Issued Certificate Schema ──────────────────────────────
+// ────────────────────────────────────────────────────────────
+// UPDATE: IssuedCertificateSchema (Add franchiseId)
+// ────────────────────────────────────────────────────────────
+
 const IssuedCertificateSchema = new Schema<IIssuedCertificate>({
   tenantId: {
     type: Schema.Types.ObjectId,
@@ -187,6 +187,14 @@ const IssuedCertificateSchema = new Schema<IIssuedCertificate>({
     required: true,
     index: true,
   },
+
+  // ✅ NEW: Franchise Reference (OPTIONAL)
+  franchiseId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Franchise',
+    index: true,
+  },
+
   templateId: {
     type: Schema.Types.ObjectId,
     ref: 'CertificateTemplate',
@@ -214,17 +222,17 @@ const IssuedCertificateSchema = new Schema<IIssuedCertificate>({
   },
   certificateNumber: { type: String, required: true, unique: true },
   title: { type: String, required: true },
-  
-  // Context fields
+
+  // Context
   courseId: { type: Schema.Types.ObjectId, ref: 'Course' },
   courseName: { type: String },
   batchId: { type: Schema.Types.ObjectId, ref: 'Batch' },
   class: { type: String },
   section: { type: String },
   academicYear: { type: String },
-  
+
   customData: { type: Schema.Types.Mixed, default: {} },
-  
+
   issuedBy: {
     type: Schema.Types.ObjectId,
     ref: 'User',
@@ -232,14 +240,14 @@ const IssuedCertificateSchema = new Schema<IIssuedCertificate>({
   },
   issuedByName: { type: String, required: true },
   issuedDate: { type: Date, default: Date.now },
-  
+
   pdfUrl: { type: String },
   savedToStorage: { type: Boolean, default: false },
-  
+
   verificationCode: { type: String, required: true, unique: true },
   isVerified: { type: Boolean, default: false },
   verifiedAt: { type: Date },
-  
+
   status: {
     type: String,
     enum: ['issued', 'revoked'],
@@ -249,13 +257,16 @@ const IssuedCertificateSchema = new Schema<IIssuedCertificate>({
   revokedReason: { type: String },
 }, { timestamps: true })
 
+// Indexes
 IssuedCertificateSchema.index({ tenantId: 1, recipientType: 1, recipientId: 1 })
 IssuedCertificateSchema.index({ tenantId: 1, certificateType: 1 })
 IssuedCertificateSchema.index({ tenantId: 1, status: 1 })
-IssuedCertificateSchema.index({ verificationCode: 1 })
-IssuedCertificateSchema.index({ certificateNumber: 1 })
+IssuedCertificateSchema.index({ tenantId: 1, franchiseId: 1 })  // ✅ NEW INDEX
 
-// ── Models ─────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
+// MODELS (UNCHANGED)
+// ────────────────────────────────────────────────────────────
+
 export const CertificateTemplate =
   mongoose.models.CertificateTemplate ||
   mongoose.model<ICertificateTemplate>('CertificateTemplate', CertificateTemplateSchema)

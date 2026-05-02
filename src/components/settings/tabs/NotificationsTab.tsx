@@ -1,40 +1,507 @@
 // FILE: src/components/settings/tabs/NotificationsTab.tsx
+// ✅ UPDATED: Multi-tenant support — School vs Academy vs Coaching
+// Institution-aware notification labels and types
+// Academy/Coaching: Student/Parent → Learner/Guardian terminology
 
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MessageSquare } from 'lucide-react'
+import { useSession } from 'next-auth/react'
+import { MessageSquare, CheckCircle2, Info } from 'lucide-react'
 import { SettingSection } from '../shared/SettingSection'
 import { ToggleRow, SettingRow } from '../shared/SettingRow'
 import { SaveBar } from '../shared/SaveButton'
 import type { INotificationSettings } from '@/types/settings'
+import type { InstitutionType } from '@/lib/institutionConfig'
 
-interface NotificationsTabProps {
-    notifications: INotificationSettings
-    onSaved: (updated: INotificationSettings) => void
-}
+// ─────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────
 
 type SMSSettings = NonNullable<INotificationSettings['sms']>
 type EmailSettings = NonNullable<INotificationSettings['email']>
 type WhatsAppSettings = NonNullable<INotificationSettings['whatsapp']>
 type QuietHoursSettings = NonNullable<INotificationSettings['quietHours']>
-
 type FieldValue<T, K extends keyof T> = T[K]
+
+// ─────────────────────────────────────────────────────────
+// Institution-aware notification config
+// ─────────────────────────────────────────────────────────
+
+interface NotificationItem {
+    field: string
+    label: string
+    description: string
+    defaultVal: boolean
+}
+
+function getSMSNotifications(instType: InstitutionType): NotificationItem[] {
+    if (instType === 'school') {
+        return [
+            {
+                field: 'onAbsent',
+                label: 'Absent Alert',
+                description: 'SMS to parent when student marked absent',
+                defaultVal: true,
+            },
+            {
+                field: 'onFeeReminder',
+                label: 'Fee Reminder',
+                description: 'Reminder SMS before fee due date',
+                defaultVal: true,
+            },
+            {
+                field: 'onFeeReceipt',
+                label: 'Fee Receipt',
+                description: 'Confirmation SMS when fee is paid',
+                defaultVal: true,
+            },
+            {
+                field: 'onLateFine',
+                label: 'Late Fine Alert',
+                description: 'SMS when late fine is applied',
+                defaultVal: false,
+            },
+            {
+                field: 'onExamResult',
+                label: 'Exam Result',
+                description: 'SMS when result is published',
+                defaultVal: false,
+            },
+            {
+                field: 'onNewNotice',
+                label: 'New Notice',
+                description: 'SMS when important notice is published',
+                defaultVal: false,
+            },
+            {
+                field: 'onAdmission',
+                label: 'New Admission',
+                description: 'Confirmation SMS on student admission',
+                defaultVal: true,
+            },
+            {
+                field: 'homeworkAlert',
+                label: 'Homework Alert',
+                description: 'SMS to students when new homework is assigned',
+                defaultVal: false,
+            },
+        ]
+    }
+
+    if (instType === 'academy') {
+        return [
+            {
+                field: 'onAdmission',
+                label: 'Enrollment Confirmation',
+                description: 'SMS when learner enrolls in a course',
+                defaultVal: true,
+            },
+            {
+                field: 'onFeeReminder',
+                label: 'Course Fee Reminder',
+                description: 'Reminder SMS before course fee due date',
+                defaultVal: true,
+            },
+            {
+                field: 'onFeeReceipt',
+                label: 'Fee Receipt',
+                description: 'Confirmation SMS when course fee is paid',
+                defaultVal: true,
+            },
+            {
+                field: 'onLateFine',
+                label: 'Late Fine Alert',
+                description: 'SMS when late fine is applied to course fee',
+                defaultVal: false,
+            },
+            {
+                field: 'onAbsent',
+                label: 'Batch Absence Alert',
+                description: 'SMS to learner when absent from batch',
+                defaultVal: false,
+            },
+            {
+                field: 'onExamResult',
+                label: 'Assessment Result',
+                description: 'SMS when assessment result is published',
+                defaultVal: false,
+            },
+            {
+                field: 'onNewNotice',
+                label: 'Course Announcement',
+                description: 'SMS for important course announcements',
+                defaultVal: false,
+            },
+            {
+                field: 'homeworkAlert',
+                label: 'Assignment Alert',
+                description: 'SMS to learners when new assignment is posted',
+                defaultVal: false,
+            },
+        ]
+    }
+
+    // coaching
+    return [
+        {
+            field: 'onAdmission',
+            label: 'Batch Enrollment',
+            description: 'SMS when student enrolls in a batch',
+            defaultVal: true,
+        },
+        {
+            field: 'onFeeReminder',
+            label: 'Batch Fee Reminder',
+            description: 'Reminder SMS before batch fee due date',
+            defaultVal: true,
+        },
+        {
+            field: 'onFeeReceipt',
+            label: 'Fee Receipt',
+            description: 'Confirmation SMS when batch fee is paid',
+            defaultVal: true,
+        },
+        {
+            field: 'onLateFine',
+            label: 'Late Fine Alert',
+            description: 'SMS when late fine is applied',
+            defaultVal: false,
+        },
+        {
+            field: 'onAbsent',
+            label: 'Absence Alert',
+            description: 'SMS to student/guardian when absent',
+            defaultVal: false,
+        },
+        {
+            field: 'onExamResult',
+            label: 'Test Result',
+            description: 'SMS when test result is published',
+            defaultVal: false,
+        },
+        {
+            field: 'onNewNotice',
+            label: 'Batch Notice',
+            description: 'SMS for important batch notices',
+            defaultVal: false,
+        },
+        {
+            field: 'homeworkAlert',
+            label: 'Assignment Alert',
+            description: 'SMS to students when new assignment is posted',
+            defaultVal: false,
+        },
+    ]
+}
+
+function getEmailNotifications(instType: InstitutionType): NotificationItem[] {
+    if (instType === 'school') {
+        return [
+            {
+                field: 'onAdmission',
+                label: 'Admission Welcome',
+                description: 'Welcome email when student is admitted',
+                defaultVal: true,
+            },
+            {
+                field: 'onFeeReceipt',
+                label: 'Fee Receipt',
+                description: 'Email receipt after fee payment',
+                defaultVal: true,
+            },
+            {
+                field: 'onExamResult',
+                label: 'Exam Result',
+                description: 'Email when result is published',
+                defaultVal: false,
+            },
+            {
+                field: 'onNewNotice',
+                label: 'New Notice',
+                description: 'Email for important notices',
+                defaultVal: false,
+            },
+            {
+                field: 'homeworkAlert',
+                label: 'Homework Alert',
+                description: 'Email to students when new homework is assigned',
+                defaultVal: false,
+            },
+        ]
+    }
+
+    if (instType === 'academy') {
+        return [
+            {
+                field: 'onAdmission',
+                label: 'Enrollment Welcome',
+                description: 'Welcome email when learner enrolls in course',
+                defaultVal: true,
+            },
+            {
+                field: 'onFeeReceipt',
+                label: 'Course Fee Receipt',
+                description: 'Email receipt after course fee payment',
+                defaultVal: true,
+            },
+            {
+                field: 'onExamResult',
+                label: 'Assessment Result',
+                description: 'Email when assessment result is published',
+                defaultVal: false,
+            },
+            {
+                field: 'onNewNotice',
+                label: 'Course Announcement',
+                description: 'Email for course announcements',
+                defaultVal: false,
+            },
+            {
+                field: 'homeworkAlert',
+                label: 'Assignment Alert',
+                description: 'Email when new assignment is posted',
+                defaultVal: false,
+            },
+        ]
+    }
+
+    // coaching
+    return [
+        {
+            field: 'onAdmission',
+            label: 'Batch Enrollment Welcome',
+            description: 'Welcome email when student joins a batch',
+            defaultVal: true,
+        },
+        {
+            field: 'onFeeReceipt',
+            label: 'Fee Receipt',
+            description: 'Email receipt after batch fee payment',
+            defaultVal: true,
+        },
+        {
+            field: 'onExamResult',
+            label: 'Test Result',
+            description: 'Email when test result is published',
+            defaultVal: false,
+        },
+        {
+            field: 'onNewNotice',
+            label: 'Batch Notice',
+            description: 'Email for important batch notices',
+            defaultVal: false,
+        },
+        {
+            field: 'homeworkAlert',
+            label: 'Assignment Alert',
+            description: 'Email when new assignment is posted',
+            defaultVal: false,
+        },
+    ]
+}
+
+function getWhatsAppNotifications(instType: InstitutionType): NotificationItem[] {
+    if (instType === 'school') {
+        return [
+            {
+                field: 'onAbsent',
+                label: 'Absent Alert',
+                description: 'WhatsApp to parent on absence',
+                defaultVal: false,
+            },
+            {
+                field: 'onFeeReminder',
+                label: 'Fee Reminder',
+                description: 'WhatsApp fee reminder before due date',
+                defaultVal: false,
+            },
+            {
+                field: 'onFeeReceipt',
+                label: 'Fee Receipt',
+                description: 'WhatsApp confirmation after payment',
+                defaultVal: false,
+            },
+            {
+                field: 'onExamResult',
+                label: 'Exam Result',
+                description: 'WhatsApp when result is published',
+                defaultVal: false,
+            },
+            {
+                field: 'homeworkAlert',
+                label: 'Homework Alert',
+                description: 'WhatsApp to students when new homework is assigned',
+                defaultVal: false,
+            },
+        ]
+    }
+
+    if (instType === 'academy') {
+        return [
+            {
+                field: 'onAbsent',
+                label: 'Batch Absence Alert',
+                description: 'WhatsApp to learner on batch absence',
+                defaultVal: false,
+            },
+            {
+                field: 'onFeeReminder',
+                label: 'Course Fee Reminder',
+                description: 'WhatsApp course fee reminder before due date',
+                defaultVal: false,
+            },
+            {
+                field: 'onFeeReceipt',
+                label: 'Fee Receipt',
+                description: 'WhatsApp confirmation after course fee payment',
+                defaultVal: false,
+            },
+            {
+                field: 'onExamResult',
+                label: 'Assessment Result',
+                description: 'WhatsApp when assessment result is published',
+                defaultVal: false,
+            },
+            {
+                field: 'homeworkAlert',
+                label: 'Assignment Alert',
+                description: 'WhatsApp when new assignment is posted',
+                defaultVal: false,
+            },
+        ]
+    }
+
+    // coaching
+    return [
+        {
+            field: 'onAbsent',
+            label: 'Absence Alert',
+            description: 'WhatsApp to student/guardian on absence',
+            defaultVal: false,
+        },
+        {
+            field: 'onFeeReminder',
+            label: 'Fee Reminder',
+            description: 'WhatsApp batch fee reminder before due date',
+            defaultVal: false,
+        },
+        {
+            field: 'onFeeReceipt',
+            label: 'Fee Receipt',
+            description: 'WhatsApp confirmation after batch fee payment',
+            defaultVal: false,
+        },
+        {
+            field: 'onExamResult',
+            label: 'Test Result',
+            description: 'WhatsApp when test result is published',
+            defaultVal: false,
+        },
+        {
+            field: 'homeworkAlert',
+            label: 'Assignment Alert',
+            description: 'WhatsApp when new assignment is posted',
+            defaultVal: false,
+        },
+    ]
+}
+
+// ─────────────────────────────────────────────────────────
+// Institution label helpers
+// ─────────────────────────────────────────────────────────
+
+function getInstLabel(instType: InstitutionType) {
+    return {
+        school: {
+            smsDesc: 'Automatic SMS alerts to parents and students',
+            emailDesc: 'Automatic email alerts (lower credit cost than SMS)',
+            whatsappDesc: 'WhatsApp messages via integrated provider',
+            quietDesc: 'No notifications will be sent during this period',
+            infoBanner:
+                'Auto-notifications use your SMS/Email credits. Enable only what you need to manage costs.',
+            feeReminderLabel: 'Send fee reminder',
+            emailReminderLabel: 'Email fee reminder',
+        },
+        academy: {
+            smsDesc: 'Automatic SMS alerts to learners for course updates',
+            emailDesc: 'Automatic email alerts for course and fee updates',
+            whatsappDesc: 'WhatsApp messages for course announcements',
+            quietDesc: 'No notifications during quiet hours',
+            infoBanner:
+                'Auto-notifications use your SMS/Email credits. Enable relevant alerts for learner engagement.',
+            feeReminderLabel: 'Send course fee reminder',
+            emailReminderLabel: 'Email course fee reminder',
+        },
+        coaching: {
+            smsDesc: 'Automatic SMS alerts to students and guardians',
+            emailDesc: 'Automatic email alerts for batch and fee updates',
+            whatsappDesc: 'WhatsApp messages for batch announcements',
+            quietDesc: 'No notifications during quiet hours',
+            infoBanner:
+                'Auto-notifications use your SMS/Email credits. Enable relevant alerts for student updates.',
+            feeReminderLabel: 'Send batch fee reminder',
+            emailReminderLabel: 'Email batch fee reminder',
+        },
+    }[instType] || {
+        smsDesc: 'Automatic SMS alerts',
+        emailDesc: 'Automatic email alerts',
+        whatsappDesc: 'WhatsApp messages',
+        quietDesc: 'No notifications during quiet hours',
+        infoBanner: 'Auto-notifications use your SMS/Email credits.',
+        feeReminderLabel: 'Send fee reminder',
+        emailReminderLabel: 'Email fee reminder',
+    }
+}
+
+// ─────────────────────────────────────────────────────────
+// Props
+// ─────────────────────────────────────────────────────────
+
+interface NotificationsTabProps {
+    notifications: INotificationSettings
+    onSaved: (updated: INotificationSettings) => void
+    institutionType?: InstitutionType  // ✅ ADD
+}
+
+// ─────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────
 
 export function NotificationsTab({
     notifications,
     onSaved,
+    institutionType,
 }: NotificationsTabProps) {
-    const [form, setForm] = useState<INotificationSettings>({ ...notifications })
-    const [originalData, setOriginalData] = useState<INotificationSettings>({ 
-        ...notifications 
+    const { data: session } = useSession()
+
+    // ✅ institutionType — prop > session > default
+    const instType: InstitutionType =
+        institutionType ||
+        ((session?.user as any)?.institutionType as InstitutionType) ||
+        'school'
+
+    const labels = getInstLabel(instType)
+    const smsItems = getSMSNotifications(instType)
+    const emailItems = getEmailNotifications(instType)
+    const whatsappItems = getWhatsAppNotifications(instType)
+
+    // ─────────────────────────────────────────────────────
+    // State
+    // ─────────────────────────────────────────────────────
+
+    const [form, setForm] = useState<INotificationSettings>({
+        ...notifications,
+    })
+    const [originalData, setOriginalData] = useState<INotificationSettings>({
+        ...notifications,
     })
     const [isDirty, setIsDirty] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState<string | null>(null)
 
-    // ✅ FIX 1: Sync both form AND originalData when prop changes
+    // Sync when prop changes
     useEffect(() => {
         setForm({ ...notifications })
         setOriginalData({ ...notifications })
@@ -43,7 +510,9 @@ export function NotificationsTab({
         setSuccess(null)
     }, [notifications])
 
-    // ── Typed update functions ─────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────
+    // Typed update functions
+    // ─────────────────────────────────────────────────────
 
     function updateSMS<K extends keyof SMSSettings>(
         field: K,
@@ -73,7 +542,10 @@ export function NotificationsTab({
     ): void {
         setForm((prev) => ({
             ...prev,
-            whatsapp: { ...prev.whatsapp, [field]: val } as WhatsAppSettings,
+            whatsapp: {
+                ...prev.whatsapp,
+                [field]: val,
+            } as WhatsAppSettings,
         }))
         setIsDirty(true)
     }
@@ -84,18 +556,40 @@ export function NotificationsTab({
     ): void {
         setForm((prev) => ({
             ...prev,
-            quietHours: { ...prev.quietHours, [field]: val } as QuietHoursSettings,
+            quietHours: {
+                ...prev.quietHours,
+                [field]: val,
+            } as QuietHoursSettings,
         }))
         setIsDirty(true)
     }
 
-    // ✅ FIX 2: Save logic — same pattern as AcademicTab
+    // ─────────────────────────────────────────────────────
+    // Generic field reader — any nested object
+    // ─────────────────────────────────────────────────────
+
+    function getSMSVal(field: string, defaultVal: boolean): boolean {
+        return (form.sms as any)?.[field] ?? defaultVal
+    }
+
+    function getEmailVal(field: string, defaultVal: boolean): boolean {
+        return (form.email as any)?.[field] ?? defaultVal
+    }
+
+    function getWhatsAppVal(field: string, defaultVal: boolean): boolean {
+        return (form.whatsapp as any)?.[field] ?? defaultVal
+    }
+
+    // ─────────────────────────────────────────────────────
+    // Save
+    // ─────────────────────────────────────────────────────
+
     const handleSave = async (): Promise<void> => {
         setSaving(true)
         setError(null)
         setSuccess(null)
 
-        // ✅ Optimistic update — backup pehle banao
+        // Optimistic update
         const backup = { ...originalData }
         setOriginalData({ ...form })
         onSaved(form)
@@ -110,19 +604,17 @@ export function NotificationsTab({
             const data = (await res.json()) as { error?: string }
             if (!res.ok) throw new Error(data.error ?? 'Save failed')
 
-            // ✅ Success — originalData already updated above
             setIsDirty(false)
-            setSuccess('Notification settings saved')
+            setSuccess('Notification settings saved successfully')
 
         } catch (err) {
-            // ✅ Rollback on error
-            const message = err instanceof Error ? err.message : 'Unknown error'
+            // Rollback
+            const message =
+                err instanceof Error ? err.message : 'Unknown error'
             setError(message)
-            
             setOriginalData(backup)
             onSaved(backup)
             setForm(backup)
-            
             throw err
         } finally {
             setSaving(false)
@@ -136,98 +628,97 @@ export function NotificationsTab({
         setSuccess(null)
     }
 
-    // ── Render (rest of your JSX — unchanged) ─────────────────────────────
+    // ─────────────────────────────────────────────────────
+    // Render
+    // ─────────────────────────────────────────────────────
 
     return (
         <div className="space-y-5 portal-content-enter">
+
+            {/* ── Alerts ── */}
             {error && (
-                <div className="p-3.5 rounded-[var(--radius-md)] bg-[var(--danger-light)] border border-[rgba(239,68,68,0.2)] text-sm text-[var(--danger-dark)]">
+                <div
+                    className="p-3.5 rounded-[var(--radius-md)] border text-sm"
+                    style={{
+                        background: 'var(--danger-light)',
+                        borderColor: 'rgba(239,68,68,0.2)',
+                        color: 'var(--danger-dark)',
+                    }}
+                >
                     {error}
                 </div>
             )}
 
             {success && (
-                <div className="p-3.5 rounded-[var(--radius-md)] bg-[var(--success-light)] border border-[rgba(16,185,129,0.2)] text-sm text-[var(--success-dark)]">
+                <div
+                    className="flex items-center gap-2 p-3.5 rounded-[var(--radius-md)] border text-sm"
+                    style={{
+                        background: 'var(--success-light)',
+                        borderColor: 'rgba(16,185,129,0.2)',
+                        color: 'var(--success-dark)',
+                    }}
+                >
+                    <CheckCircle2 size={15} />
                     {success}
                 </div>
             )}
 
-            {/* Info banner */}
-            <div className="flex items-start gap-3 p-3.5 bg-[var(--info-light)] border border-[rgba(59,130,246,0.2)] rounded-[var(--radius-md)] text-sm text-[var(--info-dark)]">
+            {/* ── Info Banner ── */}
+            <div
+                className="flex items-start gap-3 p-3.5 rounded-[var(--radius-md)] border text-sm"
+                style={{
+                    background: 'var(--info-light)',
+                    borderColor: 'rgba(59,130,246,0.2)',
+                    color: 'var(--info-dark)',
+                }}
+            >
                 <MessageSquare size={15} className="flex-shrink-0 mt-0.5" />
-                <p>
-                    Auto-notifications use your SMS/Email credits.
-                    Enable only what you need to manage costs.
-                </p>
+                <p>{labels.infoBanner}</p>
             </div>
 
-            {/* ── SMS ─────────────────────────────────────────────────────── */}
+            {/* ══════════════════════════════════════════════
+                SMS Notifications
+            ══════════════════════════════════════════════ */}
             <SettingSection
                 title="SMS Notifications"
-                description="Automatic SMS alerts to parents and students"
+                description={labels.smsDesc}
                 badge={{ label: 'Uses Credits', color: 'warning' }}
             >
-                <ToggleRow
-                    label="Absent Alert"
-                    description="SMS to parent when student marked absent"
-                    checked={form.sms?.onAbsent ?? true}
-                    onChange={(v) => updateSMS('onAbsent', v)}
-                />
-                <ToggleRow
-                    label="Fee Reminder"
-                    description="Reminder SMS before fee due date"
-                    checked={form.sms?.onFeeReminder ?? true}
-                    onChange={(v) => updateSMS('onFeeReminder', v)}
-                />
-                <ToggleRow
-                    label="Fee Receipt"
-                    description="Confirmation SMS when fee is paid"
-                    checked={form.sms?.onFeeReceipt ?? true}
-                    onChange={(v) => updateSMS('onFeeReceipt', v)}
-                />
-                <ToggleRow
-                    label="Late Fine Alert"
-                    description="SMS when late fine is applied"
-                    checked={form.sms?.onLateFine ?? false}
-                    onChange={(v) => updateSMS('onLateFine', v)}
-                />
-                <ToggleRow
-                    label="Exam Result"
-                    description="SMS when result is published"
-                    checked={form.sms?.onExamResult ?? false}
-                    onChange={(v) => updateSMS('onExamResult', v)}
-                />
-                <ToggleRow
-                    label="New Notice"
-                    description="SMS when important notice is published"
-                    checked={form.sms?.onNewNotice ?? false}
-                    onChange={(v) => updateSMS('onNewNotice', v)}
-                />
-                <ToggleRow
-                    label="New Admission"
-                    description="Confirmation SMS on student admission"
-                    checked={form.sms?.onAdmission ?? true}
-                    onChange={(v) => updateSMS('onAdmission', v)}
-                />
-                <ToggleRow
-                    label="Homework Alert"
-                    description="SMS to students when new homework is assigned"
-                    checked={form.sms?.homeworkAlert ?? false}
-                    onChange={(v) => updateSMS('homeworkAlert', v)}
-                />
+                {smsItems.map((item) => (
+                    <ToggleRow
+                        key={item.field}
+                        label={item.label}
+                        description={item.description}
+                        checked={getSMSVal(item.field, item.defaultVal)}
+                        onChange={(v) =>
+                            updateSMS(
+                                item.field as keyof SMSSettings,
+                                v as any
+                            )
+                        }
+                    />
+                ))}
 
-                {/* Fee reminder days */}
-                {form.sms?.onFeeReminder && (
-                    <div className="mt-3 pt-3 border-t border-[var(--border)] flex items-center gap-3">
-                        <p className="text-sm text-[var(--text-secondary)] flex-1">
-                            Send fee reminder
+                {/* Fee reminder days — show only if onFeeReminder enabled */}
+                {getSMSVal('onFeeReminder', true) && (
+                    <div
+                        className="mt-3 pt-3 flex items-center gap-3"
+                        style={{ borderTop: '1px solid var(--border)' }}
+                    >
+                        <p
+                            className="text-sm flex-1"
+                            style={{ color: 'var(--text-secondary)' }}
+                        >
+                            {labels.feeReminderLabel}
                         </p>
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
                                 min={1}
                                 max={30}
-                                value={form.sms?.feeReminderDaysBefore ?? 3}
+                                value={
+                                    form.sms?.feeReminderDaysBefore ?? 3
+                                }
                                 onChange={(e) =>
                                     updateSMS(
                                         'feeReminderDaysBefore',
@@ -235,8 +726,12 @@ export function NotificationsTab({
                                     )
                                 }
                                 className="input-clean w-16 text-center text-sm"
+                                aria-label="Fee reminder days before"
                             />
-                            <span className="text-sm text-[var(--text-muted)] whitespace-nowrap">
+                            <span
+                                className="text-sm whitespace-nowrap"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
                                 days before due date
                             </span>
                         </div>
@@ -244,54 +739,49 @@ export function NotificationsTab({
                 )}
             </SettingSection>
 
-            {/* ── Email ────────────────────────────────────────────────────── */}
+            {/* ══════════════════════════════════════════════
+                Email Notifications
+            ══════════════════════════════════════════════ */}
             <SettingSection
                 title="Email Notifications"
-                description="Automatic email alerts (lower credit cost than SMS)"
+                description={labels.emailDesc}
                 badge={{ label: '0.1 Credits', color: 'primary' }}
             >
-                <ToggleRow
-                    label="Admission Welcome"
-                    description="Welcome email when student is admitted"
-                    checked={form.email?.onAdmission ?? true}
-                    onChange={(v) => updateEmail('onAdmission', v)}
-                />
-                <ToggleRow
-                    label="Fee Receipt"
-                    description="Email receipt after fee payment"
-                    checked={form.email?.onFeeReceipt ?? true}
-                    onChange={(v) => updateEmail('onFeeReceipt', v)}
-                />
-                <ToggleRow
-                    label="Exam Result"
-                    description="Email when result is published"
-                    checked={form.email?.onExamResult ?? false}
-                    onChange={(v) => updateEmail('onExamResult', v)}
-                />
-                <ToggleRow
-                    label="New Notice"
-                    description="Email for important notices"
-                    checked={form.email?.onNewNotice ?? false}
-                    onChange={(v) => updateEmail('onNewNotice', v)}
-                />
-                <ToggleRow
-                    label="Homework Alert"
-                    description="Email to students when new homework is assigned"
-                    checked={form.email?.homeworkAlert ?? false}
-                    onChange={(v) => updateEmail('homeworkAlert', v)}
-                />
+                {emailItems.map((item) => (
+                    <ToggleRow
+                        key={item.field}
+                        label={item.label}
+                        description={item.description}
+                        checked={getEmailVal(item.field, item.defaultVal)}
+                        onChange={(v) =>
+                            updateEmail(
+                                item.field as keyof EmailSettings,
+                                v as any
+                            )
+                        }
+                    />
+                ))}
 
-                {form.email?.onFeeReceipt && (
-                    <div className="mt-3 pt-3 border-t border-[var(--border)] flex items-center gap-3">
-                        <p className="text-sm text-[var(--text-secondary)] flex-1">
-                            Email fee reminder
+                {/* Email fee reminder days */}
+                {getEmailVal('onFeeReceipt', true) && (
+                    <div
+                        className="mt-3 pt-3 flex items-center gap-3"
+                        style={{ borderTop: '1px solid var(--border)' }}
+                    >
+                        <p
+                            className="text-sm flex-1"
+                            style={{ color: 'var(--text-secondary)' }}
+                        >
+                            {labels.emailReminderLabel}
                         </p>
                         <div className="flex items-center gap-2">
                             <input
                                 type="number"
                                 min={1}
                                 max={30}
-                                value={form.email?.feeReminderDaysBefore ?? 3}
+                                value={
+                                    form.email?.feeReminderDaysBefore ?? 3
+                                }
                                 onChange={(e) =>
                                     updateEmail(
                                         'feeReminderDaysBefore',
@@ -299,8 +789,12 @@ export function NotificationsTab({
                                     )
                                 }
                                 className="input-clean w-16 text-center text-sm"
+                                aria-label="Email fee reminder days before"
                             />
-                            <span className="text-sm text-[var(--text-muted)] whitespace-nowrap">
+                            <span
+                                className="text-sm whitespace-nowrap"
+                                style={{ color: 'var(--text-muted)' }}
+                            >
                                 days before due date
                             </span>
                         </div>
@@ -308,52 +802,40 @@ export function NotificationsTab({
                 )}
             </SettingSection>
 
-            {/* ── WhatsApp ─────────────────────────────────────────────────── */}
+            {/* ══════════════════════════════════════════════
+                WhatsApp Notifications
+            ══════════════════════════════════════════════ */}
             <SettingSection
                 title="WhatsApp Notifications"
-                description="WhatsApp messages via integrated provider"
+                description={labels.whatsappDesc}
                 badge={{ label: 'Uses Credits', color: 'warning' }}
             >
-                <ToggleRow
-                    label="Absent Alert"
-                    description="WhatsApp to parent on absence"
-                    checked={form.whatsapp?.onAbsent ?? false}
-                    onChange={(v) => updateWhatsApp('onAbsent', v)}
-                />
-                <ToggleRow
-                    label="Fee Reminder"
-                    description="WhatsApp fee reminder before due date"
-                    checked={form.whatsapp?.onFeeReminder ?? false}
-                    onChange={(v) => updateWhatsApp('onFeeReminder', v)}
-                />
-                <ToggleRow
-                    label="Fee Receipt"
-                    description="WhatsApp confirmation after payment"
-                    checked={form.whatsapp?.onFeeReceipt ?? false}
-                    onChange={(v) => updateWhatsApp('onFeeReceipt', v)}
-                />
-                <ToggleRow
-                    label="Exam Result"
-                    description="WhatsApp when result is published"
-                    checked={form.whatsapp?.onExamResult ?? false}
-                    onChange={(v) => updateWhatsApp('onExamResult', v)}
-                />
-                <ToggleRow
-                    label="Homework Alert"
-                    description="WhatsApp to students when new homework is assigned"
-                    checked={form.whatsapp?.homeworkAlert ?? false}
-                    onChange={(v) => updateWhatsApp('homeworkAlert', v)}
-                />
+                {whatsappItems.map((item) => (
+                    <ToggleRow
+                        key={item.field}
+                        label={item.label}
+                        description={item.description}
+                        checked={getWhatsAppVal(item.field, item.defaultVal)}
+                        onChange={(v) =>
+                            updateWhatsApp(
+                                item.field as keyof WhatsAppSettings,
+                                v as any
+                            )
+                        }
+                    />
+                ))}
             </SettingSection>
 
-            {/* ── Quiet Hours ──────────────────────────────────────────────── */}
+            {/* ══════════════════════════════════════════════
+                Quiet Hours
+            ══════════════════════════════════════════════ */}
             <SettingSection
                 title="Quiet Hours"
-                description="No notifications will be sent during this period"
+                description={labels.quietDesc}
             >
                 <ToggleRow
                     label="Enable Quiet Hours"
-                    description="Pause all auto-notifications at night"
+                    description="Pause all auto-notifications during this period"
                     checked={form.quietHours?.enabled ?? true}
                     onChange={(v) => updateQuiet('enabled', v)}
                 />
@@ -367,8 +849,11 @@ export function NotificationsTab({
                             <input
                                 type="time"
                                 value={form.quietHours?.start ?? '21:00'}
-                                onChange={(e) => updateQuiet('start', e.target.value)}
+                                onChange={(e) =>
+                                    updateQuiet('start', e.target.value)
+                                }
                                 className="input-clean"
+                                aria-label="Quiet hours start time"
                             />
                         </SettingRow>
                         <SettingRow
@@ -378,10 +863,37 @@ export function NotificationsTab({
                             <input
                                 type="time"
                                 value={form.quietHours?.end ?? '07:00'}
-                                onChange={(e) => updateQuiet('end', e.target.value)}
+                                onChange={(e) =>
+                                    updateQuiet('end', e.target.value)
+                                }
                                 className="input-clean"
+                                aria-label="Quiet hours end time"
                             />
                         </SettingRow>
+                    </div>
+                )}
+
+                {/* Info note */}
+                {form.quietHours?.enabled && (
+                    <div
+                        className="mt-3 flex items-start gap-2 p-3 rounded-[var(--radius-md)]"
+                        style={{
+                            background: 'var(--info-light)',
+                            border: '1px solid rgba(59,130,246,0.15)',
+                        }}
+                    >
+                        <Info
+                            size={13}
+                            className="flex-shrink-0 mt-0.5"
+                            style={{ color: 'var(--info)' }}
+                        />
+                        <p
+                            className="text-xs"
+                            style={{ color: 'var(--info-dark)' }}
+                        >
+                            Notifications triggered during quiet hours will be
+                            queued and sent after the period ends.
+                        </p>
                     </div>
                 )}
             </SettingSection>

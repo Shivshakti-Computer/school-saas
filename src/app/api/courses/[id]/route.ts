@@ -8,7 +8,7 @@ import { connectDB } from '@/lib/db'
 import { Course } from '@/models/Course'
 import { Batch } from '@/models/Batch'
 import { Enrollment } from '@/models/Enrollment'
-import { School } from '@/models/School'
+import '@/models/School'
 import mongoose from 'mongoose'
 
 /* ══════════════════════════════════════════════

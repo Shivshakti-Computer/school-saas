@@ -1,10 +1,14 @@
 // FILE: src/models/School.ts
-// UPDATED: Added creditBalance + addonLimits fields
-// BACKWARD COMPATIBLE — all existing fields intact
+// SAFE UPDATE: Adding optional fields with defaults
+// Existing schools will continue working without migration
 // ═══════════════════════════════════════════════════════════
 
 import mongoose, { Schema, Document } from 'mongoose'
 import type { ModuleKey, Plan } from '@/lib/moduleRegistry'
+
+// ────────────────────────────────────────────────────────────
+// EXISTING INTERFACES (UNCHANGED)
+// ────────────────────────────────────────────────────────────
 
 export interface IPaymentSettings {
   razorpayKeyId?: string
@@ -65,26 +69,79 @@ export interface IWebsiteConfig {
   customDomain?: string; domainVerified?: boolean
 }
 
-// ── NEW: Add-on Limits Interface ──
 export interface IAddonLimits {
-  extraStudents: number     // Total extra students purchased
-  extraTeachers: number     // Total extra teachers purchased
+  extraStudents: number
+  extraTeachers: number
 }
 
 export interface IStorageAddon {
   extraStorageGB: number
-  validUntil?: Date      // ← ADD: Monthly renewal tracking
-  lastRenewedAt?: Date   // ← ADD: Last successful renewal
-  autoRenew: boolean     // ← ADD: Auto-renewal enabled?
-
-  // ── NEW: Cancellation & Grace ──
-  canceledAt?: Date              // When school canceled
-  gracePeriodEndsAt?: Date       // Files delete hone ki date (validUntil + 30 days)
-  downloadLinkSentAt?: Date      // Download email sent date
-  downloadCompleted?: boolean    // Did they download before cancel?
+  validUntil?: Date
+  lastRenewedAt?: Date
+  autoRenew: boolean
+  canceledAt?: Date
+  gracePeriodEndsAt?: Date
+  downloadLinkSentAt?: Date
+  downloadCompleted?: boolean
 }
 
+// ────────────────────────────────────────────────────────────
+// ✅ NEW INTERFACES (OPTIONAL — DEFAULT VALUES PROVIDED)
+// ────────────────────────────────────────────────────────────
+
+/**
+ * Accreditation/Registration/Partnership details
+ * Used in professional certificates
+ */
+export interface IAccreditation {
+  name: string
+  logoUrl: string
+  registrationNo?: string
+  issuedBy?: string
+  validFrom?: Date
+  validUntil?: Date
+  isActive: boolean
+  displayOrder: number
+}
+
+/**
+ * Multi-level accreditations for certificates
+ * - Affiliations: CBSE, ICSE, University
+ * - Recognitions: NAAC, AICTE, ISO
+ * - Registrations: MSME, Society, Trust, MCA
+ * - Partnerships: MoU, Collaborations
+ */
+export interface ISchoolAccreditations {
+  affiliations: IAccreditation[]
+  recognitions: IAccreditation[]
+  registrations: IAccreditation[]
+  partnerships: IAccreditation[]
+}
+
+/**
+ * Certificate generation settings
+ * Controls how certificates are generated
+ */
+export interface ICertificateSettings {
+  enableDigitalSignature: boolean
+  digitalSignatureUrl?: string
+  signatureName?: string
+  signatureDesignation?: string
+  enableQRCode: boolean
+  qrCodePosition: 'bottom-left' | 'bottom-right' | 'bottom-center'
+  showVerificationURL: boolean
+  defaultLayout: 'classic' | 'modern' | 'elegant'
+  showAccreditationsOnCertificate: boolean
+  watermarkText?: string
+  enableWatermark: boolean
+}
+
+// ────────────────────────────────────────────────────────────
+// UPDATE: ISchool Interface
+// ────────────────────────────────────────────────────────────
+
 export interface ISchool extends Document {
+  // Existing fields (unchanged)
   name: string
   subdomain: string
   address: string
@@ -100,18 +157,24 @@ export interface ISchool extends Document {
   website?: IWebsiteConfig
   isActive: boolean
   onboardingComplete: boolean
-  // ── NEW FIELDS ──
-  creditBalance: number         // Quick access balance (mirrored from MessageCredit)
-  addonLimits: IAddonLimits    // Extra students/teachers purchased
+  creditBalance: number
+  addonLimits: IAddonLimits
   storageAddon: IStorageAddon
   storageUsedBytes: number
-  // New field
   institutionType: 'school' | 'academy' | 'coaching'
+  
+  // ✅ NEW OPTIONAL FIELDS (backward compatible)
+  accreditations?: ISchoolAccreditations
+  certificateSettings?: ICertificateSettings
+  
   createdAt: Date
   updatedAt: Date
 }
 
-// All sub-schemas same as before — copy them exactly
+// ────────────────────────────────────────────────────────────
+// SCHEMAS (EXISTING — UNCHANGED)
+// ────────────────────────────────────────────────────────────
+
 const WebsiteSectionSchema = new Schema({
   id: String, type: String, title: String,
   content: Schema.Types.Mixed,
@@ -165,6 +228,54 @@ const WebsiteSchema = new Schema({
   domainVerified: { type: Boolean, default: false },
 }, { _id: false })
 
+// ────────────────────────────────────────────────────────────
+// ✅ NEW SCHEMAS (OPTIONAL FIELDS)
+// ────────────────────────────────────────────────────────────
+
+const AccreditationSchema = new Schema<IAccreditation>({
+  name: { type: String, required: true },
+  logoUrl: { type: String, required: true },
+  registrationNo: { type: String },
+  issuedBy: { type: String },
+  validFrom: { type: Date },
+  validUntil: { type: Date },
+  isActive: { type: Boolean, default: true },
+  displayOrder: { type: Number, default: 0 },
+}, { _id: false })
+
+const SchoolAccreditationsSchema = new Schema<ISchoolAccreditations>({
+  affiliations: { type: [AccreditationSchema], default: [] },
+  recognitions: { type: [AccreditationSchema], default: [] },
+  registrations: { type: [AccreditationSchema], default: [] },
+  partnerships: { type: [AccreditationSchema], default: [] },
+}, { _id: false })
+
+const CertificateSettingsSchema = new Schema<ICertificateSettings>({
+  enableDigitalSignature: { type: Boolean, default: false },
+  digitalSignatureUrl: { type: String },
+  signatureName: { type: String },
+  signatureDesignation: { type: String, default: 'Principal' },
+  enableQRCode: { type: Boolean, default: true },
+  qrCodePosition: { 
+    type: String, 
+    enum: ['bottom-left', 'bottom-right', 'bottom-center'],
+    default: 'bottom-right'
+  },
+  showVerificationURL: { type: Boolean, default: true },
+  defaultLayout: { 
+    type: String, 
+    enum: ['classic', 'modern', 'elegant'],
+    default: 'modern'
+  },
+  showAccreditationsOnCertificate: { type: Boolean, default: true },
+  watermarkText: { type: String },
+  enableWatermark: { type: Boolean, default: false },
+}, { _id: false })
+
+// ────────────────────────────────────────────────────────────
+// UPDATE: SchoolSchema (Add new optional fields)
+// ────────────────────────────────────────────────────────────
+
 const SchoolSchema = new Schema<ISchool>({
   name: { type: String, required: true },
   subdomain: { type: String, required: true, unique: true, lowercase: true },
@@ -189,14 +300,11 @@ const SchoolSchema = new Schema<ISchool>({
   website: WebsiteSchema,
   isActive: { type: Boolean, default: true },
   onboardingComplete: { type: Boolean, default: false },
-
-  // ── NEW FIELDS (backward compatible — has defaults) ──
   creditBalance: { type: Number, default: 0 },
   addonLimits: {
     extraStudents: { type: Number, default: 0 },
     extraTeachers: { type: Number, default: 0 },
   },
-  // Schema update
   storageAddon: {
     extraStorageGB: { type: Number, default: 0 },
     validUntil: { type: Date },
@@ -214,7 +322,35 @@ const SchoolSchema = new Schema<ISchool>({
     default: 'school',
     required: true,
   },
+  
+  // ✅ NEW OPTIONAL FIELDS (backward compatible — defaults provided)
+  accreditations: {
+    type: SchoolAccreditationsSchema,
+    default: () => ({
+      affiliations: [],
+      recognitions: [],
+      registrations: [],
+      partnerships: [],
+    }),
+  },
+  certificateSettings: {
+    type: CertificateSettingsSchema,
+    default: () => ({
+      enableDigitalSignature: false,
+      enableQRCode: true,
+      qrCodePosition: 'bottom-right',
+      showVerificationURL: true,
+      defaultLayout: 'modern',
+      showAccreditationsOnCertificate: true,
+      enableWatermark: false,
+    }),
+  },
 }, { timestamps: true })
+
+// Indexes
+SchoolSchema.index({ subdomain: 1 })
+SchoolSchema.index({ institutionType: 1 })
+SchoolSchema.index({ plan: 1 })
 
 export const School =
   mongoose.models.School ||

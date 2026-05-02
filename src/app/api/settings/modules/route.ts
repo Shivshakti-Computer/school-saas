@@ -123,6 +123,32 @@ function validateModules(
         }
     }
 
+    // ✅ ADD THIS — Certificate validation
+    if (body.certificates) {
+        const { autoGeneratePrefix, prefix } = body.certificates
+
+        // Validate custom prefix when auto-generate is OFF
+        if (autoGeneratePrefix === false) {
+            if (!prefix || !prefix.trim()) {
+                return 'Custom prefix is required when auto-generate is disabled'
+            }
+
+            // Clean and validate
+            const cleaned = prefix.toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+            if (cleaned.length === 0) {
+                return 'Prefix must contain at least one alphanumeric character'
+            }
+
+            if (cleaned.length > 6) {
+                return 'Prefix cannot exceed 6 characters'
+            }
+
+            // ✅ Update body with cleaned value (will be saved to DB)
+            body.certificates.prefix = cleaned
+        }
+    }
+
     return null
 }
 
@@ -216,6 +242,7 @@ export async function PATCH(req: NextRequest) {
             library: body.library,
             homework: body.homework,
             hr: body.hr,
+            certificates: body.certificates,  // ✅ ADD
         }
 
         Object.entries(sectionMap).forEach(([section, sectionBody]) => {

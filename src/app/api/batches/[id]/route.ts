@@ -6,10 +6,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiGuard, apiGuardWithBody } from '@/lib/apiGuard'
 import { connectDB } from '@/lib/db'
 import { Batch } from '@/models/Batch'
-import { Course } from '@/models/Course'
+import '@/models/Course'
 import { Enrollment } from '@/models/Enrollment'
 import { Staff } from '@/models/Staff'
-import { Student } from '@/models/Student'
+import '@/models/Student'
 import mongoose from 'mongoose'
 
 /* ══════════════════════════════════════════════

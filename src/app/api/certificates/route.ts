@@ -1,5 +1,6 @@
 // FILE: src/app/api/certificates/route.ts
-// PRODUCTION READY — Certificate templates + issue + bulk issue
+// PRODUCTION READY — Franchise-aware certificate issuance
+// UPDATED: Multi-logo PDF generation, franchise support
 // ═══════════════════════════════════════════════════════════
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -10,10 +11,11 @@ import { Student } from '@/models/Student'
 import { Staff } from '@/models/Staff'
 import { User } from '@/models/User'
 import { School } from '@/models/School'
+import { Franchise } from '@/models/Franchise'
 import { logAudit } from '@/lib/audit'
 import { uploadBuffer } from '@/lib/storage'
 import { updateStorageUsage, checkStorageLimit } from '@/lib/storageAddon'
-import { buildCertificatePdf } from '@/lib/pdf-builder'
+import { buildCertificatePdfEnhanced } from '@/lib/pdf-builder-enhanced'
 import type { PlanId } from '@/config/pricing'
 import {
     createTemplateSchema,
@@ -42,49 +44,86 @@ function isCertificateModuleAllowed(guard: {
 
 // ─────────────────────────────────────────────────────────
 // Helper: Generate unique certificate number
+// ✅ UPDATED: Franchise-aware prefix
 // ─────────────────────────────────────────────────────────
 async function generateCertificateNumber(
     tenantId: string,
-    certType: string
+    certType: string,
+    franchiseId?: string
 ): Promise<string> {
     const year = new Date().getFullYear()
-    const typeCode = certType.toUpperCase().slice(0, 4) // MERI, PART, ACHI, etc.
+    const typeCode = certType.toUpperCase().slice(0, 4)
 
-    // Fetch prefix from settings
+    // Fetch school
+    const school = await School.findById(tenantId)
+        .select('subdomain')
+        .lean() as any
+
+    if (!school) {
+        throw new Error('Institution not found')
+    }
+
+    // Fetch settings
     const settings = await SchoolSettings.findOne({ tenantId })
         .select('modules.certificates')
         .lean() as any
 
     let prefix = ''
 
-    if (settings?.modules?.certificates?.autoGeneratePrefix) {
-        // Auto-generate from subdomain
-        const school = await School.findById(tenantId)
-            .select('subdomain')
+    // ✅ UPDATED: Check if franchise-specific prefix exists
+    if (franchiseId) {
+        const franchise = await Franchise.findById(franchiseId)
+            .select('certificateSettings franchiseCode')
             .lean() as any
-        prefix = school?.subdomain?.slice(0, 4).toUpperCase() || 'INST'
-    } else {
-        // Use custom prefix
-        prefix = settings?.modules?.certificates?.prefix?.toUpperCase() || 'INST'
+
+        if (franchise?.certificateSettings?.customCertificatePrefix) {
+            prefix = franchise.certificateSettings.customCertificatePrefix.toUpperCase()
+        } else if (franchise?.franchiseCode) {
+            // Fallback to franchise code
+            prefix = franchise.franchiseCode.toUpperCase().slice(0, 6)
+        }
     }
 
-    // Ensure prefix is clean (alphanumeric only)
+    // If no franchise prefix, use school settings
+    if (!prefix) {
+        const autoGen = settings?.modules?.certificates?.autoGeneratePrefix ?? true
+        const customPrefix = settings?.modules?.certificates?.prefix
+
+        if (autoGen) {
+            prefix = school.subdomain?.slice(0, 6).toUpperCase() || 'INST'
+        } else if (customPrefix && customPrefix.trim()) {
+            prefix = customPrefix.toUpperCase()
+        } else {
+            prefix = school.subdomain?.slice(0, 6).toUpperCase() || 'INST'
+        }
+    }
+
+    // Clean prefix (alphanumeric only)
     prefix = prefix.replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'INST'
 
-    // Get sequence number
-    const count = await IssuedCertificate.countDocuments({
+    // Get sequence number (scoped to franchise if applicable)
+    const query: any = {
         tenantId,
         certificateType: certType,
-    })
+    }
+
+    if (franchiseId) {
+        query.franchiseId = franchiseId
+    }
+
+    const count = await IssuedCertificate.countDocuments(query)
 
     return `${prefix}-${typeCode}-${year}-${String(count + 1).padStart(4, '0')}`
 }
 
-
 // ─────────────────────────────────────────────────────────
 // Helper: Generate verification code with prefix
+// ✅ UPDATED: Franchise-aware
 // ─────────────────────────────────────────────────────────
-async function generateVerificationCode(tenantId: string): Promise<string> {
+async function generateVerificationCode(
+    tenantId: string,
+    franchiseId?: string
+): Promise<string> {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     let randomPart = ''
 
@@ -92,31 +131,57 @@ async function generateVerificationCode(tenantId: string): Promise<string> {
         randomPart += chars.charAt(Math.floor(Math.random() * chars.length))
     }
 
-    // Fetch prefix from settings (same logic as certificate number)
-    const settings = await SchoolSettings.findOne({ tenantId })
-        .select('modules.certificates')
+    // Fetch school
+    const school = await School.findById(tenantId)
+        .select('subdomain')
         .lean() as any
+
+    if (!school) {
+        throw new Error('Institution not found')
+    }
 
     let prefix = ''
 
-    if (settings?.modules?.certificates?.autoGeneratePrefix) {
-        const school = await School.findById(tenantId)
-            .select('subdomain')
+    // Check franchise prefix first
+    if (franchiseId) {
+        const franchise = await Franchise.findById(franchiseId)
+            .select('certificateSettings franchiseCode')
             .lean() as any
-        prefix = school?.subdomain?.slice(0, 4).toUpperCase() || 'INST'
-    } else {
-        prefix = settings?.modules?.certificates?.prefix?.toUpperCase() || 'INST'
+
+        if (franchise?.certificateSettings?.customCertificatePrefix) {
+            prefix = franchise.certificateSettings.customCertificatePrefix.toUpperCase()
+        } else if (franchise?.franchiseCode) {
+            prefix = franchise.franchiseCode.toUpperCase().slice(0, 6)
+        }
+    }
+
+    // Fallback to school settings
+    if (!prefix) {
+        const settings = await SchoolSettings.findOne({ tenantId })
+            .select('modules.certificates')
+            .lean() as any
+
+        const autoGen = settings?.modules?.certificates?.autoGeneratePrefix ?? true
+        const customPrefix = settings?.modules?.certificates?.prefix
+
+        if (autoGen) {
+            prefix = school.subdomain?.slice(0, 6).toUpperCase() || 'INST'
+        } else if (customPrefix && customPrefix.trim()) {
+            prefix = customPrefix.toUpperCase()
+        } else {
+            prefix = school.subdomain?.slice(0, 6).toUpperCase() || 'INST'
+        }
     }
 
     // Clean prefix
     prefix = prefix.replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'INST'
 
-    // Return branded verification code
     return `${prefix}-CERT-${randomPart}`
 }
 
 // ─────────────────────────────────────────────────────────
 // GET — Fetch Templates or Issued Certificates
+// ✅ UPDATED: Franchise filter support
 // ─────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
     const guard = await apiGuard(req, {
@@ -154,6 +219,9 @@ export async function GET(req: NextRequest) {
             sortBy: searchParams.get('sortBy'),
             sortOrder: searchParams.get('sortOrder'),
         })
+
+        // ✅ NEW: Franchise filter
+        const franchiseId = searchParams.get('franchiseId')
 
         // ── TEMPLATES ──
         if (filters.type === 'templates') {
@@ -201,6 +269,11 @@ export async function GET(req: NextRequest) {
         if (filters.certificateType) query.certificateType = filters.certificateType
         if (filters.status) query.status = filters.status
 
+        // ✅ NEW: Franchise filter
+        if (franchiseId) {
+            query.franchiseId = franchiseId
+        }
+
         if (filters.search) {
             query.$or = [
                 { recipientName: { $regex: filters.search, $options: 'i' } },
@@ -245,6 +318,7 @@ export async function GET(req: NextRequest) {
 
 // ─────────────────────────────────────────────────────────
 // POST — Create Template / Issue / Bulk Issue / Save PDF
+// ✅ UPDATED: Franchise support in issue action
 // ─────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
     const guard = await apiGuardWithBody<any>(req, {
@@ -272,7 +346,7 @@ export async function POST(req: NextRequest) {
 
     try {
         // ══════════════════════════════════════════════════════════
-        // ACTION: create_template
+        // ACTION: create_template (UNCHANGED)
         // ══════════════════════════════════════════════════════════
         if (action === 'create_template') {
             const validated = createTemplateSchema.parse(body)
@@ -307,9 +381,13 @@ export async function POST(req: NextRequest) {
 
         // ══════════════════════════════════════════════════════════
         // ACTION: issue (Single Certificate)
+        // ✅ UPDATED: Franchise support
         // ══════════════════════════════════════════════════════════
         if (action === 'issue') {
             const validated = issueCertificateSchema.parse(body)
+
+            // ✅ NEW: Extract franchiseId from request
+            const franchiseId = body.franchiseId || undefined
 
             // Fetch template
             const template = await CertificateTemplate.findOne({
@@ -371,16 +449,22 @@ export async function POST(req: NextRequest) {
                 recipientIdentifier = staff.employeeId
             }
 
-            // Generate certificate number & verification code
+            // ✅ UPDATED: Generate certificate number (franchise-aware)
             const certificateNumber = await generateCertificateNumber(
                 session.user.tenantId,
-                template.type
+                template.type,
+                franchiseId
             )
-            const verificationCode = await generateVerificationCode(session.user.tenantId)
+
+            const verificationCode = await generateVerificationCode(
+                session.user.tenantId,
+                franchiseId
+            )
 
             // Create issued certificate record
             const issued = await IssuedCertificate.create({
                 tenantId: session.user.tenantId,
+                franchiseId, // ✅ NEW FIELD
                 templateId: template._id,
                 recipientType: validated.recipientType,
                 recipientId: validated.recipientId,
@@ -410,7 +494,7 @@ export async function POST(req: NextRequest) {
                 action: 'CREATE',
                 resource: 'Certificate',
                 resourceId: issued._id.toString(),
-                description: `Certificate issued: ${certificateNumber} to ${recipientName}`,
+                description: `Certificate issued: ${certificateNumber} to ${recipientName}${franchiseId ? ' (Franchise)' : ''}`,
                 ipAddress: clientInfo.ip,
                 userAgent: clientInfo.userAgent,
                 status: 'SUCCESS',
@@ -425,9 +509,11 @@ export async function POST(req: NextRequest) {
 
         // ══════════════════════════════════════════════════════════
         // ACTION: bulk_issue
+        // ✅ UPDATED: Franchise support
         // ══════════════════════════════════════════════════════════
         if (action === 'bulk_issue') {
             const validated = bulkIssueCertificateSchema.parse(body)
+            const franchiseId = body.franchiseId || undefined
 
             const template = await CertificateTemplate.findOne({
                 _id: validated.templateId,
@@ -500,9 +586,13 @@ export async function POST(req: NextRequest) {
 
                 const certificateNumber = await generateCertificateNumber(
                     session.user.tenantId,
-                    template.type
+                    template.type,
+                    franchiseId
                 )
-                const verificationCode = await generateVerificationCode(session.user.tenantId)
+                const verificationCode = await generateVerificationCode(
+                    session.user.tenantId,
+                    franchiseId
+                )
 
                 // Replace {{recipientName}} in title template
                 const title = validated.titleTemplate.replace(
@@ -512,6 +602,7 @@ export async function POST(req: NextRequest) {
 
                 const cert = await IssuedCertificate.create({
                     tenantId: session.user.tenantId,
+                    franchiseId, // ✅ NEW FIELD
                     templateId: template._id,
                     recipientType: validated.recipientType,
                     recipientId: recipient._id,
@@ -540,7 +631,7 @@ export async function POST(req: NextRequest) {
                 userRole: session.user.role,
                 action: 'CREATE',
                 resource: 'Certificate',
-                description: `Bulk certificate issue: ${issued.length} certificates issued`,
+                description: `Bulk certificate issue: ${issued.length} certificates issued${franchiseId ? ' (Franchise)' : ''}`,
                 ipAddress: clientInfo.ip,
                 userAgent: clientInfo.userAgent,
                 status: 'SUCCESS',
@@ -554,6 +645,7 @@ export async function POST(req: NextRequest) {
 
         // ══════════════════════════════════════════════════════════
         // ACTION: save_pdf
+        // ✅ UPDATED: Use enhanced PDF builder with franchise support
         // ══════════════════════════════════════════════════════════
         if (action === 'save_pdf') {
             const validated = savePdfSchema.parse(body)
@@ -579,10 +671,10 @@ export async function POST(req: NextRequest) {
 
             // Storage limit check
             const school = await School.findById(session.user.tenantId)
-                .select('plan storageAddon')
+                .select('plan storageAddon accreditations certificateSettings name logo address phone email')
                 .lean() as any
 
-            const estimatedPdfSize = 120 * 1024 // ~120KB
+            const estimatedPdfSize = 150 * 1024 // ~150KB (increased for multi-logo)
 
             const storageCheck = await checkStorageLimit(
                 session.user.tenantId,
@@ -602,12 +694,16 @@ export async function POST(req: NextRequest) {
                 )
             }
 
-            // Fetch template & school details
-            const template = await CertificateTemplate.findById(issued.templateId)
-                .lean() as any
+            // ✅ NEW: Fetch franchise data if applicable
+            let franchise: any = null
+            if (issued.franchiseId) {
+                franchise = await Franchise.findById(issued.franchiseId)
+                    .select('franchiseName franchiseLogo franchiseAddress city state accreditations certificateSettings')
+                    .lean() as any
+            }
 
-            const schoolData = await School.findById(session.user.tenantId)
-                .select('name logo')
+            // Fetch template
+            const template = await CertificateTemplate.findById(issued.templateId)
                 .lean() as any
 
             // Build content from template
@@ -630,18 +726,77 @@ export async function POST(req: NextRequest) {
                 )
             })
 
-            // Generate PDF
-            const pdfBuffer = await buildCertificatePdf({
-                schoolName: schoolData?.name || session.user.schoolName || 'Institution',
-                schoolLogo: schoolData?.logo,
-                certificateType: issued.certificateType.toUpperCase(),
-                certificateNumber: issued.certificateNumber,
-                title: issued.title,
-                recipientName: issued.recipientName,
-                content,
-                verificationCode: issued.verificationCode,
-                layout: template?.layout || 'modern',
-                signatureLabel: template?.signatureLabel || 'Principal',
+            // ✅ NEW: Generate PDF using enhanced builder
+            const pdfBuffer = await buildCertificatePdfEnhanced({
+                branding: {
+                    schoolName: school?.name || session.user.schoolName || 'Institution',
+                    schoolLogo: school?.logo,
+                    schoolAddress: school?.address,
+                    schoolPhone: school?.phone,
+                    schoolEmail: school?.email,
+                    franchiseName: franchise?.franchiseName,
+                    franchiseLogo: franchise?.franchiseLogo,
+                    franchiseAddress: franchise?.franchiseAddress,
+                    franchiseCity: franchise?.city,
+                    franchiseState: franchise?.state,
+                    showParentBranding: franchise?.certificateSettings?.showParentBranding ?? true,
+                    showFranchiseBranding: franchise?.certificateSettings?.enableOwnBranding ?? true,
+                },
+                accreditations: {
+                    parentAffiliations: school?.accreditations?.affiliations || [],
+                    parentRecognitions: school?.accreditations?.recognitions || [],
+                    parentRegistrations: school?.accreditations?.registrations || [],
+                    parentPartnerships: school?.accreditations?.partnerships || [],
+                    franchiseRegistrations: franchise?.accreditations?.registrations || [],
+                    franchisePartnerships: franchise?.accreditations?.partnerships || [],
+                    franchiseAwards: franchise?.accreditations?.awards || [],
+                    inheritParentAccreditations: franchise?.certificateSettings?.inheritParentAccreditations ?? true,
+                    showFranchiseAccreditations: franchise?.certificateSettings?.allowIndependentAccreditations ?? true,
+                },
+                content: {
+                    certificateType: issued.certificateType.toUpperCase(),
+                    certificateNumber: issued.certificateNumber,
+                    title: issued.title,
+                    recipientName: issued.recipientName,
+                    content,
+                    issuedDate: new Date(issued.issuedDate).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric',
+                    }),
+                },
+                verification: {
+                    verificationCode: issued.verificationCode,
+                    verificationUrl: `${process.env.NEXT_PUBLIC_APP_URL}/verify/${issued.verificationCode}`,
+                    enableQRCode: franchise?.certificateSettings?.enableQRCode ??
+                        school?.certificateSettings?.enableQRCode ??
+                        true,
+                    qrCodePosition: franchise?.certificateSettings?.qrCodePosition ??
+                        school?.certificateSettings?.qrCodePosition ??
+                        'bottom-right',
+                    showVerificationURL: franchise?.certificateSettings?.showVerificationURL ??
+                        school?.certificateSettings?.showVerificationURL ??
+                        true,
+                },
+                customization: {
+                    layout: template?.layout ||
+                        school?.certificateSettings?.defaultLayout ||
+                        'modern',
+                    signatureLabel: template?.signatureLabel || 'Principal',
+                    signatureName: franchise?.certificateSettings?.signatureName ??
+                        school?.certificateSettings?.signatureName,
+                    signatureDesignation: franchise?.certificateSettings?.signatureDesignation ??
+                        school?.certificateSettings?.signatureDesignation ??
+                        'Principal',
+                    signatureImage: franchise?.certificateSettings?.digitalSignatureUrl ??
+                        school?.certificateSettings?.digitalSignatureUrl,
+                    enableDigitalSignature: franchise?.certificateSettings?.enableDigitalSignature ??
+                        school?.certificateSettings?.enableDigitalSignature ??
+                        false,
+                    watermarkText: school?.certificateSettings?.watermarkText,
+                    enableWatermark: school?.certificateSettings?.enableWatermark ?? false,
+                    borderStyle: template?.borderStyle,
+                },
             })
 
             // Upload to R2
@@ -669,7 +824,7 @@ export async function POST(req: NextRequest) {
                 action: 'UPDATE',
                 resource: 'Certificate',
                 resourceId: issued._id.toString(),
-                description: `Certificate PDF saved: ${issued.certificateNumber} (${(pdfBuffer.length / 1024).toFixed(1)}KB)`,
+                description: `Certificate PDF saved: ${issued.certificateNumber} (${(pdfBuffer.length / 1024).toFixed(1)}KB)${franchise ? ' (Franchise)' : ''}`,
                 ipAddress: clientInfo.ip,
                 userAgent: clientInfo.userAgent,
                 status: 'SUCCESS',
@@ -704,7 +859,7 @@ export async function POST(req: NextRequest) {
 }
 
 // ─────────────────────────────────────────────────────────
-// PATCH — Update Template
+// PATCH — Update Template (UNCHANGED)
 // ─────────────────────────────────────────────────────────
 export async function PATCH(req: NextRequest) {
     const guard = await apiGuardWithBody<any>(req, {
@@ -787,7 +942,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 // ─────────────────────────────────────────────────────────
-// DELETE — Delete Template or Revoke Certificate
+// DELETE — Delete Template or Revoke Certificate (UNCHANGED)
 // ─────────────────────────────────────────────────────────
 export async function DELETE(req: NextRequest) {
     const guard = await apiGuardWithBody<any>(req, {
